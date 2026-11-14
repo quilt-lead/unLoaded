@@ -186,6 +186,7 @@ codegen = [
     { name = "openapi-python-client" },
 ]
 dev = [
+    { name = "httpx2" },
     { name = "pytest" },
 ]
 
@@ -195,6 +196,7 @@ requires-dist = [
     { name = "attrs", specifier = ">=24.2.0" },
     { name = "fastapi", specifier = ">=0.163.0" },
     { name = "handcalcs", specifier = "==1.11.0" },
+    { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.16" },
     { name = "ifcopenshell", specifier = ">=0.9.0.post1" },
     { name = "matplotlib", specifier = ">=3.11.2" },
     { name = "networkx", specifier = ">=3.7" },

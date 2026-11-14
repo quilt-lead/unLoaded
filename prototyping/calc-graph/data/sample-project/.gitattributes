@@ -1,0 +1,3 @@
+# Preserve approved source bytes and SHA-256 hashes on every platform.
+*.ifc -text whitespace=cr-at-eol
+*.xlsx -text

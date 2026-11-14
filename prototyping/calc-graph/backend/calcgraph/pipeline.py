@@ -100,9 +100,9 @@ def status_of(links: list[dict]) -> str:
     return "confirmed" if any(l["status"] in ("confirmed", "manual") or l["conf"] >= 0.8 for l in live) else "review"
 
 
-def state(st: Store, pid: int) -> dict:
+def state(st: Store, pid: int, model_revision: int | None = None, calc_revision: int | None = None, historical: bool = False) -> dict:
     p = st.project(pid)
-    mrev, crev = p["head_model_rev"], p["head_calc_rev"]
+    mrev, crev = (model_revision, calc_revision) if historical else (p["head_model_rev"], p["head_calc_rev"])
     els = st.elements(mrev) if mrev else []
     calcs = st.calcs(crev) if crev else []
     for i, c in enumerate(calcs):

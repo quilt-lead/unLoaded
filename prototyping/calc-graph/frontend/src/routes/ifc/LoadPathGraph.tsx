@@ -51,7 +51,7 @@ function neighbourhood(ix: IfcIndex, sel: Sel, impact: IfcImpact | null): Set<st
 
 type EdgeInfo = { text: string };
 
-export function LoadPathGraph({ ix, sel, impact, onSelect }: { ix: IfcIndex; sel: Sel; impact: IfcImpact | null; onSelect: (s: Sel, focus?: boolean) => void }) {
+export function LoadPathGraph({ ix, sel, impact, onSelect, height = "max(420px, calc(100vh - 340px))" }: { height?: string; ix: IfcIndex; sel: Sel; impact: IfcImpact | null; onSelect: (s: Sel, focus?: boolean) => void }) {
   const [edgeSel, setEdgeSel] = useState<GraphEdge<EdgeInfo> | null>(null);
   const graph = useMemo(() => {
     const ids = neighbourhood(ix, sel, impact);
@@ -163,7 +163,7 @@ export function LoadPathGraph({ ix, sel, impact, onSelect }: { ix: IfcIndex; sel
         edges={graph.edges}
         lanes={graph.lanes}
         info="graph.ifc-load-path"
-        height="max(420px, calc(100vh - 340px))"
+        height={height}
         fitMinZoom={0.5}
         selectedId={selectedId}
         selectedEdgeId={edgeSel?.id}

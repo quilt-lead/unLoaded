@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactElement } from "react";
-import { createBrowserRouter, RouterProvider, useRouteError, isRouteErrorResponse, Link } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, useRouteError, isRouteErrorResponse, Link, Navigate } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import { Home } from "../routes/Home";
 import { GlossaryPage } from "../help/GlossaryPage";
@@ -37,6 +37,7 @@ function NotFound() {
 }
 
 const router = createBrowserRouter([
+  { path: "/review", element: <Navigate to="/ifc" replace /> },
   {
     element: <AppShell />,
     errorElement: <RouteError />,

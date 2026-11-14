@@ -13,3 +13,6 @@ data/sets/
 data/labels/
 data/synthetic_v2/
 data/profiles/
+
+# Local preview runtime and generated evidence
+data/local-run/

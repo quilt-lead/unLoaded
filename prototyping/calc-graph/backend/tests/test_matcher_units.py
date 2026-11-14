@@ -9,7 +9,7 @@ def page(n, text):
         for w in line.split(" "):
             words.append([0, 0, 1, 1, pos, pos + len(w)])
             pos += len(w) + 1
-    return {"n": n, "text": text, "words": words}
+    return {"n": n, "text": text, "words": words, "width": 612, "height": 792}
 
 
 def el(gid, cat, mark, profile="", storey="Level 2"):
@@ -22,7 +22,8 @@ def test_tiers():
     els = [el("a", "Beam", "2B1"), el("b", "Beam", "2B2"), el("c", "Beam", "2B9"), el("s", "Slab", "SL-2"),
            el("k", "Beam", "2CB1"), el("u", "Beam", "", "W18X35")]
     got = {(l["global_id"], l["tier"]) for l in run_mapping(els, calcs, pages)}
-    assert ("a", "range") in got and ("b", "range") in got
+    # The named endpoint receives the stronger exact match; the interior is a range match.
+    assert ("a", "exact") in got and ("b", "range") in got
     assert ("c", "exact") in got
     assert ("s", "xref") in got  # slab mark ignoring punctuation, but in a beam calc
     assert ("k", "partial") in got

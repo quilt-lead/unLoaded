@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "httpx2>=2.16"]
 # lazy-imported by backend/calcgraph/ai/providers/anthropic_provider.py (off unless enabled)
 ai = ["anthropic>=0.40"]
 # scripts/gen_platform_models.py runs it through uvx at this exact version

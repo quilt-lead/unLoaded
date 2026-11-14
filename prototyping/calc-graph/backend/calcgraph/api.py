@@ -26,6 +26,9 @@ app = FastAPI(title="calc-graph", version="0.1.0")
 st = revstore.open_store(STORE_DIR)  # one revision store for both paths (migrates a v1 store on open)
 st.ensure_project()
 
+from .review_api import router_for
+app.include_router(router_for(st))
+
 
 def _pid(pid: int) -> int:
     try:

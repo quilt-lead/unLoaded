@@ -5,6 +5,7 @@ import type { IfcElement, IfcImpact, IfcLink } from "../../api/types";
 import { InfoTip } from "../../help/InfoTip";
 import type { HelpId } from "../../help/registry";
 import { Panel } from "../../components/Panel";
+import { EtabsEvidence } from './EtabsEvidence';
 import { elLabel, linksFor, linksOfCalc, pageRange, shortTime, TIER, type IfcIndex, type Sel } from "./model";
 
 type Decide = (gid: string, key: string, action: "confirm" | "reject" | "manual" | "undo") => void;
@@ -428,6 +429,7 @@ export function Inspector(p: InspectorProps) {
     <div className="ifc-right">
       {ix && p.impact && <ImpactBox ix={ix} impact={p.impact} onClear={p.onClearImpact} onSelect={p.onSelect} />}
       <Panel title={title} info="panel.ifc-inspector" className="ifc-insp">
+        <EtabsEvidence revision={ix?.st.model_rev?.id} selected={sel} onSelect={p.onSelect}/>
         {body}
       </Panel>
     </div>

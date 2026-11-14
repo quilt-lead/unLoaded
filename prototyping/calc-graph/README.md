@@ -8,6 +8,10 @@ upload is stored as a revision so a Git-style diff / redline feature can be buil
 
 ## Run it
 
+For the approved IFC + ETABS workbook demo, follow [the sample-project guide](data/sample-project/README.md).
+It loads the 752-element model and 368 exported steel results without Neo4j. The **History & beam checks**
+toolbar action supports source attachments, revision previews, workbook imports and separate Python checks.
+
 Needs `uv` and Node 22.
 
 ```sh

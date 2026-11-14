@@ -29,12 +29,19 @@ import {
   type ColorBy,
   type Sel,
 } from "./model";
+import Review from "../review/Review";
 import "./ifc.css";
 
 const PID = 1;
 
 export default function IfcApp() {
-  const state = useProjectState(PID);
+  const liveState = useProjectState(PID);
+  const [preview,setPreview] = useState<any|null>(null);
+  const state = {...liveState, data: preview ?? liveState.data};
+  const [reviewOpen,setReviewOpen] = useState(false);
+  const reviewDialog = useRef<HTMLDialogElement>(null);
+  const showReview = () => {setReviewOpen(true);reviewDialog.current?.showModal();};
+  useEffect(()=>setPreview(null),[liveState.data?.model_rev?.id,liveState.data?.calc_rev?.id]);
   const decide = useDecide(PID);
   const sample = useLoadSample(PID);
   const upload = useUpload(PID);
@@ -48,7 +55,8 @@ export default function IfcApp() {
   const [tab, setTab] = useState<"3d" | "graph">("3d");
   const [impactReq, setImpactReq] = useState<{ gid: string; mode: "change" | "remove" } | null>(null);
   const impactQ = useImpact(PID, impactReq?.gid ?? null, impactReq?.mode ?? "change");
-  const impact = impactReq && impactQ.data && impactQ.data.global_id === impactReq.gid ? impactQ.data : null;
+  const historical = preview && (preview.model_rev?.id !== liveState.data?.model_rev?.id || preview.calc_rev?.id !== liveState.data?.calc_rev?.id);
+  const impact = !historical && impactReq && impactQ.data && impactQ.data.global_id === impactReq.gid ? impactQ.data : null;
   const [busyText, setBusyText] = useState("");
   const [err, setErr] = useState("");
   const [page, setPage] = useState<{ n: number; rects: number[][]; rectPage: number } | null>(null);
@@ -179,7 +187,7 @@ export default function IfcApp() {
     <div className="ifc-app">
       <div className="ifc-toolbar">
         <span className="ifc-tool ifc-title">
-          <b>Synthetic IFC</b>
+          <b>IFC workspace</b>
           <InfoTip id="page.ifc" />
         </span>
         <span className="ifc-tool">
@@ -214,6 +222,8 @@ export default function IfcApp() {
           </button>
           <InfoTip id="tool.ifc-rev2" />
         </span>
+        <button className="btn" onClick={showReview}>History &amp; beam checks</button>
+        {historical && <button className="btn" onClick={()=>{setPreview(null);setReviewOpen(false);}}>Return to latest model</button>}
         <span className="spacer" />
         <span className="ifc-tool">
           <a className={`btn${st?.run ? "" : " disabled"}`} href={st?.run ? urls.exportProject(PID) : undefined} aria-disabled={!st?.run} download>
@@ -423,7 +433,7 @@ export default function IfcApp() {
           </div>
           {tab === "graph" && ix && (
             <div className="ifc-view graph">
-              <LoadPathGraph ix={ix} sel={sel} impact={impact} onSelect={(s, f) => select(s, f)} />
+              <LoadPathGraph ix={ix} sel={sel} impact={impact} onSelect={(s) => {setTab("3d");select(s,true);}} />
             </div>
           )}
         </section>
@@ -434,10 +444,10 @@ export default function IfcApp() {
           impact={impact}
           impactLoading={impactQ.isFetching}
           onSelect={select}
-          onImpact={(gid, mode) => setImpactReq({ gid, mode })}
+          onImpact={(gid, mode) => historical ? showError("Return to the latest model to run an impact check.") : setImpactReq({ gid, mode })}
           onClearImpact={() => setImpactReq(null)}
-          onDecide={onDecide}
-          onConfirmAll={onConfirmAll}
+          onDecide={(...args)=>historical ? Promise.resolve(showError("Return to the latest model to edit links.")) : onDecide(...args)}
+          onConfirmAll={ls=>historical ? Promise.resolve(showError("Return to the latest model to edit links.")) : onConfirmAll(ls)}
           onOpenPage={openPage}
           busy={busy}
         />
@@ -447,6 +457,10 @@ export default function IfcApp() {
         stored as a revision. Sample building and calc package are synthetic.
       </p>
 
+      <dialog ref={reviewDialog} className="ifc-dlg ifc-review-dlg" aria-label="History and beam checks">
+        <div className="ifc-dlg-head"><b>History &amp; beam checks</b><span className="spacer"/><button className="btn sm" onClick={()=>reviewDialog.current?.close()}>Back to model</button></div>
+        <div className="ifc-dlg-body">{reviewOpen && <Review currentData={liveState.data} selected={sel} onPreview={setPreview} onSelect={s=>{select(s,true);reviewDialog.current?.close();}}/>}</div>
+      </dialog>
       <dialog ref={dlg} className="ifc-dlg" onClose={() => setPage(null)} aria-label="Calc package page">
         <div className="ifc-dlg-head">
           <b>

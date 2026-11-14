@@ -5,7 +5,7 @@ import "./shell.css";
 
 /** The viewers the switch offers. Legacy is a separate (non-React) page, so it is a plain link. */
 const VIEWS = [
-  { to: "/ifc", label: "Synthetic IFC", title: "Synthetic BIM model + synthetic calc package (3D IFC viewer)" },
+  { to: "/ifc", label: "IFC workspace", title: "Imported IFC model and calculation evidence" },
   { to: "/set", label: "Drawing set", title: "A drawing set and calc package read as documents; every node opens the original PDF" },
   { to: "/v2", label: "Move a column", title: "Synthetic v2: move or remove a column, see the impact" },
 ] as const;
