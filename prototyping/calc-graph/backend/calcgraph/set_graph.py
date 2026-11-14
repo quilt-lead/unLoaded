@@ -56,6 +56,39 @@ def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
+# Page ROLE, classified once from the page's own (first) table / sketch title. Only design
+# and results pages can be a member's calc; definition, load, sketch and front-matter pages
+# never are, whatever words ("hot rolled", "beam") their titles contain.
+ROLE_RULES: list[tuple[str, re.Pattern]] = [
+    ("front", re.compile(r"^(structural calculations|dph .*building 12|cover)$", re.I)),
+    ("design", re.compile(r"^(steel|wood) (beam|column)\b", re.I)),       # Enercalc member designs
+    ("sketch", re.compile(r"labels|deck assignment|load assignments|line & point loads|^dl from|member sizes$|"
+                          r"^\d{4}-\d\d-\d\d_.*\.rfl$|ftn'?g\.?$", re.I)),
+    ("definitions", re.compile(r"properties|parameters|grid lines|point locations|node coordinates|primary data|"
+                               r"section sets|materials?\b|column stacks|^columns :|^hot rolled :|design size|"
+                               r"diaphragm|soil (properties|definitions)|rebar|load combinations|wall type breakdown",
+                               re.I)),
+    ("results", re.compile(r"forces/moments|reactions|code (checks?|summary)|results|deflections?|\bcheck\b", re.I)),
+    ("loads", re.compile(r"\bloads?\b|\bBLC\b|\bwind\b|seismic|tsunami|loading|flat roof|floor in bldg|balcony|"
+                         r"energy grade|transect|inundation|criteria", re.I)),
+    ("results", re.compile(r"displacements|drift|pressures|safety factors", re.I)),
+    ("design", re.compile(r"design|stud|opening|parapet|stair|header|jamb", re.I)),
+]
+LINKABLE_ROLES = {"design", "results"}
+
+
+def page_role(p: dict) -> str:
+    if p.get("toc"):
+        return "front"
+    t = p["title"].strip()
+    for role, rx in ROLE_RULES:
+        if rx.search(t):
+            return role
+    if p["section"] in ("A",):
+        return "loads"
+    return "design" if p["software"] in ("Enercalc", "CFS Designer") else "other"
+
+
 def page_kind(p: dict) -> str:
     t = (p["title"] + " " + " ".join(x["title"] for x in p["tables"])).lower()
     if p["doc"] == "stair":
@@ -330,13 +363,17 @@ def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
     usable = [p for p in pages if not p["toc"]]
 
     def add(el, p, score, tier, rule, el_ev, c_ev):
+        role = page_role(p)
+        if role not in LINKABLE_ROLES:
+            stats[f"refused: {role} page"] += 1
+            return
         sysname = system_of(el)
         if calc_section(p) not in SYSTEM_SECTIONS[sysname]:
             stats[f"refused: {sysname} member -> section {calc_section(p)}"] += 1
             return
         if el["size_norm"] and el["size_norm"] in p.get("size_raw", {}):
             rule += risa_note(p["size_raw"][el["size_norm"]], el["size_norm"])
-        rule = f"{rule} [{sysname} system -> section {calc_section(p)}]"
+        rule = f"{rule} [{sysname} system -> section {calc_section(p)}, {role} page]"
         k = (el["id"], p["id"])
         if k in links and links[k]["score"] >= score:
             return
@@ -510,6 +547,8 @@ def coverage(elements, element_edges, pages, cedges, links, lp_stats, ce_stats, 
         "calc_pages": len(pages), "calc_pages_linked": lp, "calc_pages_unlinked": len(pages) - lp,
         "calc_edges": len(cedges), "calc_edges_by_rule": ce_stats["by_rule"], "floor_level_check": ce_stats["floor_levels"],
         "load_path_edges": len(element_edges), "load_path": lp_stats,
+        "calc_page_roles": dict(sorted(((r, sum(1 for p in pages if page_role(p) == r))
+                                        for r in {page_role(p) for p in pages}), key=lambda x: -x[1])),
         "links": len(links), "links_by_tier": link_stats["tiers"], "links_refused_by_system": link_stats["refused"],
         "system_sections": {k: sorted(v) for k, v in SYSTEM_SECTIONS.items()},
     }

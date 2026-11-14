@@ -20,7 +20,8 @@ SETS_DIR = os.environ.get("CALCGRAPH_SETS", os.path.join(ROOT, "data", "sets"))
 def _slim_page(p: dict) -> dict:
     return {k: p[k] for k in ("id", "doc", "page", "sheet_id", "sheet_rect", "section", "group", "title", "title_rect",
                               "tables", "level", "software", "toc", "width", "height", "drawing_refs")} | {
-        "labels": {k: len(v) for k, v in p["labels"].items()}, "sizes": sorted(p["sizes"]), "kind": set_graph.page_kind(p)}
+        "labels": {k: len(v) for k, v in p["labels"].items()}, "sizes": sorted(p["sizes"]), "kind": set_graph.page_kind(p),
+        "role": set_graph.page_role(p)}
 
 
 def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str | None]]) -> dict:

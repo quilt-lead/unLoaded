@@ -53,6 +53,7 @@ def main() -> None:
     print("  linked by type: " + ", ".join(f"{t} {by_type_l[t]}/{n}" for t, n in by_type.most_common()))
     print(f"Calc pages: {c['calc_pages']}; linked to >=1 element: {c['calc_pages_linked']}; linked to nothing: {c['calc_pages_unlinked']}")
     print(f"Links: {c['links']} by tier {c['links_by_tier']}")
+    print(f"Calc page roles: {c.get('calc_page_roles')}")
     print(f"Links refused by the system -> section table: {c.get('links_refused_by_system')}")
     print(f"System -> allowed sections: {c.get('system_sections')}")
     print(f"Calc edges: {c['calc_edges']} by rule {c['calc_edges_by_rule']}")
