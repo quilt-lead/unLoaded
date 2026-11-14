@@ -6,7 +6,7 @@ import { useDecide, useImpact, useLoadSample, useProjectState, useUpload } from 
 import type { IfcLink } from "../../api/types";
 import { Legend, type LegendItem } from "../../components/Legend";
 import { Panel } from "../../components/Panel";
-import { PdfPage } from "../../components/PdfPage";
+import { PdfPage, unionBox } from "../../components/PdfPage";
 import { StatPill, StatRow } from "../../components/StatPill";
 import { Tabs } from "../../components/Tabs";
 import { Viewer3D, type Viewer3DHandle } from "../../components/Viewer3D";
@@ -472,6 +472,11 @@ export default function IfcApp() {
                 url: urls.revisionFile(st.calc_rev.id),
                 page: page.n,
                 rects: page.n === page.rectPage ? page.rects : [],
+                // keep the page's context around the matched words (the synthetic calc pages are US letter, 612 x 792 pt)
+                focus: (() => {
+                  const u = page.n === page.rectPage ? unionBox(page.rects) : null;
+                  return u ? [Math.max(0, u[0] - 300), Math.max(0, u[1] - 220), Math.min(612, u[2] + 300), Math.min(792, u[3] + 260)] : null;
+                })(),
                 label: pageCalc?.title ?? `Page ${page.n}`,
                 sub: `Calc package ${st.calc_rev.source_name} (rev ${st.calc_rev.seq})${page.n === page.rectPage && page.rects.length ? " - the matched words are highlighted" : ""}`,
               }}
