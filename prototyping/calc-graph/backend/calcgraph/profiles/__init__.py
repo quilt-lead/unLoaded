@@ -252,6 +252,12 @@ class SoftwareRule(_M):
     sheet_id_first: list[str] | None = None  # and the page id must start with one of these
 
 
+class Band(_M):
+    """Header / footer bands of a page, as fractions of the page height."""
+    top: float                               # a line whose bottom is above top * height
+    bottom: float                            # or whose top is below (1 - bottom) * height
+
+
 class SoftwareDetector(_M):
     name: str
     any: list[SoftwareRule]
@@ -299,6 +305,8 @@ class Calcs(_M):
     toc_min_leaders: int
     software: list[SoftwareDetector]         # first detector with a matching rule wins
     fallback_software: str
+    software_signature_band: Band | None     # detectors read only lines in these bands (the program's own
+                                             # header / footer signature), never a body mention; null = whole page
 
     def risa_sizes(self, software: str) -> bool:
         """Does this software's output print HSS / angle walls in RISA sixteenths?"""

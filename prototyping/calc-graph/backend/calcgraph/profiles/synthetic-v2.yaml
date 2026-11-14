@@ -21,17 +21,17 @@ drawings:
     categories:
       - {prefix: S-501, category: steel connection}
       - {prefix: S-502, category: brace and base plate}
-    # KNOWN GAP (layout, not profile): v2 detail titles put the number (14 pt) in a circle LEFT of
-    # the 15 pt title; connections.read_details pairs a ~25 pt number with title words to its LEFT,
-    # so v2 connection types are not expected to be found until the reader handles that layout.
+    # v2 detail titles put the number in a bubble LEFT of the title, over the sheet number; read by the
+    # generic bubble-left title-bar rule in connections.read_details (17 / 17 details on the v2 render).
   symbol_legend:
     sheet_kinds: [framing]
     line_prefix: ''                          # v2 legend lines are "MOMENT CONNECTION (...). SEE 1/S-501."
     entries:
       - {phrase: MOMENT CONNECTION, kind: mrf, name: Moment connection}
       - {phrase: DRAG / COLLECTOR CONNECTION, kind: drag, name: Drag / collector connection}
-    # unverified: the v2 moment flag and drag diamond are drawn differently from the shapes the
-    # classifier in connections.find_symbols was tuned on
+    # the v2 moment flag and drag diamond are drawn differently from the shapes the built-in classifier
+    # knows; the legend self-check fails for both, so connections.build finds them by the legend's own
+    # exemplar shape (42 plan symbols on S-201..S-203).
 
 calcs:
   page_id:

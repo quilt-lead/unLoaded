@@ -149,10 +149,16 @@ calcs:
     field_keys: ['Model:']
   level_regex: '(?i)\b(Level\s*\d|Roof)(?![A-Za-z0-9])'
   toc_min_leaders: 3
+  # Software is a PAGE-LEVEL signature: the program prints its name + version / copyright in the page
+  # header or footer ("RISA-3D Version 19", "Software copyright ENERCALC, INC. 1983-2020, Build ...",
+  # "RAM Steel 21.01"). Detectors therefore read only the lines in these bands, so a TOC line or a note
+  # that merely mentions a program ("[E] = Enercalc (B4)") does not tag the page. On the real set every
+  # RISA / RAM / Enercalc / CFS signature line sits in these bands.
+  software_signature_band: {top: 0.16, bottom: 0.10}
   software:                                   # first detector with a matching rule wins
     - name: Enercalc
       hss_wall_sixteenths: false
-      any: [{all: ['(?i)ENERCALC']}]
+      any: [{all: ['(?i)ENERCALC,? INC|Software copyright ENERCALC']}]
     - name: RISAFloor
       hss_wall_sixteenths: true
       any: [{all: ['RISAFloor']}]

@@ -113,6 +113,23 @@ def _level(title: str, pf) -> str:
     return ""
 
 
+def _signature_text(lines: list[dict], width: float, height: float, C) -> str:
+    """The lines a program signs a page with: those in the profile's header / footer bands, measured
+    across the line's own baseline (a rotated sketch page prints its footer up the long edge)."""
+    b = C.software_signature_band
+    out = []
+    for l in lines:
+        x0, y0, x1, y1 = l["rect"]
+        if abs(l["dir"][0]) >= abs(l["dir"][1]):
+            hit = y1 <= b.top * height or y0 >= (1 - b.bottom) * height
+        else:
+            e = max(b.top, b.bottom) * width
+            hit = x1 <= e or x0 >= width - e
+        if hit:
+            out.append(l["text"])
+    return "\n".join(out)
+
+
 def _software(text: str, sid: str, pf) -> str:
     for det in pf.calcs.software:
         for rule in det.any:
@@ -139,7 +156,7 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
             title = "Cover"
         toc = len(re.findall(r"\.{6,}", text)) >= C.toc_min_leaders
         section = sid[0] if pid else (id_prefix or doc_key.upper())
-        software = _software(text, sid, pf)
+        software = _software(_signature_text(lines, page.rect.width, page.rect.height, C) if C.software_signature_band else text, sid, pf)
         risa = C.risa_sizes(software)
         banner = next((l["text"] for l in lines if C.banner_regex.match(l["text"])), "")
         tokens: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))

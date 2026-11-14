@@ -11,9 +11,11 @@ Two node kinds:
 
 Deterministic rules, each recorded on the node it produced:
 
-- detail title bar (S8 sheets): a big detail number (h ~25 pt) with the title words
-  (h ~19 pt) on the same baseline to its LEFT, right of the previous number on that
-  row; the panel is the area above the bar, up to the bar above in the same column.
+- detail title bar (S8 sheets), either layout: (a) a big detail number (h ~25 pt) with the
+  title words (h ~19 pt) on the same baseline to its LEFT, right of the previous number on
+  that row; the panel is the area above the bar, up to the bar above in the same column;
+  (b) the number in a bubble LEFT of the title, over the sheet's own number; the panel is the
+  drawn rectangle around the bar (else the area above it).
 - callout bubble: a sheet-number word (S8.2.2) with a label word (16) centred directly
   above it, both inside a drawn circle. The bubble's leader (a line leaving the circle)
   is followed to its far end; that end is the instance's location.
@@ -23,7 +25,9 @@ Deterministic rules, each recorded on the node it produced:
   PER 1/ S8.2.3"): filled triangle = moment resisting frame connection, open triangle
   = moment connection at cantilevered framing, filled circle = drag connection,
   filled diamond = full height stiffener connection, double-headed arrow = kicker
-  brace. The classifier is checked against the legend's own exemplars on every run.
+  brace. The classifier is checked against the legend's own exemplars on every run; a kind
+  whose exemplar the built-in classifier does not recognise (a set that draws it differently)
+  is found by the exemplar's own shape instead (filled polygon, edge lengths, any rotation).
 - attachment: nearest drawn element(s) of the drawing-set element source (beam drawn
   line, column position, else tag bbox), on the same sheet, within a stated distance.
 
@@ -135,7 +139,93 @@ def read_details(page, sheet: dict, pf) -> list[dict]:
             "bbox": _r(panel), "number_rect": _r(n), "title_rects": [_r(w) for w in b["title_words"]],
             "spec": spec, "sizes": szs, "rule": "detail title bar: number h~25pt, title words h~19pt left of it",
         })
+    used = {(round(b["num"][0]), round(b["num"][1])) for b in bars}
+    out += _details_bubble_left(page, words, sheet, pf, used)
     out.sort(key=lambda d: (int(re.match(r"\d+", d["detail"]).group()), d["detail"]))
+    return out
+
+
+def _details_bubble_left(page, words, sheet: dict, pf, used: set) -> list[dict]:
+    """The other common title-bar layout: the detail number sits in a circle LEFT of the title, over the
+    sheet number ("1" over "S-501" in a bubble, then "SMF MOMENT CONNECTION MC-1 (RBS)" on the bar).
+    A bubble is a TITLE (not a callout to the detail) when the sheet under the number is this sheet,
+    title-height words start right of the circle on the number's row, and a drawn rule underlines them. The panel is the smallest drawn
+    rectangle around bubble + title, else the area above the bar (as for the number-right layout)."""
+    dt = pf.drawings.details
+    tlo, thi = dt.title_height_pt
+    x_max = dt.x_max.at(page.rect.width)
+    drawings = page.get_drawings()
+    circles = _circles(drawings)
+    segs = _segments(drawings)
+    rects = []
+    for d in drawings:
+        for it in d["items"]:
+            if it[0] == "re" and d.get("color") is not None:
+                rects.append(pymupdf.Rect(it[1]))
+    bars = []
+    for n in words:
+        if not re.fullmatch(r"\d{1,2}[A-Z]?", n[4]) or (round(n[0]), round(n[1])) in used or n[0] >= x_max:
+            continue
+        below = [w for w in words if w[4] == sheet["sheet"] and abs(_c(w)[0] - _c(n)[0]) < 7 and 0 <= w[1] - n[3] < 9]
+        if not below:
+            continue
+        s = below[0]
+        mx, my = _c(n)[0], (n[3] + s[1]) / 2
+        circ = [c for c in circles if math.hypot(c[0] - mx, c[1] - my) < 8 and 10 <= c[2] <= 30]
+        if not circ:
+            continue
+        cx, cy, r = min(circ, key=lambda c: math.hypot(c[0] - mx, c[1] - my))
+        ny = _c(n)[1]
+        cand = sorted((w for w in words if tlo <= _h(w) < thi and abs(_c(w)[1] - ny) < 6.5 and w[0] > cx + r - 2),
+                      key=lambda w: w[0])
+        run = []
+        for w in cand:
+            if (not run and w[0] - (cx + r) > 40) or (run and w[0] - run[-1][2] > 45):
+                break
+            run.append(w)
+        if not run:
+            continue
+        # a title bar is underlined: a drawn horizontal rule just below the title words, at least as wide
+        tx0, tx1, tb = run[0][0], run[-1][2], max(w[3] for w in run)
+        if not any(abs(q[1] - q[3]) < 0.5 and -2 <= q[1] - tb <= 10 and min(q[0], q[2]) <= tx0 + 4
+                   and max(q[0], q[2]) >= tx0 + 0.8 * (tx1 - tx0) for q in segs):
+            continue
+        sc = sorted((w for w in words if _h(w) < 13 and run[0][0] - 2 <= w[0] and 0 <= w[1] - run[0][3] < 14),
+                    key=lambda w: w[0])
+        sc = [w for w in sc if abs(w[1] - sc[0][1]) < 2] if sc and sc[0][4].upper().startswith("SCALE") else []
+        bars.append({"num": n, "sheet_word": s, "circle": (cx, cy, r), "title_words": run, "scale_words": sc})
+    out = []
+    for b in bars:
+        n, (cx, cy, r) = b["num"], b["circle"]
+        bar = pymupdf.Rect(cx - r, cy - r, max(w[2] for w in b["title_words"]), cy + r)
+        box = [q for q in rects if q.contains(bar) and q.width < page.rect.width * 0.9]
+        if box:
+            q = min(box, key=lambda q: q.width * q.height)
+            panel, how = [q.x0, q.y0, q.x1, q.y1], "the drawn rectangle around bubble + title"
+        else:
+            right = [o["circle"][0] - o["circle"][2] for o in bars if abs(o["circle"][1] - cy) < 8 and o["circle"][0] > cx]
+            x0, x1 = cx - r - 8, (min(right) - 4) if right else x_max
+            above = [o["circle"] for o in bars if o["circle"][1] + o["circle"][2] < cy - r - 30
+                     and o["circle"][0] - o["circle"][2] < x1 - 20 and o["circle"][0] + o["circle"][2] > x0 + 20]
+            panel, how = [x0, max((a[1] + a[2] + 4 for a in above), default=40.0), x1, cy + r + 3], "the area above the bar"
+        title = " ".join(w[4] for w in b["title_words"])
+        inside = [w for w in words if panel[0] <= w[0] and w[2] <= panel[2] and panel[1] <= w[1] and w[3] <= cy - r - 2]
+        spec, seen = [], set()
+        for ln in _lines(inside):
+            t = ln["text"].strip()
+            if dt.spec_regex.search(t.upper()) and t not in seen:
+                seen.add(t)
+                spec.append({"text": t, "rect": _r(ln["rect"])})
+        szs = sorted({sizes.norm(w[4])["norm"] for w in inside if sizes.norm(w[4])})
+        out.append({
+            "id": f"{n[4]}/{sheet['sheet']}", "node_type": "connection_type", "detail": n[4], "sheet": sheet["sheet"],
+            "page": sheet["page"], "doc": "plans", "sheet_title": sheet.get("title", ""), "category": _category(sheet["sheet"], pf),
+            "title": title, "is_connection": bool(dt.connection_title_regex.search(title.upper())),
+            "scale": " ".join(w[4] for w in b["scale_words"]),
+            "bbox": _r(panel), "number_rect": _r(n), "title_rects": [_r(w) for w in b["title_words"]],
+            "spec": spec, "sizes": szs,
+            "rule": f"detail title bar: number over this sheet's number in a bubble LEFT of the title; panel = {how}",
+        })
     return out
 
 
@@ -227,7 +317,9 @@ def find_callouts(page, words, drawings, circles, segs, sheet_re) -> list[dict]:
         if not sheet_re.match(s[4]) or _h(s) > 13:
             continue
         scx = _c(s)[0]
-        labs = [w for w in words if LABEL_RE.match(w[4]) and abs(_c(w)[0] - scx) < 7 and 0 <= s[1] - w[3] < 9 and _h(w) <= 13]
+        # the label is usually the bigger, bolder text of the bubble: allow up to 1.6x the sheet word's height
+        labs = [w for w in words if LABEL_RE.match(w[4]) and abs(_c(w)[0] - scx) < 7 and 0 <= s[1] - w[3] < 9
+                and _h(w) <= max(13, 1.6 * _h(s))]
         if not labs:
             continue
         lab = min(labs, key=lambda w: s[1] - w[3])
@@ -358,6 +450,52 @@ def find_symbols(drawings, segs, region) -> list[dict]:
     for r in _kickers([d for d in drawings if inr(d["rect"])], segs):
         if inr(r):
             out.append({"kind": "kicker", "rect": r})
+    return out
+
+
+def _poly_sig(d) -> tuple | None:
+    """Rotation-invariant shape signature of a filled polygon: its sorted edge lengths."""
+    if d.get("type") not in ("f", "fs") or d.get("fill") != (0.0, 0.0, 0.0) or not d["items"]:
+        return None
+    if any(it[0] != "l" for it in d["items"]):
+        return None
+    return tuple(sorted(round(math.hypot(it[1].x - it[2].x, it[1].y - it[2].y), 1) for it in d["items"]))
+
+
+def legend_templates(drawings, legend: dict, lx0: float) -> dict:
+    """Symbol kind -> shape signatures of the filled polygons drawn in that legend row's symbol column."""
+    out = {}
+    for kind, v in legend.items():
+        y0, y1 = v["rect"][1] - 14, v["rect"][3] + 8
+        sigs = []
+        for d in drawings:
+            r = d["rect"]
+            if lx0 - 120 <= r.x0 and r.x1 <= lx0 - 5 and y0 <= (r.y0 + r.y1) / 2 <= y1:
+                sg = _poly_sig(d)
+                if sg and 4 <= max(r.width, r.height) <= 20 and sg not in sigs:
+                    sigs.append(sg)
+        if sigs:
+            out[kind] = sigs
+    return out
+
+
+def find_by_template(drawings, templates: dict, region, tol: float = 0.6) -> list[dict]:
+    """Filled polygons in region whose edge lengths match a legend exemplar (any rotation / mirror)."""
+    out, seen = [], set()
+    for d in drawings:
+        r = d["rect"]
+        if not (region[0] <= r.x0 and r.x1 <= region[2] and region[1] <= r.y0 and r.y1 <= region[3]):
+            continue
+        sg = _poly_sig(d)
+        if not sg:
+            continue
+        for kind, sigs in templates.items():
+            if any(len(t) == len(sg) and all(abs(a - b) <= tol for a, b in zip(t, sg)) for t in sigs):
+                key = (round(r.x0), round(r.y0))
+                if key not in seen:
+                    seen.add(key)
+                    out.append({"kind": kind, "rect": pymupdf.Rect(r)})
+                break
     return out
 
 
@@ -636,7 +774,17 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
                 got[kind] = sorted({e["kind"] for e in row})
             legend_check[s["sheet"]] = {k: {"expected": k, "classified": v, "ok": v == [k]} for k, v in got.items()}
             mg = D.drawing_area_margin_pt
-            syms = find_symbols(drawings, segs, (mg, mg, cutoff, page.rect.height - mg))
+            area = (mg, mg, cutoff, page.rect.height - mg)
+            syms = find_symbols(drawings, segs, area)
+            # a kind the built-in shape classifier does not recognise on the legend's OWN exemplar is drawn
+            # differently on this set: find it by the exemplar's shape instead (template from the legend)
+            failed = {k for k, v in legend_check[s["sheet"]].items() if not v["ok"]}
+            if failed:
+                tpl = {k: v for k, v in legend_templates(drawings, {k: legend[k] for k in failed}, lx0).items()}
+                syms = [x for x in syms if x["kind"] not in tpl] + find_by_template(drawings, tpl, area)
+                for k in failed:
+                    legend_check[s["sheet"]][k]["template"] = tpl.get(k)
+                    legend_check[s["sheet"]][k]["fallback"] = "legend exemplar shape" if k in tpl else "none (no filled exemplar)"
             for sym in syms:
                 r = sym["rect"]
                 p = ((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2)
