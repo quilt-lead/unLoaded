@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, Layers, Move, ZoomIn } from 'lucide-react';
-import { BimLink, BimNode, NodeGroup } from '../types/bim';
+import type { BimLink, BimNode, ColorMode, HighlightOverlay, LoadPathEdge, NodeGroup } from '../types/bim';
 import {
+  computeArcPath,
   computeCenterToCenterSplinePath,
-  isColumnStackNode,
   isElementTypeNode,
+  isFamilyNode,
   isInstanceNode,
   isProjectNode,
+  loadPathKey,
 } from '../utils/graphEngine';
-import { getContrastingTextStyle, getEffectiveNodeColor } from '../utils/colors';
+import { DIFF_PALETTE, TONE_COLORS, getContrastingTextStyle, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -17,11 +19,20 @@ interface RadialGraphCanvasProps {
   selectedNodeId: string | null;
   selectedNodeIds: Set<string>;
   activeLoadChainNodeIds: Set<string>;
+  /** directed load-path edges drawn while they are part of the traced chain */
+  loadPath?: LoadPathEdge[];
+  activeLoadChainLinkKeys?: Set<string>;
   matchingNodeIds: Set<string>;
   isFilterActive: boolean;
-  heatmapMode: boolean;
+  colorMode: ColorMode;
+  diffMode?: boolean;
+  overlay?: HighlightOverlay | null;
+  /** ring element nodes by mapping status (element graph) */
+  showStatusRings?: boolean;
   resetTrigger: number;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean; skipZoomFit?: boolean }) => void;
+  onSelectGroup?: (groupId: string, opts?: { toggleMulti?: boolean }) => void;
+  onRenameGroup?: (groupId: string, newName: string) => void;
   onClearSelection: () => void;
   onMoveNodes: (movedIds: Set<string>, dx: number, dy: number) => void;
   onGroupSelection: () => void;
@@ -44,15 +55,24 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   selectedNodeId,
   selectedNodeIds,
   activeLoadChainNodeIds,
+  loadPath = [],
+  activeLoadChainLinkKeys,
   matchingNodeIds,
   isFilterActive,
-  heatmapMode,
+  colorMode,
+  diffMode = false,
+  overlay = null,
+  showStatusRings = false,
   resetTrigger,
   onSelectNode,
+  onSelectGroup,
+  onRenameGroup,
   onClearSelection,
   onMoveNodes,
   onGroupSelection,
 }) => {
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState<string>('');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [camera, setCamera] = useState({ panX: 0, panY: 0, scale: 0.74 });
   const cameraRef = useRef(camera);
@@ -130,11 +150,21 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     const aCats = new Set<string>();
     const aStacks = new Set<string>();
 
-    if (selectedNodeIds.size > 0) {
+    if (overlay) {
+      overlay.tones.forEach((_, id) => aNodes.add(id));
+      nodes.forEach((n) => {
+        if (aNodes.has(n.id) && n.parent) {
+          aCats.add(n.parent);
+          if (n.categoryParent) aCats.add(n.categoryParent);
+        }
+      });
+      aCats.forEach((id) => aNodes.add(id));
+      nodes.filter(isProjectNode).forEach((n) => aNodes.add(n.id));
+    } else if (selectedNodeIds.size > 0) {
       selectedNodeIds.forEach((id) => aNodes.add(id));
       activeLoadChainNodeIds.forEach((id) => aNodes.add(id));
       links.forEach((l) => {
-        if (!l.isLoadPath && (selectedNodeIds.has(l.source) || selectedNodeIds.has(l.target))) {
+        if (selectedNodeIds.has(l.source) || selectedNodeIds.has(l.target)) {
           aNodes.add(l.source);
           aNodes.add(l.target);
         }
@@ -154,9 +184,9 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     }
 
     return { activeNodeSet: aNodes, activeCategoryIds: aCats, activeStackIds: aStacks };
-  }, [selectedNodeIds, activeLoadChainNodeIds, links, isFilterActive, nodes, matchingNodeIds]);
+  }, [overlay, selectedNodeIds, activeLoadChainNodeIds, links, isFilterActive, nodes, matchingNodeIds]);
 
-  const hasSelection = selectedNodeIds.size > 0;
+  const hasSelection = selectedNodeIds.size > 0 || Boolean(overlay);
 
   const isNodeHighlighted = useCallback(
     (node: BimNode) => {
@@ -164,7 +194,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
       if (isFilterActive) {
         if (isProjectNode(node)) return true;
         if (isElementTypeNode(node)) return activeCategoryIds.has(node.id);
-        if (isColumnStackNode(node)) return activeStackIds.has(node.id);
+        if (isFamilyNode(node)) return activeStackIds.has(node.id);
         return matchingNodeIds.has(node.id);
       }
       return true;
@@ -368,7 +398,16 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
               ))}
             </g>
 
-            {/* Group Hulls */}
+            <defs>
+              <marker id="arrow-calc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#a5b4fc" />
+              </marker>
+              <marker id="arrow-load" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#fbbf24" />
+              </marker>
+            </defs>
+
+            {/* Group Hulls: click hull or name pill to select all members; double-click or the pencil to rename */}
             <g>
               {groups.map((grp) => {
                 const members = grp.nodeIds.map((id) => nodeById.get(id)).filter((n): n is BimNode => Boolean(n));
@@ -391,22 +430,44 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const h = maxY - minY + pad * 2;
                 const cornerR = Math.min(22, Math.min(w, h) * 0.25);
 
+                const isGroupSelected = members.every((m) => selectedNodeIds.has(m.id));
+                const badgeLabel = `${grp.name} (${members.length})`;
+                const badgeWidth = Math.max(76, badgeLabel.length * 6.2 + 24);
+                const badgeHeight = 18;
+                const badgeX = x + 6;
+                const badgeY = y - badgeHeight - 4;
+
+                const handleSelectWholeGroup = (e: React.PointerEvent) => {
+                  if (e.button === 1 || e.button === 2) return;
+                  e.stopPropagation();
+                  if (containerRef.current) {
+                    const rect = containerRef.current.getBoundingClientRect();
+                    const ix = interactionRef.current;
+                    ix.draggedNodeId = members[0].id;
+                    ix.lastDragGraphX = (e.clientX - rect.left - camera.panX) / camera.scale;
+                    ix.lastDragGraphY = (e.clientY - rect.top - camera.panY) / camera.scale;
+                  }
+                  if (onSelectGroup) {
+                    onSelectGroup(grp.id, { toggleMulti: e.shiftKey });
+                  } else {
+                    members.forEach((m, i) => onSelectNode(m.id, { preserveMulti: i > 0 || e.shiftKey, skipZoomFit: true }));
+                  }
+                };
+
+                const startRename = (e: React.MouseEvent | React.PointerEvent) => {
+                  e.stopPropagation();
+                  setEditingGroupId(grp.id);
+                  setEditingGroupName(grp.name);
+                };
+
+                const commitRename = () => {
+                  const trimmed = editingGroupName.trim();
+                  if (trimmed && onRenameGroup) onRenameGroup(grp.id, trimmed);
+                  setEditingGroupId(null);
+                };
+
                 return (
-                  <g
-                    key={grp.id}
-                    className="cursor-pointer"
-                    onPointerDown={(e) => {
-                      if (e.button === 1 || e.button === 2) return;
-                      e.stopPropagation();
-                      if (!containerRef.current) return;
-                      const rect = containerRef.current.getBoundingClientRect();
-                      const ix = interactionRef.current;
-                      ix.draggedNodeId = members[0].id;
-                      ix.lastDragGraphX = (e.clientX - rect.left - camera.panX) / camera.scale;
-                      ix.lastDragGraphY = (e.clientY - rect.top - camera.panY) / camera.scale;
-                      onSelectNode(members[0].id, { preserveMulti: true, skipZoomFit: true });
-                    }}
-                  >
+                  <g key={grp.id}>
                     <rect
                       x={x}
                       y={y}
@@ -414,47 +475,147 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       height={h}
                       rx={cornerR}
                       ry={cornerR}
-                      fill="rgba(255, 255, 255, 0.035)"
-                      stroke="rgba(255, 255, 255, 0.55)"
-                      strokeWidth={1.4}
+                      onPointerDown={handleSelectWholeGroup}
+                      className="cursor-pointer"
+                      fill={isGroupSelected ? 'rgba(99, 102, 241, 0.11)' : 'rgba(255, 255, 255, 0.035)'}
+                      stroke={isGroupSelected ? '#818cf8' : 'rgba(255, 255, 255, 0.55)'}
+                      strokeWidth={isGroupSelected ? 2.0 : 1.4}
                       strokeDasharray="6 4"
                     />
-                    <text
-                      x={x + 10}
-                      y={y - 5}
-                      fill="#ffffff"
-                      fontFamily="'IBM Plex Mono', monospace"
-                      fontSize="9px"
-                      fontWeight={600}
-                    >
-                      {grp.name} ({members.length})
-                    </text>
+                    {editingGroupId === grp.id ? (
+                      <foreignObject
+                        x={badgeX}
+                        y={badgeY - 2}
+                        width={Math.max(150, badgeWidth + 40)}
+                        height={24}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingGroupName}
+                          onChange={(e) => setEditingGroupName(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') commitRename();
+                            if (e.key === 'Escape') setEditingGroupId(null);
+                          }}
+                          className="w-full h-5 px-2 rounded bg-[#181b20] text-white mono text-[10px] font-semibold border border-indigo-400 focus:outline-none shadow-lg"
+                        />
+                      </foreignObject>
+                    ) : (
+                      <g onPointerDown={handleSelectWholeGroup} onDoubleClick={startRename} className="cursor-pointer">
+                        <rect
+                          x={badgeX}
+                          y={badgeY}
+                          width={badgeWidth}
+                          height={badgeHeight}
+                          rx={5}
+                          ry={5}
+                          fill={isGroupSelected ? '#4f46e5' : '#2d3139'}
+                          stroke={isGroupSelected ? '#a5b4fc' : 'rgba(255, 255, 255, 0.35)'}
+                          strokeWidth={1}
+                        />
+                        <text x={badgeX + 8} y={badgeY + 12.2} fill="#ffffff" fontFamily="'IBM Plex Mono', monospace" fontSize="9.5px" fontWeight={600}>
+                          {badgeLabel}
+                        </text>
+                        <g transform={`translate(${badgeX + badgeWidth - 15}, ${badgeY + 3})`} onPointerDown={(e) => e.stopPropagation()} onClick={startRename}>
+                          <title>Rename group</title>
+                          <rect width={12} height={12} rx={3} fill="rgba(255,255,255,0.12)" />
+                          <text x={6} y={9.2} textAnchor="middle" fill="#e0e7ff" fontSize="8px" fontFamily="'IBM Plex Sans', sans-serif">
+                            ✎
+                          </text>
+                        </g>
+                      </g>
+                    )}
                   </g>
                 );
               })}
             </g>
 
-            {/* Center-to-Center Wires (Rendered beneath Nodes) */}
+            {/* Hierarchy wires (centre to centre, beneath nodes) */}
             <g>
               {links.map((link, idx) => {
+                if (link.relation !== 'hierarchy') return null;
                 const s = nodeById.get(link.source);
                 const t = nodeById.get(link.target);
                 if (!s || !t) return null;
-                const isConn = Boolean(link.isLoadPath) || (isNodeHighlighted(s) && isNodeHighlighted(t));
+                const isConn = isNodeHighlighted(s) && isNodeHighlighted(t);
                 const dimmed = (hasSelection || isFilterActive) && !isConn;
-
                 return (
                   <path
-                    key={`${link.source}-${link.target}-${idx}`}
+                    key={`h-${link.source}-${link.target}-${idx}`}
                     d={computeCenterToCenterSplinePath(s, t)}
                     fill="none"
                     strokeLinecap="round"
                     stroke={isConn && (hasSelection || isFilterActive) ? '#bef264' : 'rgba(255, 255, 255, 0.16)'}
                     strokeWidth={isConn && hasSelection ? 1.85 : 1.05}
-                    style={{
-                      opacity: dimmed ? 0.06 : 1,
-                      transition: 'stroke 0.18s ease, opacity 0.2s ease',
-                    }}
+                    style={{ opacity: dimmed ? 0.06 : 1, transition: 'stroke 0.18s ease, opacity 0.2s ease' }}
+                  />
+                );
+              })}
+            </g>
+
+            {/* Traced load path: the backend's directed edges, drawn only while traced */}
+            {activeLoadChainLinkKeys && activeLoadChainLinkKeys.size > 0 && !overlay && (
+              <g pointerEvents="none">
+                {loadPath.map((e, idx) => {
+                  if (!activeLoadChainLinkKeys.has(loadPathKey(e.source, e.target))) return null;
+                  const s = nodeById.get(e.source);
+                  const t = nodeById.get(e.target);
+                  if (!s || !t) return null;
+                  return (
+                    <path
+                      key={`lp-${idx}`}
+                      d={computeArcPath(s, t, 0.12)}
+                      fill="none"
+                      stroke="#fbbf24"
+                      strokeWidth={1.3}
+                      strokeOpacity={0.85}
+                      markerEnd="url(#arrow-load)"
+                    >
+                      <title>{e.rule}</title>
+                    </path>
+                  );
+                })}
+              </g>
+            )}
+
+            {/* Calc dependencies (output feeds input) and calc-mapping edges styled by review state */}
+            <g>
+              {links.map((link, idx) => {
+                if (link.relation !== 'calc-dependency' && link.relation !== 'calc-mapping') return null;
+                const s = nodeById.get(link.source);
+                const t = nodeById.get(link.target);
+                if (!s || !t) return null;
+                const lit = isNodeHighlighted(s) && isNodeHighlighted(t);
+                const dimmed = (hasSelection || isFilterActive) && !lit;
+                if (link.relation === 'calc-dependency') {
+                  return (
+                    <path
+                      key={`cd-${idx}`}
+                      d={computeArcPath(s, t, 0.22)}
+                      fill="none"
+                      stroke="#a5b4fc"
+                      strokeWidth={lit && hasSelection ? 1.8 : 1.2}
+                      strokeDasharray="5 3"
+                      markerEnd="url(#arrow-calc)"
+                      style={{ opacity: dimmed ? 0.1 : 0.85, transition: 'opacity 0.2s ease' }}
+                    />
+                  );
+                }
+                const st = linkStrokeStyle(link.review, link.confidence);
+                return (
+                  <path
+                    key={`cm-${idx}`}
+                    d={`M ${s.x.toFixed(2)} ${s.y.toFixed(2)} L ${t.x.toFixed(2)} ${t.y.toFixed(2)}`}
+                    fill="none"
+                    stroke={st.stroke}
+                    strokeWidth={st.width}
+                    strokeDasharray={st.dash}
+                    strokeLinecap="round"
+                    style={{ opacity: dimmed ? 0.12 : 0.9 }}
                   />
                 );
               })}
@@ -469,10 +630,18 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const dimmed = (hasSelection || isFilterActive) && !isLit;
                 const isProj = isProjectNode(node);
                 const isCategory = isElementTypeNode(node);
-                const isStack = isColumnStackNode(node);
-                const fillHex = getEffectiveNodeColor(node, heatmapMode);
+                const isFamily = isFamilyNode(node);
+                const tone = overlay?.tones.get(node.id);
+                const fillHex = tone ? TONE_COLORS[tone] : getEffectiveNodeColor(node, colorMode, diffMode);
                 const textStyle = getContrastingTextStyle(fillHex);
-                const displayLabel = isStack ? node.colNumber || node.label : node.label;
+                const isRemovedDiff = diffMode && node.diffStatus === 'removed';
+                const ringColor =
+                  diffMode && node.diffStatus && node.diffStatus !== 'unchanged'
+                    ? DIFF_PALETTE[node.diffStatus]
+                    : showStatusRings && node.kind === 'element' && node.mappingStatus && node.mappingStatus !== 'confirmed'
+                    ? STATUS_COLORS[node.mappingStatus]
+                    : null;
+                const labelOutside = node.kind === 'calc';
 
                 return (
                   <g
@@ -481,23 +650,20 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                     onPointerDown={(e) => handleNodePointerDown(e, node)}
                     style={{
                       cursor: 'pointer',
-                      opacity: dimmed ? 0.15 : 1,
+                      opacity: dimmed ? 0.15 : isRemovedDiff ? 0.7 : 1,
                       transition: 'opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)',
                     }}
                   >
+                    <title>{node.desc ? `${node.label} — ${node.desc}` : node.label}</title>
                     {isSelected && (
-                      <circle
-                        r={node.r + 6}
-                        fill="none"
-                        stroke={isPrimary ? '#ffffff' : '#38bdf8'}
-                        strokeWidth={1.75}
-                        strokeDasharray="4 3"
-                      />
+                      <circle r={node.r + 6} fill="none" stroke={isPrimary ? '#ffffff' : '#38bdf8'} strokeWidth={1.75} strokeDasharray="4 3" />
                     )}
+                    {ringColor && !isSelected && <circle r={node.r + 2.6} fill="none" stroke={ringColor} strokeWidth={1.6} />}
+                    {tone === 'origin' && <circle r={node.r + 7} fill="none" stroke="#818cf8" strokeWidth={2} />}
                     <circle
                       r={node.r}
                       fill={fillHex}
-                      fillOpacity={1}
+                      fillOpacity={isRemovedDiff ? 0.55 : 1}
                       stroke={
                         isSelected
                           ? '#ffffff'
@@ -507,20 +673,36 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                           ? 'rgba(255,255,255,0.92)'
                           : 'rgba(255,255,255,0.72)'
                       }
-                      strokeWidth={isSelected ? 2.6 : isProj ? 2.2 : isCategory ? 1.75 : 1.25}
+                      strokeWidth={isSelected ? 2.6 : isProj ? 2.2 : isCategory ? 1.75 : node.r < 6 ? 0.8 : 1.25}
+                      strokeDasharray={isRemovedDiff || node.isGhost ? '3 2' : undefined}
                     />
-                    <text
-                      textAnchor="middle"
-                      dy="0.34em"
-                      fill={textStyle.fill}
-                      fontFamily="'IBM Plex Sans', sans-serif"
-                      fontWeight={isProj || isCategory || isStack ? 600 : 500}
-                      fontSize={getFittedFontSize(displayLabel, node.r)}
-                      pointerEvents="none"
-                      style={{ textShadow: textStyle.shadow }}
-                    >
-                      {displayLabel}
-                    </text>
+                    {labelOutside ? (
+                      <text
+                        textAnchor="middle"
+                        y={node.r + 11}
+                        fill="#e4e4e7"
+                        fontFamily="'IBM Plex Sans', sans-serif"
+                        fontWeight={500}
+                        fontSize="9px"
+                        pointerEvents="none"
+                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+                      >
+                        {node.label}
+                      </text>
+                    ) : (
+                      <text
+                        textAnchor="middle"
+                        dy="0.34em"
+                        fill={textStyle.fill}
+                        fontFamily="'IBM Plex Sans', sans-serif"
+                        fontWeight={isProj || isCategory || isFamily ? 600 : 500}
+                        fontSize={getFittedFontSize(node.label, node.r)}
+                        pointerEvents="none"
+                        style={{ textShadow: textStyle.shadow }}
+                      >
+                        {node.label}
+                      </text>
+                    )}
                   </g>
                 );
               })}

@@ -130,7 +130,15 @@ permit numbers in plain text, in `copyright_guard.json` and the guard script. In
 publishes the identity the guard protects. The guard now stores salted SHA-256 hashes of normalised
 terms and hashes token n-grams at scan time. Terms are added with `--add-term` on stdin, so they never
 touch a file or shell history. `--self-test` uses a throwaway term generated at runtime.
-**Check:** grep the hackathon term list against this repo: 0 hits.
+**Check:** grep the hackathon term list against this repo: 0 hits (done 2026-11-14 ~7:05 PM ET over
+every file in the worktree, nothing excluded, after deleting gitignored `backend/.venv` whose binaries
+collide with the 4-letter acronym by chance).
+**Limitation, said out loud:** the salt is public, so this keeps the identity out of plaintext, search
+and diffs, but short terms (the 4-letter acronym) can be brute-forced from their hashes. It is
+mitigation, not secrecy. Real secrecy would need the term list kept out of the public repo entirely
+(e.g. a CI secret).
+Also removed: `/api/store/sets/{sid}/bundle` (could only return 404) and the now-unused
+`store.set_project` / `ensure_set_project` / `add_set_revision`.
 
 ### D15. Backend port specifics (from the porting agent's report)
 - One path root: `revstore.ROOT` = `backend/`; `api.py` derives store / synthetic / `dist/` from it.

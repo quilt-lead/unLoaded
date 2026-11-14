@@ -1,38 +1,4 @@
-import { BimNode } from '../types/bim';
-import { isProjectNode, isElementTypeNode, isColumnStackNode, isInstanceNode } from './graphEngine';
-
-export const CATEGORY_PALETTE: Record<string, string> = {
-  'proj-1': '#312e81',
-  'proj-root': '#312e81',
-  'cat-slab': '#0369a1',
-  'cat-col': '#15803d',
-  'cat-beam': '#b45309',
-  'cat-mframe': '#6d28d9',
-  'cat-brace': '#0f766e',
-  'cat-conn': '#0e7490',
-  'cat-wall': '#be123c',
-  'cat-mat': '#9a3412',
-  'cat-pcap': '#c2410c',
-  'cat-pile': '#334155',
-  'cat-footing': '#9a3412',
-  'cat-stair': '#4338ca',
-  'cat-roof': '#1d4ed8',
-  'cat-curtain': '#0284c7',
-  'cat-window': '#0891b2',
-  'cat-door': '#7e22ce',
-  'cat-railing': '#475569',
-  'cat-covering': '#4f46e5',
-  'cat-rebar': '#9f1239',
-  'cat-tendon': '#a16207',
-  'cat-proxy': '#3f3f46',
-  'calc-root': '#312e81',
-  'calc-cat-beam': '#b45309',
-  'calc-cat-col': '#15803d',
-  'calc-cat-conn': '#0e7490',
-  'calc-cat-slab': '#0369a1',
-  'calc-cat-wall': '#be123c',
-  'calc-cat-fdn': '#9a3412',
-};
+import type { BimNode, ColorMode, DiffStatus, HighlightTone, LinkReview, MappingStatus } from '../types/bim';
 
 export const IFC_ENTITY_PALETTE: Record<string, string> = {
   IFCSLAB: '#0369a1',
@@ -140,30 +106,132 @@ export function getContrastingTextStyle(bgColorStr: string): { fill: string; sha
   return { fill: '#ffffff', shadow: '0 1px 2px rgba(0, 0, 0, 0.78)' };
 }
 
-export function getEffectiveNodeColor(node: BimNode | null | undefined, heatmapMode: boolean): string {
-  if (!node) return '#15803d';
-  if (heatmapMode && isInstanceNode(node)) {
-    return getHeatmapColor(node.utilization);
+/** Calc colours (the backend's palette, so a calc keeps its colour across views). */
+export const CALC_PALETTE = [
+  '#4e79a7', '#f28e2b', '#59a14f', '#b07aa1', '#e15759', '#76b7b2', '#edc948', '#9c755f', '#ff9da7',
+  '#2b8c8c', '#8f6ed5', '#d4a017', '#3d9970', '#c2185b', '#5f7d95',
+];
+
+export const PROJECT_COLOR = '#312e81';
+export const NO_DATA_COLOR = '#52525b';
+
+export const STATUS_COLORS: Record<MappingStatus, string> = {
+  confirmed: '#059669',
+  review: '#d97706',
+  unmapped: '#e11d48',
+};
+
+export const STATUS_LABELS: Record<MappingStatus, string> = {
+  confirmed: 'Mapped',
+  review: 'Needs review',
+  unmapped: 'No calc found',
+};
+
+export const REVIEW_COLORS: Record<LinkReview, string> = {
+  confirmed: '#34d399',
+  manual: '#818cf8',
+  auto: '#fbbf24',
+  rejected: '#fb7185',
+};
+
+export const REVIEW_LABELS: Record<LinkReview, string> = {
+  confirmed: 'Confirmed',
+  manual: 'Linked by hand',
+  auto: 'Proposed',
+  rejected: 'Rejected',
+};
+
+export const TONE_COLORS: Record<HighlightTone, string> = {
+  origin: '#ffffff',
+  removed: '#f43f5e',
+  hit: '#f59e0b',
+  stale: '#f59e0b',
+};
+
+export const DIFF_PALETTE: Record<DiffStatus, string> = {
+  added: '#10b981', // emerald: in B, not in A
+  removed: '#ef4444', // crimson: in A, not in B
+  modified: '#f59e0b', // amber: same GlobalId, different content
+  unchanged: '#475569', // muted slate
+};
+
+/** How a link was made, in words (matcher tier -> label). */
+export const TIER_LABELS: Record<string, string> = {
+  exact: 'Named by mark',
+  range: 'In a mark range',
+  loose: 'Mark, punctuation ignored',
+  family: 'Mark family',
+  partial: 'Partial mark',
+  xref: 'Cross-reference only',
+  size: 'Section size + type',
+  type: 'Element type only',
+  manual: 'Linked by hand',
+};
+
+/** Tailwind classes for a confidence chip. */
+export function confidenceTone(conf: number): 'good' | 'warn' | 'bad' {
+  return conf >= 0.8 ? 'good' : conf >= 0.5 ? 'warn' : 'bad';
+}
+
+export function getConfidenceColor(conf: number | undefined): string {
+  if (typeof conf !== 'number') return NO_DATA_COLOR;
+  if (conf >= 0.8) return '#059669';
+  if (conf >= 0.5) return '#d97706';
+  return '#e11d48';
+}
+
+/** Stroke colour + dash of a calc-mapping edge, styled by its review state. */
+export function linkStrokeStyle(review: LinkReview | undefined, confidence = 0): { stroke: string; dash?: string; width: number } {
+  switch (review) {
+    case 'confirmed':
+      return { stroke: REVIEW_COLORS.confirmed, width: 1.6 };
+    case 'manual':
+      return { stroke: REVIEW_COLORS.manual, width: 1.6 };
+    case 'rejected':
+      return { stroke: REVIEW_COLORS.rejected, dash: '1.5 3', width: 1.1 };
+    default:
+      return { stroke: confidence >= 0.8 ? '#a3e635' : REVIEW_COLORS.auto, dash: confidence >= 0.8 ? undefined : '4 3', width: 1.2 };
   }
-  if (isProjectNode(node)) return '#312e81';
-  if (CATEGORY_PALETTE[node.id]) return CATEGORY_PALETTE[node.id];
-  if (isColumnStackNode(node)) return '#166534';
-  if (node.ifcType && IFC_ENTITY_PALETTE[node.ifcType.toUpperCase()]) {
-    return IFC_ENTITY_PALETTE[node.ifcType.toUpperCase()];
+}
+
+export function ifcTypeColor(ifcType: string | undefined, fallbackKey: string): string {
+  const key = (ifcType || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return IFC_ENTITY_PALETTE[key] ?? hashStringToJewelColor(fallbackKey);
+}
+
+/** Strongest live link of an element (rejected links ignored). */
+export function topLiveConfidence(node: BimNode): number | undefined {
+  const live = (node.calcLinks ?? []).filter((l) => l.review !== 'rejected');
+  if (!live.length) return undefined;
+  return Math.max(...live.map((l) => (l.review === 'confirmed' || l.review === 'manual' ? 1 : l.confidence)));
+}
+
+export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMode: ColorMode = 'type', diffMode = false): string {
+  if (!node) return NO_DATA_COLOR;
+  if (diffMode && node.kind === 'element') return DIFF_PALETTE[node.diffStatus ?? 'unchanged'];
+  switch (node.kind) {
+    case 'project':
+    case 'calc-root':
+      return PROJECT_COLOR;
+    case 'calc':
+      return node.color ?? hashStringToJewelColor(node.id);
+    case 'calc-category':
+      return hashStringToJewelColor(node.id);
+    case 'mapped-element': {
+      const l = node.link;
+      if (!l) return NO_DATA_COLOR;
+      if (l.review === 'rejected') return '#9f1239';
+      if (l.review === 'confirmed' || l.review === 'manual') return '#059669';
+      return getConfidenceColor(l.confidence);
+    }
+    case 'category':
+    case 'family':
+      return ifcTypeColor(node.ifcType, node.id);
+    case 'element':
+    default:
+      if (colorMode === 'review') return node.mappingStatus ? STATUS_COLORS[node.mappingStatus] : NO_DATA_COLOR;
+      if (colorMode === 'confidence') return getConfidenceColor(topLiveConfidence(node));
+      if (colorMode === 'utilisation') return typeof node.utilization === 'number' ? getHeatmapColor(node.utilization) : NO_DATA_COLOR;
+      return ifcTypeColor(node.ifcType, node.parent || node.id);
   }
-  if (node.categoryParent && CATEGORY_PALETTE[node.categoryParent]) {
-    return CATEGORY_PALETTE[node.categoryParent];
-  }
-  if (node.parent && CATEGORY_PALETTE[node.parent]) {
-    return CATEGORY_PALETTE[node.parent];
-  }
-  if (isElementTypeNode(node)) {
-    const upper = String(node.label || node.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (IFC_ENTITY_PALETTE[upper]) return IFC_ENTITY_PALETTE[upper];
-    return hashStringToJewelColor(node.id || node.label);
-  }
-  if (node.parent) {
-    return hashStringToJewelColor(node.parent);
-  }
-  return node.color || hashStringToJewelColor(node.id || node.label);
 }
