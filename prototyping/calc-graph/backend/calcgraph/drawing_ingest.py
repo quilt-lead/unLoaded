@@ -6,8 +6,12 @@ Every element is a TAG on a sheet - a member size (W16x26, HSS6x6x1/4, C12x20.7,
 marker (SMF) - with the words that produced it, so the UI can open the original
 sheet zoomed to and highlighting exactly those words.
 
+Set conventions (title block, sheet numbering, sheet kinds, levels, grid bubbles, tag
+vocabulary, footing schedule) come from the set's profile (calcgraph/profiles/*.yaml);
+`read_plans` resolves it from the file name unless one is passed.
+
 Deterministic rules, each recorded on the element or edge it produced:
-- sheet number = the tallest word in the title block matching S#.#.# style
+- sheet number = the tallest word in the title block matching the profile's sheet-number regex
 - sheet title / level from the title block text above the sheet number
 - grid: bubble labels that occur twice on a sheet, at the same x (number grids) or
   the same y (letter grids) far apart, define the grid lines of that sheet
@@ -26,36 +30,30 @@ from collections import defaultdict
 
 import pymupdf
 
-from . import sizes
+from . import profiles, sizes
 
-SHEET_NO = re.compile(r"^S\d+(?:\.\d+){1,3}$")
-GRID_LABEL = re.compile(r"^(\d{1,2}(?:\.\d)?|[A-H](?:\.\d)?)$")
-FOUND_MARK = re.compile(r"^(F\d{1,2}(?:\.\d)?|P\d(?:\.\d)?|TB-\d{1,2}|GB-?\d{1,2})$")
-SMF = re.compile(r"^\*?SMF$")
-ROLE_WORDS = ["JAMB", "POST", "COL", "COLUMN", "HDR", "HEADER", "STUD", "STRINGER", "BEAM", "BM", "TRELLIS", "KICKER",
-              "BRACE", "LEDGER", "FRMG", "ABV", "ABOVE", "BELOW", "FLAT", "LOW", "JOIST", "TRACK"]
-SPLIT_SIZES = re.compile(r"(?<=[0-9/])(?=(?:HSS|W|MC|C|L)\d)")
+# grid-bubble label rule of the generic profile, for callers that have no set profile in hand
+GRID_LABEL = profiles.load("default").drawings.grid.label_regex
 
 
-def _sheet_kind(title: str) -> str:
+def _sheet_kind(title: str, pf) -> str:
     t = title.upper()
-    for key, kind in (("FOUNDATION PLAN", "foundation"), ("FRAMING PLAN", "framing"), ("MOMENT FRAME ELEV", "smf"),
-                      ("WALL ELEVATION", "wall"), ("WALL SECTION", "wall"), ("SECTION", "wall"), ("STAIR", "stair"),
-                      ("ELEVATOR", "elevator"), ("TRELLIS", "trellis"), ("NOTES", "notes"), ("DETAIL", "details")):
-        if key in t:
-            return kind
+    for r in pf.drawings.sheet_kinds:
+        if r.contains in t:
+            return r.kind
     return "other"
 
 
-def _level_of(title: str, kind: str) -> str:
+def _level_of(title: str, kind: str, pf) -> str:
+    lv = pf.drawings.levels
     t = title.upper()
-    if kind == "foundation":
-        return "Level 1 / Foundation"
-    m = re.search(r"LEVEL\s*(\d+)", t)
-    if m and kind == "framing":
-        return f"Level {m.group(1)}"
-    if "ROOF" in t and kind == "framing":
-        return "Roof"
+    if kind in lv.foundation_kinds:
+        return lv.foundation_label
+    m = lv.level_regex.search(t)
+    if m and kind in lv.level_kinds:
+        return lv.level_label.replace("{n}", m.group(1))
+    if lv.roof_word in t and kind in lv.roof_kinds:
+        return lv.roof_label
     return ""
 
 
@@ -63,24 +61,29 @@ def _rect(w) -> list[float]:
     return [round(w[0], 1), round(w[1], 1), round(w[2], 1), round(w[3], 1)]
 
 
-def _sheet_header(words: list) -> tuple[str, str, list] | None:
-    tb = [w for w in words if w[0] > 2690]
-    nos = [w for w in tb if SHEET_NO.match(w[4])]
+def _sheet_header(words: list, tb_x: float, pf) -> tuple[str, str, list] | None:
+    t = pf.drawings.title_block
+    tb = [w for w in words if w[0] > tb_x]
+    nos = [w for w in tb if t.sheet_number_regex.match(w[4])]
     if not nos:
         return None
     sn = max(nos, key=lambda w: w[3] - w[1])
-    # title: the larger words between the "DRAWING TITLE" label and the sheet number
-    cand = [w for w in tb if sn[1] - 230 < w[1] < sn[1] - 5 and (w[3] - w[1]) >= 12 and w is not sn]
+    # title: the larger words between the title label and the sheet number
+    cand = [w for w in tb if sn[1] - t.title_window_above_pt < w[1] < sn[1] - t.title_gap_pt
+            and (w[3] - w[1]) >= t.title_min_height_pt and w is not sn]
     rows: dict[int, list] = defaultdict(list)
     for w in cand:
-        rows[round(w[3] / 6)].append(w)
+        rows[round(w[3] / t.title_row_bin_pt)].append(w)
     title = " ".join(" ".join(x[4] for x in sorted(r, key=lambda x: x[0])) for _, r in sorted(rows.items()))
-    title = re.sub(r"^DRAWING TITLE\s*", "", title).strip()
+    title = t.title_strip_regex.sub("", title, count=1).strip()
     return sn[4], title, _rect(sn)
 
 
-def _grids(words: list, cutoff: float) -> dict:
-    lab = [w for w in words if GRID_LABEL.match(w[4]) and w[2] < cutoff and 15 <= (w[3] - w[1]) <= 26]
+def _grids(words: list, cutoff: float, pf) -> dict:
+    g = pf.drawings.grid
+    hlo, hhi = g.bubble_height_pt
+    lab = [w for w in words if g.label_regex.match(w[4]) and w[2] < cutoff and hlo <= (w[3] - w[1]) <= hhi]
+    col_first = "0123456789" if g.numbers_run == "columns" else ""
     by: dict[str, list] = defaultdict(list)
     for w in lab:
         by[w[4]].append(w)
@@ -91,9 +94,10 @@ def _grids(words: list, cutoff: float) -> dict:
                 a, b = ws[i], ws[j]
                 ax, ay = (a[0] + a[2]) / 2, (a[1] + a[3]) / 2
                 bx, by_ = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
-                if abs(ax - bx) < 6 and abs(ay - by_) > 500 and name[0].isdigit():
+                is_col = name[0].isdigit() if col_first else name[0].isalpha()
+                if abs(ax - bx) < g.pair_axis_tol_pt and abs(ay - by_) > g.pair_min_sep_pt and is_col:
                     cols[name] = {"label": name, "pos": round((ax + bx) / 2, 1), "rects": [_rect(a), _rect(b)]}
-                elif abs(ay - by_) < 6 and abs(ax - bx) > 500 and name[0].isalpha():
+                elif abs(ay - by_) < g.pair_axis_tol_pt and abs(ax - bx) > g.pair_min_sep_pt and not is_col:
                     rows[name] = {"label": name, "pos": round((ay + by_) / 2, 1), "rects": [_rect(a), _rect(b)]}
     return {"cols": sorted(cols.values(), key=lambda g: g["pos"]), "rows": sorted(rows.values(), key=lambda g: g["pos"])}
 
@@ -130,10 +134,10 @@ def grid_ref(cx: float, cy: float, grid: dict) -> dict:
     return {"ref": f"{row}/{col}", "node": node, "node_dist": round(d0, 1), "nearest": n0}
 
 
-def _split_word(w) -> list:
+def _split_word(w, split_rx) -> list:
     """'HSS6x6x1/4HSS6x6x1/4' arrives as one word: split it, boxes in proportion."""
     t = w[4]
-    parts = SPLIT_SIZES.split(t)
+    parts = split_rx.split(t)
     if len(parts) == 1:
         return [w]
     out, pos = [], 0
@@ -182,51 +186,56 @@ def _category(kind: str, fam: str, role: str, vertical: bool) -> tuple[str, str]
     return ("Other", fam)
 
 
-def read_plans(path: str) -> dict:
+def read_plans(path: str, profile: "profiles.Profile | str | None" = None) -> dict:
+    pf = profiles.resolve(profile, path)
+    D = pf.drawings
+    nc, tg = D.notes_column, D.tags
     doc = pymupdf.open(path)
     sheets, elements, schedule = [], [], {}
     for pno, page in enumerate(doc):
         words = page.get_text("words")
-        hdr = _sheet_header(words)
+        tb_x = D.title_block.x_min.at(page.rect.width)
+        hdr = _sheet_header(words, tb_x, pf)
         if not hdr:
             continue
         sheet_no, title, sn_rect = hdr
-        kind = _sheet_kind(title)
-        level = _level_of(title, kind)
+        kind = _sheet_kind(title, pf)
+        level = _level_of(title, kind, pf)
         # drawing area: left of the plan-notes column on plan sheets, else left of the title block
-        notes = [w for w in words if w[4] == "NOTES" and w[0] > 1900 and w[0] < 2690]
-        cutoff = min(w[0] for w in notes) - 40 if notes and kind in ("framing", "foundation") else 2690
+        notes = [w for w in words if w[4] == nc.heading_word and w[0] > nc.x_min.at(page.rect.width) and w[0] < tb_x]
+        has_notes = bool(notes) and kind in nc.sheet_kinds
+        cutoff = min(w[0] for w in notes) - nc.margin_pt if has_notes else tb_x
         # widen to the left edge of the notes heading line (the heading is "FRAMING PLAN NOTES")
-        if notes and kind in ("framing", "foundation"):
+        if has_notes:
             hn = min(notes, key=lambda w: w[0])
-            line = [w for w in words if abs(w[3] - hn[3]) < 2 and abs(w[0] - hn[0]) < 260]
-            cutoff = min(w[0] for w in line) - 40
-        grid = _grids(words, cutoff)
+            line = [w for w in words if abs(w[3] - hn[3]) < 2 and abs(w[0] - hn[0]) < nc.heading_line_span_pt]
+            cutoff = min(w[0] for w in line) - nc.margin_pt
+        grid = _grids(words, cutoff, pf)
         sheet = {"sheet": sheet_no, "title": title, "kind": kind, "level": level, "page": pno + 1,
                  "width": page.rect.width, "height": page.rect.height, "sheet_rect": sn_rect,
                  "cutoff": round(cutoff, 1), "grid": grid, "tags": 0}
         sheets.append(sheet)
-        if kind == "notes":
+        if kind in D.no_tag_kinds:
             continue
         by_line: dict[tuple, list] = defaultdict(list)
         for w in words:
             by_line[(w[5], w[6])].append(w)
-        if kind == "foundation":
-            schedule.update(_footing_schedule(words, cutoff, sheet_no, pno + 1))
-        timber_ok = kind in ("framing", "trellis")
+        if kind in D.footing_schedule.kinds:
+            schedule.update(_footing_schedule(words, cutoff, sheet_no, pno + 1, D.footing_schedule))
+        timber_ok = kind in tg.timber_kinds
         n = 0
         for w0 in words:
             if w0[2] > cutoff:
                 continue
-            for w in _split_word(w0):
+            for w in _split_word(w0, tg.split_sizes_regex):
                 t = w[4]
                 info = sizes.norm(t, timber=timber_ok)
                 mark = ""
                 if info is None:
                     tc = sizes.clean(t)
-                    if kind == "foundation" and FOUND_MARK.match(tc):
+                    if kind in tg.mark_kinds and tg.foundation_mark_regex.match(tc):
                         mark = tc
-                    elif kind in ("framing", "foundation") and SMF.match(tc):
+                    elif kind in tg.smf_kinds and tg.smf_regex.match(tc):
                         mark = "SMF"
                     else:
                         continue
@@ -234,7 +243,7 @@ def read_plans(path: str) -> dict:
                 line = sorted(by_line[(w[5], w[6])], key=lambda x: x[7])
                 nxt = sorted(by_line.get((w[5], w[6] + 1), []), key=lambda x: x[7])
                 ctx = [x for x in line if x[7] > w[7]][:4] + nxt[:3]
-                role = " ".join(x[4] for x in ctx if re.sub(r"[^A-Z]", "", x[4].upper()) in ROLE_WORDS or x[4].startswith("("))
+                role = " ".join(x[4] for x in ctx if re.sub(r"[^A-Z]", "", x[4].upper()) in tg.role_words or x[4].startswith("("))
                 is_vert = (w[3] - w[1]) > 1.2 * (w[2] - w[0])  # rotated 90 deg text: box taller than wide
                 if mark:
                     if mark == "SMF":
@@ -262,7 +271,7 @@ def read_plans(path: str) -> dict:
                     "grid_node_dist": g["node_dist"], "bbox": _rect(w), "rects": rects,
                     "text": (t + (" " + role if role else "")).strip(), "vertical_text": is_vert,
                     "params": ({"role": role} if role else {}) | ({"sfrs": "yes (* = part of the seismic force-resisting system)"}
-                                                                  if t.startswith("*") and not mark else {}),
+                                                                  if t.startswith(tg.sfrs_prefix) and not mark else {}),
                 }
                 if mark and mark in schedule:
                     el["params"]["schedule"] = schedule[mark]["text"]
@@ -274,12 +283,13 @@ def read_plans(path: str) -> dict:
             "meta": {"page_count": len(doc), "s_sheets": len(sheets)}}
 
 
-def _footing_schedule(words: list, cutoff: float, sheet: str, page: int) -> dict:
-    """FOUNDATION SCHEDULE - PAD rows: 'F9 9' - 0" 9' - 0" 2' - 6" (14) #6 EA WAY T&B'."""
+def _footing_schedule(words: list, cutoff: float, sheet: str, page: int, fs) -> dict:
+    """FOUNDATION SCHEDULE - PAD rows: mark, then length, width, thickness as ft-in, then reinforcing."""
     out = {}
-    marks = [w for w in words if w[0] > cutoff and re.fullmatch(r"F\d{1,2}(?:\.\d)?", w[4])]
+    marks = [w for w in words if w[0] > cutoff and fs.mark_regex.fullmatch(w[4])]
     for m in marks:
-        row = sorted((w for w in words if abs((w[1] + w[3]) / 2 - (m[1] + m[3]) / 2) < 4 and m[0] <= w[0] < m[0] + 420),
+        row = sorted((w for w in words if abs((w[1] + w[3]) / 2 - (m[1] + m[3]) / 2) < fs.row_tol_pt
+                      and m[0] <= w[0] < m[0] + fs.row_width_pt),
                      key=lambda w: w[0])
         text = " ".join(w[4] for w in row)
         dims = re.findall(r"(\d+)'\s*-\s*(\d+)\"", text)

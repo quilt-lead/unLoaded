@@ -26,6 +26,11 @@ Deterministic rules, each recorded on the node it produced:
   brace. The classifier is checked against the legend's own exemplars on every run.
 - attachment: nearest drawn element(s) of the drawing-set element source (beam drawn
   line, column position, else tag bbox), on the same sheet, within a stated distance.
+
+Set conventions come from the set's profile (calcgraph/profiles/*.yaml): which sheets hold the
+connection-type details and their category by sheet prefix, detail title-bar text heights, the
+sheet-number and detail-reference regexes, the plan legend phrases -> symbol kinds, and the calc
+connection rules. `build` resolves the profile from the file names unless one is passed.
 """
 from __future__ import annotations
 
@@ -35,37 +40,10 @@ from collections import Counter, defaultdict
 
 import pymupdf
 
-from . import sizes
+from . import profiles, sizes
 from .drawing_ingest import grid_ref
 
-SHEET_RE = re.compile(r"^S\d+(?:\.\d+){1,3}$")
 LABEL_RE = re.compile(r"^(?:\d{1,2}[A-Z]?|[A-Z])$")
-TEXT_REF = re.compile(r"(?<![\w/.])(\d{1,2}[A-Z]?)\s*/\s*(S\d+(?:\.\d+){1,3})(?!\d)")
-
-DETAIL_CATEGORY = [  # (sheet prefix, category)
-    ("S8.0.1", "foundation"), ("S8.0.2", "slab on grade"), ("S8.0.3", "concrete"),
-    ("S8.2.3", "steel drag"), ("S8.2.4", "steel deck"), ("S8.2.5", "steel deck"),
-    ("S8.2.6", "moment frame"), ("S8.2", "steel"), ("S8.4", "metal stud"),
-    ("S8.6", "wood"), ("S8.8", "stair"),
-]
-NON_S8_CONN = re.compile(r"\bCONN(?:ECTION)?S?\b|BASE DETAIL|BASEPLATE|BASE PLATE")
-CONN_WORDS = re.compile(r"\b(CONN(?:ECTION)?S?|BASEPLATE|BASE PLATE|SPLICE|DRAG|COLLECTOR|KICKER|BRACE|STIFFENER|"
-                        r"ANCHOR(?:AGE)?|WELD|BOLT|SEAT|BEARING|CLIP|HANGER|TO|AT|WUF-W|EMBED|DOWEL|LEDGER)\b")
-SPEC_WORDS = re.compile(r"(BOLT|A325|A490|F1554|WELD|FILLET|CJP|PJP|\bPL\s?\d|\bPL\b|PLATE|ANCHOR|ROD|STIFF|"
-                        r"SHEAR TAB|CLIP|SCREW|#\d+|HSA|EMBED|DOWEL|\bL\d|ANGLE|NELSON|STUD|WASHER|NUT|DOUBLER|GUSSET|"
-                        r"SIMPSON|HILTI|EPOXY|KWIK|TITEN|PAF|PIN)")
-
-SYMBOL_KINDS = {
-    "mrf": "Moment resisting frame connection",
-    "moment_cantilever": "Moment connection at cantilevered framing",
-    "drag": "Drag connection",
-    "stiffener": "Full height stiffener connection",
-    "kicker": "Kicker brace",
-}
-LEGEND_KEYS = [  # legend text -> symbol kind
-    ("MOMENT RESISTING FRAME", "mrf"), ("MOMENT CONNECTION AT", "moment_cantilever"),
-    ("DRAG CONNECTION", "drag"), ("FULL HEIGHT STIFFENER", "stiffener"), ("KICKER BRACE", "kicker"),
-]
 
 
 def _r(b) -> list[float]:
@@ -80,10 +58,10 @@ def _h(w) -> float:
     return w[3] - w[1]
 
 
-def _category(sheet: str) -> str:
-    for pre, cat in DETAIL_CATEGORY:
-        if sheet.startswith(pre):
-            return cat
+def _category(sheet: str, pf) -> str:
+    for c in pf.drawings.details.categories:
+        if sheet.startswith(c.prefix):
+            return c.category
     return "other"
 
 
@@ -103,9 +81,13 @@ def _lines(words) -> list[dict]:
 # ----------------------------------------------------------------------------- details
 
 
-def read_details(page, sheet: dict) -> list[dict]:
+def read_details(page, sheet: dict, pf) -> list[dict]:
+    dt = pf.drawings.details
+    nlo, nhi = dt.number_height_pt
+    tlo, thi = dt.title_height_pt
+    x_max = dt.x_max.at(page.rect.width)
     words = page.get_text("words")
-    nums = [w for w in words if re.fullmatch(r"\d{1,2}[A-Z]?", w[4]) and 22 <= _h(w) <= 28 and w[0] < 2720]
+    nums = [w for w in words if re.fullmatch(r"\d{1,2}[A-Z]?", w[4]) and nlo <= _h(w) <= nhi and w[0] < x_max]
     rows: dict[int, list] = defaultdict(list)
     for n in nums:
         rows[round(_c(n)[1] / 8)].append(n)
@@ -115,7 +97,7 @@ def read_details(page, sheet: dict) -> list[dict]:
         for i, n in enumerate(ns):
             left = ns[i - 1][2] + 4 if i else 40.0
             cy = _c(n)[1]
-            tw = [w for w in words if 15 <= _h(w) < 22 and abs(_c(w)[1] - cy) < 6.5 and left < w[0] and w[2] < n[0]]
+            tw = [w for w in words if tlo <= _h(w) < thi and abs(_c(w)[1] - cy) < 6.5 and left < w[0] and w[2] < n[0]]
             tw.sort(key=lambda w: w[0])
             # keep the contiguous run nearest the number: sub-view captions further left on the same
             # baseline (whole-sheet details) are separated by a wide gap
@@ -141,14 +123,14 @@ def read_details(page, sheet: dict) -> list[dict]:
         spec, seen = [], set()
         for ln in _lines(inside):
             t = ln["text"].strip()
-            if SPEC_WORDS.search(t.upper()) and t not in seen:
+            if dt.spec_regex.search(t.upper()) and t not in seen:
                 seen.add(t)
                 spec.append({"text": t, "rect": _r(ln["rect"])})
         szs = sorted({sizes.norm(w[4])["norm"] for w in inside if sizes.norm(w[4])})
         out.append({
             "id": did, "node_type": "connection_type", "detail": n[4], "sheet": sheet["sheet"], "page": sheet["page"],
-            "doc": "plans", "sheet_title": sheet.get("title", ""), "category": _category(sheet["sheet"]),
-            "title": title, "is_connection": bool(CONN_WORDS.search(title.upper())),
+            "doc": "plans", "sheet_title": sheet.get("title", ""), "category": _category(sheet["sheet"], pf),
+            "title": title, "is_connection": bool(dt.connection_title_regex.search(title.upper())),
             "scale": " ".join(w[4] for w in b["scale_words"]),
             "bbox": _r(panel), "number_rect": _r(n), "title_rects": [_r(w) for w in b["title_words"]],
             "spec": spec, "sizes": szs, "rule": "detail title bar: number h~25pt, title words h~19pt left of it",
@@ -239,10 +221,10 @@ def _leader(cx: float, cy: float, r: float, segs: list) -> dict | None:
 # ----------------------------------------------------------------------------- callouts / refs
 
 
-def find_callouts(page, words, drawings, circles, segs) -> list[dict]:
+def find_callouts(page, words, drawings, circles, segs, sheet_re) -> list[dict]:
     out = []
     for s in words:
-        if not SHEET_RE.match(s[4]) or _h(s) > 13:
+        if not sheet_re.match(s[4]) or _h(s) > 13:
             continue
         scx = _c(s)[0]
         labs = [w for w in words if LABEL_RE.match(w[4]) and abs(_c(w)[0] - scx) < 7 and 0 <= s[1] - w[3] < 9 and _h(w) <= 13]
@@ -263,11 +245,11 @@ def find_callouts(page, words, drawings, circles, segs) -> list[dict]:
     return out
 
 
-def find_text_refs(words) -> list[dict]:
+def find_text_refs(words, text_ref) -> list[dict]:
     out = []
     for ln in _lines(words):
         t = ln["text"]
-        for m in TEXT_REF.finditer(t):
+        for m in text_ref.finditer(t):
             # map character span back to words
             pos, rects = 0, []
             for w in ln["words"]:
@@ -379,22 +361,24 @@ def find_symbols(drawings, segs, region) -> list[dict]:
     return out
 
 
-def read_legend(words, cutoff: float) -> tuple[dict, list]:
-    """Symbol kind -> {detail ref, legend text, rects} from the plan's FRAMING PLAN SYMBOLS legend."""
+def read_legend(words, cutoff: float, pf) -> tuple[dict, list]:
+    """Symbol kind -> {detail ref, legend text, rects} from the plan's symbol legend (profile phrases)."""
+    lg = pf.drawings.symbol_legend
     lines = [ln for ln in _lines(words) if ln["rect"][0] >= cutoff - 200]
-    refs = find_text_refs([w for w in words if w[0] >= cutoff - 200])
+    refs = find_text_refs([w for w in words if w[0] >= cutoff - 200], pf.drawings.details.text_ref_regex)
     legend, rows = {}, []
     blocks: dict[int, list] = defaultdict(list)
     for ln in lines:
         blocks[ln["key"][0]].append(ln)
     for bno, lns in blocks.items():
         text = " ".join(ln["text"] for ln in sorted(lns, key=lambda x: x["rect"][1]))
-        for key, kind in LEGEND_KEYS:
-            if text.upper().startswith("INDICATES") and key in text.upper():
+        for ent in lg.entries:
+            key, kind = ent.phrase, ent.kind
+            if text.upper().startswith(lg.line_prefix) and key in text.upper():
                 rect = [min(ln["rect"][0] for ln in lns), min(ln["rect"][1] for ln in lns),
                         max(ln["rect"][2] for ln in lns), max(ln["rect"][3] for ln in lns)]
                 ref = [r for r in refs if rect[1] - 3 <= _c(r["bbox"])[1] <= rect[3] + 3 and r["bbox"][0] > rect[0]]
-                legend[kind] = {"kind": kind, "name": SYMBOL_KINDS[kind], "text": text.strip() +
+                legend[kind] = {"kind": kind, "name": ent.name, "text": text.strip() +
                                 (" " + ref[0]["context"].split("PER")[-1].strip() if ref else ""),
                                 "detail": ref[0]["ref"].rstrip(".") if ref else None, "rect": _r(rect),
                                 "ref_rects": ref[0]["rects"] if ref else []}
@@ -481,23 +465,11 @@ def attach(p: tuple, els: list[dict], *, max_d: float, want: int = 2, symbol: bo
 # ----------------------------------------------------------------------------- calc package
 
 
-CALC_RULES = [  # (rule id, regex, what it shows, designs a connection?)
-    ("hand_conn_design", re.compile(r"CONN\s*DESIG|CONN\s*[12]\b|CONN[12]", re.I), "hand calc titled CONN DESIGN / CONN1 / CONN2", True),
-    ("weld_check", re.compile(r"WELD", re.I), "weld check text", True),
-    ("bolt", re.compile(r"\bBOLTS?\b|A325|A490", re.I), "bolt text", True),
-    ("simpson_connector", re.compile(r"Simpson Strong-Tie® Connectors? @", re.I), "CFS tool Simpson connector interaction at stud supports", True),
-    ("clip_shear_conn", re.compile(r"Shear Connection\s+w/ clip", re.I), "CFS web crippling support = shear connection w/ clip", False),
-    ("risa_connection_props", re.compile(r"Member RISAConnection Properties", re.I), "RISA-3D member connection table (Start/End Conn)", False),
-    ("seismic_conn_rule", re.compile(r"SMF-WUF-W", re.I), "RISA seismic design rule: prequalified SMF connection type WUF-W", False),
-    ("anchorage_note", re.compile(r"anchorage", re.I), "anchorage note", False),
-    ("stiffener_plate", re.compile(r"STIFF(?:E)?NER\s*PL|STIFF PL", re.I), "stiffener plate on a sketch", False),
-]
-CALC_ID = re.compile(r"^[A-E]\d{1,3}(?:_\d{1,3})?$")
-
-
-def scan_calcs(calc_docs: list[tuple[str, str]], calc_ids: dict, detail_ids: dict) -> dict:
+def scan_calcs(calc_docs: list[tuple[str, str]], calc_ids: dict, detail_ids: dict, pf) -> dict:
     """calc_docs: [(doc key, path)]. Returns per-page hits, detail references from calc pages,
     and a verdict per rule. calc_ids maps (doc, page) -> calc node id of the set graph."""
+    CALC_ID, SHEET_RE = pf.calcs.page_id.regex, pf.drawings.title_block.sheet_number_regex
+    TEXT_REF = pf.drawings.details.text_ref_regex
     hits, refs = [], []
     for key, path in calc_docs:
         doc = pymupdf.open(path)
@@ -505,7 +477,8 @@ def scan_calcs(calc_docs: list[tuple[str, str]], calc_ids: dict, detail_ids: dic
             text = page.get_text()
             words = page.get_text("words")
             cid = calc_ids.get((key, i + 1)) or next((ln for ln in text.splitlines() if CALC_ID.match(ln.strip())), f"{key}-{i + 1}")
-            for rid, rx, what, designs in CALC_RULES:
+            for cr in pf.calcs.connection_rules:
+                rid, rx, what, designs = cr.id, cr.regex, cr.what, cr.designs_connection
                 ms = list(rx.finditer(text))
                 if not ms:
                     continue
@@ -542,7 +515,13 @@ def scan_calcs(calc_docs: list[tuple[str, str]], calc_ids: dict, detail_ids: dic
 # ----------------------------------------------------------------------------- build
 
 
-def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: list[tuple[str, str]], calc_ids: dict) -> dict:
+def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: list[tuple[str, str]], calc_ids: dict,
+          profile: "profiles.Profile | str | None" = None) -> dict:
+    pf = profiles.resolve(profile, plans_path, *[p for _, p in calc_docs])
+    D = pf.drawings
+    SHEET_RE, TEXT_REF = D.title_block.sheet_number_regex, D.details.text_ref_regex
+    is_type_sheet = lambda sh: bool(D.details.type_sheet_regex.match(sh))  # noqa: E731
+    SYMBOL_NAMES = {e.kind: e.name for e in D.symbol_legend.entries}
     doc = pymupdf.open(plans_path)
     els_by_sheet: dict[str, list] = defaultdict(list)
     for e in elements:
@@ -551,12 +530,12 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
     types: list[dict] = []
     views: list[dict] = []  # plans / elevations / sections / enlarged views: where a connection callout may sit
     for s in sheets:
-        if s.get("kind") == "notes":
+        if s.get("kind") in D.no_tag_kinds:
             continue
-        for d in read_details(doc[s["page"] - 1], s):
-            if s["sheet"].startswith("S8"):
+        for d in read_details(doc[s["page"] - 1], s, pf):
+            if is_type_sheet(s["sheet"]):
                 types.append(d)
-            elif NON_S8_CONN.search(d["title"].upper()):
+            elif D.details.other_sheet_connection_regex.search(d["title"].upper()):
                 d["category"] = "enlarged-sheet detail"
                 d["rule"] += "; non-S8 detail kept as a connection type because its title names a connection"
                 types.append(d)
@@ -584,7 +563,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
         drawings = page.get_drawings()
         segs = _segments(drawings)
         circles = _circles(drawings)
-        cutoff = s.get("cutoff") or 2690
+        cutoff = s.get("cutoff") or D.title_block.x_min.at(page.rect.width)
         grid = s.get("grid") or {"cols": [], "rows": []}
         has_grid = bool(grid["cols"] and grid["rows"])
         els = els_by_sheet.get(s["sheet"], [])
@@ -600,7 +579,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
         def gref(p):
             return grid_ref(p[0], p[1], grid) if has_grid else {"ref": "", "node": None, "node_dist": None}
 
-        bubbles = find_callouts(page, words, drawings, circles, segs)
+        bubbles = find_callouts(page, words, drawings, circles, segs, SHEET_RE)
         bubble_zones = [(b["center"], b["radius"]) for b in bubbles]
         for b in bubbles:
             p = b["leader"]["end"] if b["leader"] else b["center"]
@@ -610,7 +589,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
             if not in_draw:
                 stats["callout bubbles in notes column (skipped)"] += 1
                 continue
-            if s["sheet"].startswith("S8"):
+            if is_type_sheet(s["sheet"]):
                 hp = host_panel(b["center"])
                 detail_refs.append(rec | {"via": "callout bubble", "from_detail": hp, "known": bool(resolve(b["ref"])[0]),
                                           "type_id": resolve(b["ref"])[0], "subview": resolve(b["ref"])[1]})
@@ -623,30 +602,30 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
                                     "attach_from": "leader end" if b["leader"] else "bubble centre (no leader found)"})
             stats["instances: callout bubble"] += 1
 
-        trefs = find_text_refs(words)
+        trefs = find_text_refs(words, TEXT_REF)
         legend, legend_rows = ({}, [])
-        if s.get("kind") == "framing":
-            legend, legend_rows = read_legend(words, cutoff)
+        if s.get("kind") in D.symbol_legend.sheet_kinds:
+            legend, legend_rows = read_legend(words, cutoff, pf)
             legends[s["sheet"]] = legend
         for t in trefs:
             p = _c(t["bbox"])
             rec = {"sheet": s["sheet"], "page": s["page"], "doc": "plans", "ref": t["ref"].rstrip("."), "bbox": t["bbox"],
                    "rects": t["rects"], "context": t["context"]}
             rec["ref"] = re.sub(r"\.$", "", rec["ref"])
-            if s["sheet"].startswith("S8"):
+            if is_type_sheet(s["sheet"]):
                 detail_refs.append(rec | {"via": "text reference", "from_detail": host_panel(p),
                                           "known": bool(resolve(rec["ref"])[0]), "type_id": resolve(rec["ref"])[0],
                                           "subview": resolve(rec["ref"])[1]})
-            elif p[0] >= cutoff or s.get("kind") == "notes":
+            elif p[0] >= cutoff or s.get("kind") in D.no_tag_kinds:
                 note_refs.append(rec | {"legend": any(r[1] - 3 <= p[1] <= r[3] + 3 for r in legend_rows)})
-            elif rec["ref"].split("/")[1].startswith("S8") or resolve(rec["ref"])[0]:
+            elif is_type_sheet(rec["ref"].split("/")[1]) or resolve(rec["ref"])[0]:
                 instances.append(rec | {"via": "text reference", "symbol": None, "in_view": host_view(p), "point": [round(p[0], 1), round(p[1], 1)],
                                         "attach_from": "text reference position", "leader": None, "flags": []})
                 stats["instances: text reference"] += 1
             else:
                 other_callouts.append(rec | {"kind": "text reference to a non-S8 sheet", "point": [round(p[0], 1), round(p[1], 1)]})
 
-        if s.get("kind") == "framing" and legend:
+        if s.get("kind") in D.symbol_legend.sheet_kinds and legend:
             # classifier self-check on the legend's own exemplars (symbol column left of the legend text)
             lx0 = min(v["rect"][0] for v in legend.values())
             ex = find_symbols(drawings, segs, (lx0 - 120, min(v["rect"][1] for v in legend.values()) - 15, lx0 - 5,
@@ -656,7 +635,8 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
                 row = [e for e in ex if v["rect"][1] - 14 <= (e["rect"].y0 + e["rect"].y1) / 2 <= v["rect"][3] + 8]
                 got[kind] = sorted({e["kind"] for e in row})
             legend_check[s["sheet"]] = {k: {"expected": k, "classified": v, "ok": v == [k]} for k, v in got.items()}
-            syms = find_symbols(drawings, segs, (40, 40, cutoff, 2120))
+            mg = D.drawing_area_margin_pt
+            syms = find_symbols(drawings, segs, (mg, mg, cutoff, page.rect.height - mg))
             for sym in syms:
                 r = sym["rect"]
                 p = ((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2)
@@ -667,7 +647,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
                 instances.append({"sheet": s["sheet"], "page": s["page"], "doc": "plans", "in_view": host_view(p),
                                   "ref": lg.get("detail") or ("per frame elevation" if sym["kind"] == "mrf" else None),
                                   "bbox": _r(r), "rects": [_r(r)], "via": "plan symbol", "symbol": sym["kind"],
-                                  "symbol_name": SYMBOL_KINDS[sym["kind"]], "legend_text": lg.get("text"),
+                                  "symbol_name": SYMBOL_NAMES.get(sym["kind"], sym["kind"]), "legend_text": lg.get("text"),
                                   "point": [round(p[0], 1), round(p[1], 1)], "attach_from": "symbol centre", "leader": None, "flags": []})
                 stats[f"instances: plan symbol {sym['kind']}"] += 1
 
@@ -720,7 +700,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
         ins["type_id"], ins["subview"] = resolve(ins["ref"])
         if ins["ref"] and not ins["type_id"] and ins["ref"] != "per frame elevation":
             ins["missing_type"] = True
-    calc = scan_calcs(calc_docs, calc_ids, {**{v: "view" for v in vmap}, **{t: "connection_type" for t in tmap}})
+    calc = scan_calcs(calc_docs, calc_ids, {**{v: "view" for v in vmap}, **{t: "connection_type" for t in tmap}}, pf)
     for t in types:
         t["instances"] = [i["id"] for i in instances if i["type_id"] == t["id"]]
         t["referenced_from_details"] = sorted({r["from_detail"] for r in detail_refs if r.get("type_id") == t["id"] and r.get("from_detail")})

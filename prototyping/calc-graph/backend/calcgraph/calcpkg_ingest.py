@@ -6,10 +6,11 @@ Every token the graph or the mapper uses (entity labels, member sizes, drawing
 references, load names) is kept with the PDF-point box of the word(s) it came from,
 so any node or edge can be shown on the original page with a highlight.
 
-Page id rule: a word matching ^[A-E]\\d{1,3}(_\\d{1,3})?$ in the top-right corner
-(x > 480, y < 45) or, on RISA sketch pages whose content is rotated, in the left
-margin (x < 45, 40 < y < 130). Material grades (A36, A992, A500 ...) never qualify.
-A package without such ids (the stair calcs) gets ids <PREFIX>-<page>.
+Set conventions come from the set's profile (calcgraph/profiles/*.yaml): page id regex and
+the regions it is looked for in (top-right corner; left margin of rotated RISA sketch pages),
+excluded words (material grades), banner / boilerplate / stamp text, RISA label regexes,
+title rules per output style, software detectors and the section map (subtotal rows).
+A package without page ids (the stair calcs) gets ids <PREFIX>-<page>.
 """
 from __future__ import annotations
 
@@ -18,31 +19,10 @@ from collections import defaultdict
 
 import pymupdf
 
-from . import sizes
+from . import profiles, sizes
 
-PAGE_ID = re.compile(r"^[A-E]\d{1,3}(?:_\d{1,3})?$")
-GRADES = {"A36", "A53", "A500", "A572", "A992", "A325", "A490", "A307", "A615", "A706", "A1085"}
-BANNER = re.compile(r"^([A-E])_[A-Z ]+$")
-BOILER = re.compile(r"^(project|by|location|date|client|job no\.?|sheet no\.?|company|designer|job number|model name|"
-                    r"checked by.*|:|kpff.*|building&safety.*|permits:.*|plb21-\d+|\d{1,2}/\d{1,2}/\d{2,4}|dana point.*|"
-                    r"sms.*|1900799|pd|risa outputs|18400 von karman.*|irvine.*|\(949\).*|lic\..*|software copyright.*|"
-                    r"kpff consulting engineers|project file.*|project title.*|engineer.*|description:?|"
-                    r"may \d+, 2021.*|\d+:\d+ [ap]m|[a-z]+ \d+, 20\d\d)$", re.I)
-CONTINUED = re.compile(r"\s*\((?:Continued|cont\.?)\)\s*", re.I)
-
-# entity labels and the scope they live in
-LABELS = [
-    ("FN", re.compile(r"^F(\d)_N(\d+)$")),            # RISA-3D floor node  F1_N14
-    ("FM", re.compile(r"^F(\d)_M(\d+)$")),            # RISA-3D floor member F2_M30
-    ("R3D", re.compile(r"^R3D_N(\d+)$")),             # foundation joint from RISA-3D node
-    ("FLR", re.compile(r"^FLR_(\d)_N(\d+(?:_\d+)?)$")),  # foundation joint from a RISAFloor floor
-    ("M", re.compile(r"^(?:M|PUR)\d+$")),             # RISAFloor member
-    ("N", re.compile(r"^N\d+$")),                     # node / point
-    ("CS", re.compile(r"^CS\d+$")),                   # column stack
-    ("STACK", re.compile(r"^\(([A-E](?:\.\d)?-\d(?:\.\d)?)\)(?:_L\d)?$")),  # grid-named stack (C.8-4)
-]
-DRAWING_REF = re.compile(r"(\d{1,2})/(S\d+(?:\.\d+){1,3})")
-SHEET_REF = re.compile(r"^(S\d+\.\d+\.\d+)")
+# the generic profile's page-id rule, for callers that have no set profile in hand
+PAGE_ID = profiles.load("default").calcs.page_id.regex
 
 
 def _rect(b) -> list[float]:
@@ -60,18 +40,17 @@ def _lines(page) -> list[dict]:
     return out
 
 
-def _page_id(words) -> tuple[str, list] | None:
-    cands = [w for w in words if PAGE_ID.match(w[4]) and w[4] not in GRADES]
-    tr = [w for w in cands if w[0] > 480 and w[1] < 45]
-    lm = [w for w in cands if w[0] < 45 and 40 < w[1] < 130]
-    pick = (tr or lm)
-    if not pick:
-        return None
-    w = pick[0]
-    return w[4], _rect(w)
+def _page_id(words, pf) -> tuple[str, list] | None:
+    pi = pf.calcs.page_id
+    cands = [w for w in words if pi.regex.match(w[4]) and w[4] not in pi.exclude]
+    for region in pi.regions:
+        pick = [w for w in cands if region.holds(w)]
+        if pick:
+            return pick[0][4], _rect(pick[0])
+    return None
 
 
-def _title(lines: list[dict], words) -> tuple[str, list, list[dict]]:
+def _title(lines: list[dict], words, pf) -> tuple[str, list, list[dict]]:
     """(title, title rect, tables[]). Per output style, first match wins:
     Enercalc   'Steel Beam' + the DESCRIPTION value on the same baseline
     RISA       table titles (11.6 pt, x < 60) / sketch titles (12 pt, rotated); RISA-3D
@@ -79,34 +58,42 @@ def _title(lines: list[dict], words) -> tuple[str, list, list[dict]]:
     calc pad   KPFF pad: the 10+ pt heading under the header, else the subject field
     else       first line that is not header boilerplate
     """
+    C, T = pf.calcs, pf.calcs.title
+    CONTINUED, BANNER, PAGE_ID, BOILER = C.continued_regex, C.banner_regex, C.page_id.regex, C.boilerplate_rx
     tables = [{"title": CONTINUED.sub(" ", l["text"]).strip(), "rect": l["rect"]} for l in lines
-              if l["size"] >= 11.5 and l["dir"] == [1.0, 0.0] and l["rect"][0] < 60 and not BANNER.match(l["text"])]
-    desc = next((l for l in lines if l["text"].upper().startswith("DESCRIPTION")), None)
+              if l["size"] >= T.table_title_min_size and l["dir"] == [1.0, 0.0] and l["rect"][0] < T.table_title_x_max
+              and not BANNER.match(l["text"])]
+    desc = next((l for l in lines if l["text"].upper().startswith(T.description_prefix)), None)
     if desc:
-        head = next((l["text"] for l in lines if l["text"] in ("Steel Beam", "Steel Column", "Wood Beam", "Wood Column")), "")
+        head = next((l["text"] for l in lines if l["text"] in T.design_heads), "")
         val = next((l for l in lines if abs(l["rect"][1] - desc["rect"][1]) < 3 and l["rect"][0] > desc["rect"][2] - 1), None)
         txt = (val["text"] if val else desc["text"].split(":", 1)[-1]).strip()
         return (f"{head} - {txt}" if head else txt), (val or desc)["rect"], tables
-    if any(l["text"] == "Model Name" for l in lines) and not tables:
+    r3 = T.risa3d
+    if any(l["text"] == r3.marker_line for l in lines) and not tables:
         t = next((l for l in sorted(lines, key=lambda l: l["rect"][1])
-                  if l["rect"][0] < 60 and 95 < l["rect"][1] < 118 and l["size"] >= 8.5), None)
+                  if l["rect"][0] < r3.x_max and r3.y.lo < l["rect"][1] < r3.y.hi and l["size"] >= r3.min_size), None)
         if t:
             return CONTINUED.sub(" ", t["text"]).strip(), t["rect"], [{"title": CONTINUED.sub(" ", t["text"]).strip(),
                                                                        "rect": t["rect"]}]
-    big = [l for l in lines if l["size"] >= 11.5 and not BANNER.match(l["text"]) and l["text"].upper() != "RISA OUTPUTS"
+    big = [l for l in lines if l["size"] >= T.table_title_min_size and not BANNER.match(l["text"])
+           and l["text"].upper() not in T.big_line_skip
            and not PAGE_ID.match(l["text"]) and re.search(r"[A-Za-z]{3}", l["text"])]
     if big:
         l = sorted(big, key=lambda l: (l["rect"][1], l["rect"][0]))[0]
         return CONTINUED.sub(" ", l["text"]).strip(), l["rect"], tables
-    if any(l["text"] == "sheet no." for l in lines):
-        h = [l for l in lines if l["size"] >= 9.8 and 112 < l["rect"][1] < 150 and re.search(r"[A-Za-z]{4}", l["text"])]
+    pad = T.pad
+    if any(l["text"] == pad.marker_line for l in lines):
+        h = [l for l in lines if l["size"] >= pad.heading_min_size and pad.heading_y.lo < l["rect"][1] < pad.heading_y.hi
+             and re.search(r"[A-Za-z]{4}", l["text"])]
         if h:
             return h[0]["text"], h[0]["rect"], tables
-        sub = [l for l in lines if 84 < l["rect"][1] < 104 and 270 < l["rect"][0] < 420 and re.search(r"[A-Za-z]{3}", l["text"])
+        sub = [l for l in lines if pad.subject_y.lo < l["rect"][1] < pad.subject_y.hi and pad.subject_x.lo < l["rect"][0] < pad.subject_x.hi
+               and re.search(r"[A-Za-z]{3}", l["text"])
                and not BOILER.match(l["text"])]
         if sub:
             return sub[0]["text"], sub[0]["rect"], tables
-    for key in ("Model:",):
+    for key in T.field_keys:
         l = next((l for l in lines if l["text"].startswith(key)), None)
         if l:
             return l["text"].split(":", 1)[1].strip(), l["rect"], tables
@@ -118,41 +105,41 @@ def _title(lines: list[dict], words) -> tuple[str, list, list[dict]]:
     return "", None, tables
 
 
-def _level(title: str, text: str) -> str:
-    m = re.search(r"\b(Level\s*\d|Roof)(?![A-Za-z0-9])", title, re.I)  # "Level 2_Design Results" too
+def _level(title: str, pf) -> str:
+    m = pf.calcs.level_regex.search(title)  # "Level 2_Design Results" too
     if m:
         v = m.group(1)
         return "Roof" if v.lower() == "roof" else "Level " + v.split()[-1][-1]
     return ""
 
 
-def _software(text: str, sid: str) -> str:
-    if "ENERCALC" in text.upper():
-        return "Enercalc"
-    if "RISAFloor" in text or (".rfl" in text and sid[:1] in "BD"):
-        return "RISAFloor"
-    if re.search(r"RISA-?3D", text) or (sid[:1] == "C" and ".rfl" in text):
-        return "RISA-3D"
-    if "CFS" in text and "Project Name" in text:
-        return "CFS Designer"
-    return "Spreadsheet / hand calc"
+def _software(text: str, sid: str, pf) -> str:
+    for det in pf.calcs.software:
+        for rule in det.any:
+            if all(rx.search(text) for rx in rule.all) and (rule.sheet_id_first is None or sid[:1] in rule.sheet_id_first):
+                return det.name
+    return pf.calcs.fallback_software
 
 
-def read_package(path: str, doc_key: str, id_prefix: str | None = None) -> dict:
+def read_package(path: str, doc_key: str, id_prefix: str | None = None,
+                 profile: "profiles.Profile | str | None" = None) -> dict:
+    pf = profiles.resolve(profile, path)
+    C = pf.calcs
+    labels = [(lb.kind, lb.regex) for lb in C.labels]
     doc = pymupdf.open(path)
     pages = []
     for i, page in enumerate(doc):
         words = page.get_text("words")
         lines = _lines(page)
         text = page.get_text()
-        pid = _page_id(words) if id_prefix is None else None
+        pid = _page_id(words, pf) if id_prefix is None else None
         sid, sid_rect = (pid if pid else (f"{id_prefix or doc_key.upper()}-{i + 1}", None))
-        title, title_rect, tables = _title(lines, words)
+        title, title_rect, tables = _title(lines, words, pf)
         if not title and i == 0:
             title = "Cover"
-        toc = len(re.findall(r"\.{6,}", text)) >= 3
+        toc = len(re.findall(r"\.{6,}", text)) >= C.toc_min_leaders
         section = sid[0] if pid else (id_prefix or doc_key.upper())
-        banner = next((l["text"] for l in lines if BANNER.match(l["text"])), "")
+        banner = next((l["text"] for l in lines if C.banner_regex.match(l["text"])), "")
         tokens: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
         size_hits: dict[str, list] = defaultdict(list)
         size_raw: dict[str, str] = {}
@@ -160,7 +147,7 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None) -> dict:
         refs = []
         for w in words:
             t = w[4].strip().rstrip(",;")
-            for kind, rx in LABELS:
+            for kind, rx in labels:
                 if rx.match(t):
                     if len(tokens[kind][t]) < 4:
                         tokens[kind][t].append(_rect(w))
@@ -175,38 +162,37 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None) -> dict:
                 elif sizes.is_truncated_size(part):
                     truncated.append({"text": part, "rect": _rect(w)})
         for l in lines:
-            for m in DRAWING_REF.finditer(l["text"]):
+            for m in C.drawing_ref_regex.finditer(l["text"]):
                 refs.append({"detail": m.group(1), "sheet": m.group(2), "text": m.group(0), "rect": l["rect"]})
-        if not sid.startswith("A"):
-            sm = None
-        rows = _rows(words)
-        if sid.startswith("A"):
-            sr = next((r for r in rows if r["cells"] and r["cells"][0].startswith("Subtotal")), None)
+        sm = None
+        rows = _rows(words, C.stamp_text_regex)
+        sub_pre = (C.sections.get(section) or profiles.Section(title="")).subtotal_row_prefix
+        if sub_pre:
+            sr = next((r for r in rows if r["cells"] and r["cells"][0].startswith(sub_pre)), None)
             sm = {"text": " ".join(sr["cells"]), "rect": sr["rect"]} if sr else None
         pages.append({
             "id": f"{doc_key}:{sid}", "rows": rows, "doc": doc_key, "page": i + 1, "sheet_id": sid, "sheet_rect": sid_rect,
             "section": section, "title": title or "(untitled)", "title_rect": title_rect, "tables": tables,
-            "banner": banner, "level": _level(title, text), "software": _software(text, sid), "toc": toc,
+            "banner": banner, "level": _level(title, pf), "software": _software(text, sid, pf), "toc": toc,
             "width": page.rect.width, "height": page.rect.height,
             "labels": {k: dict(v) for k, v in tokens.items()}, "sizes": dict(size_hits), "size_raw": size_raw,
             "truncated": truncated[:20], "drawing_refs": refs, "lines": lines,
             "subtotal": sm,
         })
     # sections carry forward over pages without their own id (none expected in KPFF output)
-    _group(pages)
+    _group(pages, C.continued_regex)
     return {"pages": pages, "meta": {"page_count": len(doc)}}
 
 
-STAMP = re.compile(r"(Permits:|Building&Safety:|OCPWAzarvandB|PLB21-0900|BNR21-0246,?|ELE21-0853,?|MEC21-0514,?|12/22/2025)")
 
 
-def _rows(words) -> list[dict]:
-    """Table rows: horizontal words clustered by centre line (3 pt), county stamp text removed."""
+def _rows(words, stamp=None) -> list[dict]:
+    """Table rows: horizontal words clustered by centre line (3 pt), the profile's stamp text removed."""
     ws = []
     for w in words:
         if len(w[4]) >= 3 and (w[3] - w[1]) > 2 * (w[2] - w[0]):  # rotated text, not a table cell
             continue
-        t = STAMP.sub("", w[4])
+        t = stamp.sub("", w[4]) if stamp else w[4]
         if t:
             ws.append((w[0], w[1], w[2], w[3], t))
     ws.sort(key=lambda w: (w[1] + w[3]) / 2)
@@ -228,14 +214,14 @@ def _rows(words) -> list[dict]:
     return out
 
 
-def _norm_title(t: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", CONTINUED.sub("", t).lower())
+def _norm_title(t: str, continued) -> str:
+    return re.sub(r"[^a-z0-9]", "", continued.sub("", t).lower())
 
 
-def _group(pages: list[dict]) -> None:
+def _group(pages: list[dict], continued) -> None:
     cur = None
     for p in pages:
-        key = (p["section"], _norm_title(p["title"]))
+        key = (p["section"], _norm_title(p["title"], continued))
         if cur is None or cur[0] != key:
             cur = (key, f"{p['doc']}:{p['sheet_id']}")
         p["group"] = cur[1]

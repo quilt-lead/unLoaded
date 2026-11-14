@@ -1,0 +1,195 @@
+# Generic drawing-set + calc-package conventions. Every field of profiles.Profile is set here;
+# a set profile says `extends: default` and overrides only what differs (mappings merge key by
+# key, lists and scalars replace). Positions are PDF points unless given as `frac` of the page width.
+id: default
+name: Generic structural set (no set-specific knowledge)
+match:
+  filename_globs: []
+
+drawings:
+  title_block:
+    x_min: {frac: 0.889}               # title-block strip at the right edge of the sheet
+    sheet_number_regex: '^S-?\d{1,4}(?:\.\d{1,3}){0,3}[A-Z]?$'
+    title_window_above_pt: 230
+    title_gap_pt: 5
+    title_min_height_pt: 12
+    title_row_bin_pt: 6
+    title_strip_regex: '^DRAWING TITLE\s*'
+  notes_column:
+    heading_word: NOTES
+    x_min: {frac: 0.628}
+    heading_line_span_pt: 260
+    margin_pt: 40
+    sheet_kinds: [framing, foundation]
+  sheet_kinds:                          # first title substring that matches decides the kind
+    - {contains: FOUNDATION PLAN, kind: foundation}
+    - {contains: FRAMING PLAN, kind: framing}
+    - {contains: MOMENT FRAME ELEV, kind: smf}
+    - {contains: WALL ELEVATION, kind: wall}
+    - {contains: WALL SECTION, kind: wall}
+    - {contains: SECTION, kind: wall}
+    - {contains: STAIR, kind: stair}
+    - {contains: ELEVATOR, kind: elevator}
+    - {contains: TRELLIS, kind: trellis}
+    - {contains: NOTES, kind: notes}
+    - {contains: DETAIL, kind: details}
+  no_tag_kinds: [notes]
+  levels:
+    foundation_kinds: [foundation]
+    foundation_label: Level 1 / Foundation
+    level_regex: 'LEVEL\s*(\d+)'
+    level_label: 'Level {n}'
+    level_kinds: [framing]
+    roof_word: ROOF
+    roof_label: Roof
+    roof_kinds: [framing]
+  grid:
+    label_regex: '^(\d{1,2}(?:\.\d)?|[A-H](?:\.\d)?)$'
+    bubble_height_pt: [15, 26]
+    pair_axis_tol_pt: 6
+    pair_min_sep_pt: 500
+    numbers_run: columns
+  tags:
+    foundation_mark_regex: '^(F\d{1,2}(?:\.\d)?|P\d(?:\.\d)?|TB-\d{1,2}|GB-?\d{1,2})$'
+    smf_regex: '^\*?SMF$'
+    role_words: [JAMB, POST, COL, COLUMN, HDR, HEADER, STUD, STRINGER, BEAM, BM, TRELLIS, KICKER,
+                 BRACE, LEDGER, FRMG, ABV, ABOVE, BELOW, FLAT, LOW, JOIST, TRACK]
+    split_sizes_regex: '(?<=[0-9/])(?=(?:HSS|W|MC|C|L)\d)'
+    timber_kinds: [framing, trellis]
+    mark_kinds: [foundation]
+    smf_kinds: [framing, foundation]
+    sfrs_prefix: '*'
+  footing_schedule:
+    kinds: [foundation]
+    mark_regex: 'F\d{1,2}(?:\.\d)?'
+    row_tol_pt: 4
+    row_width_pt: 420
+  details:
+    type_sheet_regex: '^S-?8'
+    number_height_pt: [22, 28]
+    title_height_pt: [15, 22]
+    x_max: {frac: 0.9}
+    categories: []
+    other_sheet_connection_regex: '\bCONN(?:ECTION)?S?\b|BASE DETAIL|BASEPLATE|BASE PLATE'
+    connection_title_regex: '\b(CONN(?:ECTION)?S?|BASEPLATE|BASE PLATE|SPLICE|DRAG|COLLECTOR|KICKER|BRACE|STIFFENER|ANCHOR(?:AGE)?|WELD|BOLT|SEAT|BEARING|CLIP|HANGER|TO|AT|WUF-W|EMBED|DOWEL|LEDGER)\b'
+    spec_regex: '(BOLT|A325|A490|F1554|WELD|FILLET|CJP|PJP|\bPL\s?\d|\bPL\b|PLATE|ANCHOR|ROD|STIFF|SHEAR TAB|CLIP|SCREW|#\d+|HSA|EMBED|DOWEL|\bL\d|ANGLE|NELSON|STUD|WASHER|NUT|DOUBLER|GUSSET|SIMPSON|HILTI|EPOXY|KWIK|TITEN|PAF|PIN)'
+    text_ref_regex: '(?<![\w/.])(\d{1,2}[A-Z]?)\s*/\s*(S-?\d+(?:\.\d+){0,3})(?!\d)'
+  symbol_legend:
+    sheet_kinds: [framing]
+    line_prefix: INDICATES
+    entries:
+      - {phrase: MOMENT RESISTING FRAME, kind: mrf, name: Moment resisting frame connection}
+      - {phrase: MOMENT CONNECTION AT, kind: moment_cantilever, name: Moment connection at cantilevered framing}
+      - {phrase: DRAG CONNECTION, kind: drag, name: Drag connection}
+      - {phrase: FULL HEIGHT STIFFENER, kind: stiffener, name: Full height stiffener connection}
+      - {phrase: KICKER BRACE, kind: kicker, name: Kicker brace}
+  drawing_area_margin_pt: 40
+
+calcs:
+  page_id:
+    regex: '^[A-H]\d{1,3}(?:_\d{1,3})?$'
+    exclude: [A36, A53, A500, A572, A992, A325, A490, A307, A615, A706, A1085]   # material grades
+    regions:
+      - {x_min: 480, y_max: 45}               # top-right corner of a letter page
+      - {x_max: 45, y_min: 40, y_max: 130}    # left margin of a rotated sketch page
+  banner_regex: '^([A-H])_[A-Z ]+$'
+  boilerplate:                                # header / footer lines never taken as a title
+    - project
+    - by
+    - location
+    - date
+    - client
+    - 'job no\.?'
+    - 'sheet no\.?'
+    - company
+    - designer
+    - job number
+    - model name
+    - 'checked by.*'
+    - ':'
+    - '\d{1,2}/\d{1,2}/\d{2,4}'
+    - risa outputs
+    - 'lic\..*'
+    - 'software copyright.*'
+    - 'project file.*'
+    - 'project title.*'
+    - 'engineer.*'
+    - 'description:?'
+    - '\d+:\d+ [ap]m'
+    - '[a-z]+ \d+, 20\d\d'
+  continued_regex: '(?i)\s*\((?:Continued|cont\.?)\)\s*'
+  stamp_text_regex: null
+  stamp_colors: []
+  comment_colors: {0xFF0000: red}
+  labels:                                     # RISA entity labels and the scope they live in
+    - {kind: FN, regex: '^F(\d)_N(\d+)$'}                       # RISA-3D floor node  F1_N14
+    - {kind: FM, regex: '^F(\d)_M(\d+)$'}                       # RISA-3D floor member F2_M30
+    - {kind: R3D, regex: '^R3D_N(\d+)$'}                        # foundation joint from a RISA-3D node
+    - {kind: FLR, regex: '^FLR_(\d)_N(\d+(?:_\d+)?)$'}          # foundation joint from a RISAFloor floor
+    - {kind: M, regex: '^(?:M|PUR)\d+$'}                        # RISAFloor member
+    - {kind: N, regex: '^N\d+$'}                                # node / point
+    - {kind: CS, regex: '^CS\d+$'}                              # column stack
+    - {kind: STACK, regex: '^\(([A-H](?:\.\d)?-\d(?:\.\d)?)\)(?:_L\d)?$'}   # grid-named stack (C.8-4)
+  drawing_ref_regex: '(\d{1,2})/(S-?\d+(?:\.\d+){0,3})'
+  title:
+    table_title_min_size: 11.5
+    table_title_x_max: 60
+    design_heads: [Steel Beam, Steel Column, Wood Beam, Wood Column]
+    description_prefix: DESCRIPTION
+    risa3d: {marker_line: Model Name, x_max: 60, y: {lo: 95, hi: 118}, min_size: 8.5}
+    big_line_skip: [RISA OUTPUTS]
+    pad:
+      marker_line: sheet no.
+      heading_min_size: 9.8
+      heading_y: {lo: 112, hi: 150}
+      subject_y: {lo: 84, hi: 104}
+      subject_x: {lo: 270, hi: 420}
+    field_keys: ['Model:']
+  level_regex: '(?i)\b(Level\s*\d|Roof)(?![A-Za-z0-9])'
+  toc_min_leaders: 3
+  software:                                   # first detector with a matching rule wins
+    - name: Enercalc
+      any: [{all: ['(?i)ENERCALC']}]
+    - name: RISAFloor
+      any: [{all: ['RISAFloor']}]
+    - name: RISA-3D
+      any: [{all: ['RISA-?3D']}]
+    - name: RISAFoundation
+      any: [{all: ['RISAFoundation']}]
+    - name: RAM Structural System
+      any: [{all: ['RAM (?:Structural System|Steel|Frame|Concept)']}]
+    - name: CFS Designer
+      any: [{all: ['CFS', 'Project Name']}]
+    - name: Mathcad
+      any: [{all: ['(?i)\bmathcad\b']}]
+  fallback_software: Spreadsheet / hand calc
+  sections: {}
+  sketch_sections: null                       # null = any section
+  sketch_software: [RISAFloor, RISA-3D]
+  run_rules: []
+  software_runs: {Enercalc: enercalc, CFS Designer: cfs, Spreadsheet / hand calc: hand}
+  runs: {}
+  run_footers:
+    - [risafloor, RISAFloor Version]
+    - [risa3d, RISA-3D Version]
+    - [risafoundation, RISAFoundation Version]
+  skip_titles: [Cover]
+  lowest_framed_level: null
+  area_load_sketches: null
+  sketch_bubble_regex: '[A-H](\.\d)?|\d{1,2}(\.\d)?'
+  note_grid_ref_regex: '@\s*([A-H](?:\.\d)?)\s*/\s*(\d{1,2}(?:\.\d)?)'
+  model_axes_note: RISA plan coords (Z, X) in feet, from Point Locations / Column Stacks tables.
+  connection_rules:
+    - {id: hand_conn_design, regex: '(?i)CONN\s*DESIG|CONN\s*[12]\b|CONN[12]', what: hand calc titled CONN DESIGN / CONN1 / CONN2, designs_connection: true}
+    - {id: weld_check, regex: '(?i)WELD', what: weld check text, designs_connection: true}
+    - {id: bolt, regex: '(?i)\bBOLTS?\b|A325|A490', what: bolt text, designs_connection: true}
+    - {id: simpson_connector, regex: '(?i)Simpson Strong-Tie® Connectors? @', what: CFS tool Simpson connector interaction at stud supports, designs_connection: true}
+    - {id: clip_shear_conn, regex: '(?i)Shear Connection\s+w/ clip', what: CFS web crippling support = shear connection w/ clip, designs_connection: false}
+    - {id: risa_connection_props, regex: '(?i)Member RISAConnection Properties', what: RISA-3D member connection table (Start/End Conn), designs_connection: false}
+    - {id: seismic_conn_rule, regex: '(?i)SMF-WUF-W', what: 'RISA seismic design rule: prequalified SMF connection type WUF-W', designs_connection: false}
+    - {id: anchorage_note, regex: '(?i)anchorage', what: anchorage note, designs_connection: false}
+    - {id: stiffener_plate, regex: '(?i)STIFF(?:E)?NER\s*PL|STIFF PL', what: stiffener plate on a sketch, designs_connection: false}
+
+positional:
+  column_sheet: null        # null = the first foundation-kind sheet
+  beam_sheets: null         # null = every framing sheet that has a level

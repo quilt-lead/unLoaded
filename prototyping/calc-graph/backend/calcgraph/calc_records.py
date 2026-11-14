@@ -20,6 +20,10 @@ Deterministic, no AI pass:
   inferred (coordinates or sketch geometry), absent (nothing in the package joins them).
 - Positional element<->record matching fits a rigid 2D transform (rotation / mirror
   allowed) from drawing-grid feet to calc-model feet on columns, and reports residuals.
+
+Set conventions (stamp / commentary colours, section -> run map, run descriptions, which sheets
+the positional fit uses, the floor whose points name the footings) come from the set's profile
+(calcgraph/profiles/*.yaml); `build` resolves it from the file names unless one is passed.
 """
 from __future__ import annotations
 
@@ -29,11 +33,8 @@ from collections import defaultdict
 
 import pymupdf
 
-from . import calcpkg_ingest, sizes
+from . import calcpkg_ingest, profiles, sizes
 
-STAMP_COLORS = {0xB0091D}          # county approval stamp, overprinted on every page
-RUN_FOOTERS = [("risafloor", "RISAFloor Version"), ("risa3d", "RISA-3D Version"),
-               ("risafoundation", "RISAFoundation Version")]
 CONT = re.compile(r"\s*\((?:Continued|cont\.?)\)\s*$", re.I)
 
 
@@ -57,15 +58,15 @@ def _norm_name(s: str) -> str:
 
 # ---------------------------------------------------------------- page primitives
 
-def _chars(page) -> list[tuple]:
-    """Horizontal characters (x0, y0, x1, y1, cy, c, size), stamp text removed."""
+def _chars(page, stamp_colors=()) -> list[tuple]:
+    """Horizontal characters (x0, y0, x1, y1, cy, c, size), stamp text (by span colour) removed."""
     out = []
     for b in page.get_text("rawdict")["blocks"]:
         for l in b.get("lines", []):
             if l["dir"] != (1.0, 0.0):
                 continue
             for s in l["spans"]:
-                if s["color"] in STAMP_COLORS:
+                if s["color"] in stamp_colors:
                     continue
                 for ch in s["chars"]:
                     x0, y0, x1, y1 = ch["bbox"]
@@ -174,20 +175,21 @@ def _row_bounds(vs, y0, y1) -> list[float]:
 
 # ---------------------------------------------------------------- RISA tables
 
-def _page_run(text: str) -> str | None:
-    for run, marker in RUN_FOOTERS:
+def _page_run(text: str, footers) -> str | None:
+    for run, marker in footers:
         if marker in text:
             return run
     return None
 
 
-def read_tables(doc, doc_key: str, page_meta: dict) -> dict:
+def read_tables(doc, doc_key: str, page_meta: dict, pf) -> dict:
     """{(run, title): {"run", "title", "header", "rows": [...]}} for every RISA table."""
+    footers = pf.calcs.run_footers
     tables: dict[tuple, dict] = {}
     order = []
     for pno, page in enumerate(doc, 1):
         text = page.get_text()
-        run = _page_run(text)
+        run = _page_run(text, footers)
         if not run:
             continue
         meta = page_meta[pno]
@@ -197,7 +199,7 @@ def read_tables(doc, doc_key: str, page_meta: dict) -> dict:
                 t = "".join(s["text"] for s in l["spans"]).strip()
                 if not t:
                     continue
-                if any(t.startswith(m) for _, m in RUN_FOOTERS):
+                if any(t.startswith(m) for _, m in footers):
                     footer_y = min(footer_y, l["bbox"][1])
                 if (l["dir"] == (1.0, 0.0) and l["bbox"][0] < 60 and l["bbox"][1] > 90
                         and all("BoldItalic" in s["font"] for s in l["spans"] if s["text"].strip())):
@@ -205,7 +207,7 @@ def read_tables(doc, doc_key: str, page_meta: dict) -> dict:
         titles.sort()
         if not titles:
             continue
-        chars = _chars(page)
+        chars = _chars(page, set(pf.calcs.stamp_colors))
         vs = _vsegs(page)
         for i, (ty0, ty1, title, trect) in enumerate(titles):
             yend = titles[i + 1][0] if i + 1 < len(titles) else footer_y
@@ -505,20 +507,23 @@ def _first_num(row, prefix):
 
 # ---------------------------------------------------------------- whole-page calcs
 
-def page_records(pages: list[dict], table_pages: set[tuple]) -> dict:
+def page_records(pages: list[dict], table_pages: set[tuple], pf) -> dict:
     """One record per sub-calc for pages that are not RISA tables."""
+    C = pf.calcs
     groups: dict[str, list] = defaultdict(list)
     for p in pages:
-        if (p["doc"], p["page"]) in table_pages or p.get("toc") or p["title"] in ("Cover", "STRUCTURAL CALCULATIONS"):
+        if (p["doc"], p["page"]) in table_pages or p.get("toc") or p["title"] in C.skip_titles:
             continue
         groups[p["group"]].append(p)
     out = {}
     for gid, ps in groups.items():
         p0 = ps[0]
         sw = p0["software"]
-        rotated = p0["software"] in ("RISAFloor", "RISA-3D") and p0["sheet_id"][:1] in "BC" and not p0["tables"]
-        if p0["section"] == "A" and re.match(r"^A\d$", p0["sheet_id"]):
-            rtype = "load_criteria"
+        rotated = (p0["software"] in C.sketch_software and not p0["tables"]
+                   and (C.sketch_sections is None or p0["sheet_id"][:1] in C.sketch_sections))
+        sec = C.sections.get(p0["section"])
+        if sec and sec.record_type and (sec.record_sheet_regex is None or sec.record_sheet_regex.match(p0["sheet_id"])):
+            rtype = sec.record_type
         elif rotated:
             rtype = "model_sketch"
         elif sw == "Enercalc":
@@ -531,7 +536,7 @@ def page_records(pages: list[dict], table_pages: set[tuple]) -> dict:
         rid = f"{p0['doc']}:{rtype}:{sids[0]}" + (f"-{sids[-1]}" if len(sids) > 1 else "")
         szs = sorted({s for p in ps for s in p["sizes"]})
         out[rid] = {
-            "id": rid, "type": rtype, "run": _run_of(p0), "label": p0["title"], "level": p0.get("level", ""),
+            "id": rid, "type": rtype, "run": _run_of(p0, C), "label": p0["title"], "level": p0.get("level", ""),
             "sheets": sids, "pages": [p["page"] for p in ps], "doc": p0["doc"],
             "evidence": [{"doc": p["doc"], "page": p["page"], "sheet": p["sheet_id"],
                           "bbox": p["title_rect"] or p["sheet_rect"], "text": p["title"]} for p in ps],
@@ -541,29 +546,17 @@ def page_records(pages: list[dict], table_pages: set[tuple]) -> dict:
     return out
 
 
-def _run_of(p) -> str:
+def _run_of(p, C) -> str:
+    """Run id of a page: the profile's (section, software) rules for the main package, else by software."""
     sw = p["software"]
     if p["doc"] != "calcs":
-        return f"{p['doc']}:" + {"Enercalc": "enercalc", "Spreadsheet / hand calc": "hand"}.get(sw, sw.lower())
-    if p["section"] == "B":
-        return "risafloor"
-    if p["section"] == "C" and sw in ("RISA-3D",):
-        return "risa3d"
-    if p["section"] == "D" and sw == "RISAFloor":
-        return "risafoundation"
-    return {"Enercalc": "enercalc", "CFS Designer": "cfs", "Spreadsheet / hand calc": "hand"}.get(sw, sw.lower())
+        return f"{p['doc']}:" + C.software_runs.get(sw, sw.lower())
+    for rr in C.run_rules:
+        if p["section"] == rr.section and (rr.software is None or sw == rr.software):
+            return rr.run
+    return C.software_runs.get(sw, sw.lower())
 
 
-RUNS = {
-    "risafloor": "RISAFloor 15.0.1 gravity model 2021-03-22_Bldg 12.rfl (B)",
-    "risa3d": "RISA-3D 19 lateral frame model from 2021-03-22_Bldg 12.rfl (C)",
-    "risafoundation": "RISAFoundation 13.0.1 footing model from 2021-03-22_Bldg 12.rfl (D)",
-    "enercalc": "Enercalc HSS Design.ec6 (E19-E33)",
-    "cfs": "Simpson CFS Designer stud / opening runs (E3-E18)",
-    "hand": "KPFF spreadsheet / hand calcs (A, C3-C9, E1-E2)",
-    "stair:enercalc": "Enercalc DPH - Bldg 12 Stair Design.ec6 (stair package)",
-    "stair:hand": "KPFF stair hand calcs (stair package, 2023)",
-}
 
 
 # ---------------------------------------------------------------- geometry + load path
@@ -581,7 +574,22 @@ def _row_of(r, table_prefix, pred=None):
     return None
 
 
-def geometry(recs: dict) -> dict:
+def base_level(recs: dict, pf) -> str | None:
+    """The RISAFloor floor whose points name the footings (FLR_1_<point>): the profile's, else the
+    floor with the lowest elevation in the Floors table."""
+    if pf.calcs.lowest_framed_level:
+        return pf.calcs.lowest_framed_level
+    fl = [r for r in recs.values() if r["type"] == "floor" and r["values"].get("elev_ft") is not None]
+    return min(fl, key=lambda r: r["values"]["elev_ft"])["label"] if fl else None
+
+
+def _levels_top_down(recs: dict) -> list[str]:
+    fl = [r for r in recs.values() if r["type"] == "floor" and r["values"].get("elev_ft") is not None]
+    return [r["label"] for r in sorted(fl, key=lambda r: -r["values"]["elev_ft"])]
+
+
+def geometry(recs: dict, pf) -> dict:
+    base = base_level(recs, pf)
     nodes = {(r["level"], r["label"]): r["values"] for r in recs.values() if r["type"] == "node"}
     levels = {}
     for r in recs.values():
@@ -591,14 +599,13 @@ def geometry(recs: dict) -> dict:
         if r["type"] != "member":
             continue
         v = r["values"]
-        a = nodes.get((r["level"], v.get("start"))) or nodes.get(("Level 2", v.get("start")))
-        b = nodes.get((r["level"], v.get("end"))) or nodes.get(("Level 2", v.get("end")))
+        a = nodes.get((r["level"], v.get("start"))) or nodes.get((base, v.get("start")))
+        b = nodes.get((r["level"], v.get("end"))) or nodes.get((base, v.get("end")))
         if a and b and a["z"] is not None and b["z"] is not None:
             v["geom"] = {"start": [a["z"], a["x"]], "end": [b["z"], b["x"]],
                          "elev_ft": levels.get(r["level"], {}).get("elev_ft"),
                          "plan_length_ft": round(math.dist((a["z"], a["x"]), (b["z"], b["x"])), 3)}
-    return {"levels": levels, "axes": "RISA plan coords: Z along numbered grids (1 at Z=0), X along lettered grids "
-                                      "(E at X=0); feet. From Point Locations / Column Stacks tables."}
+    return {"levels": levels, "axes": pf.calcs.model_axes_note}
 
 
 def _on_segment(p, a, b, tol=0.05):
@@ -615,7 +622,9 @@ def _on_segment(p, a, b, tol=0.05):
     return d <= tol
 
 
-def load_path(recs: dict, page_recs: dict) -> tuple[list, dict]:
+def load_path(recs: dict, page_recs: dict, pf) -> tuple[list, dict]:
+    base = base_level(recs, pf)
+    sk = pf.calcs.area_load_sketches
     edges = []
     E = edges.append
     stacks = {r["label"]: r for r in recs.values() if r["type"] == "column_stack"}
@@ -652,7 +661,7 @@ def load_path(recs: dict, page_recs: dict) -> tuple[list, dict]:
         if not any(e["src"] == d["id"] for e in edges):
             E({"src": d["id"], "dst": None, "kind": "area_load_def->floor", "join": "absent",
                "rule": "not a floor default; its areas are drawn only as polygons on the Area Load Assignments "
-                       "sketches (B5/B6), no table assigns it to members",
+                       f"sketches{f' ({sk})' if sk else ''}, no table assigns it to members",
                "evidence": {"src": [_ref(d["rows"][0])], "dst": []}})
     for m in members:
         f = floors.get(m["level"])
@@ -660,7 +669,7 @@ def load_path(recs: dict, page_recs: dict) -> tuple[list, dict]:
             pd = _row_of(m, "Beam Primary Data")
             E({"src": f["id"], "dst": m["id"], "kind": "floor->member", "join": "exact",
                "rule": f"member listed in 'Beam Primary Data : {m['level']}' (takes the floor's default area load "
-                       "unless a B5/B6 polygon overrides it - overrides are not in any table)",
+                       f"unless a{f' {sk}' if sk else 'n area-load sketch'} polygon overrides it - overrides are not in any table)",
                "evidence": {"src": [_ref(f["rows"][0])], "dst": [_ref(pd)] if pd else []}})
 
     # 1c. RISAFloor line / point loads -> the member they sit on (coordinates of their points)
@@ -744,19 +753,19 @@ def load_path(recs: dict, page_recs: dict) -> tuple[list, dict]:
     r3d = {r["label"]: r for r in recs.values() if r["type"] == "r3d_node"}
     used = set()
     for s in stacks.values():
-        pt = (s["values"].get("points") or {}).get("Level 2")
+        pt = (s["values"].get("points") or {}).get(base)
         f = None
         if pt:
             f = foots.get(f"FLR_1_{pt}") or next((foots[k] for k in foots if re.fullmatch(rf"FLR_1_{pt}_\d+", k)), None)
         if f:
             used.add(f["label"])
-            crow = _row_of(s, "Columns : Level 2")
-            dl_col = (s["values"].get("axial") or {}).get("Level 2", {}).get("dl_k")
+            crow = _row_of(s, f"Columns : {base}")
+            dl_col = (s["values"].get("axial") or {}).get(base, {}).get("dl_k")
             dl_ft = (f["values"].get("vertical_loads_k") or {}).get("DL")
             agree = dl_col is not None and dl_ft is not None and abs(dl_col - dl_ft) < 0.01
             prow = _row_of(f, "Point Loads and Moments (Cat 1")
             E({"src": s["id"], "dst": f["id"], "kind": "column_stack->footing", "join": "exact",
-               "rule": f"footing joint {f['label']} names the stack's Level 2 point {pt} (RISAFoundation import label "
+               "rule": f"footing joint {f['label']} names the stack's {base} point {pt} (RISAFoundation import label "
                        "FLR_<floor>_<point>)",
                "check": {"column_base_dl_k": dl_col, "footing_dl_k": dl_ft, "agree": agree},
                "evidence": {"src": [_ref(crow)] + ([_ref(_row_of(s, "Column Forces/Moments, Dead"))] if
@@ -810,7 +819,9 @@ def _collinear_overlap(pa, pb, a, b, tol=0.05) -> bool:
 
 def _reaction_check(edges, recs, stacks) -> dict:
     """Corroborate member->column joins: summed member DL end reactions per stack and level
-    vs the RISA column DL axial (roof row = roof members; Level 2 row = roof + level 2)."""
+    vs the RISA column DL axial at each floor: members joined at that floor and every floor above it
+    (floors ordered by the RISAFloor Floors elevations)."""
+    order = _levels_top_down(recs)
     per = defaultdict(float)
     for e in edges:
         if e["kind"] != "member->column_stack":
@@ -822,9 +833,9 @@ def _reaction_check(edges, recs, stacks) -> dict:
     out, ok, n = [], 0, 0
     for s in stacks.values():
         ax = s["values"].get("axial") or {}
-        roof = per.get((s["id"], "Roof"), 0.0)
-        l2 = per.get((s["id"], "Level 2"), 0.0)
-        for lev, expect in (("Roof", roof), ("Level 2", roof + l2)):
+        expect = 0.0
+        for lev in order:
+            expect += per.get((s["id"], lev), 0.0)
             col = (ax.get(lev) or {}).get("dl_k")
             if col is None:
                 continue
@@ -840,10 +851,9 @@ def _reaction_check(edges, recs, stacks) -> dict:
 
 # ---------------------------------------------------------------- commentary
 
-COMMENT_COLORS = {0xFF0000: "red", 0xFA7D00: "orange", 0x4471C4: "blue"}
-
-
-def commentary(doc, doc_key: str, page_meta: dict) -> list[dict]:
+def commentary(doc, doc_key: str, page_meta: dict, pf) -> list[dict]:
+    COMMENT_COLORS = pf.calcs.comment_colors
+    sketches = _sketch_pages(page_meta, pf)
     raw = []
     for pno, page in enumerate(doc, 1):
         for b in page.get_text("dict")["blocks"]:
@@ -856,7 +866,7 @@ def commentary(doc, doc_key: str, page_meta: dict) -> list[dict]:
                 t = "".join(s["text"] for s in l["spans"]).strip()
                 if "_" in t or t.startswith("Version:"):
                     continue
-                if sp[0]["size"] >= 11.9 and l["dir"] != (1.0, 0.0) and len(t.split()) <= 4 and pno in _sketch_pages(page_meta):
+                if sp[0]["size"] >= 11.9 and l["dir"] != (1.0, 0.0) and len(t.split()) <= 4 and pno in sketches:
                     continue                                   # rotated sketch title (Helvetica 12)
                 raw.append({"page": pno, "bbox": list(l["bbox"]), "dir": l["dir"], "color": sp[0]["color"], "text": t})
     # merge consecutive lines of one note (same page, colour, direction, adjacent)
@@ -886,8 +896,8 @@ def commentary(doc, doc_key: str, page_meta: dict) -> list[dict]:
     return out
 
 
-def _sketch_pages(page_meta) -> set:
-    return {p for p, m in page_meta.items() if m["software"] in ("RISAFloor", "RISA-3D") and not m["tables"]}
+def _sketch_pages(page_meta, pf) -> set:
+    return {p for p, m in page_meta.items() if m["software"] in pf.calcs.sketch_software and not m["tables"]}
 
 
 def _gap(a, b) -> float:
@@ -898,7 +908,7 @@ def _gap(a, b) -> float:
 
 # ---------------------------------------------------------------- sketch registration
 
-def sketch_fit(doc, page_meta: dict, recs: dict) -> dict:
+def sketch_fit(doc, page_meta: dict, recs: dict, pf) -> dict:
     """Register each RISAFloor sketch page (rotated plan views, B1-B15) to model feet.
     Anchors: member labels on the 'Member Labels' sketch of that level (B1 Level 2, B2 Roof)
     against member mid-points from the tables. Sketches of one level share the viewport if
@@ -924,11 +934,11 @@ def sketch_fit(doc, page_meta: dict, recs: dict) -> dict:
             continue
         A = _affine_fit(pts_s, pts_m)
         res = [math.dist(_affine_apply(A, p), q) for p, q in zip(pts_s, pts_m)]
-        bubbles = _bubbles(page)
+        bubbles = _bubbles(page, pf)
         same = []
         for p2, m2 in page_meta.items():
             if m2["software"] == "RISAFloor" and m2["level"] == lev and not m2["tables"] and p2 != pno:
-                b2 = _bubbles(doc[p2 - 1])
+                b2 = _bubbles(doc[p2 - 1], pf)
                 shifts = [min(math.dist(p, q) for q in b2[k]) for k in bubbles if k in b2 for p in bubbles[k]]
                 common = shifts
                 shifts.sort()
@@ -943,11 +953,11 @@ def sketch_fit(doc, page_meta: dict, recs: dict) -> dict:
     return out
 
 
-def _bubbles(page) -> dict:
+def _bubbles(page, pf) -> dict:
     """Grid bubble labels on a sketch -> list of their centres (each label prints at both ends)."""
     out = defaultdict(list)
     for w in page.get_text("words"):
-        if re.fullmatch(r"[A-E](\.\d)?|\d(\.\d)?", w[4]) and (w[2] - w[0]) < 15:
+        if pf.calcs.sketch_bubble_regex.fullmatch(w[4]) and (w[2] - w[0]) < 15:
             out[w[4]].append(((w[0] + w[2]) / 2, (w[1] + w[3]) / 2))
     return out
 
@@ -964,7 +974,7 @@ def _affine_apply(A, p):
     return (A[0][0] * p[0] + A[0][1] * p[1] + A[0][2], A[1][0] * p[0] + A[1][1] * p[1] + A[1][2])
 
 
-def attach_commentary(notes: list, recs: dict, page_recs: dict, fits: dict, page_meta: dict) -> None:
+def attach_commentary(notes: list, recs: dict, page_recs: dict, fits: dict, page_meta: dict, pf) -> None:
     by_page = defaultdict(list)
     for r in list(recs.values()):
         for row in r["rows"]:
@@ -992,7 +1002,7 @@ def attach_commentary(notes: list, recs: dict, page_recs: dict, fits: dict, page
                                       "rule": f"note position on {meta['sheet_id']} mapped through the "
                                               f"{fit['label_sheet']} label fit (same viewport) -> nearest member, "
                                               f"{best[0]:.1f} ft"})
-        for m in re.finditer(r"@\s*([A-E](?:\.\d)?)\s*/\s*(\d(?:\.\d)?)", n["text"]):
+        for m in pf.calcs.note_grid_ref_regex.finditer(n["text"]):
             sid = f"risafloor:column_stack:({m.group(1)}-{m.group(2)})"
             if sid in recs:
                 n["attached"].append({"record": sid, "join": "exact",
@@ -1161,11 +1171,22 @@ def fit_transform(dpts, mpts, tol=2.0):
                       "max_ft": round(max(res), 3) if res else None, "tol_ft": tol}
 
 
-def positional(graph: dict, plans_path: str, recs: dict) -> dict:
+def positional_sheets(graph: dict, pf) -> tuple[str | None, dict[str, str]]:
+    """(column sheet, {beam sheet: calc level}) from the profile, else from the sheet kinds:
+    the first foundation plan, and every framing plan that has a level."""
+    P, fk = pf.positional, pf.drawings.levels.foundation_kinds
+    col = P.column_sheet or next((s["sheet"] for s in graph["sheets"] if s.get("kind") in fk), None)
+    beams = P.beam_sheets if P.beam_sheets is not None else {
+        s["sheet"]: s["level"] for s in graph["sheets"] if s.get("kind") == "framing" and s.get("level")}
+    return col, beams
+
+
+def positional(graph: dict, plans_path: str, recs: dict, pf) -> dict:
     pdoc = pymupdf.open(plans_path)
     sheets = {s["sheet"]: s for s in graph["sheets"]}
+    col_sheet, beam_sheets = positional_sheets(graph, pf)
     cals = {}
-    for sh in ("S2.0.1", "S2.0.2", "S2.0.3"):
+    for sh in ([col_sheet] if col_sheet else []) + [b for b in beam_sheets if b != col_sheet]:
         if sh in sheets:
             c = grid_feet(pdoc, sheets[sh])
             if c:
@@ -1173,12 +1194,12 @@ def positional(graph: dict, plans_path: str, recs: dict) -> dict:
     out = {"calibration": {k: {"u": {kk: v["u"][kk] for kk in ("labels", "ft", "pt_per_ft", "max_resid_ft", "dims")},
                                "v": {kk: v["v"][kk] for kk in ("labels", "ft", "pt_per_ft", "max_resid_ft", "dims")}}
                            for k, v in cals.items()}}
-    if "S2.0.1" not in cals:
+    if col_sheet not in cals:
         out["kept"] = False
-        out["reason"] = "S2.0.1 grid could not be calibrated"
+        out["reason"] = f"{col_sheet or 'no foundation plan'}{' grid' if col_sheet else ''} could not be calibrated"
         return out
-    cal = cals["S2.0.1"]
-    cols = [e for e in graph["elements"] if e["sheet"] == "S2.0.1" and e.get("cat") == "Column" and e.get("at")]
+    cal = cals[col_sheet]
+    cols = [e for e in graph["elements"] if e["sheet"] == col_sheet and e.get("cat") == "Column" and e.get("at")]
     stacks = [r for r in recs.values() if r["type"] == "column_stack" and r["values"].get("z") is not None]
     dpts = [to_feet(cal, *e["at"]) for e in cols]
     mpts = [(s["values"]["z"], s["values"]["x"]) for s in stacks]
@@ -1198,7 +1219,7 @@ def positional(graph: dict, plans_path: str, recs: dict) -> dict:
                           "calc_size": s["values"].get("shape"), "size_agree": (ds == ms) if ds and ms else None,
                           "drawn_grid": e.get("grid"), "calc_grid": s["label"], "drawn_type": e["type"],
                           "element_bbox": e["bbox"], "element_page": e["page"]})
-    out["transform"] = {"from": "drawing grid feet on S2.0.1 (u from grid " + cal["u"]["labels"][0] + " along +x, v from grid "
+    out["transform"] = {"from": f"drawing grid feet on {col_sheet} (u from grid " + cal["u"]["labels"][0] + " along +x, v from grid "
                         + cal["v"]["labels"][0] + " along +y)", "to": "RISAFloor plan feet (Z, X)",
                         "R": [[round(v, 6) for v in r] for r in T["R"]], "t": [round(v, 3) for v in T["t"]],
                         "rotation_deg": T.get("rot_deg"), "mirror": T.get("mirror"), **stats,
@@ -1211,7 +1232,7 @@ def positional(graph: dict, plans_path: str, recs: dict) -> dict:
     if not keep:
         return out
     beams = {}
-    for sh, lev in (("S2.0.2", "Level 2"), ("S2.0.3", "Roof")):
+    for sh, lev in beam_sheets.items():
         if sh not in cals:
             continue
         c = cals[sh]
@@ -1327,15 +1348,17 @@ def _match_beams(drawn, mem, sheet):
 
 # ---------------------------------------------------------------- entry point
 
-def build(calc_paths: list[tuple[str, str, str | None]], graph: dict | None = None, plans_path: str | None = None) -> dict:
+def build(calc_paths: list[tuple[str, str, str | None]], graph: dict | None = None, plans_path: str | None = None,
+          profile: "profiles.Profile | str | None" = None) -> dict:
+    pf = profiles.resolve(profile, plans_path, *[c[0] for c in calc_paths])
     all_pages, recs, notes, fits, table_pages, tables_out = [], {}, [], {}, set(), []
     for path, key, prefix in calc_paths:
-        pk = calcpkg_ingest.read_package(path, key, prefix)
+        pk = calcpkg_ingest.read_package(path, key, prefix, profile=pf)
         pages = pk["pages"]
         all_pages += pages
         meta = {p["page"]: p for p in pages}
         doc = pymupdf.open(path)
-        tables = read_tables(doc, key, meta)
+        tables = read_tables(doc, key, meta, pf)
         for (run, title), tb in tables.items():
             tables_out.append({"doc": key, "run": run, "title": title, "header": tb["header"], "rows": len(tb["rows"]),
                                "columns_from": tb.get("columns_from"),
@@ -1344,24 +1367,24 @@ def build(calc_paths: list[tuple[str, str, str | None]], graph: dict | None = No
                 table_pages.add((key, row["page"]))
         r = build_records(tables)
         recs.update(r)
-        notes += commentary(doc, key, meta)
+        notes += commentary(doc, key, meta, pf)
         if key == "calcs":
-            geometry_info = geometry(recs)
-            fits = sketch_fit(doc, meta, recs)
+            geometry_info = geometry(recs, pf)
+            fits = sketch_fit(doc, meta, recs, pf)
             calc_meta = meta
-    prec = page_records(all_pages, table_pages)
-    edges, rcheck = load_path(recs, prec)
+    prec = page_records(all_pages, table_pages, pf)
+    edges, rcheck = load_path(recs, prec, pf)
     calc_notes = [n for n in notes if n["doc"] == "calcs"]
-    attach_commentary(calc_notes, recs, prec, fits, calc_meta)
+    attach_commentary(calc_notes, recs, prec, fits, calc_meta, pf)
     for (path, key, prefix) in calc_paths:
         if key != "calcs":
             m = {p["page"]: p for p in all_pages if p["doc"] == key}
-            attach_commentary([n for n in notes if n["doc"] == key], recs, prec, {}, m)
-    pos = positional(graph, plans_path, recs) if graph and plans_path else {"kept": False, "reason": "no drawing set"}
+            attach_commentary([n for n in notes if n["doc"] == key], recs, prec, {}, m, pf)
+    pos = positional(graph, plans_path, recs, pf) if graph and plans_path else {"kept": False, "reason": "no drawing set"}
     allrecs = {**recs, **prec}
     for r in allrecs.values():
         r["section"] = _section(r, calc_meta)
-    return {"runs": RUNS, "tables": tables_out, "records": list(allrecs.values()), "geometry": geometry_info,
+    return {"runs": dict(pf.calcs.runs), "tables": tables_out, "records": list(allrecs.values()), "geometry": geometry_info,
             "load_path": edges, "reaction_check": rcheck, "commentary": notes, "sketch_fit": fits,
             "positional": pos, "stats": _stats(allrecs, edges, notes, pos)}
 
