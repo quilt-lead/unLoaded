@@ -64,6 +64,7 @@ MATERIALS = {
     "MAT:DECK-3VLI20": ("20 ga steel deck", r"\b20 (?:GA|GAUGE)\b", r"\bCOMPOSITE (?:STEEL )?DECK\b|\bROOF DECK\b"),
     "MAT:SFRM": ("Sprayed fire-resistive material", r"\bSFRM\b|SPRAY(?:ED)?[- ]APPLIED FIRE|SPRAYED FIRE-RESIST", r"FIREPROOFING"),
 }
+_GENERIC_NOUNS = {"CONNECTION", "CONNECTIONS", "PLATE", "PLATES", "TAB", "DETAIL", "BEAM", "COLUMN", "BASE", "TYPICAL"}
 _MARK = re.compile(r"\b([A-Z]{1,3})-(\d{1,2})\b")
 _RANGE = re.compile(r"\b([A-Z]{1,3})-(\d{1,2})\s+(?:THROUGH|THRU|TO)\s+(?:\1-)?(\d{1,2})\b")
 _SYS = {"SMF": "SPECIAL MOMENT FRAME", "SCBF": "SPECIAL CONCENTRICALLY BRACED FRAME", "OCBF": "ORDINARY CONCENTRICALLY BRACED FRAME",
@@ -944,11 +945,17 @@ def governs(text: str, R: Registry) -> dict:
         if mk not in title:
             continue
         words = [w for w in re.sub(r"\(.*?\)", "", title.split(mk)[0]).split() if w.isalpha()]
-        if len(words) >= 2:
-            phrase = " ".join(words[-2:])
+        fam = mk.split("-")[0]
+        if any(d.split(":")[1].split("-")[0] == fam for d in dets if d in why and why[d] == "detail mark"):
+            continue      # the text names a specific member of this family ("BP-3"): no family-wide reading
+        aliases = re.findall(r"\(([A-Z]{2,6})\)", title.split(mk, 1)[1] if mk in title else "")
+        keys = ([" ".join(words[-2:])] if len(words) >= 2 else []) + \
+               ([words[-1]] if words and words[-1] not in _GENERIC_NOUNS else []) + aliases
+        for phrase in keys:
             if re.search(r"\b" + re.escape(phrase) + r"S?\b", T):
                 dets.add(nid)
                 why[nid] = f"detail title noun '{phrase}'"
+                break
     frames = []
     ids = {nid for nid, n in R.nodes.items() if n["type"] == "frame" and re.search(r"\b" + re.escape(nid.split(":")[1]) + r"\b", T)}
     for nid in sorted(ids):
