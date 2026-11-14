@@ -26,7 +26,11 @@
     </div>
     <div id="list"></div>
   </section>
-  <section id="graphWrap2"><div id="graph"></div></section>
+  <section id="centerPane">
+    <div class="ctabs"><button id="tabG" class="on">Graph</button><button id="tab3" title="Structural model built from the plans">3D model (from plans)</button><span class="note" id="note3d"></span></div>
+    <div id="graphWrap2"><div id="graph"></div></div>
+    <div id="wrap3d" hidden><div id="v3d"></div><div class="legend3d" id="legend3d"></div><div class="prog3d" id="prog3d"></div></div>
+  </section>
   <section class="panel" id="right">
     <div id="insp"></div>
     <div class="splitbar"><span id="splitTitle"></span><button id="closeSplit" class="sm" title="Back to a single page">Close</button></div>

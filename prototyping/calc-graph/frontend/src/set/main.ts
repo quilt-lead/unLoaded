@@ -4,6 +4,7 @@
 import "../style.css";
 import "./set.css";
 import { PdfView, type Shown } from "./pdfview";
+import { Viewer } from "../viewer";
 
 interface Ev {
   doc: string;
@@ -15,7 +16,20 @@ interface Ev {
   calc?: string;
   extra?: Ev[];
 }
+interface Model3D {
+  in3d: boolean;
+  gid?: string;
+  reason?: string;
+  rule?: string;
+  position?: string;
+  elevation?: string;
+  assumed?: string[];
+  profile?: string;
+  status3d?: string;
+  grid3d?: string;
+}
 interface El {
+  model?: Model3D;
   id: string;
   doc: string;
   page: number;
@@ -315,6 +329,7 @@ function select(sel: Sel, open = true) {
     else single(calcEv(S.calcs.get(sel.id)!));
   }
   renderAll();
+  paint3d(true);
 }
 function openLink(l: Lnk) {
   const e = S.els.get(l.el)!,
@@ -828,6 +843,11 @@ function renderInsp() {
       ? `<div class="kv">Schedule: <span class="mono">${esc(e.params.schedule)}</span></div>`
       : "";
     h += sch;
+    const m = e.model;
+    if (m)
+      h += m.in3d
+        ? `<div class="m3d"><b>In 3D</b> (${esc(m.rule)}) - ${esc(m.position)}<br>Elevation: ${esc(m.elevation)}<br>Profile: ${esc(m.profile)}${(m.assumed ?? []).map((a) => ` <span class="chip assumed">assumed: ${esc(a)}</span>`).join("")}</div>`
+        : `<div class="m3d"><b>Not in 3D</b> - ${esc(m.reason)}</div>`;
     const lp = [
       ...(S.down.get(e.id) ?? []).map((x) => ["bears on", x] as const),
       ...(S.up.get(e.id) ?? []).map((x) => ["carries", x] as const),
@@ -958,3 +978,75 @@ new ResizeObserver(() => {
     renderGraph();
   }
 }).observe($("graphWrap2"));
+
+
+// ---------------- 3D model built from the plans ----------------
+const STATUS3D: Record<string, string> = { linked: "#1f9d63", "no calc found": "#d64545", "size mismatch": "#e0942f" };
+let viewer3d: Viewer | null = null;
+let loaded3d = false;
+const gidToEl = new Map<string, string>();
+function show3d(on: boolean) {
+  $("tab3").classList.toggle("on", on);
+  $("tabG").classList.toggle("on", !on);
+  $("graphWrap2").hidden = on;
+  ($("wrap3d") as HTMLElement).hidden = !on;
+  const u = new URL(location.href);
+  if (on) u.searchParams.set("view", "3d");
+  else u.searchParams.delete("view");
+  history.replaceState(null, "", u.toString());
+  if (on) load3d();
+}
+async function load3d() {
+  if (loaded3d || !S.g) return;
+  loaded3d = true;
+  viewer3d = new Viewer($("v3d"));
+  (window as any).__calcgraph3d = viewer3d; // inspection hook for headless checks
+  for (const e of S.g.elements) if (e.model?.gid) gidToEl.set(e.model.gid, e.id);
+  const prog = $("prog3d");
+  try {
+    await viewer3d.load(`/api/sets/${S.sid}/model.ifc`, 1, (t, p) => (prog.textContent = p >= 100 ? "" : `${t} ${p}%`));
+  } catch (err) {
+    prog.textContent = `Could not load the 3D model: ${(err as Error).message}`;
+    return;
+  }
+  // the shared viewer frames tightly; pull back so the whole building fits a narrow pane
+  const v = viewer3d;
+  v.camera.position.sub(v.controls.target).multiplyScalar(1.6).add(v.controls.target);
+  const m = (S.g as any).model ?? {};
+  const assumed = S.g.elements.filter((e) => e.model?.in3d && (e.model.assumed ?? []).length).length;
+  $("note3d").textContent = `${m.elements_in_3d ?? 0} of ${S.g.elements.length} drawing elements in 3D · ${assumed} with an assumed value`;
+  $("legend3d").innerHTML =
+    Object.entries(STATUS3D).map(([k, c]) => `<div><i style="background:${c}"></i>${esc(k)}</div>`).join("") +
+    `<div><i style="background:#ffb000"></i>selected</div><div style="color:var(--muted)">click a member: sheet + calc evidence</div>`;
+  viewer3d.renderer.domElement.addEventListener("click", (ev) => {
+    const gid = viewer3d!.pick(ev);
+    const id = gid ? gidToEl.get(gid) : null;
+    if (id) select({ kind: "el", id });
+  });
+  paint3d(true);
+}
+function paint3d(focus = false) {
+  if (!viewer3d || !loaded3d || !S.g) return;
+  const selEl = S.sel?.kind === "el" ? S.sel.id : null;
+  const selCalcEls = S.sel?.kind === "calc" ? new Set((S.linksByCalc.get(S.sel.id) ?? []).map((l) => l.el)) : null;
+  for (const e of S.g.elements) {
+    const m = e.model;
+    if (!m?.gid) continue;
+    const dim = (selEl && e.id !== selEl) || (selCalcEls && !selCalcEls.has(e.id));
+    viewer3d.style(m.gid, STATUS3D[m.status3d ?? ""] ?? "#9aa5b1", dim ? 0.18 : 1, true, e.id === selEl || !!selCalcEls?.has(e.id));
+  }
+  if (focus && selEl) {
+    const g = S.els.get(selEl)?.model?.gid;
+    if (g) viewer3d.focus(g);
+  }
+}
+$("tabG").onclick = () => show3d(false);
+$("tab3").onclick = () => show3d(true);
+if (new URLSearchParams(location.search).get("view") === "3d") {
+  const wait = setInterval(() => {
+    if (S.g) {
+      clearInterval(wait);
+      show3d(true);
+    }
+  }, 100);
+}

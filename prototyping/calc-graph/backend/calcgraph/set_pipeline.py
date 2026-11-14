@@ -11,7 +11,7 @@ import os
 import re
 import time
 
-from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, set_graph
+from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, plans_to_ifc, set_graph
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SETS_DIR = os.environ.get("CALCGRAPH_SETS", os.path.join(ROOT, "data", "sets"))
@@ -39,16 +39,18 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
     links, link_stats = set_graph.link(dr["elements"], pages)
     finds = set_graph.findings(dr["elements"], pages, links, dr["sheets"])
     cov = set_graph.coverage(dr["elements"], edges, pages, cedges, links, lp_stats, ce_stats, link_stats, None)
+    out = os.path.join(SETS_DIR, sid)
+    os.makedirs(out, exist_ok=True)
+    model = plans_to_ifc.build(sid, plans, dr["sheets"], dr["elements"], edges, links, finds, os.path.join(out, "model.ifc"))
+    cov["model_3d"] = {"elements_in_3d": model["elements_in_3d"], "counts_by_type": model["counts_by_type"]}
     sheets = [{k: v for k, v in s.items()} for s in dr["sheets"]]
     graph = {
         "id": sid, "name": name, "built_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "build_seconds": round(time.time() - t0, 1),
         "docs": {k: {kk: vv for kk, vv in v.items() if kk != "path"} for k, v in docs.items()},
         "sheets": sheets, "elements": dr["elements"], "element_edges": edges,
         "calcs": [_slim_page(p) for p in pages], "calc_edges": cedges, "links": links,
-        "findings": finds, "coverage": cov,
+        "findings": finds, "coverage": cov, "model": model,
     }
-    out = os.path.join(SETS_DIR, sid)
-    os.makedirs(out, exist_ok=True)
     with open(os.path.join(out, "graph.json"), "w") as fh:
         json.dump(graph, fh)
     with open(os.path.join(out, "meta.json"), "w") as fh:

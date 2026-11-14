@@ -59,6 +59,19 @@ def main() -> None:
     print(f"Calc edges: {c['calc_edges']} by rule {c['calc_edges_by_rule']}")
     print(f"RISA-3D floor -> level check: {c['floor_level_check']}")
     print(f"Load-path edges: {c['load_path_edges']}; stats {c['load_path']}")
+    m = g.get("model")
+    if m:
+        print(f"3D model (from plans): {m['elements_in_3d']}/{m['elements_total']} drawing elements; by type {m['counts_by_type']}")
+        print(f"  skipped: {m['skipped']}")
+        for sh, cal in m["calibration"].items():
+            print(f"  calibration {sh}: {cal['scale_check']}; dims {cal['dims_found']}/{cal['dims_expected']}; "
+                  f"residual max {cal['max_residual_in']} in, rms {cal['rms_residual_in']} in")
+        print(f"  grid (ft) from {m['reference_sheet']}: {m['grid_ft']}")
+        for k, v in m["elevations"].items():
+            print(f"  elevation {k}: {v['ft']:+.3f} ft  <- '{v['text']}' ({v['sheet']}){'  ASSUMED: ' + v.get('note', '') if v['assumed'] else ''}")
+        print(f"  frames: {m['frames']}")
+        assumed = Counter(a for e in g["elements"] if e.get("model", {}).get("in3d") for a in e["model"]["assumed"])
+        print(f"  assumed values on 3D elements: {dict(assumed)}")
     print("Findings: " + ", ".join(f"{k} {v}" for k, v in Counter(f["kind"] for f in g["findings"]).items()))
     for f in g["findings"]:
         if f["kind"] in ("grid mismatch", "size mismatch", "truncated sizes in calcs"):

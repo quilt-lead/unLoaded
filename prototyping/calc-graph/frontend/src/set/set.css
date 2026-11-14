@@ -87,3 +87,20 @@ body.split .views{grid-template-columns:1fr 1fr}
   #left{max-height:50vh} #graphWrap2{min-height:50vh} #right{min-height:80vh}
   body.split .views{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
 }
+
+#centerPane{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--viewer)}
+.ctabs{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.ctabs button{padding:4px 10px;font-size:12.5px}
+.ctabs .note{font-size:11.5px;color:var(--muted);margin-left:6px}
+#graphWrap2{flex:1}
+#wrap3d{flex:1;position:relative;min-height:0}
+#wrap3d[hidden]{display:none}
+#v3d{position:absolute;inset:0}
+#v3d canvas{display:block;width:100%;height:100%}
+.legend3d{position:absolute;left:10px;bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12px}
+.legend3d div{display:flex;gap:6px;align-items:center;margin:2px 0}
+.legend3d i{width:10px;height:10px;border-radius:2px}
+.prog3d{position:absolute;top:10px;left:10px;font-size:12px;color:var(--muted)}
+.chip.assumed{background:var(--warn-soft);color:var(--warn)}
+.m3d{margin-top:8px;padding:7px 9px;border:1px dashed var(--line);border-radius:8px;font-size:12px;color:var(--muted)}
+.m3d b{color:var(--ink)}
