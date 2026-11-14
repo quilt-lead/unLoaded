@@ -12,7 +12,6 @@ from __future__ import annotations
 import glob
 import json
 import os
-import re
 from typing import Any
 
 from . import clr_runtime as rt
@@ -90,18 +89,24 @@ def roundtrip(doc: Any) -> dict[str, Any]:
     return rt.on_clr(_go)
 
 
+# ETABS_Adapter.dll is the toolkit's adapter for ETABS v18+ (the ETABSv1 API); the
+# numbered ones (Etabs2016_Adapter, ETABS17_Adapter) target retired ETABS versions and
+# must never be preferred just because their file name carries a bigger number.
+ETABS_ADAPTER_DLL = os.environ.get("CALCGRAPH_BHOM_ETABS_ADAPTER", "ETABS_Adapter.dll")
+
+
 def _etabs_adapter_type() -> Any:
-    dlls = sorted(glob.glob(os.path.join(ASSEMBLIES, "ETABS*_Adapter.dll")),
-                  key=lambda p: [int(x) for x in re.findall(r"\d+", os.path.basename(p))] or [0])
-    if not dlls:
-        raise NotInstalled("BHoM ETABS_Toolkit is not installed (no ETABS*_Adapter.dll in "
-                           f"{ASSEMBLIES}); it ships with the BHoM installer")
-    asm = rt.add_reference(dlls[-1])
+    path = os.path.join(ASSEMBLIES, ETABS_ADAPTER_DLL)
+    if not os.path.isfile(path):
+        found = sorted(os.path.basename(p) for p in glob.glob(os.path.join(ASSEMBLIES, "ETABS*_Adapter.dll")))
+        raise NotInstalled(f"BHoM ETABS adapter {ETABS_ADAPTER_DLL} not in {ASSEMBLIES} "
+                           f"(found: {found or 'none'}); it ships with the BHoM installer")
+    asm = rt.add_reference(path)
     base = rt.find_type("BH.Adapter.BHoMAdapter")
     for t in asm.GetTypes():
         if t.IsClass and not t.IsAbstract and base.IsAssignableFrom(t):
             return t
-    raise NotInstalled(f"no BHoMAdapter subclass in {dlls[-1]}")
+    raise NotInstalled(f"no BHoMAdapter subclass in {path}")
 
 
 def etabs_adapter(model_path: str | None) -> Any:

@@ -169,6 +169,18 @@ def _dotnet() -> dict[str, Any]:
     return out
 
 
+def smart_app_control() -> str:
+    """Smart App Control blocks unsigned/unreputed DLLs (all of BHoM) when enforcing."""
+    try:
+        import winreg
+
+        k = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\CI\Policy")
+        state = winreg.QueryValueEx(k, "VerifiedAndReputablePolicyState")[0]
+        return {0: "off", 1: "enforcing", 2: "evaluation"}.get(state, f"unknown ({state})")
+    except OSError:
+        return "not present"
+
+
 def _sessions() -> list[dict[str, Any]]:
     """Interactive Windows sessions, from the owners of explorer.exe (Windows Home has no quser)."""
     ps = ("Get-CimInstance Win32_Process -Filter \"Name='explorer.exe'\" | ForEach-Object { "
@@ -198,5 +210,6 @@ def inventory() -> dict[str, Any]:
         "bhom": bhom(),
         "apps": _apps(),
         "dotnet": _dotnet(),
+        "smart_app_control": smart_app_control(),
         "installed_products": _uninstall_entries(),
     }

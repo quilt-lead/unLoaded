@@ -43,6 +43,13 @@ app = FastAPI(title="calc-graph Windows bridge", version=__version__)
 
 @app.exception_handler(Exception)
 async def _errors(_req: Request, exc: Exception) -> JSONResponse:
+    if "0x800711C7" in str(exc):  # Windows Application Control (Smart App Control / WDAC)
+        return JSONResponse(status_code=503, content={
+            "error": "blocked_by_application_control",
+            "detail": "Windows Application Control (Smart App Control on this desk, see "
+                      "/inventory smart_app_control) refused to load an unsigned assembly. "
+                      "BHoM's assemblies are unsigned, so BHoM cannot load here while it is on.",
+            "dotnet_error": str(exc).splitlines()[0]})
     if isinstance(exc, (bhom.NotInstalled, csi.NotInstalled)):
         return JSONResponse(status_code=503, content={"error": "not_installed", "detail": str(exc)})
     if isinstance(exc, csi.NoSession):
