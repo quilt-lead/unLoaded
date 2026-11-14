@@ -393,10 +393,21 @@ def _etabs():
     return get_adapter("etabs", _design())
 
 
+def _answered(payload, a):
+    """Tag a response with the adapter that answered (mock vs Windows bridge)."""
+    from .analysis import etabs_adapter_name
+    info = {"adapter": etabs_adapter_name(), "adapter_name": getattr(a, "name", type(a).__name__),
+            "mock": etabs_adapter_name() == "etabs"}
+    if isinstance(payload, dict):
+        return {**payload, "answered_by": info}
+    return {"answered_by": info, "items": payload}
+
+
 @router.get("/etabs/objects")
 def etabs_objects(kind: str | None = None):
-    objs = [o.to_dict() for o in _etabs().model_objects()]
-    return [o for o in objs if not kind or o["kind"] == kind]
+    a = _etabs()
+    objs = [o.to_dict() for o in a.model_objects()]
+    return _safe(_answered([o for o in objs if not kind or o["kind"] == kind], a))
 
 
 @router.get("/etabs/model.e2k")
@@ -411,17 +422,20 @@ def etabs_e2k(column: str | None = None, dx: float = 0.0, dy: float = 0.0, remov
     data = open(path, "rb").read()
     os.unlink(path)
     return Response(data, media_type="text/plain", headers={"Content-Disposition": 'attachment; filename="calc-graph-v2.e2k"',
-                                                            "X-Note": "written by calc-graph; ETABS did not open it"})
+                                                            "X-Note": "written by calc-graph; ETABS did not open it",
+                                                            "X-Answered-By": getattr(a, "name", type(a).__name__)})
 
 
 @router.post("/etabs/send")
 def etabs_send(m: Move):
-    return _etabs().send_change(_design(), _change(m))
+    a = _etabs()
+    return _safe(_answered(a.send_change(_design(), _change(m)), a))
 
 
 @router.post("/etabs/pull/{job_id}")
 def etabs_pull(job_id: str):
-    return _etabs().pull_results(job_id)
+    a = _etabs()
+    return _safe(_answered(a.pull_results(job_id), a))
 
 
 # ------------------------------------------------------------------ ground truth / evaluation

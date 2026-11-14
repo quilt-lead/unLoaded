@@ -10,14 +10,31 @@
 """
 from __future__ import annotations
 
+import os
+
 from .base import AnalysisAdapter, AnalysisObject, OBJECT_KINDS
 
-ADAPTERS = ("etabs", "risa", "ram")
+ADAPTERS = ("etabs", "bhom_etabs", "risa", "ram")
+# which adapter answers "etabs": the mock (default) or the real one through the Windows bridge
+# (bhom_etabs - BHoM / CSI OAPI routes, with its own mock fallback). Select with
+# CALCGRAPH_ETABS_ADAPTER=bhom_etabs once ETABS is installed on the desk.
+ETABS_ADAPTER_ENV = "CALCGRAPH_ETABS_ADAPTER"
+
+
+def etabs_adapter_name() -> str:
+    v = (os.environ.get(ETABS_ADAPTER_ENV) or "etabs").strip().lower()
+    return v if v in ("etabs", "bhom_etabs") else "etabs"
 
 
 def get_adapter(name: str, design=None) -> AnalysisAdapter:
-    """Adapter by name ("etabs" | "risa" | "ram"); `design` = design.json dict/path or None."""
+    """Adapter by name ("etabs" | "bhom_etabs" | "risa" | "ram"); `design` = design.json dict/path
+    or None. "etabs" resolves to the configured ETABS adapter (etabs_adapter_name())."""
     key = (name or "").strip().lower()
+    if key == "etabs":
+        key = etabs_adapter_name()
+    if key == "bhom_etabs":
+        from .bhom_etabs import BhomEtabsAdapter
+        return BhomEtabsAdapter(design)
     if key == "etabs":
         from .etabs import EtabsAdapter
         return EtabsAdapter(design)
@@ -30,4 +47,4 @@ def get_adapter(name: str, design=None) -> AnalysisAdapter:
     raise ValueError(f"unknown analysis adapter {name!r} (known: {', '.join(ADAPTERS)})")
 
 
-__all__ = ["get_adapter", "AnalysisAdapter", "AnalysisObject", "OBJECT_KINDS", "ADAPTERS"]
+__all__ = ["get_adapter", "etabs_adapter_name", "AnalysisAdapter", "AnalysisObject", "OBJECT_KINDS", "ADAPTERS"]
