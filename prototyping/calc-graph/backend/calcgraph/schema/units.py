@@ -1,12 +1,16 @@
-"""Units: every quantity in the schema carries its unit.
+"""Units: every quantity in the schema carries its unit, on `pint`.
 
-A tiny explicit layer instead of `pint`: the schema needs ~30 structural units and
-dimension checking, and pint would add a dependency (plus lockfile churn) for that.
-Each unit is a factor to SI base (m, N, rad) and a dimension vector (L, F, A).
+pint owns the unit algebra (its definitions of the foot, inch, pound-force, pascal ...) and
+the conversions. This module is the thin layer the schema needs on top of it, with the
+public API the callers and contract checks rely on unchanged:
 
-Rules this module enforces (they raise, never coerce silently):
-- an unknown unit string is rejected (`UnknownUnit`)
-- converting or adding across dimensions is rejected (`UnitMismatch`), e.g. kip -> ft
+- a CLOSED vocabulary of ~45 structural units with canonical spellings ("kip*ft", "ksf") and
+  the spellings found in sources (`ALIASES`); anything else is rejected (`UnknownUnit`), so a
+  source cannot smuggle an arbitrary pint expression into the schema
+- converting or adding across dimensions is rejected (`UnitMismatch`), e.g. kip -> ft; pint's
+  `DimensionalityError` is translated, never leaked
+- angle is its own dimension here (pint treats radian as dimensionless; a degree added to a
+  ratio would pass there) so rad/deg only convert among themselves
 - a `Quantity` always has a unit; a dimensionless value says so with unit "1"
 
 `unit_from_key()` reads the unit a source declares in a field name or table header
@@ -17,8 +21,10 @@ from __future__ import annotations
 
 import math
 import re
+from functools import lru_cache
 from typing import Annotated
 
+import pint
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
 
@@ -43,37 +49,35 @@ DENSITY: Dim = (-3, 1, 0)
 ANGLE: Dim = (0, 0, 1)
 NONE: Dim = (0, 0, 0)
 
+# 1 ft in metres (exact; pint's `foot` is the same definition). Used by schema/frames.py.
 FT = 0.3048
-INCH = 0.0254
-LBF = 4.4482216152605
-KIP = 1000 * LBF
 
-# name -> (factor to SI base, dimension). Names are the canonical spellings.
-UNITS: dict[str, tuple[float, Dim]] = {
-    "1": (1.0, NONE),
-    "percent": (0.01, NONE),
+# canonical name -> pint expression. Names are the canonical spellings.
+UNITS: dict[str, str] = {
+    "1": "dimensionless",
+    "percent": "0.01",
     # length
-    "m": (1.0, LENGTH), "mm": (1e-3, LENGTH), "cm": (1e-2, LENGTH),
-    "ft": (FT, LENGTH), "in": (INCH, LENGTH),
-    "pt": (INCH / 72, LENGTH),  # PDF point, paper length (a sheet frame is still a separate type)
+    "m": "meter", "mm": "millimeter", "cm": "centimeter", "ft": "foot", "in": "inch",
+    "pt": "inch / 72",  # PDF point, paper length (a sheet frame is still a separate type)
     # area / volume
-    "m2": (1.0, AREA), "ft2": (FT * FT, AREA), "in2": (INCH * INCH, AREA),
-    "m3": (1.0, VOLUME), "ft3": (FT ** 3, VOLUME), "yd3": ((3 * FT) ** 3, VOLUME), "in3": (INCH ** 3, VOLUME),
+    "m2": "meter ** 2", "ft2": "foot ** 2", "in2": "inch ** 2",
+    "m3": "meter ** 3", "ft3": "foot ** 3", "yd3": "yard ** 3", "in3": "inch ** 3",
     # force
-    "N": (1.0, FORCE), "kN": (1e3, FORCE), "lbf": (LBF, FORCE), "kip": (KIP, FORCE),
+    "N": "newton", "kN": "kilonewton", "lbf": "pound_force", "kip": "1000 * pound_force",
     # moment
-    "N*m": (1.0, MOMENT), "kN*m": (1e3, MOMENT), "kip*ft": (KIP * FT, MOMENT), "kip*in": (KIP * INCH, MOMENT),
-    "lbf*ft": (LBF * FT, MOMENT),
+    "N*m": "newton * meter", "kN*m": "kilonewton * meter", "kip*ft": "1000 * pound_force * foot",
+    "kip*in": "1000 * pound_force * inch", "lbf*ft": "pound_force * foot",
     # line load
-    "N/m": (1.0, LINE_LOAD), "kN/m": (1e3, LINE_LOAD), "plf": (LBF / FT, LINE_LOAD), "klf": (KIP / FT, LINE_LOAD),
+    "N/m": "newton / meter", "kN/m": "kilonewton / meter", "plf": "pound_force / foot",
+    "klf": "1000 * pound_force / foot",
     # pressure / stress
-    "Pa": (1.0, PRESSURE), "kPa": (1e3, PRESSURE), "MPa": (1e6, PRESSURE),
-    "psf": (LBF / FT ** 2, PRESSURE), "ksf": (KIP / FT ** 2, PRESSURE),
-    "psi": (LBF / INCH ** 2, PRESSURE), "ksi": (KIP / INCH ** 2, PRESSURE),
+    "Pa": "pascal", "kPa": "kilopascal", "MPa": "megapascal",
+    "psf": "pound_force / foot ** 2", "ksf": "1000 * pound_force / foot ** 2",
+    "psi": "pound_force / inch ** 2", "ksi": "1000 * pound_force / inch ** 2",
     # density
-    "pcf": (LBF / FT ** 3, DENSITY), "kN/m3": (1e3, DENSITY),
-    # angle
-    "rad": (1.0, ANGLE), "deg": (math.pi / 180, ANGLE),
+    "pcf": "pound_force / foot ** 3", "kN/m3": "kilonewton / meter ** 3",
+    # angle (own dimension: see module docstring)
+    "rad": "cg_angle", "deg": "pi / 180 * cg_angle",
 }
 
 # spellings found in sources -> canonical
@@ -86,8 +90,29 @@ ALIASES: dict[str, str] = {
     "k/ft": "klf", "kip/ft": "klf", "lb/ft": "plf", "#/ft": "plf",
     "k/ft2": "ksf", "k/ft^2": "ksf", "lb/ft2": "psf", "lb/ft^2": "psf", "#/ft2": "psf",
     "k/in2": "ksi", "lb/in2": "psi", "sf": "ft2", "sqft": "ft2", "sq ft": "ft2", "cy": "yd3",
-    "degrees": "deg", "degree": "deg", "°": "deg", "%": "percent", "": "1", "-": "1",
+    "degrees": "deg", "degree": "deg", "\u00b0": "deg", "%": "percent", "": "1", "-": "1",
 }
+
+# ---------------- the pint registry: a private one, the vocabulary above defined on it ----------------
+_ureg = pint.UnitRegistry()
+_ureg.define("cg_angle = [cg_angle]")  # radian as a real dimension, not pint's dimensionless one
+
+
+def _ident(name: str) -> str:
+    return "cg_u_" + re.sub(r"\W", "_", name.replace("*", "_x_").replace("/", "_per_"))
+
+
+for _name, _expr in UNITS.items():
+    if _name not in ("1", "rad"):
+        _ureg.define(f"{_ident(_name)} = {_expr}")
+_ureg.define("cg_u_rad = cg_angle")
+assert len({_ident(n) for n in UNITS}) == len(UNITS), "unit names collide once made into identifiers"
+
+
+@lru_cache(maxsize=None)
+def _unit(name: str) -> pint.Unit:
+    """The pint unit of a CANONICAL name."""
+    return _ureg.dimensionless if name == "1" else getattr(_ureg, _ident(name))
 
 
 def canonical(unit: str) -> str:
@@ -107,16 +132,22 @@ def canonical(unit: str) -> str:
 
 
 def dim(unit: str) -> Dim:
-    return UNITS[canonical(unit)][1]
+    """(length, force, angle) exponents, read off pint's dimensionality of the unit."""
+    d = _unit(canonical(unit)).dimensionality
+    mass, length, time, angle = (int(d.get(k, 0)) for k in ("[mass]", "[length]", "[time]", "[cg_angle]"))
+    if time != -2 * mass:  # every vocabulary unit is a pure length/force/angle product
+        raise UnknownUnit(f"{unit!r} is not a length/force/angle unit")
+    return (length - mass, mass, angle)
 
 
 def convert(value: float, src: str, dst: str) -> float:
     s, d = canonical(src), canonical(dst)
-    fs, ds = UNITS[s]
-    fd, dd = UNITS[d]
+    if s == d:
+        return value
+    ds, dd = dim(s), dim(d)
     if ds != dd:
         raise UnitMismatch(f"cannot convert {s} ({_dname(ds)}) to {d} ({_dname(dd)})")
-    return value * fs / fd
+    return float(_ureg.Quantity(value, _unit(s)).to(_unit(d)).magnitude)
 
 
 def _dname(d: Dim) -> str:

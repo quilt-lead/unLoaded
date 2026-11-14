@@ -1,8 +1,10 @@
 """AISC shapes (v16.0 database values) and AISC 360-16 member strengths.
 
 The table is a subset of the AISC Shapes Database v16.0 (W8..W36 and square HSS 4..12),
-taken from the MIT-licensed CSV redistribution in github.com/cmccomb/structural-shapes
-(`data/aisc-v16.csv`, see data/SOURCES.md). `verify()` checks it against values quoted
+obtained via github.com/cmccomb/structural-shapes (`data/aisc-v16.csv`). The CSV is AISC
+data (AISC Shapes Database v16.0, (C) American Institute of Steel Construction), NOT MIT
+licensed: the MIT licence in that repository covers only its author's code. Provenance and
+status in data/SOURCES.md. `verify()` checks it against values quoted
 independently from the AISC Steel Construction Manual for 14 shapes.
 
 Units: kip, in, ksi unless a name says ft or kip-ft. All strengths are LRFD (phi).

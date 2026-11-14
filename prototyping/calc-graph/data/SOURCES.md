@@ -12,6 +12,12 @@ No customer file (OneDrive or elsewhere) is in this repo.
 Used as a smoke test that the backend ingests a third-party IFC (14 elements, 10 load-path
 edges inferred). It has no marks and no matching calc package, so it is not scored.
 
+### AISC shapes subset (committed, not MIT)
+
+| File | Source | Licence | Fetched |
+|---|---|---|---|
+| `synth/v2/data/aisc_v16_subset.csv` | Subset (W8..W36 and square HSS 4..12; 300 shapes, sha256 `2c4090e1cb6987a7364634335c96e94f89177cf43a1b94c9c595a10ed1b6a54e`) of the AISC Shapes Database v16.0, obtained via `data/aisc-v16.csv` in https://github.com/cmccomb/structural-shapes | AISC data, (C) American Institute of Steel Construction - NOT MIT. The MIT licence in that repository covers only the repository author's code, not the AISC data. Redistribution terms are AISC's, not an open licence; kept committed by project decision (public hackathon repo) | committed with the synth v2 designed building (595bd7c) |
+
 ## Generated (not downloaded)
 
 `data/synthetic/` is produced by `uv run python -m synth.generate` (gitignored, byte-stable for
