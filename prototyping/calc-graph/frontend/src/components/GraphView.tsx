@@ -29,6 +29,10 @@ export interface GraphNode<D = unknown> {
   color?: string;
   /** "gap" draws a dashed red placeholder (e.g. "no support found") */
   kind?: "normal" | "gap";
+  /** soft background tint (e.g. warn = on an impacted path, bad = removed, calc = a calc node) */
+  tone?: "warn" | "bad" | "accent" | "calc" | "good";
+  /** dashed outline (e.g. a candidate, not a link) */
+  dashed?: boolean;
   title?: string;
   data?: D;
 }
@@ -40,6 +44,10 @@ export interface GraphEdge<D = unknown> {
   style?: EdgeStyle;
   label?: string;
   title?: string;
+  /** stroke colour override (any CSS colour or var(--token)); absent edges stay red */
+  color?: string;
+  /** stroke width override in px (e.g. a bundle sized by its count) */
+  width?: number;
   data?: D;
 }
 
@@ -86,7 +94,7 @@ const CgNode = memo(function CgNode({ data }: NodeProps<Node<CgData>>) {
   const { g, selected, dir } = data;
   return (
     <div
-      className={`cg-gnode${g.kind === "gap" ? " gap" : ""}${selected ? " sel" : ""}`}
+      className={`cg-gnode${g.kind === "gap" ? " gap" : ""}${selected ? " sel" : ""}${g.tone ? " tone-" + g.tone : ""}${g.dashed ? " dashed" : ""}`}
       style={{ borderLeftColor: g.kind === "gap" ? undefined : g.color ?? "var(--accent)" }}
       title={g.title ?? [g.label, g.sub].filter(Boolean).join("\n")}
     >
@@ -111,12 +119,12 @@ const LaneNode = memo(function LaneNode({ data }: NodeProps<Node<LaneData>>) {
 
 const nodeTypes = { cg: CgNode, lane: LaneNode };
 
-function edgeVisual(style: EdgeStyle | undefined, selected: boolean) {
-  const c = style === "absent" ? "var(--bad)" : selected ? "var(--accent)" : "var(--edge)";
+function edgeVisual(style: EdgeStyle | undefined, selected: boolean, color?: string, width?: number) {
+  const c = style === "absent" ? "var(--bad)" : selected ? "var(--accent)" : color ?? "var(--edge)";
   return {
     style: {
       stroke: c,
-      strokeWidth: selected ? 2.6 : style === "exact" ? 1.8 : 1.5,
+      strokeWidth: selected ? Math.max(2.6, width ?? 0) : width ?? (style === "exact" ? 1.8 : 1.5),
       strokeDasharray: style === "inferred" ? "6 4" : style === "absent" ? "1.5 4" : undefined,
       strokeLinecap: "round" as const,
     },
@@ -211,7 +219,7 @@ export function GraphView<N, E>({
           target: e.target,
           label: e.label,
           interactionWidth: 18,
-          ...edgeVisual(e.style, e.id === selectedEdgeId),
+          ...edgeVisual(e.style, e.id === selectedEdgeId, e.color, e.width),
           ariaLabel: e.title ?? `${e.source} to ${e.target}${e.style ? ` (${e.style})` : ""}`,
         })),
     [edges, byId, selectedEdgeId],

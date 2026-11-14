@@ -98,6 +98,12 @@
 .cg-gnode:hover { border-color: var(--accent); }
 .cg-gnode.sel { outline: 2.5px solid #ffb000; outline-offset: 1px; }
 .cg-gnode.gap { border: 1.5px dashed var(--bad); border-left-width: 1.5px; color: var(--bad); background: var(--bad-soft); }
+.cg-gnode.tone-warn { background: var(--warn-soft); border-color: var(--warn); }
+.cg-gnode.tone-bad { background: var(--bad-soft); border-color: var(--bad); }
+.cg-gnode.tone-accent { background: var(--accent-soft); }
+.cg-gnode.tone-calc { background: var(--calc-soft); }
+.cg-gnode.tone-good { background: var(--good-soft); }
+.cg-gnode.dashed { border-style: dashed; }
 .cg-gnode-l { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cg-gnode-s { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10.5px; }
 .cg-gnode.gap .cg-gnode-s { color: var(--bad); }
