@@ -1,0 +1,112 @@
+{
+ "about": "Config for scripts/check_no_copyrighted.py. Terms are distinctive strings from the copyrighted Dana Point permit set (firm names, job / package / permit numbers, the project name). term_allowlist names files allowed to carry a term because they reference the set by path or document the guard; image_allowlist pins synthetic images by blob sha.",
+ "terms": [
+  {
+   "name": "KPFF",
+   "regex": "KPFF"
+  },
+  {
+   "name": "KPFF job number",
+   "regex": "(?<![0-9.])1900799(?![0-9])"
+  },
+  {
+   "name": "OC-DPH",
+   "regex": "OC-DPH"
+  },
+  {
+   "name": "package number",
+   "regex": "PKG21-0516"
+  },
+  {
+   "name": "SMS Architects",
+   "regex": "SMS\\s?ARCH"
+  },
+  {
+   "name": "Dana Point",
+   "regex": "Dana\\s+Point"
+  },
+  {
+   "name": "Burnham Ward",
+   "regex": "Burnham\\s*Ward"
+  },
+  {
+   "name": "permit number",
+   "regex": "BNR21-0246"
+  },
+  {
+   "name": "plan checker stamp",
+   "regex": "OCPWAzarvand"
+  }
+ ],
+ "term_allowlist": {
+  "prototyping/calc-graph/scripts/check_no_copyrighted.py": [
+   "KPFF",
+   "KPFF job number",
+   "OC-DPH",
+   "package number",
+   "SMS Architects",
+   "Dana Point",
+   "Burnham Ward",
+   "permit number",
+   "plan checker stamp"
+  ],
+  "prototyping/calc-graph/scripts/copyright_guard.json": [
+   "KPFF",
+   "KPFF job number",
+   "OC-DPH",
+   "package number",
+   "SMS Architects",
+   "Dana Point",
+   "Burnham Ward",
+   "permit number",
+   "plan checker stamp"
+  ],
+  "prototyping/calc-graph/scripts/label_slice.py": [
+   "OC-DPH",
+   "package number"
+  ],
+  "prototyping/calc-graph/backend/calcgraph/calc_records.py": [
+   "KPFF"
+  ],
+  "prototyping/calc-graph/backend/calcgraph/calcpkg_ingest.py": [
+   "KPFF",
+   "KPFF job number",
+   "Dana Point",
+   "permit number",
+   "plan checker stamp"
+  ],
+  "prototyping/calc-graph/scripts/evaluate_set.py": [
+   "OC-DPH",
+   "package number",
+   "Dana Point"
+  ],
+  "prototyping/calc-graph/frontend/index.html": [
+   "KPFF",
+   "Dana Point"
+  ],
+  "prototyping/calc-graph/frontend/set.html": [
+   "KPFF",
+   "Dana Point"
+  ],
+  "prototyping/calc-graph/backend/calcgraph/cli.py": [
+   "KPFF",
+   "Dana Point"
+  ],
+  "prototyping/calc-graph/backend/calcgraph/set_integrate.py": [
+   "KPFF"
+  ],
+  "prototyping/calc-graph/backend/calcgraph/plans_to_ifc.py": [
+   "Dana Point"
+  ],
+  "prototyping/calc-graph/scripts/evaluate_all.py": [
+   "Dana Point"
+  ]
+ },
+ "image_allowlist": {
+  "prototyping/calc-graph/docs/screenshots/01-sample-loaded.png": "75f349581e2bccf5b1940c3514bc869bdbe94f82",
+  "prototyping/calc-graph/docs/screenshots/02-element-inspector.png": "cabb015bae5c90b572f30cf67116e66eb69880f3",
+  "prototyping/calc-graph/docs/screenshots/03-evidence-page-highlight.png": "a0b958f0d79ac7fb62b837c94214fbf54370de45",
+  "prototyping/calc-graph/docs/screenshots/04-impact-remove-C8-graph.png": "f831dc278663e0f6be0c0664e410a0496ec90aa0",
+  "prototyping/calc-graph/docs/screenshots/05-rev2-decisions-carried.png": "f68876ef07809cb14586afa02f9d846a665edc45"
+ }
+}

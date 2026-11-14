@@ -1,0 +1,74 @@
+# calc-graph CI. Written 2026-11-14, NOT yet pushed. Actions pinned to commit SHAs (tag in the comment).
+# The drawing-set PDFs are never in CI: evaluate_all runs --synthetic-only, which skips every drawing-set
+# stage cleanly; the copyright guard runs over HEAD and over the PR's commits.
+name: calc-graph CI
+
+on:
+  pull_request:
+    paths: ["prototyping/calc-graph/**", ".github/workflows/ci.yml"]
+  push:
+    branches: [main]
+    paths: ["prototyping/calc-graph/**", ".github/workflows/ci.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calc-graph-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: prototyping/calc-graph
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0  # the copyright guard walks the PR's commits
+      - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.11.16"
+      - name: uv sync
+        run: uv sync --frozen --extra dev
+      - name: Copyright guard (self-test, HEAD, PR commits)
+        run: |
+          uv run python scripts/check_no_copyrighted.py --self-test
+          uv run python scripts/check_no_copyrighted.py --tracked
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            uv run python scripts/check_no_copyrighted.py --range "origin/${{ github.base_ref }}..HEAD"
+          fi
+      - name: AI-step ratchets (no network, no spend)
+        run: |
+          uv run python scripts/check_llm_imports.py
+          uv run python scripts/check_ai_step.py
+      - name: Backend tests
+        run: uv run --extra dev pytest backend/tests -q
+      - name: Evaluate (synthetic only, regression vs eval/baseline.json)
+        run: uv run python scripts/evaluate_all.py --synthetic-only
+      - name: Scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: scorecard
+          path: prototyping/calc-graph/data/eval/scorecard.json
+          if-no-files-found: ignore
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: prototyping/calc-graph/frontend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22.23.0"
+          cache: npm
+          cache-dependency-path: prototyping/calc-graph/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build

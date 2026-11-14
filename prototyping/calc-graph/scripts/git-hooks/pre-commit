@@ -1,0 +1,17 @@
+#!/bin/sh
+# calc-graph pre-commit: copyright guard on every commit; AI-step ratchets when calc-graph Python changes.
+# Install once per clone, from the repo root:
+#   git config core.hooksPath prototyping/calc-graph/scripts/git-hooks
+set -e
+proj=$(cd "$(dirname "$0")/../.." && pwd)
+py="$proj/.venv/bin/python"
+[ -x "$py" ] || py=python3
+
+"$py" "$proj/scripts/check_no_copyrighted.py" --staged
+
+if git diff --cached --name-only | grep -q '^prototyping/calc-graph/.*\.py$'; then
+  (cd "$proj" && "$py" scripts/check_llm_imports.py >/dev/null) || {
+    echo "pre-commit: LLM SDK imported outside backend/calcgraph/ai/ (run: python scripts/check_llm_imports.py)"; exit 1; }
+  (cd "$proj" && "$py" scripts/check_ai_step.py >/dev/null) || {
+    echo "pre-commit: AI-step replay checks failed (run: python scripts/check_ai_step.py)"; exit 1; }
+fi

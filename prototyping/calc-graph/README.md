@@ -25,6 +25,26 @@ removed on top. For frontend work: `uv run calc-graph serve` plus `cd frontend &
 `uv run calc-graph ingest model.ifc calcs.pdf`. Store location: `data/store/` (override with
 `CALCGRAPH_STORE`). Tests for CI live in `backend/tests/` (`uv run --extra dev pytest backend/tests`).
 
+## Evaluate, guard, CI
+
+- `uv run python scripts/evaluate_all.py` runs every evaluation and prints one scorecard
+  (synthetic v2 ground truth first: generator self-checks and the v2 IFC through `ifc_ingest` +
+  `loadpath`; then the move-a-column / registry / v2-document evaluators when they exist; the AI-step
+  ratchets; the copyright guard; and the deprecated v1 + drawing-set stages, which skip when their
+  local inputs are absent). It exits 1 when a gated metric drops more than 0.005 below
+  `eval/baseline.json` (numbers only) or a check fails. `--synthetic-only` is what CI runs;
+  `--update-baseline` accepts the current numbers. Hand labels for drawing-set slices live in the
+  gitignored `data/labels/` (procedure: `scripts/label_slice.py`) and never enter git.
+- **Copyright guard** - install once per clone, from the repo root:
+  `git config core.hooksPath prototyping/calc-graph/scripts/git-hooks`. The pre-commit hook runs
+  `scripts/check_no_copyrighted.py --staged` (blocks PDFs, images not pinned in
+  `scripts/copyright_guard.json`, anything under `data/sets/` or `data/labels/`, and distinctive
+  strings from the copyrighted permit set outside the per-file term allowlist), plus
+  `scripts/check_llm_imports.py` and `scripts/check_ai_step.py` when calc-graph Python is staged.
+  `--history` / `--range A..B` / `--tracked` scan commits or HEAD; `--self-test` proves each rule.
+- **CI**: `.github/workflows/ci.yml` at the repo root (uv sync, copyright guard, AI-step ratchets,
+  backend pytest, `evaluate_all --synthetic-only`, frontend build; actions pinned to SHAs).
+
 ## Layout
 
 | Path | What |
