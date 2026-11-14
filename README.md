@@ -1,31 +1,16 @@
-# Structural BIM & IFC Radial Graph Viewer
+# Structural Calculation & Element Graph Viewer (React + TypeScript)
 
-Interactive 2D radial dependency graph, synchronized 3D structural WebGL frame viewer, and structural engineering document/PDF browser.
+Visualizes **structural engineering calculations (PDFs)** and maps them bidirectionally onto **structural BIM elements** (beams, columns, slabs, shear walls, connections, fasteners/bolts, foundations) across **Element Graph**, **Calculation Graph**, **3D Structural Model**, and **PDF Revision Browser** views.
 
-## Repository Structure
-
-```text
-structural-bim-graph-viewer/
-├── index.html                 # Main application (Radial Graph + 3D BIM Viewport + Document Browser)
-├── data/
-│   └── bim-database.json      # Reference 14-story reinforced concrete flat-plate BIM database (IFC 4.3)
-├── docs/
-│   └── ARCHITECTURE.md        # Data schema, load-path tracing & interaction guide
-└── README.md
-```
+## Views & Core Capabilities
+1. **Element Graph (`element-graph`):** Radial topological graph of structural elements & connectivity (`Beam <-> Connection <-> Column`, `Shift + Click` multi-select, `Ctrl+G` grouping, center-to-center wires).
+2. **Calculation Graph (`calculation-graph`):** Graph of structural calculation types (`Beam Sizing Calcs`, `Column Sizing Calcs`, `Connection & Fastener Calcs`, `Slab & Punching Shear Calcs`, `Foundation & Geotech Calcs`) and PDF calculation packages—clicking any calculation node highlights its mapped structural elements in the 3D viewport and inspector.
+3. **3D Structural Model (`3d` + Floating/Dockable HUD):** Synchronized Three.js WebGL building viewer with demand/capacity utilization heatmap and zoom-to-selection.
+4. **PDF Calculation & Version Browser (`docs`):** Supports 1:1 calculation PDFs, multi-element PDF packages, and revision switching (`Rev A`, `Rev B`, `Rev C`, `Rev D`).
+5. **Pluggable IFC & BIM Converters (`src/utils/ifcParser.ts`):** Supports direct `.ifc` (`ISO-10303-21`) STEP imports across all IFC element classes as well as `.json` BIM graphs.
 
 ## Quick Start
-
-1. **Run via local HTTP server** (so `fetch('./data/bim-database.json')` loads automatically):
-   ```bash
-   python3 -m http.server 8080
-   ```
-   Then open `http://localhost:8080`.
-2. **Or open `index.html` directly** (`file://`) and click **Upload DB** in the top-right header to load `data/bim-database.json` (or any custom BIM JSON database).
-
-## Key Features
-
-- **Radial Hierarchy & Infinite Zoom:** Multi-ring radial graph with smooth G2 radial-tangent splines, auto-fitted white node labels, and unrestricted zoom (`Wheel` to zoom, `MMB`/`RMB` drag to pan).
-- **Multi-Select & Grouping (`Ctrl+G` / `Cmd+G`):** `Shift + Click` multiple nodes to move them simultaneously, or press `Ctrl+G` to cluster them into a dashed group hull (`GROUP N`).
-- **Load Path Tracing & Utilization Heatmap:** Trace upstream/downstream gravity load paths with hop-depth limiting and toggle demand/capacity utilization heatmap coloring across both 2D and 3D views.
-- **3D Structural Frame & Document Browser:** Synchronized Three.js 3D structural model (`RMB` orbit, `MMB` pan, `FIT` zoom-to-selection) and mapped engineering calculation/PDF repository.
+```bash
+npm install
+npm run dev
+```

@@ -1,0 +1,375 @@
+import React from 'react';
+import { CircleDot, FileText, ArrowUpRight, Layers, Link2, Calculator } from 'lucide-react';
+import { BimLink, BimNode } from '../types/bim';
+import {
+  getDirectConnectivityNeighbors,
+  getDisplayType,
+  getNodeDocuments,
+  isInstanceNode,
+} from '../utils/graphEngine';
+import { getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
+
+interface PropertyInspectorProps {
+  nodes: BimNode[];
+  links: BimLink[];
+  rawLinks: BimLink[];
+  selectedNodeId: string | null;
+  selectedNodeIds: Set<string>;
+  activeLoadChainNodeIds: Set<string>;
+  heatmapMode: boolean;
+  onSelectNode: (id: string) => void;
+  onClearSelection: () => void;
+  onOpenDocument: (nodeId: string, docId?: string, preserveSelection?: boolean) => void;
+  onSwitchToCalcGraph: (calcNodeId?: string) => void;
+}
+
+export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
+  nodes,
+  links,
+  rawLinks,
+  selectedNodeId,
+  selectedNodeIds,
+  activeLoadChainNodeIds,
+  heatmapMode,
+  onSelectNode,
+  onClearSelection,
+  onOpenDocument,
+  onSwitchToCalcGraph,
+}) => {
+  const node = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
+
+  if (!node) {
+    return (
+      <div className="text-center py-6 text-zinc-500">
+        <div className="w-10 h-10 bg-white/[0.03] border border-white/[0.06] text-zinc-500 rounded-xl flex items-center justify-center mx-auto mb-2.5 text-sm">
+          <CircleDot className="w-4 h-4" />
+        </div>
+        <p className="font-medium text-zinc-300 text-xs">No Element Selected</p>
+        <p className="text-[11px] text-zinc-500 mt-1">
+          Click any beam, column, slab, or connection to inspect its physical connectivity and mapped PDF calculations.
+        </p>
+      </div>
+    );
+  }
+
+  const displayType = getDisplayType(node);
+  const utilPct = typeof node.utilization === 'number' ? Math.round(node.utilization * 100) : null;
+  const utilColor = utilPct !== null ? getHeatmapColor(node.utilization) : '#6366f1';
+
+  const connectedLinks = links.filter((l) => l.source === node.id || l.target === node.id);
+  const hierarchyIds = connectedLinks
+    .filter((l) => !l.isLoadPath)
+    .map((l) => (l.source === node.id ? l.target : l.source));
+  const hierarchyNodes = nodes.filter((n) => hierarchyIds.includes(n.id));
+
+  // Physical topological connectivity neighbors (e.g., Beam <-> Connection <-> Column)
+  const connectivityNeighbors = isInstanceNode(node)
+    ? getDirectConnectivityNeighbors(node.id, nodes, rawLinks)
+    : [];
+
+  const loadPathNodes = Array.from(activeLoadChainNodeIds)
+    .filter((nid) => nid !== node.id)
+    .map((nid) => nodes.find((n) => n.id === nid))
+    .filter((n): n is BimNode => Boolean(n))
+    .sort((a, b) => (b.floorNum || 0) - (a.floorNum || 0));
+
+  const multiList =
+    selectedNodeIds.size > 1
+      ? Array.from(selectedNodeIds)
+          .map((sid) => nodes.find((n) => n.id === sid))
+          .filter((n): n is BimNode => Boolean(n))
+      : [];
+
+  // Affected PDF calculation documents (primary + traced load chain + hierarchy)
+  const affectedIds = new Set<string>([node.id]);
+  activeLoadChainNodeIds.forEach((nid) => affectedIds.add(nid));
+  connectedLinks.forEach((l) => {
+    if (!l.isLoadPath) {
+      affectedIds.add(l.source);
+      affectedIds.add(l.target);
+    }
+  });
+
+  const orderedAffectedNodes = [
+    node,
+    ...loadPathNodes,
+    ...hierarchyNodes.filter((hn) => hn.id !== node.id && !activeLoadChainNodeIds.has(hn.id)),
+  ];
+
+  const allAffectedDocs: Array<{
+    id: string;
+    title: string;
+    type: string;
+    rev: string;
+    pageRef?: string;
+    ownerId: string;
+    ownerLabel: string;
+    ownerColor: string;
+    isPrimary: boolean;
+  }> = [];
+  const seenDocKeys = new Set<string>();
+
+  orderedAffectedNodes.forEach((targetNode) => {
+    if (!affectedIds.has(targetNode.id)) return;
+    getNodeDocuments(targetNode).forEach((doc) => {
+      const key = `${targetNode.id}::${doc.id}`;
+      if (!seenDocKeys.has(key)) {
+        seenDocKeys.add(key);
+        allAffectedDocs.push({
+          ...doc,
+          ownerId: targetNode.id,
+          ownerLabel: targetNode.label,
+          ownerColor: getEffectiveNodeColor(targetNode, heatmapMode),
+          isPrimary: targetNode.id === node.id,
+        });
+      }
+    });
+  });
+
+  const defaultBayText = `30'-0" × 30'-0"`;
+
+  return (
+    <div className="space-y-3">
+      {multiList.length > 1 && (
+        <div className="bg-indigo-500/15 border border-indigo-400/35 rounded-xl p-2.5 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="mono text-[10px] font-semibold text-indigo-200 uppercase tracking-wider flex items-center gap-1">
+              <Layers className="w-3 h-3 text-indigo-300" />
+              {multiList.length} Elements Selected
+            </span>
+            <button
+              type="button"
+              onClick={onClearSelection}
+              className="mono text-[9px] text-zinc-400 hover:text-white underline"
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+            {multiList.map((mn) => (
+              <span
+                key={mn.id}
+                onClick={() => onSelectNode(mn.id)}
+                title="Click to focus solo"
+                className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border ${
+                  mn.id === node.id
+                    ? 'bg-white text-zinc-900 border-white font-semibold'
+                    : 'bg-black/40 text-zinc-200 border-white/15 hover:border-indigo-400/50'
+                }`}
+              >
+                {mn.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="mono text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25">
+          {displayType}
+        </span>
+        {node.floor && node.floor !== 'ALL' && (
+          <span className="mono text-[10px] px-2 py-0.5 rounded bg-white/[0.06] text-zinc-200 border border-white/[0.16]">
+            {node.floor}
+          </span>
+        )}
+        <span className="mono text-[10px] text-zinc-500 truncate">ID: {node.id}</span>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-sm text-white tracking-tight">{node.label}</h3>
+        <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+          {node.desc || 'Structural BIM element entity.'}
+        </p>
+      </div>
+
+      {isInstanceNode(node) && (
+        <div className="grid grid-cols-2 gap-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.07]">
+          {node.sectionSize && (
+            <>
+              <div>
+                <span className="mono text-[9px] text-zinc-500 uppercase block">Section / Profile</span>
+                <span className="mono text-[11px] font-semibold text-cyan-300">{node.sectionSize}</span>
+              </div>
+              <div>
+                <span className="mono text-[9px] text-zinc-500 uppercase block">Grid Bay & F2F</span>
+                <span className="mono text-[11px] font-semibold text-zinc-200">
+                  {node.baySpacing || defaultBayText} • 12'-0"
+                </span>
+              </div>
+            </>
+          )}
+          <div>
+            <span className="mono text-[9px] text-zinc-500 uppercase block">Rated Strength</span>
+            <span className="mono text-[11px] font-semibold text-zinc-100">
+              {node.strengthLabel || `${node.ratedStrength ?? 65} MPa`}
+            </span>
+          </div>
+          <div>
+            <span className="mono text-[9px] text-zinc-500 uppercase block">Axial / Gravity Load</span>
+            <span className="mono text-[11px] font-semibold text-amber-300">
+              {(node.axialLoadKn || 0).toLocaleString()} kN
+            </span>
+          </div>
+          {utilPct !== null && (
+            <div className="col-span-2 pt-1 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between mono text-[9px] mb-1">
+                <span className="text-zinc-400 uppercase">Demand / Capacity Utilization</span>
+                <span style={{ color: utilColor }} className="font-semibold">
+                  {utilPct}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${utilPct}%`, backgroundColor: utilColor }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mapped PDF Calculations + Cross-Link to Calculation Graph */}
+      <div className="border-t border-white/[0.07] pt-2.5">
+        <div className="flex items-center justify-between mb-1.5 gap-1">
+          <p className="mono text-[10px] font-semibold text-rose-400 uppercase tracking-wider">
+            PDF Calculations ({allAffectedDocs.length})
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onSwitchToCalcGraph(allAffectedDocs[0] ? `calc-doc-${allAffectedDocs[0].id}` : undefined)}
+              className="mono text-[9px] text-amber-300 hover:text-white underline flex items-center gap-0.5"
+            >
+              <Calculator className="w-2.5 h-2.5" />
+              Calc Graph
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenDocument(node.id)}
+              className="mono text-[9px] text-indigo-300 hover:text-white underline"
+            >
+              PDF Viewer →
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+          {allAffectedDocs.map((doc) => (
+            <div
+              key={`${doc.ownerId}-${doc.id}`}
+              onClick={() => onOpenDocument(doc.ownerId, doc.id, true)}
+              className={`flex items-center justify-between gap-2 ${
+                doc.isPrimary
+                  ? 'bg-rose-500/[0.11] border-rose-400/35'
+                  : 'bg-rose-500/[0.04] border-rose-400/20'
+              } hover:bg-rose-500/[0.16] p-2 rounded-lg cursor-pointer transition border`}
+            >
+              <div className="flex items-center space-x-2 min-w-0">
+                <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-zinc-100 truncate">{doc.title}</p>
+                  <p className="mono text-[9px] text-zinc-400 truncate">
+                    <span style={{ color: doc.ownerColor }} className="font-semibold">
+                      {doc.ownerLabel}
+                    </span>{' '}
+                    • {doc.rev} ({doc.pageRef || 'pp. 1–4'})
+                  </p>
+                </div>
+              </div>
+              <ArrowUpRight className="w-3 h-3 text-zinc-400 flex-shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Physical Structural Connectivity (e.g., Beam <-> Connection <-> Column) */}
+      {connectivityNeighbors.length > 0 && (
+        <div className="border-t border-white/[0.07] pt-2.5">
+          <p className="mono text-[10px] font-semibold text-cyan-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+            <Link2 className="w-3 h-3" />
+            Physical Connectivity ({connectivityNeighbors.length})
+          </p>
+          <div className="space-y-1 max-h-28 overflow-y-auto">
+            {connectivityNeighbors.map((nb) => (
+              <div
+                key={nb.id}
+                onClick={() => onSelectNode(nb.id)}
+                className="flex items-center justify-between bg-cyan-500/[0.06] hover:bg-cyan-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-cyan-500/20"
+              >
+                <div className="flex items-center space-x-2 min-w-0">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getEffectiveNodeColor(nb, heatmapMode) }}
+                  />
+                  <span className="text-[11px] font-medium text-zinc-100 truncate">{nb.label}</span>
+                </div>
+                <span className="mono text-[9px] text-cyan-300 flex-shrink-0 ml-2">
+                  Connected • {nb.floor || 'ALL'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loadPathNodes.length > 0 && (
+        <div className="border-t border-white/[0.07] pt-2.5">
+          <p className="mono text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-1.5">
+            Continuous Load Path ({loadPathNodes.length})
+          </p>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {loadPathNodes.map((lp) => {
+              const isAbove = (lp.floorNum || 0) > (node.floorNum || 0);
+              return (
+                <div
+                  key={lp.id}
+                  onClick={() => onSelectNode(lp.id)}
+                  className="flex items-center justify-between bg-amber-500/[0.06] hover:bg-amber-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-amber-500/20"
+                >
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: getEffectiveNodeColor(lp, heatmapMode) }}
+                    />
+                    <span className="text-[11px] font-medium text-zinc-100 truncate">{lp.label}</span>
+                  </div>
+                  <span className="mono text-[9px] text-amber-300 flex-shrink-0 ml-2">
+                    {isAbove ? 'Above ↓' : 'Down ↓'} {(lp.axialLoadKn || 0).toLocaleString()}kN
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="border-t border-white/[0.07] pt-2.5">
+        <p className="mono text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+          Category & Children ({hierarchyNodes.length})
+        </p>
+        <div className="space-y-1 max-h-24 overflow-y-auto">
+          {hierarchyNodes.length > 0 ? (
+            hierarchyNodes.slice(0, 25).map((cn) => (
+              <div
+                key={cn.id}
+                onClick={() => onSelectNode(cn.id)}
+                className="flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.07] px-2 py-1.5 rounded-lg cursor-pointer transition border border-white/[0.06]"
+              >
+                <div className="flex items-center space-x-2 min-w-0">
+                  <span
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getEffectiveNodeColor(cn, heatmapMode) }}
+                  />
+                  <span className="text-[11px] font-medium text-zinc-200 truncate">{cn.label}</span>
+                </div>
+                <span className="mono text-[9px] text-indigo-400 flex-shrink-0">
+                  {cn.floor && cn.floor !== 'ALL' ? cn.floor : getDisplayType(cn)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-zinc-600 italic">No direct hierarchy connections.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
