@@ -71,6 +71,26 @@ another calc designs takes that calc's output).
 
 ## How revisions are stored (for the diff / redline feature)
 
+**Store v2 (F2): one SQLite revision store for both paths** (`backend/calcgraph/store.py`,
+`revstore.py`, `data/store/`, gitignored). Shared tables: `project` (IFC projects and drawing
+sets, `slug` = set id), `document` (every source file content-addressed by sha256, bytes in
+`blobs/`), `revision` (IFC: `model` / `calcs`; drawing sets: `set` / `records` / `connections` /
+`integrated`; `producer_json` records the code that built it as `module@<source hash>` plus
+declared rule ids / confidence), `revision_doc`, `head`, `artifact` (each build's output files,
+content-addressed - the drawing-set API serves these), `fact` (the `calcgraph.schema` facts of
+each revision or mapping run keyed by stable id, provenance stored with every fact,
+`body_hash` / `content_hash`, so a diff is a key join: `GET /api/store/diff?a=&b=`),
+`calibration`, and the append-only `decision` log. The IFC path's native tables below are kept
+unchanged. A v1 store migrates in place on open (backup `calcgraph.sqlite.pre-f2.bak`);
+`uv run calc-graph migrate-store` also backfills facts and imports `data/sets/*` outputs
+(which set builders still write as a working copy). Schema-shaped endpoints:
+`/api/store/projects`, `/api/store/projects/{pid}/bundle`, `/api/store/sets/{sid}/bundle`,
+`/api/store/revisions/{rid}[/bundle]`, `/api/store/runs/{id}/bundle`, `/api/store/diff`. The v1
+responses are unchanged (`scripts/check_store_parity.py`); `/export` additionally carries the
+evidence boxes, calc title boxes, calc-edge evidence and producer records.
+
+v1 detail (still true for the IFC path's native rows):
+
 - Every upload is an immutable `revision` row (`kind` model or calcs, `parent_id` = previous
   head of that kind, `seq`, label, source file name, sha256). The raw file is kept
   content-addressed in `data/store/blobs/<sha256>.<ext>`, so any revision can be re-read or

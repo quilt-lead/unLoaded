@@ -14,8 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import pipeline, set_pipeline
-from .store import Store
+from . import pipeline, revstore, set_pipeline
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 STORE_DIR = os.environ.get("CALCGRAPH_STORE", os.path.join(ROOT, "data", "store"))
@@ -23,7 +22,7 @@ SYNTH_DIR = os.path.join(ROOT, "data", "synthetic")
 DIST = os.path.join(ROOT, "frontend", "dist")
 
 app = FastAPI(title="calc-graph", version="0.1.0")
-st = Store(STORE_DIR)
+st = revstore.open_store(STORE_DIR)  # one revision store for both paths (migrates a v1 store on open)
 st.ensure_project()
 
 
@@ -42,7 +41,8 @@ def health():
 
 @app.get("/api/projects")
 def projects():
-    return [dict(r) for r in st.db.execute("SELECT * FROM project ORDER BY id")]
+    """IFC-path projects with the v1 columns (drawing sets: /api/sets; everything: /api/store/projects)."""
+    return st.legacy_projects()
 
 
 @app.get("/api/projects/{pid}/state")
@@ -196,14 +196,24 @@ _PDF_LOCK = threading.Lock()  # PyMuPDF documents are not thread-safe
 
 
 def _set_meta(sid: str) -> dict:
+    """The set's head 'set' revision in the revision store (a working-copy output in data/sets that
+    changed outside a build is imported first, so the store is the only source of responses)."""
     try:
         set_pipeline.safe_sid(sid)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    mp = os.path.join(set_pipeline.SETS_DIR, sid, "meta.json")
-    if not os.path.exists(mp):
+    revstore.import_sets_one(st, set_pipeline.SETS_DIR, sid)
+    m = revstore.set_load(st, sid, "meta.json")
+    if not m:
         raise HTTPException(404, f"set {sid} not found - run: uv run calc-graph ingest-set")
-    return json.load(open(mp))
+    return m
+
+
+def _set_artifact(sid: str, name: str, missing: str) -> str:
+    a = revstore.set_head_artifact(st, sid, name)
+    if not a or not os.path.exists(a["path"]):
+        raise HTTPException(404, missing)
+    return a["path"]
 
 
 def _local_only(request: Request) -> None:
@@ -229,8 +239,8 @@ def sets():
 @app.get("/api/sets/{sid}/graph")
 def set_graph(sid: str):
     _set_meta(sid)
-    return FileResponse(os.path.join(set_pipeline.SETS_DIR, sid, "graph.json"), media_type="application/json",
-                        headers={"Cache-Control": "no-store"})
+    return FileResponse(_set_artifact(sid, "graph.json", "no graph.json in the store for this set"),
+                        media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/sets/{sid}/integrated")
@@ -238,9 +248,7 @@ def set_integrated(sid: str):
     """Calc records, calc load path, connection nodes, 2021 calc-model overlay and their findings
     (built by every set builder via set_pipeline.finish_set)."""
     _set_meta(sid)
-    path = os.path.join(set_pipeline.SETS_DIR, sid, "integrated.json")
-    if not os.path.exists(path):
-        raise HTTPException(404, "no integrated.json yet - run: uv run python scripts/build_calc_records.py")
+    path = _set_artifact(sid, "integrated.json", "no integrated.json yet - run: uv run python scripts/build_calc_records.py")
     return FileResponse(path, media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
@@ -249,9 +257,7 @@ def set_model_ifc(sid: str, request: Request):
     """3D structural model built from the plans (derived data: localhost only, never committed)."""
     _local_only(request)
     _set_meta(sid)
-    path = os.path.join(set_pipeline.SETS_DIR, sid, "model.ifc")
-    if not os.path.exists(path):
-        raise HTTPException(404, "no model.ifc yet - re-run: uv run calc-graph ingest-set ...")
+    path = _set_artifact(sid, "model.ifc", "no model.ifc yet - re-run: uv run calc-graph ingest-set ...")
     return FileResponse(path, media_type="application/x-step", filename=f"{sid}-model.ifc",
                         headers={"Cache-Control": "no-store"})
 
@@ -302,6 +308,8 @@ def set_page_png(sid: str, doc: str, n: int, request: Request, clip: str = "", w
 
 
 from .move_api import router as _v2_router; app.include_router(_v2_router)  # synthetic v2: move/registry/platforms/ETABS (move_api.py)
+
+from .store_api import router as _store_router; app.include_router(_store_router)  # schema-shaped store endpoints (store_api.py)
 
 if os.path.isdir(DIST):
     app.mount("/", StaticFiles(directory=DIST, html=True), name="ui")
