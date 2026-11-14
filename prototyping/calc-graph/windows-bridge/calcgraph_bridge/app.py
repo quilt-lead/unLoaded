@@ -15,7 +15,9 @@ Endpoints
 - POST /csi/start           start (hidden) or attach to ETABS/SAP2000 via the OAPI helper
 - POST /csi/open            open a COPY of an .e2k/.edb (desk path, or e2k text from the Mac)
 - POST /csi/run             save the copy as .edb and run the analysis
-- POST /csi/results         frame forces / joint reactions / story drifts / steel D/C
+- POST /csi/results         frame forces / joint reactions / story drifts / joint displacements /
+                            base reactions / modal mass ratios / steel D/C, in explicit
+                            units (kip_ft_F unless asked; set on the model first, echoed back)
 - POST /csi/call            any OAPI method by property path (exploration)
 - POST /csi/close           exit the CSI app if this bridge started it
 
@@ -270,11 +272,12 @@ class ResultsBody(BaseModel):
     cases: list[str] = []
     combos: list[str] = []
     group: str = "All"
+    units: str = Field(csi.RESULT_UNITS, description="set on the model before every read; echoed as `units`")
 
 
 @app.post("/csi/results")
 def csi_results(body: ResultsBody) -> dict[str, Any]:
-    return rt.on_clr(csi.results, body.kinds, body.cases, body.combos, body.group)
+    return rt.on_clr(csi.results, body.kinds, body.cases, body.combos, body.group, body.units)
 
 
 class CallBody(BaseModel):

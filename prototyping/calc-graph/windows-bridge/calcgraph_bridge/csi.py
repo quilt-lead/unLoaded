@@ -249,14 +249,38 @@ def _select(cases: list[str], combos: list[str]) -> None:
         _ok(call("SapModel.Results.Setup", "SetComboSelectedForOutput", {"Name": c}), f"select combo {c}")
 
 
+# Result reads come back in the model's PRESENT units, which are whatever the file / the GUI
+# last set (an .e2k declaring KIP FT opens as kip_in_F in ETABS 23). Every result read sets
+# them explicitly first and returns them, so no caller ever depends on ETABS's default.
+RESULT_UNITS = "kip_ft_F"
+UNIT_LABELS = {"kip_ft_F": {"force": "kip", "length": "ft", "moment": "kip-ft"},
+               "kip_in_F": {"force": "kip", "length": "in", "moment": "kip-in"},
+               "kN_m_C": {"force": "kN", "length": "m", "moment": "kN-m"},
+               "N_mm_C": {"force": "N", "length": "mm", "moment": "N-mm"}}
+
+
+def set_units(units: str = RESULT_UNITS) -> dict[str, Any]:
+    """SapModel.SetPresentUnits(units), then read them back; raises if ETABS did not take them."""
+    if units not in UNIT_LABELS:
+        raise ValueError(f"units must be one of {sorted(UNIT_LABELS)}")
+    _ok(call("SapModel", "SetPresentUnits", {"Units": units}), f"SetPresentUnits {units}")
+    got = call("SapModel", "GetPresentUnits")["ret"]
+    if str(got) != units:
+        raise RuntimeError(f"SetPresentUnits {units} did not take: present units are {got}")
+    return {"name": units, **UNIT_LABELS[units]}
+
+
 def results(kinds: list[str], cases: list[str] | None = None, combos: list[str] | None = None,
-            group: str = "All") -> dict[str, Any]:
-    """``kinds`` from frame_forces, joint_reactions, story_drifts, steel_dc."""
+            group: str = "All", units: str = RESULT_UNITS) -> dict[str, Any]:
+    """``kinds`` from frame_forces, joint_reactions, story_drifts, joint_displacements,
+    base_reactions, modal_mass (needs the modal case in ``cases``), steel_dc. Values are in
+    ``units`` (set on the model before reading, echoed back as ``units``)."""
     cases, combos = cases or [], combos or []
+    u = set_units(units)
     if not cases and not combos:
         cases = _names("SapModel.LoadCases")
     _select(cases, combos)
-    out: dict[str, Any] = {"cases": cases, "combos": combos, "source": source()}
+    out: dict[str, Any] = {"cases": cases, "combos": combos, "units": u, "source": source()}
     for kind in kinds:
         try:
             if kind == "frame_forces":
@@ -267,6 +291,13 @@ def results(kinds: list[str], cases: list[str] | None = None, combos: list[str] 
                                {"Name": group, "ItemTypeElm": "GroupElm"}), "JointReact")
             elif kind == "story_drifts":
                 res = _ok(call("SapModel.Results", "StoryDrifts"), "StoryDrifts")
+            elif kind == "joint_displacements":
+                res = _ok(call("SapModel.Results", "JointDispl",
+                               {"Name": group, "ItemTypeElm": "GroupElm"}), "JointDispl")
+            elif kind == "base_reactions":
+                res = _ok(call("SapModel.Results", "BaseReact"), "BaseReact")
+            elif kind == "modal_mass":
+                res = _ok(call("SapModel.Results", "ModalParticipatingMassRatios"), "ModalParticipatingMassRatios")
             elif kind == "steel_dc":
                 _ok(call("SapModel.DesignSteel", "StartDesign"), "DesignSteel.StartDesign")
                 res = _ok(call("SapModel.DesignSteel", "GetSummaryResults",
