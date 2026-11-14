@@ -8,12 +8,14 @@
 //   <InfoTip id="x">   info="x"   info={"x"}   info: "x"   helpFamily("fam", ...) marks fam.* used.
 // Item-level ids (Tabs items, Legend items, GraphView lanes) are `info: HelpId` in the TypeScript
 // types, so a missing one is a type error in CI (tsc runs in CI only, see ci-typecheck.mjs).
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const SRC = join(ROOT, "src");
 const REGISTRY = join(SRC, "help", "registry.ts");
+/** per-feature entry files merged into HELP by registry.ts (e.g. entries/v2.ts); parsed as registry */
+const ENTRY_DIR = join(SRC, "help", "entries");
 const SKIP_DIRS = new Set([join(SRC, "legacy"), join(SRC, "types")]);
 /** components whose every use must pass info= (their props also require it in TypeScript) */
 export const REQUIRE_INFO = ["Panel", "StatPill", "Tabs", "Legend", "GraphView", "PdfPage", "PdfSplit", "EvidenceCompare", "Viewer3D"];
@@ -30,15 +32,30 @@ function walk(dir, out = []) {
 
 // ---- registry
 const reg = readFileSync(REGISTRY, "utf8");
-const body = reg.slice(reg.indexOf("export const HELP = {"), reg.indexOf("} as const satisfies"));
 const entries = new Map(); // id -> entry source
+const entryFiles = new Map(); // id -> file it is declared in
 const keyRe = /^ {2}"([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)":\s*\{/gm;
-const keys = [...body.matchAll(keyRe)];
-keys.forEach((m, i) => entries.set(m[1], body.slice(m.index, i + 1 < keys.length ? keys[i + 1].index : body.length)));
+const errors = [];
+function parseEntries(text, start, file) {
+  const body = text.slice(text.indexOf(start), text.indexOf("} as const satisfies"));
+  const keys = [...body.matchAll(keyRe)];
+  keys.forEach((m, i) => {
+    if (entries.has(m[1])) errors.push(`registry ${m[1]}: declared twice (${entryFiles.get(m[1])} and ${file})`);
+    entries.set(m[1], body.slice(m.index, i + 1 < keys.length ? keys[i + 1].index : body.length));
+    entryFiles.set(m[1], file);
+  });
+}
+parseEntries(reg, "export const HELP = {", "registry.ts");
+const entryFileList = existsSync(ENTRY_DIR) ? readdirSync(ENTRY_DIR).filter((f) => f.endsWith(".ts")).map((f) => join(ENTRY_DIR, f)) : [];
+for (const f of entryFileList) {
+  const text = readFileSync(f, "utf8");
+  const name = relative(SRC, f);
+  if (!new RegExp(`\\.\\.\\.${(text.match(/export const (\w+)/) ?? [])[1]}\\b`).test(reg)) errors.push(`${name}: its export is not spread into HELP in registry.ts`);
+  parseEntries(text, "= {", name);
+}
 const famBlock = reg.match(/export const HELP_FAMILIES[^=]*=\s*\[([^\]]*)\]/);
 const families = famBlock ? [...famBlock[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]) : [];
 
-const errors = [];
 if (!entries.size) errors.push("registry: no entries parsed - did the HELP object format change?");
 for (const [id, src] of entries) {
   if (!/title:\s*"[^"]+"/.test(src)) errors.push(`registry ${id}: empty or missing title`);
@@ -81,7 +98,7 @@ for (const f of walk(SRC)) {
   const text = readFileSync(f, "utf8");
   const rel = relative(ROOT, f);
   if (text.includes("—")) errors.push(`${rel}:${lineOf(text, text.indexOf("—"))}: em dash - use a hyphen`);
-  if (f === REGISTRY || f.endsWith(".css")) continue;
+  if (f === REGISTRY || f.startsWith(ENTRY_DIR) || f.endsWith(".css")) continue;
   for (const re of USE_RES)
     for (const m of text.matchAll(re)) if (!used.has(m[1])) used.set(m[1], `${rel}:${lineOf(text, m.index)}`);
   for (const m of text.matchAll(/\bhelpFamily\(\s*["'`]([^"'`]+)["'`]/g)) usedFamilies.add(m[1]);

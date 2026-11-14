@@ -10,6 +10,8 @@
 // Ids are kebab-case with a dotted prefix: nav. page. panel. tab. stat. legend. graph. pdf. viewer3d.
 // evidence. home. and term. for glossary terms. Keep `short` to one or two plain sentences.
 
+import { V2_HELP } from "./entries/v2";
+
 export interface HelpEntry {
   /** label shown as the popover heading and the glossary entry name */
   title: string;
@@ -265,6 +267,9 @@ export const HELP = {
     source: "The stored IFC file, read with web-ifc.",
     terms: ["term.globalid"],
   },
+
+  // ---------------------------------------------------------------- per-feature entry files (src/help/entries/*.ts)
+  ...V2_HELP,
 } as const satisfies Record<string, HelpEntry>;
 
 export type HelpId = keyof typeof HELP;
