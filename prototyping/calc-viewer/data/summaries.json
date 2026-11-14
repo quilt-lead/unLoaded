@@ -1,0 +1,118 @@
+{
+ "summaryBy": "claude-code-session",
+ "note": "Plain-language summaries written from each link's evidence list. Each sentence must be backed by an evidence item or caveat in links.json. Later this file can be produced by the Claude API from the same evidence.",
+ "calcs": {
+  "loads/roof-dead-live": "Flat-roof dead load build-up (roofing, membrane, Densglass, insulation, deck, framing allowances) used for deck, beams, girders, columns and seismic weight.",
+  "gravity/roof-risafloor": "RISAFloor gravity model of the roof (2021): member sketches, then the roof sections of the point, beam, design, shear, bending, deflection and end-reaction tables.",
+  "gravity/level2-risafloor": "RISAFloor gravity model of Level 2 (2021): sketches and the Level 2 sections of the model tables.",
+  "studs/hss-hdr-a-1-s4.0.1": "ENERCALC check of HSS header (A) at section 1/S4.0.1, strong and weak axis – HSS12x6x5/16.",
+  "studs/hss-hdr-b-2-s4.0.1-a": "ENERCALC check of HSS header (B) at section 2/S4.0.1 (variant A), strong axis – HSS10x6x3/8.",
+  "studs/hss-hdr-b-2-s4.0.1": "ENERCALC check of HSS header (B) at section 2/S4.0.1, weak axis – HSS10x6x3/8.",
+  "studs/hss-hdr-d-1-s4.0.2": "ENERCALC check of HSS header (D) at section 1/S4.0.2, strong and weak axis – HSS10x6x3/8.",
+  "studs/hss-hdr-2-s4.0.2-la-cantina": "ENERCALC check of the La Cantina HSS header at section 2/S4.0.2 – HSS10x6x1/2.",
+  "studs/hss-jamb-1-s4.0.1": "ENERCALC check of the HSS jamb at section 1/S4.0.1 – HSS8x6x3/8, combined axial + bending.",
+  "stair/grid-6-e-f": "Stair at grid 6 between E and F (MV-NS): framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B1 (cantilever diaphragm).",
+  "stair/grid-5-a": "Stair at grid 5 / A: framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B2.",
+  "parapet/hss-posts": "Parapet design (8/7/2023): section at grid B & 4, wind on the parapet, HSS post and connection checks, angle design."
+ },
+ "groups": {},
+ "links": {
+  "group/roof/beam/W16X26→gravity/roof-risafloor": {
+   "summary": "The roof plan's W16x26 beams are sized in the RISAFloor roof model, where W16x26 is the most common roof beam. The match is by size and level only: the model's layout and grid lines (1–5 / A–E) don't line up with the approved roof plan (1–6 / A–F), so which modelled member is which drawn beam can't be confirmed."
+  },
+  "group/roof/beam/W18X35→gravity/roof-risafloor": {
+   "summary": "W18x35 roof beams on the plan match W18x35 members in the RISAFloor roof model, by size and level. As with W16x26, the model's grid system and layout differ from the approved roof plan, so the link is to the size, not to a specific member."
+  },
+  "group/roof/beam/W12X14→gravity/level2-risafloor": {
+   "summary": "No roof calc designs W12x14. The only W12x14 in the calc package is in the Level 2 model, which is a different floor, so this is a weak link shown to make the gap visible."
+  },
+  "group/roof/beam/W16X26→loads/roof-dead-live": {
+   "summary": "Every roof beam carries the flat-roof loads defined on sheet A1 (roofing, insulation, deck and framing allowances). This links the beams to where their design loads come from, not to their sizing."
+  },
+  "group/roof/beam/W18X35→loads/roof-dead-live": {
+   "summary": "The W18x35 roof beams carry the flat-roof loads defined on sheet A1. This links the beams to where their design loads come from, not to their sizing."
+  },
+  "group/roof/beam/W12X14→loads/roof-dead-live": {
+   "summary": "The W12x14 roof beams carry the flat-roof loads defined on sheet A1. This is the only calc linked to them; their sizing calc is missing."
+  },
+  "group/roof/beam/W14X22→loads/roof-dead-live": {
+   "summary": "The W14x22 roof beams carry the flat-roof loads defined on sheet A1. No calc in the packages sizes W14x22 on the roof."
+  },
+  "group/roof/beam/W8X35→loads/roof-dead-live": {
+   "summary": "The W8x35 roof members carry the flat-roof loads defined on sheet A1. No calc in the packages sizes W8x35 on the roof."
+  },
+  "group/roof/beam/W12X79→loads/roof-dead-live": {
+   "summary": "The W12x79 on the roof carries the flat-roof loads defined on sheet A1. No calc in the packages sizes W12x79."
+  },
+  "callout/1-S4.0.1→studs/hss-hdr-a-1-s4.0.1": {
+   "summary": "The calc's title names section 1/S4.0.1, the same section the roof plan calls out, so this header calc belongs to that section. Exact reference match."
+  },
+  "callout/1-S4.0.1→studs/hss-jamb-1-s4.0.1": {
+   "summary": "The jamb calc is titled 'HSS JAMB – 1/S4.0.1', matching the roof plan's section callout 1/S4.0.1 exactly."
+  },
+  "callout/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1-a": {
+   "summary": "The calc's title names section 2/S4.0.1 (variant A), matching the roof plan's section callout 2/S4.0.1."
+  },
+  "callout/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1": {
+   "summary": "The calc's title names section 2/S4.0.1, matching the roof plan's section callout exactly."
+  },
+  "callout/1-S4.0.2→studs/hss-hdr-d-1-s4.0.2": {
+   "summary": "The calc's title names section 1/S4.0.2, matching the roof plan's section callout exactly."
+  },
+  "callout/2-S4.0.2→studs/hss-hdr-2-s4.0.2-la-cantina": {
+   "summary": "The calc's title names section 2/S4.0.2 (La Cantina header), matching the roof plan's section callout exactly."
+  },
+  "callout/5-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair calc's framing sketch draws callout 5/S8.8.1 in the same place as the enlarged stair plan, so detail 5 is part of this stair's design."
+  },
+  "callout/5-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch also draws callout 5/S8.8.1, so this typical stair detail is used at both stairs."
+  },
+  "callout/8-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch draws callout 8/S8.8.1, matching the callout on the enlarged stair plan."
+  },
+  "callout/9-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair calc's sketch at grid 6 / E–F draws callout 9/S8.8.1, matching the stair plan."
+  },
+  "callout/9-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch also draws callout 9/S8.8.1, so this detail is shared by both stairs."
+  },
+  "level-2/stringer/E–F@6(ext)/v→stair/grid-6-e-f": {
+   "summary": "This C12x20.7 stringer sits at grid 6 between E and F, where the stair calc's sketch is drawn. The calc designs stringers and names C12x20.7, so location, member type and size all agree."
+  },
+  "level-2/stringer/E–F@6(ext)/v#2→stair/grid-6-e-f": {
+   "summary": "This bent C12x20.7 stringer is at grid 6 / E–F, the stair the calc covers. Location, member type and size all agree with the calc."
+  },
+  "level-2/stringer/E–F@6(ext)/h→stair/grid-6-e-f": {
+   "summary": "This bent C12x20.7 stringer is part of the stair at grid 6 / E–F. The calc covers that stair, designs stringers and names C12x20.7."
+  },
+  "level-2/stringer/E–F@6–5/h→stair/grid-6-e-f": {
+   "summary": "This MC18x42.7 stringer is at the grid 6 / E–F stair the calc covers, but the calc doesn't mention MC18x42.7; it uses C12x20.7, C15x33.9 and C8 channels.",
+   "caveats": ["Size mismatch: plan MC18x42.7; the calc uses C12x20.7, C15x33.9, C8x11.5 and C8x13.75. The calc is dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal – check which governs."]
+  },
+  "level-2/beam/E–F@6(ext)/h→stair/grid-6-e-f": {
+   "summary": "This C8x11.5 framing member is at the grid 6 / E–F stair, and the calc names C8x11.5, so location and size agree."
+  },
+  "level-2/beam/E–F@6(ext)/v→stair/grid-6-e-f": {
+   "summary": "This C8x11.5 member is at the grid 6 / E–F stair, and the calc names C8x11.5, so location and size agree."
+  },
+  "level-2/stringer/A(ext)@5(ext)/h→stair/grid-5-a": {
+   "summary": "This bent stringer is at the grid 5 / A stair, which the second stair calc covers, but the plan shows C12x20.7 while that calc uses C15x33.9 stringers.",
+   "caveats": ["Size mismatch: plan C12x20.7; the calc uses C15x33.9 (and C8 channels). The calc is dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal – check which governs."]
+  },
+  "level-2/stringer/A(ext)@5(ext)/h#2→stair/grid-5-a": {
+   "summary": "This bent stringer is at the grid 5 / A stair, but the plan's C12x20.7 differs from the C15x33.9 stringers in that calc.",
+   "caveats": ["Size mismatch: plan C12x20.7; the calc uses C15x33.9 (and C8 channels). The calc is dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal – check which governs."]
+  },
+  "level-2/beam/A(ext)@5(ext)/v→stair/grid-5-a": {
+   "summary": "This C8x11.5 member is at the grid 5 / A stair, and that stair's calc names C8x11.5, so location and size agree."
+  },
+  "level-2/beam/A(ext)@5(ext)/v#2→stair/grid-5-a": {
+   "summary": "This C8x11.5 member is at the grid 5 / A stair, and that stair's calc names C8x11.5, so location and size agree."
+  },
+  "roof/post/C–D@3–2/h→parapet/hss-posts": {
+   "summary": "The plan note calls this an HSS post at the parapet, and the parapet calc designs HSS parapet posts. The calc's section is cut at grid B & 4, while this post is near C–D / 2–3, so it's covered only if the calc is a typical design.",
+   "caveats": ["The calc section is cut at grid B & 4; this post is at C–D / 3–2. Confirm the calc is a typical parapet post design."]
+  }
+ }
+}
