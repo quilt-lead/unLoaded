@@ -27,7 +27,7 @@ Element <-> calc links (score, rule):
                              stud) but prints another size
 Every link is gated by SYSTEM_SECTIONS: the member's structural system (lateral, gravity,
 jamb, exterior stud, foundation, stair, detail) fixes which calc sections it may link to.
-HSS sizes matched through RISA's eighths-of-an-inch walls say so in the rule text.
+HSS sizes matched through RISA's sixteenths-of-an-inch walls say so in the rule text.
 Positional registration of plans against calc sketches is NOT used: the 2021 calc model
 and the 2023 drawings use different grid systems (see findings).
 """
@@ -36,6 +36,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 
+from . import sizes
 from .drawing_ingest import GRID_LABEL
 
 DEFINERS = {
@@ -350,10 +351,11 @@ def calc_section(p: dict) -> str:
 
 
 def risa_note(raw: str, norm: str) -> str:
-    """Say so whenever a size only matched by reading RISA's eighths-of-an-inch wall."""
+    """Say so whenever a size only matched by reading RISA's sixteenths-of-an-inch wall."""
     m = re.match(r"^(HSS|L)(\d+(?:\.\d+)?)[Xx](\d+(?:\.\d+)?)[Xx](\d+(?:\.\d+)?)$", raw or "")
     if m and float(m.group(4)) >= 1:
-        return f' (RISA {raw.upper()} read as {m.group(2)}x{m.group(3)}x{m.group(4)}/8 = {norm.split("X")[-1]}")'
+        return (f' (RISA {raw.upper()} read as {m.group(2)}x{m.group(3)}x{m.group(4)}/{sizes.RISA_WALL_DENOMINATOR}'
+                f' = {norm.split("X")[-1]}")')
     return ""
 
 

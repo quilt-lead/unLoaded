@@ -5,6 +5,7 @@ id: default
 name: Generic structural set (no set-specific knowledge)
 match:
   filename_globs: []
+  pdf_metadata: {}
 
 drawings:
   title_block:
@@ -149,18 +150,25 @@ calcs:
   toc_min_leaders: 3
   software:                                   # first detector with a matching rule wins
     - name: Enercalc
+      hss_wall_sixteenths: false
       any: [{all: ['(?i)ENERCALC']}]
     - name: RISAFloor
+      hss_wall_sixteenths: true
       any: [{all: ['RISAFloor']}]
     - name: RISA-3D
+      hss_wall_sixteenths: true
       any: [{all: ['RISA-?3D']}]
     - name: RISAFoundation
+      hss_wall_sixteenths: true
       any: [{all: ['RISAFoundation']}]
     - name: RAM Structural System
+      hss_wall_sixteenths: false
       any: [{all: ['RAM (?:Structural System|Steel|Frame|Concept)']}]
     - name: CFS Designer
+      hss_wall_sixteenths: false
       any: [{all: ['CFS', 'Project Name']}]
     - name: Mathcad
+      hss_wall_sixteenths: false
       any: [{all: ['(?i)\bmathcad\b']}]
   fallback_software: Spreadsheet / hand calc
   sections: {}

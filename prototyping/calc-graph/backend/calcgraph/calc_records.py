@@ -441,7 +441,7 @@ def _summarise(r: dict) -> dict:
         if ends:
             v["end_reactions"] = ends
         s = v.get("size") or v.get("shape_input")
-        info = sizes.norm(s or "")
+        info = sizes.norm(s or "", risa=True)   # records come only from RISA table pages (run_footers)
         v["size_norm"] = info["norm"] if info else ""
     elif t == "column_stack":
         for row in _first(rows, "Column Stacks"):
@@ -455,7 +455,7 @@ def _summarise(r: dict) -> dict:
         v["points"] = pts
         for row in _first(rows, "Hot Rolled Steel Column Code Checks"):
             sh = _cell(row, "Shape") or ""
-            info = sizes.norm(sh)
+            info = sizes.norm(sh, risa=True)
             v.update(shape=sh, size_norm=info["norm"] if info else "", truncated=sizes.is_truncated_size(sh),
                      uc=_num(_cell(row, "Code")), gov_lc=_cell(row, "LC"))
         ax = {}

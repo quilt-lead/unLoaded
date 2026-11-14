@@ -15,7 +15,7 @@ replace) and validates the result against `Profile` (extra keys forbidden, every
 regexes compiled), so a typo or a missing field fails at load, not as a silent miss mid-ingest.
 
 Which profile a document gets (`for_paths`): $CALCGRAPH_PROFILE if set, else the one profile whose
-`match.filename_globs` hit a document's file name, else `default`. Two profiles matching the same
+`match` hits one of the documents (file-name glob, or PDF metadata regexes), else `default`. Two profiles matching the same
 documents is an error.
 """
 from __future__ import annotations
@@ -255,6 +255,7 @@ class SoftwareRule(_M):
 class SoftwareDetector(_M):
     name: str
     any: list[SoftwareRule]
+    hss_wall_sixteenths: bool                # its shape names give HSS / angle walls in 1/16" (RISA: HSS6X6X2)
 
 
 class Section(_M):
@@ -297,6 +298,10 @@ class Calcs(_M):
     toc_min_leaders: int
     software: list[SoftwareDetector]         # first detector with a matching rule wins
     fallback_software: str
+
+    def risa_sizes(self, software: str) -> bool:
+        """Does this software's output print HSS / angle walls in RISA sixteenths?"""
+        return any(d.hss_wall_sixteenths for d in self.software if d.name == software)
     sections: dict[str, Section]
     sketch_sections: list[str] | None        # rotated plan sketches (no tables) of these sections ...
     sketch_software: list[str]               # ... from this software are model sketches
@@ -328,7 +333,27 @@ class Positional(_M):
 
 
 class Match(_M):
-    filename_globs: list[str]
+    # match is never inherited (a set's match is its own), so both default to "matches nothing"
+    filename_globs: list[str] = []           # a document whose file name matches one of these ...
+    pdf_metadata: dict[str, re.Pattern] = {}  # ... or whose PDF metadata matches ALL of these (key -> regex)
+
+    def hits(self, path: str) -> bool:
+        name = os.path.basename(path)
+        if any(fnmatch.fnmatchcase(name, g) for g in self.filename_globs):
+            return True
+        if self.pdf_metadata:
+            md = _pdf_metadata(path)
+            return bool(md) and all(rx.search(md.get(k) or "") for k, rx in self.pdf_metadata.items())
+        return False
+
+
+@lru_cache(maxsize=256)
+def _pdf_metadata(path: str) -> dict:
+    if not os.path.isfile(path):
+        return {}
+    import pymupdf
+    with pymupdf.open(path) as d:
+        return dict(d.metadata or {})
 
 
 class Profile(_M):
@@ -384,14 +409,10 @@ def for_paths(*paths: str | None) -> Profile:
     env = os.environ.get("CALCGRAPH_PROFILE")
     if env:
         return load(env)
-    names = [os.path.basename(p) for p in paths if p]
-    hits = []
-    for pid in available():
-        pf = load(pid)
-        if any(fnmatch.fnmatchcase(n, g) for n in names for g in pf.match.filename_globs):
-            hits.append(pid)
+    docs = [p for p in paths if p]
+    hits = [pid for pid in available() if any(load(pid).match.hits(p) for p in docs)]
     if len(hits) > 1:
-        raise ValueError(f"documents {names} match several profiles: {hits}")
+        raise ValueError(f"documents {docs} match several profiles: {hits}")
     return load(hits[0] if hits else "default")
 
 

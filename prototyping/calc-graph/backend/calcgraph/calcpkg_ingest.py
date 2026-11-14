@@ -139,6 +139,8 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
             title = "Cover"
         toc = len(re.findall(r"\.{6,}", text)) >= C.toc_min_leaders
         section = sid[0] if pid else (id_prefix or doc_key.upper())
+        software = _software(text, sid, pf)
+        risa = C.risa_sizes(software)
         banner = next((l["text"] for l in lines if C.banner_regex.match(l["text"])), "")
         tokens: dict[str, dict[str, list]] = defaultdict(lambda: defaultdict(list))
         size_hits: dict[str, list] = defaultdict(list)
@@ -152,9 +154,9 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
                     if len(tokens[kind][t]) < 4:
                         tokens[kind][t].append(_rect(w))
                     break
-            # RISA joins label and shape: "1 W18X283" is fine, "HSS8X8X3" is RISA eighths
+            # RISA joins label and shape: "1 W18X283" is fine; "HSS8X8X3" is RISA sixteenths (risa pages only)
             for part in re.split(r"(?<=[0-9/])(?=(?:HSS|W|MC|C|L)\d)", t):
-                info = sizes.norm(part)
+                info = sizes.norm(part, risa=risa)
                 if info:
                     if len(size_hits[info["norm"]]) < 6:
                         size_hits[info["norm"]].append(_rect(w))
@@ -173,7 +175,7 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
         pages.append({
             "id": f"{doc_key}:{sid}", "rows": rows, "doc": doc_key, "page": i + 1, "sheet_id": sid, "sheet_rect": sid_rect,
             "section": section, "title": title or "(untitled)", "title_rect": title_rect, "tables": tables,
-            "banner": banner, "level": _level(title, pf), "software": _software(text, sid, pf), "toc": toc,
+            "banner": banner, "level": _level(title, pf), "software": software, "toc": toc,
             "width": page.rect.width, "height": page.rect.height,
             "labels": {k: dict(v) for k, v in tokens.items()}, "sizes": dict(size_hits), "size_raw": size_raw,
             "truncated": truncated[:20], "drawing_refs": refs, "lines": lines,
