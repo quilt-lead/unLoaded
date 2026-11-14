@@ -1,10 +1,19 @@
 """Ingest + mapping pipeline shared by the API, the CLI and scripts/evaluate.py."""
 from __future__ import annotations
 
+import json
 import os
 
-from . import ENGINE_VERSION, calcdeps, ifc_ingest, impact, loadpath, matcher, pdf_ingest, segment
+from . import ENGINE_VERSION, calcdeps, ifc_ingest, impact, loadpath, matcher, pdf_ingest, revstore, segment
 from .store import Store
+
+# what each IFC-path producer declares about its facts, recorded with every revision / run it
+# builds (revstore.producer adds module@source-hash as engine + version)
+MODEL_PRODUCER = {"ifc_ingest": {"rule_id": "ifc_ingest.read_ifc", "confidence": 1.0},
+                  "loadpath": {"confidence": 1.0, "note": "deterministic contact rules; rule id = the edge's rule text"}}
+CALC_PRODUCER = {"segment": {"rule_id": segment.TITLE_BOX_RULE, "confidence": 1.0}, "pdf_ingest": {}}
+RUN_PRODUCER = {"matcher": {"note": "rule id = matcher.<tier>, confidence = the tier score"},
+                "calcdeps": {"confidence": 1.0, "note": "deterministic page-reference / cross-reference rules"}}
 
 PALETTE = ["#4e79a7", "#f28e2b", "#59a14f", "#b07aa1", "#e15759", "#76b7b2", "#edc948", "#9c755f", "#ff9da7",
            "#2b8c8c", "#8f6ed5", "#d4a017", "#3d9970", "#c2185b", "#5f7d95"]
@@ -14,9 +23,12 @@ def ingest_model(st: Store, pid: int, path: str, source_name: str | None = None,
     data = ifc_ingest.read_ifc(path)
     edges = loadpath.infer(data["elements"])
     rid = st.add_revision(pid, "model", path, source_name or os.path.basename(path), label,
-                          {**data["meta"], "elements": len(data["elements"]), "load_path_edges": len(edges)})
+                          {**data["meta"], "elements": len(data["elements"]), "load_path_edges": len(edges)},
+                          producer=revstore.producer(*MODEL_PRODUCER, **MODEL_PRODUCER))
     st.put_elements(rid, data["elements"], edges)
     st.set_head(pid, "model", rid)
+    st.commit()
+    revstore.write_revision_facts(st, rid)
     st.commit()
     remap(st, pid)
     return rid
@@ -26,9 +38,11 @@ def ingest_calcs(st: Store, pid: int, path: str, source_name: str | None = None,
     data = pdf_ingest.read_pdf(path)
     calcs = segment.segment(data["pages"])
     rid = st.add_revision(pid, "calcs", path, source_name or os.path.basename(path), label,
-                          {**data["meta"], "calcs": len(calcs)})
+                          {**data["meta"], "calcs": len(calcs)}, producer=revstore.producer(*CALC_PRODUCER, **CALC_PRODUCER))
     st.put_calcs(rid, data["pages"], calcs)
     st.set_head(pid, "calcs", rid)
+    st.commit()
+    revstore.write_revision_facts(st, rid)
     st.commit()
     remap(st, pid)
     return rid
@@ -43,7 +57,10 @@ def remap(st: Store, pid: int) -> int | None:
     calcs = st.calcs(p["head_calc_rev"], with_text=True)
     links = matcher.run_mapping(els, calcs, pages)
     cedges = calcdeps.infer(calcs, pages, links)
-    run = st.put_run(pid, p["head_model_rev"], p["head_calc_rev"], ENGINE_VERSION, links, cedges)
+    run = st.put_run(pid, p["head_model_rev"], p["head_calc_rev"], ENGINE_VERSION, links, cedges,
+                     producer=revstore.producer(*RUN_PRODUCER, **RUN_PRODUCER))
+    st.commit()
+    revstore.write_run_facts(st, run)
     st.commit()
     return run
 
@@ -68,7 +85,9 @@ def effective_links(st: Store, pid: int, run_id: int, gids: set[str], calc_keys:
                       "page": None, "token": "", "span": None, "snippet": None, "rects": [], "status": "manual"}
                 links.append(nl)
                 by[(g, k)] = nl
-        if d["action"] in ("confirm", "manual", "reject"):
+        if d["action"] in ("confirm", "manual", "reject") and (g, k) in by:
+            # a confirm / reject of a pair the current run did not link has nothing to mark
+            # (v1 raised KeyError here and took /state down)
             by[(g, k)]["decided_at"] = d["at"]
             by[(g, k)]["decided_by"] = d["actor"]
     return links
@@ -115,9 +134,19 @@ def impact_of(st: Store, pid: int, gid: str, mode: str) -> dict:
     return impact.propagate(gid, mode, s["edges"], s["links"], s["calc_edges"], els)
 
 
+def _producer(st: Store, table: str, sid: int | None) -> dict:
+    if sid is None:
+        return {}
+    r = st.db.execute(f"SELECT producer_json FROM {table} WHERE id=?", (sid,)).fetchone()
+    return json.loads(r[0]) if r and r[0] else {}
+
+
 def export(st: Store, pid: int) -> dict:
     s = state(st, pid)
     cal = {c["key"]: c for c in s["calcs"]}
+    # evidence the store holds: export it too (v1 dropped boxes, spans and calc-edge evidence)
+    boxes = {c["key"]: c["params"].get("title_box") for c in st.calcs(s["calc_rev"]["id"], with_params=True)} \
+        if s["calc_rev"] else {}
     per_el: dict[str, list[dict]] = {}
     for l in s["links"]:
         per_el.setdefault(l["global_id"], []).append(l)
@@ -127,15 +156,22 @@ def export(st: Store, pid: int) -> dict:
         "calc_package": s["calc_rev"]["source_name"] if s["calc_rev"] else None,
         "calc_revision": s["calc_rev"]["id"] if s["calc_rev"] else None,
         "engine": ENGINE_VERSION,
+        # the code that produced each snapshot, as recorded in the store (empty for pre-F2 snapshots)
+        "producers": {"model": _producer(st, "revision", s["model_rev"]["id"] if s["model_rev"] else None),
+                      "calcs": _producer(st, "revision", s["calc_rev"]["id"] if s["calc_rev"] else None),
+                      "mapping": _producer(st, "mapping_run", s["run"]["id"] if s["run"] else None)},
         "calcs": [{"key": c["key"], "title": c["title"], "software": c["software"], "element_type": c["cat"],
-                   "pages": c["pages"], "scanned": c["scanned"], "front_matter": c["front"]} for c in s["calcs"]],
-        "calc_edges": [{"src": e["src"], "dst": e["dst"], "rules": e["rules"]} for e in s["calc_edges"]],
+                   "pages": c["pages"], "scanned": c["scanned"], "front_matter": c["front"],
+                   "title_box": boxes.get(c["key"])} for c in s["calcs"]],
+        "calc_edges": [{"src": e["src"], "dst": e["dst"], "rules": e["rules"], "evidence": e["evidence"]}
+                       for e in s["calc_edges"]],
         "load_path": [{"src": e["src"], "dst": e["dst"], "rule": e["rule"]} for e in s["edges"]],
         "elements": [{
             "global_id": e["global_id"], "ifc_type": e["ifc_type"], "mark": e["mark"], "storey": e["storey"],
             "size": e["profile"], "status": e["status"],
             "calcs": [{"calc": l["calc_key"], "title": cal[l["calc_key"]]["title"], "page": l["page"],
                        "confidence": round(l["conf"], 2), "tier": l["tier"], "rule": l["rule"], "matched_text": l["token"],
-                       "review": l["status"]} for l in sorted(per_el.get(e["global_id"], []), key=lambda l: -l["conf"])],
+                       "review": l["status"],
+                       "evidence": {"page": l["page"], "span": l["span"], "rects": l["rects"], "snippet": l["snippet"]}} for l in sorted(per_el.get(e["global_id"], []), key=lambda l: -l["conf"])],
         } for e in s["elements"]],
     }

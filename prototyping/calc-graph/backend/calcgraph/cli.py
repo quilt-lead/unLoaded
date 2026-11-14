@@ -3,7 +3,10 @@
   calc-graph serve [--port 8000]          API + built frontend
   calc-graph ingest model.ifc calcs.pdf   ingest into the store and print a summary
   calc-graph ingest-set --plans plans.pdf --calcs calcs.pdf [--calcs stair.pdf:stair:STAIR] [--sid id] [--name ..]
-                                          drawing-set project (no BIM model) -> data/sets/<sid>/
+                                          drawing-set project (no BIM model) -> a revision in the store
+                                          (+ the working copy in data/sets/<sid>/)
+  calc-graph migrate-store                migrate data/store to the current store version, backfill schema
+                                          facts, import data/sets/* outputs; prints counts
 """
 from __future__ import annotations
 
@@ -25,6 +28,7 @@ def main() -> None:
                    help="path[:doc_key[:ID_PREFIX]] - ID_PREFIX names pages of a package without KPFF sheet ids")
     g.add_argument("--sid", default="dana-point-bldg12")
     g.add_argument("--name", default="Dana Point Harbor Bldg 12 (permit set)")
+    sub.add_parser("migrate-store")
     a = ap.parse_args()
     if a.cmd == "serve":
         import uvicorn
@@ -41,6 +45,19 @@ def main() -> None:
         print(f"set {a.sid}: {c['elements']} elements ({c['elements_linked']} linked), {c['load_path_edges']} load-path edges, "
               f"{c['calc_pages']} calc pages ({c['calc_pages_unlinked']} linked to nothing), {c['calc_edges']} calc edges, "
               f"{c['links']} links, {len(g['findings'])} findings -> {set_pipeline.SETS_DIR}/{a.sid}")
+    elif a.cmd == "migrate-store":
+        from . import revstore, set_pipeline
+        st = revstore.open_store()
+        n = revstore.import_sets(st, set_pipeline.SETS_DIR)
+        q = lambda sql: st.db.execute(sql).fetchall()  # noqa: E731
+        print(f"store {revstore.store_dir()} (version {q('PRAGMA user_version')[0][0]}); {n} set revision(s) imported")
+        for r in q("SELECT p.id, p.kind, COALESCE(p.slug, p.name), COUNT(r.id) FROM project p LEFT JOIN revision r"
+                   " ON r.project_id = p.id GROUP BY p.id ORDER BY p.id"):
+            print(f"  project {r[0]} {r[1]:12} {r[2]}: {r[3]} revisions")
+        print(f"  documents {q('SELECT COUNT(*) FROM document')[0][0]}, decisions {q('SELECT COUNT(*) FROM decision')[0][0]}, "
+              f"mapping runs {q('SELECT COUNT(*) FROM mapping_run')[0][0]}")
+        for r in q("SELECT scope, coll, COUNT(*), SUM(supplied != '') FROM fact GROUP BY scope, coll"):
+            print(f"  facts {r[0]:8} {r[1]:22} {r[2]:6}  ({r[3]} with adapter-supplied provenance)")
     elif a.cmd == "ingest":
         from .api import st
         from . import pipeline

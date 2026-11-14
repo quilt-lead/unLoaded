@@ -5,8 +5,10 @@
                                                      # is not fully carried by its source
 
 Sources: data/sets/*/{graph,calc_records,connections}.json, data/sets/*/model.ifc,
-data/synthetic/model_rev1.ifc, and the IFC-path store (data/store, read from a copy) as
-both the /export view and the full state view.
+data/synthetic/model_rev1.ifc, the IFC-path store (data/store, read from a copy) as
+both the /export view and the full state view, and the revision store's own stored facts
+(store/<project>: the head snapshots of every project, both paths, as served by
+GET /api/store/projects/{pid}/bundle - read from a copy, which migrates / backfills itself).
 
 Writes (gitignored - derived from the inputs, may include drawing text):
     data/eval/schema/<source>.bundle.json   validated bundles
@@ -120,6 +122,37 @@ def integrity(bundles: list[Bundle]) -> dict:
     return out
 
 
+def store_sources(store_dir: str, scratch: str, strict: bool) -> list[tuple[str, tuple[Bundle, object]]]:
+    """Every project's head bundle as the revision store serves it (from a copy of the store)."""
+    import shutil
+    from collections import Counter
+    from calcgraph import revstore
+    from calcgraph.schema.adapters._common import Reject, Tally
+    os.makedirs(scratch, exist_ok=True)
+    shutil.copyfile(os.path.join(store_dir, "calcgraph.sqlite"), os.path.join(scratch, "calcgraph.sqlite"))
+    os.symlink(os.path.join(store_dir, "blobs"), os.path.join(scratch, "blobs"))
+    st = revstore.open_store(scratch)
+    st.db.commit()
+    out = []
+    for p in st.all_projects():
+        name = p["slug"] or f"project-{p['id']}"
+        t = Tally(source=f"store/{name}")
+        b = revstore.project_bundle(st, p["id"])
+        for coll in ("element_types", "elements", "occurrences", "relations", "calc_sheets", "calc_records",
+                     "connection_types", "connection_instances", "links", "findings"):
+            for f in getattr(b, coll):
+                t.attempted[coll] += 1
+                t.converted[coll] += 1
+                for x in f.provenance.adapter_supplied:
+                    t.supplied[coll][x] += 1
+                if strict and f.provenance.adapter_supplied:
+                    raise Reject(f"store/{name} {coll} {f.id}: provenance incomplete in source: "
+                                 f"{f.provenance.adapter_supplied}")
+        t.notes.append(f"heads {p['heads']}")
+        out.append((f"store:{name}", (b, t)))
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strict", action="store_true", help="raise on the first fact without full own provenance")
@@ -148,6 +181,7 @@ def main() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             for view in ("export", "state"):
                 results.append(("ifc-store", ifc_store.convert(store, os.path.join(tmp, view), view, strict=a.strict)))
+            results += store_sources(store, os.path.join(tmp, "facts"), a.strict)
 
     report = {"contract_failures": failures, "sources": [t.summary() for _, (_, t) in results]}
     by_set: dict[str, list[Bundle]] = {}

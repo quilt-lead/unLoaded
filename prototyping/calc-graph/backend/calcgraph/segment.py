@@ -63,6 +63,40 @@ def _slug(s: str) -> str:
     return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", s.lower())).strip("-")[:60] or "calc"
 
 
+TITLE_BOX_RULE = "segment.title_box"
+
+
+def title_box(page: dict, title: str, scanned: bool = False, front: bool = False) -> dict:
+    """Where a calc's title sits on its first page: the boxes of the title line's words
+    (pdf_ingest word boxes, PDF points). A scanned page (no text layer), front matter, or a
+    continuation whose title is not on the page is located by the whole first page and says so."""
+    from .pdf_ingest import rects_for_span
+    whole = {"page": page["n"], "rects": [[0.0, 0.0, round(page["width"], 2), round(page["height"], 2)]],
+             "span": None, "rule": TITLE_BOX_RULE}
+    if scanned:
+        return whole | {"note": "scanned page, no text layer: located by the whole page"}
+    if front:
+        return whole | {"note": "front matter / contents page: located by the whole page"}
+    text, pos, seen = page["text"], 0, 0
+    want = _norm(title)
+    for line in text.split("\n"):
+        start, pos = pos, pos + len(line) + 1
+        if not line.strip():
+            continue
+        seen += 1
+        if seen > 6:
+            break
+        t = title_of(line)
+        if want and t and _norm(t) == want:
+            lead = len(line) - len(line.lstrip())
+            span = [start + lead, start + len(line.rstrip())]
+            rects = rects_for_span(page, *span)
+            if rects:
+                return {"page": page["n"], "rects": rects, "span": span, "rule": TITLE_BOX_RULE,
+                        "note": "title line words"}
+    return whole | {"note": "title line not found on the first page (continuation or derived title): whole page"}
+
+
 def segment(pages: list[dict]) -> list[dict]:
     calcs: list[dict] = []
     cur: dict | None = None
@@ -90,6 +124,10 @@ def segment(pages: list[dict]) -> list[dict]:
             cur = push(title or ((cur["title"] + " (cont.)") if cur else "Front matter"))
         cur["pages"].append(pg["n"])
         cur["text"] += "\n" + t
+
+    by_n = {pg["n"]: pg for pg in pages}
+    for c in calcs:
+        c["title_box"] = title_box(by_n[c["pages"][0]], c["title"], c["scanned"], c["front"])
 
     seen: dict[str, int] = {}
     n_scanned = 0

@@ -1,6 +1,13 @@
 """Drawing-set project: plans PDF (element source) + calc package PDF(s) -> one graph JSON.
 
-Output lives in data/sets/<sid>/ (gitignored: it is derived from copyrighted PDFs).
+Every build is a REVISION in the revision store (revstore / store.py, data/store - gitignored):
+ingest_set -> kind 'set' (graph.json + meta.json + model.ifc), build_records -> 'records',
+build_connections -> 'connections', finish_set -> 'integrated'. The output files become
+content-addressed artifacts of that revision, the source PDFs content-addressed documents, and
+the schema facts of each output are stored with their provenance. The API reads the head
+revisions. The same files are still written to data/sets/<sid>/ (gitignored: derived from
+copyrighted PDFs) as a working copy for scripts; revstore.import_sets() picks up any file there
+that changed outside a build.
 graph.json holds elements, element_edges, calcs, calc_edges, links, findings, coverage;
 meta.json maps doc keys to the LOCAL source paths the server streams / renders from.
 """
@@ -13,7 +20,7 @@ import time
 
 from collections import Counter
 
-from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, plans_to_ifc, set_graph
+from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, plans_to_ifc, revstore, set_graph
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SETS_DIR = os.environ.get("CALCGRAPH_SETS", os.path.join(ROOT, "data", "sets"))
@@ -57,6 +64,7 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
         json.dump(graph, fh)
     with open(os.path.join(out, "meta.json"), "w") as fh:
         json.dump({"id": sid, "name": name, "docs": docs}, fh, indent=1)
+    revstore.record_set_output(revstore.open_store(), sid, "set", out)
     # the record and connection layers read this graph's elements: rebuild them in the same run so
     # integrated.json can never pair a new graph with old records / connections
     build_records(sid)
@@ -70,8 +78,12 @@ def _dir(sid: str) -> str:
 
 
 def _load(sid: str, name: str):
-    p = os.path.join(_dir(sid), name)
-    return json.load(open(p)) if os.path.exists(p) else None
+    """The head revision's artifact from the store; the working-copy file only for a set the store
+    does not have yet (it is imported first, so the two cannot disagree)."""
+    st = revstore.open_store()
+    if os.path.exists(os.path.join(_dir(sid), "meta.json")):
+        revstore.import_sets_one(st, SETS_DIR, sid)
+    return revstore.set_load(st, sid, name)
 
 
 def build_records(sid: str) -> dict:
@@ -87,6 +99,7 @@ def build_records(sid: str) -> dict:
     out["build_seconds"] = round(time.time() - t0, 1)
     with open(os.path.join(d, "calc_records.json"), "w") as fh:
         json.dump(out, fh)
+    revstore.record_set_output(revstore.open_store(), sid, "records", d)
     return out
 
 
@@ -131,6 +144,7 @@ def build_connections(sid: str) -> dict:
            "coverage": cov} | out
     with open(os.path.join(d, "connections.json"), "w") as fh:
         json.dump(res, fh, default=lambda o: list(o) if isinstance(o, tuple) else str(o))
+    revstore.record_set_output(revstore.open_store(), sid, "connections", d)
     return res
 
 
@@ -145,19 +159,15 @@ def finish_set(sid: str) -> dict | None:
     out["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S %Z")
     with open(os.path.join(_dir(sid), "integrated.json"), "w") as fh:
         json.dump(out, fh)
+    revstore.record_set_output(revstore.open_store(), sid, "integrated", _dir(sid))
     return out
 
 
 def list_sets() -> list[dict]:
-    if not os.path.isdir(SETS_DIR):
-        return []
-    out = []
-    for sid in sorted(os.listdir(SETS_DIR)):
-        mp = os.path.join(SETS_DIR, sid, "meta.json")
-        if os.path.exists(mp):
-            m = json.load(open(mp))
-            out.append({"id": sid, "name": m["name"], "docs": {k: {"name": v["name"], "role": v["role"]} for k, v in m["docs"].items()}})
-    return out
+    """Drawing sets in the revision store (after importing any working-copy output that changed)."""
+    st = revstore.open_store()
+    revstore.import_sets(st, SETS_DIR)
+    return revstore.list_sets(st)
 
 
 def safe_sid(s: str) -> str:
