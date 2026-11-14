@@ -1,6 +1,6 @@
 import React from 'react';
 import { Search, ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react';
-import { BimNode, FilterState, TraceDirection } from '../types/bim';
+import { BimNode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
 
 interface FilterBarProps {
   filters: FilterState;
@@ -14,6 +14,9 @@ interface FilterBarProps {
   traceSteps: number;
   onChangeTraceSteps: (steps: number) => void;
   heatmapMode: boolean;
+  diffSummary: DatabaseDiffSummary | null;
+  diffFilter: 'ALL' | 'CHANGED' | DiffStatus;
+  onChangeDiffFilter: (val: 'ALL' | 'CHANGED' | DiffStatus) => void;
   matchedCount: number;
   totalInstances: number;
 }
@@ -30,6 +33,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   traceSteps,
   onChangeTraceSteps,
   heatmapMode,
+  diffSummary,
+  diffFilter,
+  onChangeDiffFilter,
   matchedCount,
   totalInstances,
 }) => {
@@ -43,7 +49,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             value={filters.search}
             onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
             placeholder="Search element, calc, level..."
-            className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-52 transition"
+            className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-48 transition"
           />
         </div>
 
@@ -83,67 +89,128 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-[#1e2127]/70 border border-white/[0.14] rounded-lg p-0.5">
-          <div role="group" aria-label="Load Path Trace Direction" className="flex items-center">
-            <span className="mono text-[9px] text-zinc-500 uppercase px-1.5">Trace</span>
+        {/* Diff Status Quick-Filter Bar when comparing two databases */}
+        {diffSummary ? (
+          <div className="flex items-center gap-1 bg-[#1e2127]/85 border border-amber-400/35 rounded-lg p-0.5">
             <button
               type="button"
-              onClick={() => onChangeTraceDirection('down')}
-              className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                traceDirection === 'down'
-                  ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              onClick={() => onChangeDiffFilter('ALL')}
+              className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
+                diffFilter === 'ALL'
+                  ? 'bg-white/15 text-white font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <ArrowDown className="w-2.5 h-2.5" />
-              Down
+              All ({totalInstances})
             </button>
             <button
               type="button"
-              onClick={() => onChangeTraceDirection('up')}
-              className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                traceDirection === 'up'
-                  ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              onClick={() => onChangeDiffFilter('CHANGED')}
+              className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
+                diffFilter === 'CHANGED'
+                  ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              <ArrowUp className="w-2.5 h-2.5" />
-              Up
+              Changed ({diffSummary.addedCount + diffSummary.removedCount + diffSummary.modifiedCount})
             </button>
             <button
               type="button"
-              onClick={() => onChangeTraceDirection('both')}
+              onClick={() => onChangeDiffFilter('added')}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                traceDirection === 'both'
-                  ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                diffFilter === 'added'
+                  ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-semibold'
+                  : 'text-emerald-400/80 hover:text-emerald-300'
               }`}
             >
-              <ArrowUpDown className="w-2.5 h-2.5" />
-              Up & Down
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />+{diffSummary.addedCount} Added
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeDiffFilter('modified')}
+              className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                diffFilter === 'modified'
+                  ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold'
+                  : 'text-amber-400/80 hover:text-amber-300'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />~{diffSummary.modifiedCount} Mod
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeDiffFilter('removed')}
+              className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                diffFilter === 'removed'
+                  ? 'bg-rose-500/25 text-rose-200 border border-rose-400/40 font-semibold'
+                  : 'text-rose-400/80 hover:text-rose-300'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />-{diffSummary.removedCount} Rem
             </button>
           </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-[#1e2127]/70 border border-white/[0.14] rounded-lg p-0.5">
+            <div role="group" aria-label="Load Path Trace Direction" className="flex items-center">
+              <span className="mono text-[9px] text-zinc-500 uppercase px-1.5">Trace</span>
+              <button
+                type="button"
+                onClick={() => onChangeTraceDirection('down')}
+                className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                  traceDirection === 'down'
+                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                }`}
+              >
+                <ArrowDown className="w-2.5 h-2.5" />
+                Down
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeTraceDirection('up')}
+                className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                  traceDirection === 'up'
+                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                }`}
+              >
+                <ArrowUp className="w-2.5 h-2.5" />
+                Up
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeTraceDirection('both')}
+                className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
+                  traceDirection === 'both'
+                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                }`}
+              >
+                <ArrowUpDown className="w-2.5 h-2.5" />
+                Up & Down
+              </button>
+            </div>
 
-          <div className="h-3.5 w-px bg-white/[0.1]" />
+            <div className="h-3.5 w-px bg-white/[0.1]" />
 
-          <div className="flex items-center gap-1.5 pr-2 pl-1">
-            <label htmlFor="traceStepsSlider" className="mono text-[9px] text-zinc-500 uppercase cursor-pointer">
-              Steps
-            </label>
-            <input
-              id="traceStepsSlider"
-              type="range"
-              min={1}
-              max={16}
-              value={traceSteps}
-              onChange={(e) => onChangeTraceSteps(parseInt(e.target.value, 10))}
-              className="trace-steps-slider w-20"
-            />
-            <span className="mono text-[10px] font-semibold text-indigo-300 min-w-[26px] text-right">
-              {traceSteps >= 16 ? 'ALL' : traceSteps}
-            </span>
+            <div className="flex items-center gap-1.5 pr-2 pl-1">
+              <label htmlFor="traceStepsSlider" className="mono text-[9px] text-zinc-500 uppercase cursor-pointer">
+                Steps
+              </label>
+              <input
+                id="traceStepsSlider"
+                type="range"
+                min={1}
+                max={16}
+                value={traceSteps}
+                onChange={(e) => onChangeTraceSteps(parseInt(e.target.value, 10))}
+                className="trace-steps-slider w-20"
+              />
+              <span className="mono text-[10px] font-semibold text-indigo-300 min-w-[26px] text-right">
+                {traceSteps >= 16 ? 'ALL' : traceSteps}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {isFilterActive && (
           <button
@@ -158,7 +225,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
-        {heatmapMode && (
+        {!diffSummary && heatmapMode && (
           <div className="hidden sm:flex items-center gap-2 bg-[#1e2127]/70 border border-white/[0.12] px-2.5 py-1 rounded-lg">
             <span className="mono text-[9px] text-zinc-400 uppercase">Load Utilization:</span>
             <span className="mono text-[9px] text-cyan-300">30%</span>

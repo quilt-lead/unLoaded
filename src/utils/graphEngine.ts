@@ -4,6 +4,9 @@ import {
   BimLink,
   BimNode,
   FlattenedDocument,
+  DatabaseDiffSummary,
+  DiffStatus,
+  NodeDiffFieldChange,
   TraceDirection,
 } from '../types/bim';
 import { getEffectiveNodeColor } from './colors';
@@ -645,5 +648,147 @@ export function normalizeGraphData(parsed: Partial<BimGraphData>, fallbackName: 
     projectName: projectLabel,
     nodes: laidOutNodes,
     links,
+  };
+}
+
+
+// =========================================================================
+// DUAL-DATABASE DIFF ENGINE (BASE DB A vs COMPARE DB B)
+// =========================================================================
+export function computeDatabaseDiff(
+  baseGraph: BimGraphData,
+  baseRawLinks: BimLink[],
+  compareGraph: BimGraphData,
+  compareRawLinks: BimLink[]
+): {
+  mergedNodes: BimNode[];
+  mergedRawLinks: BimLink[];
+  mergedHierarchyLinks: BimLink[];
+  summary: DatabaseDiffSummary;
+} {
+  const baseMap = new Map<string, BimNode>(baseGraph.nodes.map((n) => [n.id, n]));
+  const compMap = new Map<string, BimNode>(compareGraph.nodes.map((n) => [n.id, n]));
+
+  const allIds = new Set<string>([...baseMap.keys(), ...compMap.keys()]);
+  const rawMergedNodes: BimNode[] = [];
+
+  let addedCount = 0;
+  let removedCount = 0;
+  let modifiedCount = 0;
+  let unchangedCount = 0;
+
+  const inspectFields = (a: BimNode, b: BimNode): NodeDiffFieldChange[] => {
+    const changes: NodeDiffFieldChange[] = [];
+    if ((a.sectionSize || '') !== (b.sectionSize || '')) {
+      changes.push({ field: 'Section / Profile', before: a.sectionSize || '—', after: b.sectionSize || '—' });
+    }
+    if ((a.strengthLabel || String(a.ratedStrength ?? '')) !== (b.strengthLabel || String(b.ratedStrength ?? ''))) {
+      changes.push({
+        field: 'Material / Strength',
+        before: a.strengthLabel || `${a.ratedStrength ?? '—'} MPa`,
+        after: b.strengthLabel || `${b.ratedStrength ?? '—'} MPa`,
+      });
+    }
+    if ((a.axialLoadKn ?? 0) !== (b.axialLoadKn ?? 0)) {
+      changes.push({
+        field: 'Axial / Gravity Load',
+        before: `${(a.axialLoadKn ?? 0).toLocaleString()} kN`,
+        after: `${(b.axialLoadKn ?? 0).toLocaleString()} kN`,
+      });
+    }
+    if (Math.round((a.utilization ?? 0) * 100) !== Math.round((b.utilization ?? 0) * 100)) {
+      changes.push({
+        field: 'Utilization',
+        before: `${Math.round((a.utilization ?? 0) * 100)}%`,
+        after: `${Math.round((b.utilization ?? 0) * 100)}%`,
+      });
+    }
+    if ((a.floor || '') !== (b.floor || '')) {
+      changes.push({ field: 'Level / Floor', before: a.floor || '—', after: b.floor || '—' });
+    }
+    const aDocs = (a.documents || []).map((d) => `${d.id}:${d.rev}`).join(',');
+    const bDocs = (b.documents || []).map((d) => `${d.id}:${d.rev}`).join(',');
+    if (aDocs !== bDocs) {
+      changes.push({
+        field: 'Mapped PDF / Rev',
+        before: (a.documents || []).map((d) => `${d.id} (${d.rev})`).join(', ') || 'None',
+        after: (b.documents || []).map((d) => `${d.id} (${d.rev})`).join(', ') || 'None',
+      });
+    }
+    return changes;
+  };
+
+  allIds.forEach((id) => {
+    const a = baseMap.get(id);
+    const b = compMap.get(id);
+
+    if (a && !b) {
+      const status: DiffStatus = 'removed';
+      if (isInstanceNode(a)) removedCount++;
+      rawMergedNodes.push({
+        ...a,
+        diffStatus: status,
+        diffChanges: [{ field: 'Presence', before: 'Present in Base DB', after: 'Removed in Compare DB' }],
+        diffBefore: a,
+      });
+    } else if (!a && b) {
+      const status: DiffStatus = 'added';
+      if (isInstanceNode(b)) addedCount++;
+      rawMergedNodes.push({
+        ...b,
+        diffStatus: status,
+        diffChanges: [{ field: 'Presence', before: 'Not in Base DB', after: 'Added in Compare DB' }],
+      });
+    } else if (a && b) {
+      if (isProjectNode(b)) {
+        rawMergedNodes.push({
+          ...b,
+          label: `${baseGraph.projectName || 'DB A'} vs ${compareGraph.projectName || 'DB B'}`,
+          diffStatus: 'unchanged',
+          diffChanges: [],
+        });
+        return;
+      }
+      const changes = isInstanceNode(b) ? inspectFields(a, b) : [];
+      const status: DiffStatus = changes.length > 0 ? 'modified' : 'unchanged';
+      if (isInstanceNode(b)) {
+        if (status === 'modified') modifiedCount++;
+        else unchangedCount++;
+      }
+      rawMergedNodes.push({
+        ...b,
+        diffStatus: status,
+        diffChanges: changes,
+        diffBefore: status === 'modified' ? a : undefined,
+      });
+    }
+  });
+
+  // Merge links from both DBs
+  const linkKeySet = new Set<string>();
+  const mergedRawLinks: BimLink[] = [];
+  [...baseRawLinks, ...compareRawLinks].forEach((l) => {
+    const k = `${l.source}=>${l.target}`;
+    if (!linkKeySet.has(k)) {
+      linkKeySet.add(k);
+      mergedRawLinks.push(l);
+    }
+  });
+
+  const laidOutNodes = computeRadialLayout(rawMergedNodes);
+  const mergedHierarchyLinks = buildHierarchyLinks(laidOutNodes, mergedRawLinks);
+
+  return {
+    mergedNodes: laidOutNodes,
+    mergedRawLinks,
+    mergedHierarchyLinks,
+    summary: {
+      baseName: baseGraph.projectName || 'Base DB (A)',
+      compareName: compareGraph.projectName || 'Compare DB (B)',
+      addedCount,
+      removedCount,
+      modifiedCount,
+      unchangedCount,
+    },
   };
 }

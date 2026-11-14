@@ -61,6 +61,18 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
   `public/samples/Building-Structural-IFC4.ifc` populates the graph, Inspector and 3D view with no console errors.
   The only 404 is `/favicon.ico`, which predates this work.
 
+## Update: prod merged back in (c69ef3d, "added diff compare to the ui")
+
+- Prod now starts with an empty workspace (no auto-load of `public/data/bim-database.json`; the sample lives in
+  `sample-data/`) and adds Diff Mode: `handleUploadFile(file, slot: 'base' | 'compare')` with `computeDatabaseDiff`.
+  The merged handler keeps prod's slot logic on top of the async `importModel`.
+- Diffing two IFC imports works well because element ids are IFC GlobalIds (stable across re-exports).
+  Importing the same file as A and B gives +0 / ~0 / -0.
+- Fixed a null-deref in prod's `getEffectiveNodeColor` (it read `node.diffStatus` before the null check), which also
+  broke `tsc -b` on prod.
+- Gotcha: switching branches between `prod` (no workspaces) and `cs/dev` and running `npm install` leaves
+  `node_modules` without `@unloaded/*` links, or with a half-installed `three`. Fix it with `rm -rf node_modules && npm install`.
+
 ## Open items / next steps
 
 - Hold the `ElementGraph` instance in app state (`ImportResult.elementGraph` is returned but discarded) so the UI

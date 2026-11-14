@@ -10,7 +10,8 @@ import {
   History,
   Calculator,
 } from 'lucide-react';
-import { BimLink, BimNode, FlattenedDocument, WorkspaceView } from '../types/bim';
+import { BimLink, BimNode, DiffStatus, FlattenedDocument, WorkspaceView } from '../types/bim';
+import { DIFF_PALETTE } from '../utils/colors';
 
 interface DocumentBrowserProps {
   allDocs: FlattenedDocument[];
@@ -19,6 +20,7 @@ interface DocumentBrowserProps {
   selectedNodeId: string | null;
   activeLoadChainNodeIds: Set<string>;
   filterBySelectedElement: boolean;
+  diffMode?: boolean;
   onClearElementFilter: () => void;
   initialDocId: string | null;
   onLocateElement: (nodeId: string, view: WorkspaceView) => void;
@@ -31,6 +33,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   selectedNodeId,
   activeLoadChainNodeIds,
   filterBySelectedElement,
+  diffMode = false,
   onClearElementFilter,
   initialDocId,
   onLocateElement,
@@ -182,15 +185,43 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                      <span className="text-xs font-semibold text-zinc-100 truncate">{doc.title}</span>
-                    </div>
-                    <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300 flex-shrink-0">
-                      {doc.rev}
-                    </span>
-                  </div>
+                  {(() => {
+                    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+                    const statuses = doc.mappedElementIds
+                      .map((eid) => nodeMap.get(eid)?.diffStatus)
+                      .filter((s): s is DiffStatus => Boolean(s) && s !== 'unchanged');
+                    const topStatus: DiffStatus | null = statuses.includes('modified')
+                      ? 'modified'
+                      : statuses.includes('added')
+                      ? 'added'
+                      : statuses.includes('removed')
+                      ? 'removed'
+                      : null;
+                    return (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                          <span className="text-xs font-semibold text-zinc-100 truncate">{doc.title}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {diffMode && topStatus && (
+                            <span
+                              className="mono text-[8.5px] font-bold px-1.5 py-0.5 rounded uppercase"
+                              style={{
+                                backgroundColor: `${DIFF_PALETTE[topStatus]}26`,
+                                color: DIFF_PALETTE[topStatus],
+                              }}
+                            >
+                              {topStatus}
+                            </span>
+                          )}
+                          <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
+                            {doc.rev}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: doc.nodeColor }} />
