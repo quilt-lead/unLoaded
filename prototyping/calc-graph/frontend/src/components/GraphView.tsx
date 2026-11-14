@@ -77,6 +77,8 @@ export interface GraphViewProps<N = unknown, E = unknown> {
   footer?: ReactNode;
   /** the initial fit never zooms out below this (large graphs open readable and pan instead of shrinking to fit) */
   fitMinZoom?: number;
+  /** lanes only: pack each lane's nodes top to bottom (dagre order, no gaps), shorter lanes centred - legible column flows */
+  compactLanes?: boolean;
 }
 
 const NW = 176, NH = 44, LANE_GAP = 90, ROW_GAP = 12, HEAD = 34, PAD = 14;
@@ -134,7 +136,7 @@ function edgeVisual(style: EdgeStyle | undefined, selected: boolean, color?: str
   };
 }
 
-function layout(nodes: readonly GraphNode[], edges: readonly GraphEdge[], lanes: readonly GraphLane[] | undefined, direction: "LR" | "TB") {
+function layout(nodes: readonly GraphNode[], edges: readonly GraphEdge[], lanes: readonly GraphLane[] | undefined, direction: "LR" | "TB", compact = false) {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: lanes ? "LR" : direction, nodesep: ROW_GAP + 6, ranksep: 70, marginx: PAD, marginy: PAD });
   g.setDefaultEdgeLabel(() => ({}));
@@ -151,12 +153,13 @@ function layout(nodes: readonly GraphNode[], edges: readonly GraphEdge[], lanes:
   if (lanes?.length) {
     // columns: x from the lane, order inside a lane from dagre's y, overlaps pushed down
     let maxH = 0;
+    const tallest = Math.max(0, ...lanes.map((l) => nodes.filter((n) => n.lane === l.id).length));
     lanes.forEach((lane, li) => {
       const inLane = nodes.filter((n) => n.lane === lane.id).sort((a, b) => pos.get(a.id)!.y - pos.get(b.id)!.y);
       const x = PAD + li * (NW + 2 * PAD + LANE_GAP);
-      let y = HEAD + PAD;
+      let y = HEAD + PAD + (compact ? ((tallest - inLane.length) * (NH + ROW_GAP)) / 2 : 0);
       for (const n of inLane) {
-        y = Math.max(y, pos.get(n.id)!.y + HEAD);
+        if (!compact) y = Math.max(y, pos.get(n.id)!.y + HEAD);
         pos.set(n.id, { x: x + PAD, y });
         y += NH + ROW_GAP;
       }
@@ -182,10 +185,11 @@ export function GraphView<N, E>({
   height = 420,
   footer,
   fitMinZoom,
+  compactLanes = false,
 }: GraphViewProps<N, E>) {
   const { resolved } = useTheme();
   const dir = lanes?.length ? "LR" : direction;
-  const geo = useMemo(() => layout(nodes, edges, lanes, direction), [nodes, edges, lanes, direction]);
+  const geo = useMemo(() => layout(nodes, edges, lanes, direction, compactLanes), [nodes, edges, lanes, direction, compactLanes]);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const edgeById = useMemo(() => new Map(edges.map((e) => [e.id, e])), [edges]);
 
