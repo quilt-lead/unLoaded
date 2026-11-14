@@ -20,7 +20,7 @@ from collections import Counter
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from calcgraph.analysis import get_adapter  # noqa: E402
-from calcgraph.analysis.base import DATA_DIR  # noqa: E402
+from calcgraph.analysis.base import DATA_DIR, load_design  # noqa: E402
 
 
 def main() -> None:
@@ -50,6 +50,14 @@ def main() -> None:
           f"{rt['extra_n']} extra, {rt['section_mismatch_n']} section mismatches, max coord error {rt['max_coord_err_ft']:.2e} ft, "
           f"{rt['label_map_mismatch_n']} label->registry mismatches")
     print("  ROUND TRIP", "OK" if rt["ok"] else "FAILED")
+    from calcgraph.analysis.etabs import e2k_load_check
+    lc = e2k_load_check(path, load_design(None))
+    print("\nloads ETABS is given (read back from the .e2k) vs design.json:")
+    for r in lc["rows"]:
+        print(f"  {r['quantity']:32s} {r['level']:4s} e2k {r['e2k']:9.2f}  design {r['design']:9.2f}  "
+              f"{100 * r['rel_err']:+7.3f}%  {'ok' if r['ok'] else 'OVER 1%'}")
+    print("  structure:", ", ".join(f"{k} {'yes' if v else 'NO'}" for k, v in lc["structure"].items()))
+    print("  LOAD CHECK", "OK" if lc["ok"] else "FAILED")
 
     if a.no_job:
         return

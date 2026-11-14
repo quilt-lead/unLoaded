@@ -28,8 +28,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 DATA_DIR = os.path.join(ROOT, "data", "synthetic_v2")
 DESIGN_PATH = os.path.join(DATA_DIR, "design.json")
 
-OBJECT_KINDS = ("story", "grid", "point", "frame", "area", "section", "material", "load_pattern",
-                "load_case", "combo", "story_drift", "frame_design")
+OBJECT_KINDS = ("story", "grid", "point", "frame", "area", "shell_prop", "diaphragm", "mass_source", "section",
+                "material", "load_pattern", "load_case", "combo", "story_drift", "frame_design")
 
 
 @dataclass

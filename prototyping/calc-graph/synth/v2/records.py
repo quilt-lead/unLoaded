@@ -87,7 +87,8 @@ def export(d: dict) -> dict:
          "soil": "qa = 4,000 psf net allowable", "seismic": "SDS 1.00, SD1 0.60, Site D, RC II, SDC D",
          "wind": "V = 110 mph, exposure C"}, None, None, None, "criteria")
     for ar in topo.layout.areas:
-        rid = f"A2-{ar.name.replace(' ', '_').replace('(', '').replace(')', '')}"
+        from .model import area_record_id
+        rid = area_record_id(ar)
         rec(rid, "A2", [], "area_load", {"name": ar.name, "kind": ar.kind, "level": ar.level, "D_psf": ar.d_psf,
                                          "L_psf": ar.l_psf, "Lr_psf": ar.lr_psf,
                                          "extent_ft": [ar.x0, ar.y0, ar.x1, ar.y1]},

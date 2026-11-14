@@ -43,6 +43,21 @@ GRADE_BEAM_LINES = {"x": ["A", "D"], "y": ["1", "5", "3"]}   # x: along X on let
 
 WALL_PSF = 15.0
 PARAPET_FT = 3.0
+DECK_T_IN = {"L2": 6.25, "L3": 6.25, "RF": 1.5}   # total deck + topping depth (in), floors / roof
+
+
+def wall_trib_h(level: str) -> float:
+    """Height of perimeter wall carried at `level` (ft): half the storey below + half the storey
+    above, or the parapet at the roof. The one definition gravity line loads, the seismic weight
+    and the ETABS export all use."""
+    order = [l for l, _, _ in LEVELS]
+    i = order.index(level)
+    return STOREY_H[level] / 2 + (STOREY_H[order[i + 1]] / 2 if i + 1 < len(order) else PARAPET_FT)
+
+
+def wall_klf(level: str) -> float:
+    """Perimeter wall line load (kip/ft of wall) at `level`."""
+    return WALL_PSF * wall_trib_h(level) / 1000
 
 
 @dataclass
@@ -72,6 +87,11 @@ def default_areas() -> list[Area]:
     a.append(Area("Mech (RTU zone)", "mech", "RF", 60, 0, 90, 30, 90.0, 0.0, 20.0))
     a.append(Area("Roof", "roof", "RF", 0, 0, 120, 85, 25.0, 0.0, 20.0))  # last = fallback
     return a
+
+
+def area_record_id(ar: Area) -> str:
+    """Calc record id (calc A2) of a load area."""
+    return f"A2-{ar.name.replace(' ', '_').replace('(', '').replace(')', '')}"
 
 
 def area_at(areas: list[Area], level: str, x: float, y: float) -> Area | None:

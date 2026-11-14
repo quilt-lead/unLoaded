@@ -74,15 +74,27 @@ MATERIALS = {
 }
 PATTERNS = [
     # name, e2k TYPE, eLoadPatternType, self weight multiplier, description
-    ("Dead", "Dead", 1, 1.0, "steel self weight + slab/deck dead (area D)"),
-    ("SDL", "Superimposed Dead", 2, 0.0, "superimposed dead (carried inside area D in the design)"),
-    ("Live", "Live", 3, 0.0, "floor live incl. partitions"),
-    ("Lr", "Roof Live", 11, 0.0, "roof live"),
-    ("EQX", "Seismic", 5, 0.0, "ELF, X (SMF)"),
-    ("EQY", "Seismic", 5, 0.0, "ELF, Y (SCBF)"),
-    ("WX", "Wind", 6, 0.0, "MWFRS, X"),
-    ("WY", "Wind", 6, 0.0, "MWFRS, Y"),
+    ("Dead", "Dead", 1, 1.0, "steel self weight (SELFWEIGHT 1); the design's area D is in SDL"),
+    ("SDL", "Super Dead", 2, 0.0, "area D on the floor / roof areas (slab, deck and superimposed - the design "
+                                   "does not split them) + perimeter wall line loads"),
+    ("Live", "Live", 3, 0.0, "floor live incl. partitions, on the floor areas"),
+    ("Lr", "Roof Live", 11, 0.0, "roof live, on the roof areas"),
+    ("EQX", "Seismic", 5, 0.0, "ELF, X (SMF); +/-5% accidental eccentricity"),
+    ("EQY", "Seismic", 5, 0.0, "ELF, Y (SCBF); +/-5% accidental eccentricity"),
+    ("WX", "Wind", 6, 0.0, "MWFRS story forces (calc C2), X, as point loads on the windward-face columns"),
+    ("WY", "Wind", 6, 0.0, "MWFRS story forces (calc C2), Y, as point loads on the windward-face columns"),
 ]
+DIAPHRAGM = "D1"
+# Mass-only load pattern: the design's seismic weight (lateral.seismic_weights) = area D + walls (SDL)
+# + partition allowance + a steel framing allowance in psf. SDL carries the first two; this pattern
+# carries the two allowances as area loads. It is in the mass source only - no load case uses it.
+MASS_PATTERN = "SeisWt"
+MASS_SOURCE = "MsSrc1"
+# Deck shell material: zero weight, because the design's area D already includes slab + deck. f'c
+# 3 ksi LW topping (calc A1 criteria); E = 57000 sqrt(f'c) psi. Membrane + rigid diaphragm, so E
+# and thickness carry no analysis stiffness.
+DECK_MATERIAL = {"name": "Deck3000NoWt", "type": "Concrete", "grade": "f'c 3000 psi (zero weight)", "fc_ksi": 3.0,
+                 "E_ksi": 57.0 * 3000 ** 0.5, "nu": 0.2, "alpha_per_F": 5.5e-6, "weight_kcf": 0.0}
 
 
 def _now_et() -> str:
@@ -175,14 +187,25 @@ def _restraint(roles) -> list[bool]:
     return [True, True, True, fixed, fixed, fixed]
 
 
-def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = None) -> tuple[list[AnalysisObject], dict]:
+def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = None,
+                  layout=None) -> tuple[list[AnalysisObject], dict]:
     """ETABS-style objects for the design (or for `frames`, a frame input with a change applied).
 
     seed: label map from a previous build ({"points": {key: label}, "frames": {plan key: label}})
-    so labels stay stable across a change. Returns (objects, label map)."""
+    so labels stay stable across a change. layout: the synth.v2.model.Layout `frames` comes from
+    (default: the design's own, layout_from_design(exp)) - its load areas and perimeter walls
+    are the loads. Returns (objects, label map).
+
+    Loads come from the design's own definitions, never re-typed: floor / roof area loads from
+    the layout's load areas (calc A2), perimeter walls from synth.v2.model.wall_klf on the members
+    the topology marks `wall`, wind story forces from the C-WIND records, ELF Cs / k from the
+    C-ELF records, the seismic mass from the same areas + allowances lateral.seismic_weights uses."""
     from synth.v2 import lateral as LAT
-    from synth.v2.model import GX, GY
+    from synth.v2.model import DECK_T_IN, GX, GY, area_at, area_record_id, wall_klf
+    from synth.v2.model import build as build_topology
     frames = frames or frame_input_from_design(exp)
+    layout = layout or layout_from_design(exp)
+    topo = build_topology(layout)
     seed = seed or {}
     st = stories()
     st_name = {lv: n for n, lv, _, _ in st}
@@ -339,6 +362,90 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
         add_frame(lab, story, "BRACE", b["id"], pi, pj, b["p1"][2], b["p2"][2], b["size"], True,
                   {"roles": ["scbf_brace"], "frame": b["frame"], "size_source": b.get("size_source", "design")}, n)
 
+    # perimeter wall line loads (SDL) on the members the topology marks `wall` (gravity.line_loads
+    # applies the same wall_klf on the same members)
+    for f in frame_objs:
+        m = topo.members.get(f.element_id)
+        if m is not None and m.wall:
+            f.props["line_loads"] = {"SDL": wall_klf(m.level)}
+
+    # floor / roof area objects: one per plan cell between grid lines (and load-area edges), corner
+    # points on the columns (a moved column takes its panel corners with it), membrane deck with
+    # zero self weight, the load area's D / L / Lr and the seismic allowances as uniform loads
+    gx_, gy_ = [x for _, x in GX], [y for _, y in GY]
+    # a panel corner follows its column (connectivity) unless that would pull the slab edge in:
+    # on the footprint boundary the corner stays on the boundary (the design loads the whole
+    # footprint whatever the column positions), as a corner point that frames nothing
+    grid_col = {}
+    for c in frames["columns"]:
+        g = c["grid"]
+        gxy = (dict(GX)[g[:-1]], dict(GY)[g[-1]])
+        on_x_edge, on_y_edge = gxy[0] in (gx_[0], gx_[-1]), gxy[1] in (gy_[0], gy_[-1])
+        if (on_x_edge and abs(c["x"] - gxy[0]) > 1e-9) or (on_y_edge and abs(c["y"] - gxy[1]) > 1e-9):
+            continue
+        grid_col[gxy] = pt_label[f"col:{g}"]
+    deck_ids = {e["level"]: e["id"] for e in exp.get("elements", []) if e.get("type") == "deck"}
+    area_objs, shell_objs, area_label = [], [], {}
+    for name, lv, z, _ in st[1:]:
+        zones = [a for a in layout.areas if a.level == lv]
+        xb = sorted({*gx_, *(v for a in zones for v in (a.x0, a.x1) if gx_[0] < v < gx_[-1])})
+        yb = sorted({*gy_, *(v for a in zones for v in (a.y0, a.y1) if gy_[0] < v < gy_[-1])})
+        prop = f"DK-{lv}"
+        shell_objs.append(AnalysisObject("shell_prop", prop, deck_ids.get(lv), [], {
+            "prop_type": "Slab", "modeling": "Membrane", "slab_type": "Slab", "thickness_ft": DECK_T_IN[lv] / 12,
+            "material": DECK_MATERIAL["name"], "material_props": DECK_MATERIAL, "level": lv,
+            "note": "zero-weight membrane: the area D load carries slab + deck; rigid diaphragm"},
+            {"PropArea.GetSlab": {"Name": prop, "SlabType": "Slab", "ShellType": "Membrane",
+                                  "MatProp": DECK_MATERIAL["name"], "Thickness": DECK_T_IN[lv] / 12}}))
+        for x0, x1 in zip(xb, xb[1:]):
+            for y0, y1 in zip(yb, yb[1:]):
+                corners = []
+                for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+                    lab = grid_col.get((x, y)) or point(ckey(x, y), x, y)
+                    corners.append(lab)
+                key = tuple(corners)
+                if key not in area_label:
+                    area_label[key] = f"F{len(area_label) + 1}"
+                lab = area_label[key]
+                xy = [pt_xy[c] for c in corners]
+                a_ft2 = abs(sum(xa * yb_ - xb_ * ya for (xa, ya), (xb_, yb_) in zip(xy, xy[1:] + xy[:1]))) / 2
+                ar = area_at(layout.areas, lv, (x0 + x1) / 2, (y0 + y1) / 2)
+                loads = {}
+                if ar is not None:
+                    loads = {"SDL": ar.d_psf / 1000, "Live": ar.l_psf / 1000, "Lr": ar.lr_psf / 1000,
+                             MASS_PATTERN: (ar.seis_extra_psf + LAT.STEEL_ALLOW_PSF[lv]) / 1000}
+                    loads = {k: v for k, v in loads.items() if v}
+                rids = [area_record_id(ar)] if ar is not None else []
+                raw = {"AreaObj.GetLabelNameList": {"Label": lab, "Story": name},
+                       "AreaObj.GetPoints": {"Point": [f"{c}@{name}" for c in corners]},
+                       "AreaObj.GetProperty": {"PropName": prop}, "AreaObj.GetDiaphragm": {"DiaphragmName": DIAPHRAGM},
+                       "AreaObj.GetLoadUniform": {"LoadPat": list(loads), "Value": [v for v in loads.values()],
+                                                  "Dir": [10] * len(loads), "units": "kip, ft"}}
+                area_objs.append(AnalysisObject("area", lab, deck_ids.get(lv), rids, {
+                    "points": corners, "xy": [list(p) for p in xy], "area_ft2": a_ft2, "section": prop,
+                    "diaphragm": DIAPHRAGM, "zone": ar.name if ar else None, "loads_ksf": loads,
+                    "mesh": "DEFAULT"}, raw, name))
+
+    # wind: the C-WIND story forces on the windward face, split over the face columns by
+    # tributary width so the resultant sits at the face centroid (rigid diaphragm carries it)
+    wind_loads: dict[tuple[str, str], dict[str, list[float]]] = {}
+    cxy = [(pt_label[f"col:{c['grid']}"], c["x"], c["y"]) for c in frames["columns"]]
+    for pat, k in (("WX", 0), ("WY", 1)):
+        rec = records.get(f"C-WIND:{pat[-1]}")
+        if not rec or not cxy:
+            continue
+        face = min(p[1 + k] for p in cxy)
+        on = sorted((p for p in cxy if abs(p[1 + k] - face) < 1e-6), key=lambda p: p[2 - k])
+        along = [p[2 - k] for p in on]
+        lo, hi = min(p[2 - k] for p in cxy), max(p[2 - k] for p in cxy)
+        edges = [lo] + [(a + b) / 2 for a, b in zip(along, along[1:])] + [hi]
+        tribs = [b - a for a, b in zip(edges, edges[1:])]
+        for lv, F in rec["values"]["Fx_k"].items():
+            for p, t in zip(on, tribs):
+                f = [0.0, 0.0, 0.0]
+                f[k] = F * t / (hi - lo)
+                wind_loads.setdefault((p[0], st_name[lv]), {})[pat] = f
+
     # point objects (one per label x story in use)
     pn = 0
     for lab in sorted(pt_xy, key=int):
@@ -355,10 +462,27 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
             raw = {"PointObj.GetLabelNameList": {"Name": f"{lab}@{sname}", "Label": lab, "Story": sname},
                    "PointObj.GetCoordCartesian": {"X": x, "Y": y, "Z": st_elev[sname]},
                    "PointObj.GetRestraint": {"Value": restr}}
-            objs.append(AnalysisObject("point", lab, eid, [], {"x_ft": x, "y_ft": y, "z_ft": st_elev[sname],
-                                                               "restraint": restr, "framing": sorted(point_use[(lab, sname)])},
-                                       raw, sname))
+            props = {"x_ft": x, "y_ft": y, "z_ft": st_elev[sname], "restraint": restr,
+                     "framing": sorted(point_use[(lab, sname)])}
+            if sname != "Base":
+                props["diaphragm"] = DIAPHRAGM
+                raw["PointObj.GetDiaphragm"] = {"DiaphragmName": DIAPHRAGM}
+            pl = wind_loads.get((lab, sname))
+            rids = []
+            if pl:
+                props["point_loads"] = pl
+                raw["PointObj.GetLoadForce"] = {"LoadPat": list(pl), "F1": [v[0] for v in pl.values()],
+                                                "F2": [v[1] for v in pl.values()], "units": "kip"}
+                rids = [f"C-WIND:{p[-1]}" for p in pl]
+            objs.append(AnalysisObject("point", lab, eid, rids, props, raw, sname))
     objs.extend(frame_objs)
+    objs.append(AnalysisObject("diaphragm", DIAPHRAGM, None, [], {
+        "type": "RIGID", "reason": "the design distributes story forces by a rigid (composite deck) diaphragm "
+                                   "with 5% accidental torsion (synth.v2.lateral.distribute); the roof is "
+                                   "taken rigid too, as the design does"},
+        {"Diaphragm.GetDiaphragm": {"Name": DIAPHRAGM, "SemiRigid": False}}))
+    objs.extend(shell_objs)
+    objs.extend(area_objs)
 
     # load patterns / cases / combos
     area_d = [r for r in records.values() if r["kind"] == "area_load" and r["values"].get("D_psf")]
@@ -378,6 +502,18 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
             props.update(dir=name[-1], V_k=v["V_k"], Fx_k=v["Fx_k"], psf=v["psf"])
         objs.append(AnalysisObject("load_pattern", name, None, rids, props,
                                    {"LoadPatterns.GetLoadType": {"MyType": enum}, "LoadPatterns.GetSelfWTMultiplier": {"SelfWTMultiplier": sw}}))
+    elf = [r for r in ("C-ELF:X", "C-ELF:Y") if r in records]
+    objs.append(AnalysisObject("mass_source", MASS_SOURCE, None, elf, {
+        "include_elements": False, "include_added_mass": False, "include_loads": True, "lateral_only": True,
+        "lump_at_stories": True, "loads": [["SDL", 1.0], [MASS_PATTERN, 1.0]],
+        "extra_patterns": [{"name": MASS_PATTERN, "type": "Other", "self_weight": 0.0,
+                            "description": "mass only: partition allowance + steel framing allowance (psf) of "
+                                           "the design's seismic weight; in no load case"}],
+        "note": "W = SDL (area D + walls) + allowances = lateral.seismic_weights; element self mass excluded "
+                "because the design's W uses a psf steel allowance, not the as-designed tonnage"},
+        {"SourceMass.GetMassSource": {"Name": MASS_SOURCE, "MassFromElements": False, "MassFromMasses": False,
+                                      "MassFromLoads": True, "IsDefault": True, "LoadPat": ["SDL", MASS_PATTERN],
+                                      "SF": [1.0, 1.0]}}))
     objs.append(AnalysisObject("load_case", "Modal", None, [], {"type": "Modal - Eigen", "max_modes": 12}, {"LoadCases.GetNameList": "Modal"}))
     for name, _, _, _, _ in PATTERNS:
         objs.append(AnalysisObject("load_case", name, None, list(pat_recs[name] and [r for r in pat_recs[name] if r in records]),
@@ -476,6 +612,7 @@ def _design_objects(records: dict, frame_objs: list[AnalysisObject]) -> list[Ana
 
 
 OBJECT_TYPE = {"story": "Story", "grid": "GridLine", "point": "Point", "frame": "Frame", "area": "Area",
+               "shell_prop": "AreaProperty", "diaphragm": "Diaphragm", "mass_source": "MassSource",
                "section": "FrameSection", "material": "Material", "load_pattern": "LoadPattern",
                "load_case": "LoadCase", "combo": "Combo", "story_drift": "StoryDrift", "frame_design": "SteelDesign"}
 
@@ -546,9 +683,9 @@ class EtabsAdapter(AnalysisAdapter):
             from synth.v2 import design as DSN, records
             d = DSN.run(layout)
             exp2 = records.export(d)
-            objs, _ = build_objects(exp2, seed=self._labels)
+            objs, _ = build_objects(exp2, seed=self._labels, layout=layout)
             return objs, "re-designed (calc-graph synth.v2.design.run)", (d, exp2)
-        objs, _ = build_objects(exp, frame_input_from_layout(layout, exp), seed=self._labels)
+        objs, _ = build_objects(exp, frame_input_from_layout(layout, exp), seed=self._labels, layout=layout)
         return objs, "carried from the base design (geometry-only change)", None
 
     def export_model(self, path: str, design: dict | None = None, change: dict | None = None,
@@ -569,16 +706,21 @@ class EtabsAdapter(AnalysisAdapter):
         segs = e2k.frame_segments(parsed)
         objs = self._build()
         cnt = self.counts()
+        names = e2k.etabs_load_names(objs)
         exp_counts = {"stories": sum(1 for o in objs if o.kind == "story"), "grids": cnt.get("grid", 0),
                       "points (plan)": len({o.label for o in objs if o.kind == "point"}),
                       "frames (label x story)": cnt.get("frame", 0), "sections": cnt.get("section", 0),
-                      "materials": cnt.get("material", 0), "load patterns": cnt.get("load_pattern", 0),
-                      "load cases": cnt.get("load_case", 0), "combos": cnt.get("combo", 0)}
+                      "materials": cnt.get("material", 0) + len({o.props["material"] for o in objs if o.kind == "shell_prop"}),
+                      "load patterns": len(names["patterns"]),
+                      "load cases": len(names["cases"]), "combos": len(names["combos"]),
+                      "areas (label x story)": cnt.get("area", 0), "diaphragms": cnt.get("diaphragm", 0),
+                      "mass sources": cnt.get("mass_source", 0)}
         got_counts = {"stories": len(parsed["stories"]), "grids": len(parsed["grids"]),
                       "points (plan)": len(parsed["points"]), "frames (label x story)": len(segs),
                       "sections": len(parsed["sections"]), "materials": len(parsed["materials"]),
                       "load patterns": len(parsed["load_patterns"]), "load cases": len(parsed["load_cases"]),
-                      "combos": len(parsed["combos"])}
+                      "combos": len(parsed["combos"]), "areas (label x story)": len(parsed["area_assigns"]),
+                      "diaphragms": len(parsed["diaphragms"]), "mass sources": len(parsed["mass_sources"])}
         # design segments straight from design.json (independent of the label map)
         des = []
         lv_z = [z for _, _, z, _ in stories()]
@@ -744,8 +886,97 @@ def base_reactions(exp: dict) -> list[dict]:
         rows.append((case, -v if d == "x" else 0.0, -v if d == "y" else 0.0, 0.0, [rid]))
     return [{"LoadCase": c, "StepType": "", "StepNum": 0.0, "FX": round(fx, 1), "FY": round(fy, 1), "FZ": round(fz, 1),
              "MX": None, "ParamMy": None, "MZ": None, "gx": 0.0, "gy": 0.0, "gz": 0.0, "record_ids": rids,
-             "note": "SDL is inside Dead (the design does not split it)" if c in ("Dead", "SDL") else ""}
+             "note": ("the design does not split D: this Dead row is all of D (steel + area D + walls); the .e2k "
+                      "puts steel self weight in Dead and area D + walls in SDL, so compare Dead + SDL")
+             if c in ("Dead", "SDL") else ""}
             for c, fx, fy, fz, rids in rows]
+
+
+def _design_area_totals(exp: dict) -> dict[str, dict[str, float]]:
+    """{level: {"D": kip, "L": kip, "Lr": kip}} from the calc A2 area_load records alone (extents
+    and psf; where extents overlap the first record wins, as synth.v2.model.area_at does)."""
+    recs = [r["values"] for r in exp["records"] if r["kind"] == "area_load"]
+    out: dict[str, dict[str, float]] = {}
+    for lv in sorted({v["level"] for v in recs}):
+        zs = [v for v in recs if v["level"] == lv]
+        xb = sorted({v["extent_ft"][i] for v in zs for i in (0, 2)})
+        yb = sorted({v["extent_ft"][i] for v in zs for i in (1, 3)})
+        tot = {"D": 0.0, "L": 0.0, "Lr": 0.0}
+        for x0, x1 in zip(xb, xb[1:]):
+            for y0, y1 in zip(yb, yb[1:]):
+                cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+                v = next((v for v in zs if v["extent_ft"][0] <= cx <= v["extent_ft"][2]
+                          and v["extent_ft"][1] <= cy <= v["extent_ft"][3]), None)
+                if v:
+                    a = (x1 - x0) * (y1 - y0)
+                    tot["D"] += a * v["D_psf"] / 1000
+                    tot["L"] += a * v["L_psf"] / 1000
+                    tot["Lr"] += a * v["Lr_psf"] / 1000
+        out[lv] = tot
+    return out
+
+
+def e2k_load_check(path: str, exp: dict, tol: float = 0.01) -> dict:
+    """Read an .e2k back (e2k.read_e2k + e2k.load_summary) and compare what ETABS will be given
+    with design.json: total D (self weight + SDL), L and Lr against the column base reactions;
+    L and Lr per level against the calc A2 area records; the mass-source weight per level against
+    C-ELF W_by_level; the implied ELF V and story forces against C-ELF; wind story forces against
+    C-WIND. rows: [{quantity, level, e2k, design, rel_err, ok}]; ok = every |rel_err| <= tol and
+    the model has areas + diaphragm points on every story above Base and a mass source."""
+    from synth.v2 import aisc
+    parsed = e2k.read_e2k(path)
+    sm = e2k.load_summary(parsed, lambda shape: aisc.get(shape)["A"] / 144.0)
+    recs = {r["id"]: r for r in exp["records"]}
+    cols = [r["values"] for r in exp["records"] if r["kind"] == "column_design"]
+    lv_story = {lv: n for n, lv, _, _ in stories()}
+    above = [n for n, lv, _, _ in stories() if lv != "L1"]
+    V = sm["vertical"]
+    rows = []
+
+    def row(q, level, got, want):
+        err = (got - want) / want if want else (0.0 if abs(got) < 1e-9 else float("inf"))
+        rows.append({"quantity": q, "level": level, "e2k": round(got, 2), "design": round(want, 2),
+                     "rel_err": round(err, 5), "ok": abs(err) <= tol})
+
+    tot = lambda pats: sum(V[s].get(p, 0.0) for s in V for p in pats)   # noqa: E731
+    row("Dead + SDL (base vertical)", "all", tot(["Dead", "SDL"]), sum(c.get("P_base_D") or 0 for c in cols))
+    row("Live (base vertical)", "all", tot(["Live"]), sum(c.get("P_base_L") or 0 for c in cols))
+    row("Roof live (base vertical)", "all", tot(["Lr"]), sum(c.get("P_base_Lr") or 0 for c in cols))
+    area = _design_area_totals(exp)
+    for lv, t in area.items():
+        s = lv_story[lv]
+        for pat, k in (("Live", "L"), ("Lr", "Lr")):
+            if t[k]:
+                row(pat, lv, V[s].get(pat, 0.0), t[k])
+    elf = {d: recs[f"C-ELF:{d}"]["values"] for d in ("X", "Y") if f"C-ELF:{d}" in recs}
+    if elf:
+        wl = next(iter(elf.values()))["W_by_level_k"]
+        for lv, w in wl.items():
+            row("Seismic weight (mass source)", lv, sm["mass_weight"][lv_story[lv]], w)
+        row("Seismic weight (mass source)", "all", sum(sm["mass_weight"][s] for s in above), next(iter(elf.values()))["W_k"])
+    for d, v in elf.items():
+        for name, sp in sm["seismic"].items():
+            if name.startswith(f"EQ{d}"):
+                row(f"{name} base shear", "all", sp["V"], v["V_k"])
+                for lv, f in v["Fx_k"].items():
+                    row(f"{name} story force", lv, sp["Fx"][lv_story[lv]], f)
+    for d, k in (("X", 0), ("Y", 1)):
+        w = recs.get(f"C-WIND:{d}")
+        if w:
+            for lv, f in w["values"]["Fx_k"].items():
+                row(f"W{d} story force", lv, sm["lateral"].get(f"W{d}", {}).get(lv_story[lv], [0, 0])[k], f)
+    struct = {"areas_on_every_story": all(sm["areas_by_story"].get(s) for s in above),
+              "diaphragm_points_on_every_story": all(sm["diaphragm_points"].get(s) for s in above),
+              "rigid_diaphragm": any(str(v.get("TYPE", "")).upper() == "RIGID" for v in parsed["diaphragms"].values()),
+              "mass_source_loads_only": any(str(m.get("INCLUDEELEMENTS")).lower() == "no" and m["loads"]
+                                            for m in parsed["mass_sources"].values()),
+              "sdl_type_super_dead": parsed["load_patterns"].get("SDL", {}).get("TYPE") == "Super Dead",
+              "units_kip_ft": parsed["units"] == ["KIP", "FT", "F"],
+              "one_eccentricity_per_seismic_pattern": all(" " not in str(v.get("DIR", "")) for v in parsed["seismic"].values()),
+              "combos_15_design": sum(1 for c in parsed["combos"].values() if c.get("TYPE") == "Linear Add") == 15}
+    ok = all(r["ok"] for r in rows) and all(struct.values())
+    return {"path": path, "rows": rows, "structure": struct, "max_abs_rel_err": max(abs(r["rel_err"]) for r in rows),
+            "summary": sm, "ok": ok}
 
 
 def diff_objects(a: list[AnalysisObject], b: list[AnalysisObject]) -> dict:

@@ -22,7 +22,7 @@ from calcgraph.analysis import etabs
 from calcgraph.ifc_common import IfcBuilder
 
 from . import aisc
-from .model import PIER_TOP
+from .model import DECK_T_IN, PIER_TOP
 
 NS = uuid.UUID("5b8f2a0e-7c1d-4f7e-9d3a-0c2b6e9a4d11")
 FT = 0.3048
@@ -196,12 +196,15 @@ def write(exp: dict, path: str, design: dict, label: str = "Base design",
                  {"Type": e["conn_type"], "Member": e["member"], "End": e["end"], "Supports": e["to"]})
         elif t == "deck":
             z = {"L2": 14, "L3": 27, "RF": 40}[e["level"]]
-            th = 6.25 / 12 if e["level"] != "RF" else 1.5 / 12
+            th = DECK_T_IN[e["level"]] / 12
             emit("IfcSlab", e, e["id"], e["name"], box(60, 42.5, z, 120.5, 85.5, th), LV_STOREY[e["level"]],
                  "ROOF" if e["level"] == "RF" else "FLOOR", {"Deck": e["name"]})
 
     objs, labels = etabs.build_objects(exp)
-    loads = {k: {"Dead": r["w"][0], "Live": r["w"][1], "Lr": r["w"][2]} for k, r in design["framing"].items()}
+    # area D (slab, deck, superimposed) + perimeter wall go in SDL, steel self weight is Dead's
+    # SELFWEIGHT - the same split as the .e2k (etabs.PATTERNS), so the ETABS mass source can
+    # take the design's seismic weight without the as-built steel tonnage
+    loads = {k: {"SDL": r["w"][0], "Live": r["w"][1], "Lr": r["w"][2]} for k, r in design["framing"].items()}
     steel = {e["size"]: mats[e["id"]][0] for e in exp["elements"] if e["type"] in LINEAR and e["id"] in mats}
     ifc_structural.add_analysis_model(B, objs, labels, insts, iprof, steel.__getitem__, loads,
                                       name=f"Analysis model - {label}")

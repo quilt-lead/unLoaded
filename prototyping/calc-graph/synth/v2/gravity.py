@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 
 from . import aisc
-from .model import (FTG_TOP, LEVELS, PARAPET_FT, PIER_TOP, STOREY_H, WALL_PSF, Member, Topology, area_at)
+from .model import FTG_TOP, LEVELS, PIER_TOP, STOREY_H, WALL_PSF, Member, Topology, area_at, wall_klf
 
 E_KSF = aisc.E * 144.0
 COMBOS = {"LC1": (1.4, 0.0, 0.0), "LC2": (1.2, 1.6, 0.5), "LC3": (1.2, 0.5, 1.6)}  # D, L, Lr
@@ -47,15 +47,8 @@ def line_loads(m: Member, topo: Topology) -> list[float]:
         if ar:
             w = vadd(w, V(ar.d_psf * width / 1000, ar.l_psf * width / 1000, ar.lr_psf * width / 1000))
     if m.wall:
-        h = (STOREY_H[m.level] / 2 + (STOREY_H.get(_above(m.level), 0) / 2 if _above(m.level) else PARAPET_FT))
-        w = vadd(w, V(WALL_PSF * h / 1000))
+        w = vadd(w, V(wall_klf(m.level)))
     return w
-
-
-def _above(lv: str) -> str | None:
-    order = [l for l, _, _ in LEVELS]
-    i = order.index(lv)
-    return order[i + 1] if i + 1 < len(order) else None
 
 
 def simple_beam(L: float, w: list[float], pts: list[tuple[float, list[float]]], n: int = 48) -> dict:

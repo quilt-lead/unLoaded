@@ -10,6 +10,8 @@ v1 and Dana Point stages are DEPRECATED (retiring once v2 documents ingest end t
                    no clashes, every member has a design record); generates data/synthetic_v2 if absent
   v2_ifc           v2 model.ifc through the production ifc_ingest + loadpath vs design.json: element P/R,
                    profile + storey accuracy, load-path P/R (frames-into + bears-on), directed and not
+  etabs_export     the ETABS .e2k (base + a column move) read back: load totals within 1% of design.json,
+                   areas, rigid diaphragm, loads-only mass source, split eccentricity, 15 combos (pass/fail)
   ifc_contract     scripts/validate_ifc.py --fresh-only: a freshly written v2 base + move revision against
                    our IDS (ifctester), schema validation, GlobalId stability, analytical model (pass/fail)
   v2_documents     scripts/evaluate_v2_docs.py when it exists (v2 drawings / calc package / specs through
@@ -135,6 +137,32 @@ def st_v2_ifc(a) -> dict:
              "load-path recall by truth pair: " + ", ".join(f"{k} {ok}/{n}" for k, (n, ok) in sorted(kinds.items())),
              "load-path false positives by pair: " + ", ".join(f"{k} {n}" for k, n in fps.most_common(8))]
     return {"metrics": m, "gated": list(m), "notes": notes}
+
+
+def st_etabs_export(a) -> dict:
+    """The .e2k the ETABS adapter writes (base design + a column move, the path move-a-column's
+    "send to ETABS" uses), read back with calcgraph.analysis.e2k and compared with design.json:
+    D / L / Lr totals, L / Lr per level, mass-source weight per level, ELF V and story forces,
+    wind story forces - each within 1% - plus areas, rigid diaphragm, loads-only mass source,
+    one eccentricity per seismic pattern and the 15 design combos (analysis.etabs.e2k_load_check)."""
+    exp = _v2_design(a)
+    sys.path.insert(0, os.path.join(ROOT, "backend"))
+    from calcgraph.analysis import etabs
+    ad = etabs.EtabsAdapter(exp)
+    out, notes = {}, []
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, change in (("base", None), ("move_2B", {"moved": {"2B": [5.0, 0.0]}})):
+            path = os.path.join(tmp, f"{name}.e2k")
+            ad.export_model(path, change=change)
+            r = etabs.e2k_load_check(path, exp)
+            out[name] = r
+            bad = [f"{x['quantity']} {x['level']} {100 * x['rel_err']:+.2f}%" for x in r["rows"] if not x["ok"]]
+            bad += [k for k, v in r["structure"].items() if not v]
+            notes.append(f"{name}: {len(r['rows'])} load totals, max |err| {100 * r['max_abs_rel_err']:.2f}%"
+                         + (f"; FAILING: {', '.join(bad)}" if bad else ""))
+    m = {f"{k}_max_abs_load_err": v["max_abs_rel_err"] for k, v in out.items()}
+    return {"metrics": m, "gated": [], "notes": notes,
+            "checks": {"e2k_loads_within_1pct_of_design": all(v["ok"] for v in out.values())}}
 
 
 def st_v2_documents(a) -> dict:
@@ -396,6 +424,7 @@ def st_slice_links(a) -> dict:
 
 
 STAGES = [("v2_design", st_v2_design), ("v2_ifc", st_v2_ifc), ("ifc_contract", st_ifc_contract),
+          ("etabs_export", st_etabs_export),
           ("v2_documents", st_v2_documents),
           ("move_answer_key", st_move_answer_key), ("registry", st_registry),
           ("ai_step", st_ai_step), ("copyright", st_copyright),

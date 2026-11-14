@@ -18,6 +18,11 @@
     "no_copyrighted_in_head": true
    }
   },
+  "etabs_export": {
+   "checks": {
+    "e2k_loads_within_1pct_of_design": true
+   }
+  },
   "ifc_contract": {
    "checks": {
     "v2_ifc_contract": true

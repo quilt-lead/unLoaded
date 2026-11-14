@@ -18,7 +18,7 @@ from Pynite import FEModel3D
 
 from . import aisc
 from .gravity import E_KSF, V, vadd
-from .model import GX, GY, LEVELS, MF_LINES, STOREY_H, WALL_PSF, PARAPET_FT, Topology
+from .model import GX, GY, LEVELS, MF_LINES, PARAPET_FT, STOREY_H, Topology, wall_klf, wall_trib_h  # noqa: F401
 
 SDS, SD1, IE = 1.0, 0.6, 1.0
 SYS = {"x": {"name": "Steel special moment frame (RBS)", "R": 8.0, "Cd": 5.5, "O0": 3.0, "Ct": 0.028, "xexp": 0.8, "rho": 1.0},
@@ -51,8 +51,7 @@ def seismic_weights(topo: Topology, framing: dict, col_sizes: dict) -> dict:
                 a = lx * ly - sum((o.x1 - o.x0) * (o.y1 - o.y0) for o in topo.layout.areas if o.level == lv and o.kind == "mech")
             w += a * (ar.d_psf + ar.seis_extra_psf) / 1000
         w += lx * ly * STEEL_ALLOW_PSF[lv] / 1000
-        h_trib = STOREY_H[lv] / 2 + (STOREY_H[LV[LV.index(lv) + 1]] / 2 if lv != LV[-1] else PARAPET_FT)
-        w += 2 * (lx + ly) * h_trib * WALL_PSF / 1000
+        w += 2 * (lx + ly) * wall_klf(lv)
         out[lv] = w
     return out
 
@@ -74,8 +73,7 @@ def elf(weights: dict, d: str) -> dict:
 
 def wind(d: str) -> dict:
     width = (GY[-1][1] - GY[0][1]) if d == "x" else (GX[-1][1] - GX[0][1])
-    hs = {"L2": 14 / 2 + 13 / 2, "L3": 13 / 2 + 13 / 2, "RF": 13 / 2 + PARAPET_FT}
-    fx = {l: WIND_PSF * width * hs[l] / 1000 for l in LV}
+    fx = {l: WIND_PSF * width * wall_trib_h(l) / 1000 for l in LV}   # same exposed height as the wall
     return {"dir": d, "psf": WIND_PSF, "Fx": fx, "V": sum(fx.values())}
 
 

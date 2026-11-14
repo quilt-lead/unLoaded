@@ -45,7 +45,7 @@ FT = 0.3048
 KLF = 4448.2216152605 / 0.3048          # 1 kip/ft in N/m
 
 # e2k pattern TYPE -> (IfcActionTypeEnum, IfcActionSourceTypeEnum)
-ACTIONS = {"Dead": ("PERMANENT_G", "DEAD_LOAD_G"), "Superimposed Dead": ("PERMANENT_G", "DEAD_LOAD_G"),
+ACTIONS = {"Dead": ("PERMANENT_G", "DEAD_LOAD_G"), "Super Dead": ("PERMANENT_G", "DEAD_LOAD_G"),
            "Live": ("VARIABLE_Q", "LIVE_LOAD_Q"), "Roof Live": ("VARIABLE_Q", "LIVE_LOAD_Q"),
            "Seismic": ("EXTRAORDINARY_A", "EARTHQUAKE_E"), "Wind": ("VARIABLE_Q", "WIND_W")}
 COMBO_ACTION = {"gravity": "PERMANENT_G", "seismic": "EXTRAORDINARY_A", "overstrength": "EXTRAORDINARY_A",
