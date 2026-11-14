@@ -193,13 +193,16 @@ export class Viewer {
       -((ev.clientY - r.top) / r.height) * 2 + 1,
     );
     this.ray.setFromCamera(ndc, this.camera);
-    const cand = this.group.children.filter(
-      (m) =>
-        m.visible &&
-        ((m as THREE.Mesh).material as THREE.Material).opacity > 0.3,
-    );
+    // Dimmed / x-rayed members are a highlight state, not unpickable: prefer the
+    // nearest solid member on the ray, else the nearest faded one.
+    const cand = this.group.children.filter((m) => m.visible);
     const hits = this.ray.intersectObjects(cand, false);
-    return hits.length ? (this.meshToGid.get(hits[0].object) ?? null) : null;
+    const solid = hits.find(
+      (h) =>
+        ((h.object as THREE.Mesh).material as THREE.Material).opacity > 0.3,
+    );
+    const hit = solid ?? hits[0];
+    return hit ? (this.meshToGid.get(hit.object) ?? null) : null;
   }
 
   style(
