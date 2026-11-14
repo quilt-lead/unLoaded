@@ -40,7 +40,7 @@
     "pagination": {
      "limit": 200,
      "offset": 0,
-     "totalResults": 7
+     "totalResults": 12
     },
     "results": [
      {
@@ -118,6 +118,61 @@
       "reference": "CG:RFI-007",
       "status": "draft",
       "title": "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-13T15:00:00Z",
+      "customIdentifier": "008",
+      "id": "960c6005-c2d9-544c-a373-7676cf956baf",
+      "officialResponse": null,
+      "question": "Mechanical coordination (clash report MC-14): the 30x18 supply duct main on Level 2 runs north-south and hits column COL-2B at grid 2/B. Can COL-2B shift 2 ft east to clear the duct? Please confirm and advise the framing impact before we release the duct shop drawings.\n\n[calc-graph RFI-008]",
+      "reference": "CG:RFI-008",
+      "status": "open",
+      "title": "Column COL-2B vs Level 2 supply duct main",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-12T15:00:00Z",
+      "customIdentifier": "009",
+      "id": "c2389401-9733-5f17-afcf-9fa6057b25c3",
+      "officialResponse": null,
+      "question": "Plumbing needs a 6 in. diameter penetration through the web of beam B-L2-23-BC1 at midspan for a roof drain leader. Is a web opening acceptable, and what reinforcement is required?\n\n[calc-graph RFI-009]",
+      "reference": "CG:RFI-009",
+      "status": "open",
+      "title": "Web penetration for roof drain leader at Level 2 beam",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-13T15:00:00Z",
+      "customIdentifier": "010",
+      "id": "4fa209a3-03e9-5ae2-a6f9-c2c628e21a45",
+      "officialResponse": null,
+      "question": "The column on the north side of bay 2-3 next to the stair is in the way of the new door swing shown on A-201 rev 3. Can it move about 18 inches?\n\n[calc-graph RFI-010]",
+      "reference": "CG:RFI-010",
+      "status": "open",
+      "title": "Column near stair in the way of door swing",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-11T15:00:00Z",
+      "customIdentifier": "011",
+      "id": "66ce5009-6946-58c6-a027-c811769a95e5",
+      "officialResponse": null,
+      "question": "Please confirm the paint color for the exposed lobby ceiling deck and the finish for the stair guard rails. Finish schedule on A-601 is blank for both.\n\n[calc-graph RFI-011]",
+      "reference": "CG:RFI-011",
+      "status": "open",
+      "title": "Lobby exposed deck paint color and stair rail finish",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-12T15:00:00Z",
+      "customIdentifier": "012",
+      "id": "9f923283-bed7-5a47-aec1-ee27f89a8822",
+      "officialResponse": null,
+      "question": "Tenant fit-out revision TF-2 moves the corridor wall on Level 2. Request that the column at grid 4/B move 3 ft north, toward line C, so it lands inside the new partition.\n\n[calc-graph RFI-012]",
+      "reference": "CG:RFI-012",
+      "status": "open",
+      "title": "Shift column at grid 4/B to suit revised partitions",
       "workflowType": "US"
      }
     ]
@@ -428,7 +483,7 @@
     "pagination": {
      "limit": 100,
      "offset": 0,
-     "totalResults": 4
+     "totalResults": 7
     },
     "results": [
      {
@@ -477,6 +532,42 @@
       "id": "d03f5032-2f12-525b-abcb-b35c4b408488",
       "name": "Field-modify shear tab at G-L3-2-BC / COL-2B (RFI-002)",
       "number": "004",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Keelson Steel requests to substitute a W10x54 for the specified W10x49 at column COL-3C (mill rolling schedule; W10x49 not available until January). Submitted as price neutral; EOR to review.\n[calc-graph CE-005]",
+      "estimated": 0.0,
+      "externalId": "calc-graph:CE-005",
+      "externalSystem": "calc-graph",
+      "id": "5f13e01f-af90-5c44-a07f-0c54b8c929a3",
+      "name": "Substitution request: W10x54 for W10x49 at COL-3C",
+      "number": "005",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Owner-directed change (OD-03): delete the interior column at grid 2/C so the Level 1 lobby is column-free. EOR to advise the framing transfer and cost before the owner decides.\n[calc-graph CE-006]",
+      "estimated": 0.0,
+      "externalId": "calc-graph:CE-006",
+      "externalSystem": "calc-graph",
+      "id": "c679c010-e4a8-57e6-a5e2-bc863eadaef9",
+      "name": "Owner request: delete interior column at lobby",
+      "number": "006",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Change order request from Keelson Steel: added cost for field-modifying the extended shear tab at girder G-L3-2-BC where it frames into COL-2B, per the pending RFI-002 response. Requesting $1,950 (2 ironworkers x 6 h + plate).\n[calc-graph CE-007]",
+      "estimated": 1950.0,
+      "externalId": "calc-graph:CE-007",
+      "externalSystem": "calc-graph",
+      "id": "c7bc9e65-0d8a-5630-acc6-8257fafcb65f",
+      "name": "COR-07: field-modify shear tab at G-L3-2-BC to COL-2B",
+      "number": "007",
       "scope": "tbd"
      }
     ]

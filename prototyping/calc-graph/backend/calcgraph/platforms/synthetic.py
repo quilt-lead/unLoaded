@@ -171,6 +171,25 @@ def next_workday(d: dt.date) -> dt.date:
     return d
 
 
+def workdays_between(a: dt.date, b: dt.date) -> int:
+    """n such that add_workdays(a, n) == b, for workdays a and b (negative when b is before a)."""
+    if b < a:
+        return -workdays_between(b, a)
+    n, d = 0, a
+    while d < b:
+        d += dt.timedelta(days=1)
+        if d.weekday() < 5:
+            n += 1
+    return n
+
+
+def as_of_date(as_of: dt.date | str | None) -> dt.date:
+    """The status date an as-of value names (None -> AS_OF, the synthetic project's status date)."""
+    if as_of is None:
+        return AS_OF
+    return as_of if isinstance(as_of, dt.date) else dt.date.fromisoformat(str(as_of)[:10])
+
+
 @dataclass
 class Activity:
     ref: str
@@ -258,6 +277,7 @@ class ConstructionState:
     contract_finish: str
     forecast_finish: str
     groups: dict[str, list[str]] = field(default_factory=dict)   # LEVEL:/GRID:/FRAME: id -> member element ids
+    inbox_key: list[dict] = field(default_factory=list, repr=False)   # inbox_synth answer key (never on a record)
     _acts: dict[str, Activity] = field(default_factory=dict, repr=False)
     _day0: dt.date = field(default=AS_OF, repr=False)
     _data_day: int = 0
@@ -315,8 +335,16 @@ class ConstructionState:
 STAGE_FROM_CHAIN = ("submitted", "approved", "fabricated", "delivered", "erected")
 
 
-def build_state(design: dict, seed: int = SEED) -> ConstructionState:
+def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = None) -> ConstructionState:
+    """The construction state at close of business on `as_of` (default AS_OF, the status date).
+
+    Projection, not history: the schedule (CPM) is computed once; every activity, package stage, submittal
+    status and element stage is then READ OFF that schedule at the as-of status day, assuming the current
+    forecast holds (no progress variance). Dates of past events (RFIs, change events, issued sheets) stay
+    anchored to the real data date, so an as-of state differs from today's only in what construction has
+    reached. as_of on or before AS_OF's next workday reproduces today's state exactly."""
     rng = random.Random(seed)
+    as_of_d = as_of_date(as_of)
     els = {e["id"]: e for e in design["elements"]}
     rels = design["relations"]
 
@@ -429,15 +457,18 @@ def build_state(design: dict, seed: int = SEED) -> ConstructionState:
     # data date: the morning after AS_OF; picked as 3 days into Level 3 Seq 1 erection
     data_day = A["ERECT-ST-L3-S1"].es + 3
     day0 = add_workdays(next_workday(AS_OF), -data_day)
+    # status day: the working-day index whose MORNING is the state reported (close of business on as_of)
+    status_day = data_day + workdays_between(next_workday(AS_OF), next_workday(as_of_d))
 
     def d2s(n: int) -> str:
         return add_workdays(day0, n).isoformat()
 
-    def act_status(a: Activity) -> tuple[str, float]:
-        if a.ef <= data_day and not (a.dur == 0 and a.es > data_day):
+    def act_status(a: Activity, day: int | None = None) -> tuple[str, float]:
+        day = status_day if day is None else day
+        if a.ef <= day and not (a.dur == 0 and a.es > day):
             return "complete", 100.0
-        if a.es < data_day:
-            return "in_progress", round(100.0 * (data_day - a.es) / max(a.dur, 1), 1)
+        if a.es < day:
+            return "in_progress", round(100.0 * (day - a.es) / max(a.dur, 1), 1)
         return "not_started", 0.0
 
     def chain_stage(chain: list[str]) -> tuple[str, list[str]]:
@@ -515,8 +546,14 @@ def build_state(design: dict, seed: int = SEED) -> ConstructionState:
         else:
             status = stage
         response = None
+        # today's responses come from the seeded rng in the same order as ever (as-of states keep them); a review
+        # that only completes in a projected state gets a deterministic per-package choice
+        drawn = None
+        if act_status(rev, data_day)[0] == "complete" and not response_override:
+            drawn = rng.choice(["Approved", "Approved", "Approved as Noted"])
         if rev_status == "complete":
-            response = response_override or rng.choice(["Approved", "Approved", "Approved as Noted"])
+            response = response_override or drawn or ("Approved", "Approved", "Approved as Noted")[
+                int(hashlib.sha1(ref.encode()).hexdigest()[:4], 16) % 3]
         dates = {
             "created": d2s(det.es),
             "submitted": d2s(rev.es) if act_status(rev)[0] != "not_started" else None,
@@ -746,6 +783,13 @@ def build_state(design: dict, seed: int = SEED) -> ConstructionState:
          "created": d2s(dd - 8), "approved": None},
     ]
 
+    # ---- incoming items waiting on the EOR (inbox_synth: unlinked, so they touch no element until read)
+    from .inbox_synth import incoming
+    inbox = incoming(els, d2s, dd, PROJECT["people"], PROJECT["companies"])
+    rfis += inbox["rfis"]
+    ce += inbox["change_events"]
+    cos += inbox["change_orders"]
+
     # ---- sheets
     def ids_where(pred):
         return sorted(e["id"] for e in els.values() if pred(e))
@@ -795,12 +839,13 @@ def build_state(design: dict, seed: int = SEED) -> ConstructionState:
                            "actual_finish": d2s(max(a.ef - 1, 0)) if st == "complete" else None,
                            "milestone": a.dur == 0})
     st = ConstructionState(
-        project={**PROJECT, "as_of": AS_OF.isoformat(), "data_date": d2s(data_day), "start": d2s(0)},
-        rates=RATES, schedule_rules=SCHEDULE_RULES, as_of=AS_OF.isoformat(), elements=els,
+        project={**PROJECT, "as_of": as_of_d.isoformat(), "data_date": d2s(status_day), "start": d2s(0),
+                 **({"projected_from": AS_OF.isoformat()} if status_day != data_day else {})},
+        rates=RATES, schedule_rules=SCHEDULE_RULES, as_of=as_of_d.isoformat(), elements=els,
         submittals=subs, rfis=rfis, change_events=ce, change_orders=cos, cost_codes=cost_codes, budget_lines=budget,
         activities=activities, sheets=sheet_recs, element_index=element_index,
         contract_finish=d2s(contract_day - 1), forecast_finish=d2s(planned_finish - 1),
-        groups=groups, _acts=A, _day0=day0, _data_day=data_day)
+        groups=groups, inbox_key=inbox["key"], _acts=A, _day0=day0, _data_day=status_day)
     st._contract_day = contract_day
     return st
 

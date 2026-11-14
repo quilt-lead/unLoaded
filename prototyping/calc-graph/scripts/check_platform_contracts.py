@@ -77,6 +77,8 @@ def rec(name: str) -> tuple[Recorded, dict]:
 
 
 STATE = get_state(load_design())
+# what the synthetic state holds (incl. the inbox_synth incoming items) - the seeder writes all of it
+N_RFI, N_SUB, N_CE = len(STATE.rfis), len(STATE.submittals), len(STATE.change_events)
 
 
 # ------------------------------------------------------------------ A. recordings satisfy the specs
@@ -111,8 +113,8 @@ def b_procore():
     r, cfg = rec("procore_sandbox.json")
     a = ProcoreLiveAdapter(STATE, recorded=r, config=cfg)
     c = a.counts()
-    ok("B1 Procore: 16 submittals, 8 RFIs, 4 change events, 1 CO package served",
-       c["submittals"]["total"] == 16 and c["rfis"]["total"] == 8 and c["change_events"]["total"] == 4
+    ok(f"B1 Procore: {N_SUB} submittals, {N_RFI + 1} RFIs (+1 unmarked), {N_CE} change events, 1 CO package served",
+       c["submittals"]["total"] == N_SUB and c["rfis"]["total"] == N_RFI + 1 and c["change_events"]["total"] == N_CE
        and c["change_orders"]["total"] == 1, json.dumps({k: v["total"] for k, v in c.items()}))
     ok("B2 Procore: no typed-parse errors against the generated models", a.session.parse_errors == [],
        str(a.session.parse_errors)[:200])
@@ -143,8 +145,8 @@ def b_acc():
     r, cfg = rec("acc_trial.json")
     a = AccLiveAdapter(STATE, recorded=r, config=cfg)
     c = a.counts()
-    ok("B9 ACC: void submittal dropped; 16 submittals, 7 RFIs, 4 PCOs, 1 OCO, budget, sheet, issue",
-       c["submittals"]["total"] == 16 and c["rfis"]["total"] == 7 and c["change_events"]["total"] == 4
+    ok(f"B9 ACC: void submittal dropped; {N_SUB} submittals, {N_RFI} RFIs, {N_CE} PCOs, 1 OCO, budget, sheet, issue",
+       c["submittals"]["total"] == N_SUB and c["rfis"]["total"] == N_RFI and c["change_events"]["total"] == N_CE
        and c["change_orders"]["total"] == 1 and c["issues"]["total"] == 1, json.dumps({k: v["total"] for k, v in c.items()}))
     ok("B10 ACC: Issues + DM bodies parse with the generated models", a.session.parse_errors == [], str(a.session.parse_errors)[:200])
     paths = sorted({q["method"] + " " + q["path"].split(a.project_id)[-1] for q in r.requests})
@@ -309,8 +311,8 @@ def e_seed():
     import seed_platform_sandbox as seed
     code, out, err = _seed(["procore", "--recorded", os.path.join(REC, "procore_sandbox_empty.json")])
     rep = json.loads(out) if code == 0 else {}
-    ok("E1 Procore dry run on an empty sandbox plans 7 RFIs / 16 submittals / 4 change events, all ids resolved",
-       code == 0 and rep.get("counts") == {"rfi:write": 7, "submittal:write": 16, "change_event:write": 4}
+    ok(f"E1 Procore dry run on an empty sandbox plans {N_RFI} RFIs / {N_SUB} submittals / {N_CE} change events, all ids resolved",
+       code == 0 and rep.get("counts") == {"rfi:write": N_RFI, "submittal:write": N_SUB, "change_event:write": N_CE}
        and not any(p.get("unresolved") for p in rep["plan"]), f"exit {code} {rep.get('counts')} {err[:120]}")
     ok("E2 dry run sends GETs only", rep and rep.get("mode") == "dry-run", rep.get("mode", ""))
     code, out, err = _seed(["procore", "--recorded", os.path.join(REC, "procore_sandbox_empty.json"), "--apply",
@@ -342,15 +344,15 @@ def e_seed():
             model.from_dict(q["json"])
         except Exception:   # noqa: BLE001
             typed = False
-    ok("E5 --apply (allowlisted + confirmed, recorded) POSTs 7 RFIs / 16 submittals / 4 change events",
-       code == 0 and kinds == {"rfis": 7, "submittals": 16, "change_events": 4}, f"exit {code} {kinds} {err[:120]}")
+    ok(f"E5 --apply (allowlisted + confirmed, recorded) POSTs {N_RFI} RFIs / {N_SUB} submittals / {N_CE} change events",
+       code == 0 and kinds == {"rfis": N_RFI, "submittals": N_SUB, "change_events": N_CE}, f"exit {code} {kinds} {err[:120]}")
     ok("E6 every POST body round-trips through the generated (spec) request model, carries a marker and the company header",
        posts and typed and all("[calc-graph " in json.dumps(q["json"]) for q in posts)
        and all(q["headers"].get("procore-company-id") == "4900001" for q in posts), f"{len(posts)} bodies")
     code, out, err = _seed(["procore", "--recorded", os.path.join(REC, "procore_sandbox.json")])
     rep = json.loads(out) if code == 0 else {}
     ok("E7 re-run on a seeded project skips everything (idempotent by marker)",
-       code == 0 and rep.get("counts") == {"rfi:skip": 7, "submittal:skip": 16, "change_event:skip": 4}, str(rep.get("counts")))
+       code == 0 and rep.get("counts") == {"rfi:skip": N_RFI, "submittal:skip": N_SUB, "change_event:skip": N_CE}, str(rep.get("counts")))
     try:
         oauth.procore_env({"env": "production"})
         ok("E8 Procore production environment refused", False, "accepted")
@@ -358,12 +360,13 @@ def e_seed():
         ok("E8 Procore production environment refused", True, str(e)[:100])
     code, out, err = _seed(["acc", "--recorded", os.path.join(REC, "acc_trial_empty.json")])
     rep = json.loads(out) if code == 0 else {}
-    ok("E9 ACC dry run on an empty trial project: 7 RFIs / 16 submittals (type + spec resolved) / 4 PCOs",
-       code == 0 and rep.get("counts") == {"rfi:write": 7, "submittal:write": 16, "pco:write": 4}, f"{rep.get('counts')} {err[:120]}")
+    ok(f"E9 ACC dry run on an empty trial project: {N_RFI} RFIs / {N_SUB} submittals (type + spec resolved) / {N_CE} PCOs",
+       code == 0 and rep.get("counts") == {"rfi:write": N_RFI, "submittal:write": N_SUB, "pco:write": N_CE}, f"{rep.get('counts')} {err[:120]}")
     pa = _with_cfg("acc_trial_empty.json", {"seed_allowed_project_ids": [json.load(open(os.path.join(REC, "acc_trial_empty.json")))["config"]["project_id"]]})
     code, out, err = _seed(["acc", "--recorded", pa, "--apply", "--confirm-project", "Harbor View Office (ACC trial)"])
     rep = json.loads(out) if code == 0 else {}
-    ok("E10 ACC --apply (allowlisted + confirmed, recorded) writes 27 records", code == 0 and len(rep.get("written", [])) == 27,
+    ok(f"E10 ACC --apply (allowlisted + confirmed, recorded) writes {N_RFI + N_SUB + N_CE} records",
+       code == 0 and len(rep.get("written", [])) == N_RFI + N_SUB + N_CE,
        f"exit {code} written={len(rep.get('written', []))} {err[:160]}")
     code, out, err = _seed(["acc", "--recorded", pa, "--apply", "--confirm-project", "Harbor View Office (ACC trial)",
                             "--offline"])
