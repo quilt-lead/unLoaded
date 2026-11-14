@@ -21,7 +21,11 @@ sys.path.insert(0, os.path.join(ROOT, "backend"))
 
 from pydantic.json_schema import models_json_schema  # noqa: E402
 
-from calcgraph.schema.models import SCHEMA_VERSION, TS_MODELS  # noqa: E402
+from calcgraph.schema.models import SCHEMA_VERSION  # noqa: E402
+from calcgraph.schema.models import TS_MODELS as _CORE_TS_MODELS  # noqa: E402
+from calcgraph.schema.structural import STRUCTURAL_TS_MODELS  # noqa: E402
+
+TS_MODELS = list(dict.fromkeys([*_CORE_TS_MODELS, *STRUCTURAL_TS_MODELS]))  # core + structural, one namespace
 
 GENERATOR = "json-schema-to-typescript@15.0.4"  # pinned exact version (published 2025-01-14)
 OUT = os.path.join(ROOT, "frontend", "src", "types", "schema.ts")

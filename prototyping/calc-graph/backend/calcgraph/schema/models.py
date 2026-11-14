@@ -39,6 +39,7 @@ class DocKind(str, Enum):
     ifc = "ifc"
     platform = "platform"
     meeting = "meeting"
+    analysis_export = "analysis_export"  # a BHoM / ETABS / Speckle payload: evidence cites its sha256
 
 
 class Method(str, Enum):
@@ -335,7 +336,7 @@ class Bundle(_M):
     findings: list[Finding] = Field(default_factory=list)
 
 
-# models exported to TypeScript (scripts/gen_ts_types.py)
+# models exported to TypeScript (scripts/gen_ts_types.py); schema/structural.py adds STRUCTURAL_TS_MODELS
 TS_MODELS = [Bundle, Document, Revision, Provenance, PdfEvidence, ModelEvidence, RecordEvidence, TranscriptEvidence,
              ElementType, Element, Occurrence, Relation, CalcSheet, CalcRecord, ConnectionType, ConnectionInstance,
              Link, Finding, Quantity, Unitless, BBox, Point2, Point3, SheetPt, BuildingFt, ModelM, CalcModelFt,

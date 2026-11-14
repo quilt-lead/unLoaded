@@ -8,6 +8,14 @@ from .models import (SCHEMA_VERSION, Bundle, CalcRecord, CalcSheet, ConnectionIn
                      Document, Element, ElementType, Fact, Finding, Link, Method, ModelEvidence, Occurrence,
                      OccurrenceKind, PdfEvidence, Provenance, RecordEvidence, Relation, RelationKind, Revision,
                      Severity, TranscriptEvidence, Unitless)
+from .structural import (
+    AnalyticalBar, AnalyticalNode, AnalyticalPanel, AreaLoad, AxisSystem, BarDistributedLoad, BarFEAType,
+    BarForceResult, BarPointLoad, CombinationKind, CombinationTerm, DOFType, DivisionType, Dof, EndReleases,
+    ExternalRef, Fixity6, GlobalReactionResult, GravityLoad, LoadCase, LoadCombination, LoadNature, MaterialGrade,
+    MaterialKind, NodeDisplacementResult, NodeReactionResult, Offset, PointLoad, QVector, ResultKind,
+    ResultRequest, ResultSource, SectionPropertySet, SectionShape, StoreyDriftResult, StructuralBundle,
+    StructuralFact, StructuralUsage, Support, SurfacePropertySet, UtilisationResult, STRUCTURAL_SCHEMA_VERSION,
+    STRUCTURAL_TS_MODELS)
 from .units import Quantity, UnitMismatch, UnknownUnit, convert, q, unit_from_key
 
 __all__ = [n for n in dir() if not n.startswith("_")]

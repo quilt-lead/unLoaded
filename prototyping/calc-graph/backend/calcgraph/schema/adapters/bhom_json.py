@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
 from ..frames import BuildingFt, ModelM, Point3
-from ..models import Method, ModelEvidence, Provenance
+from ..models import DocKind, Document, Method, ModelEvidence, Provenance
 from ..structural import (AnalyticalBar, AnalyticalNode, AreaLoad, AxisSystem, BarDistributedLoad, BarFEAType,
                           BarForceResult, BarPointLoad, CombinationTerm, DivisionType, Dof, DOFType, EndReleases,
                           ExternalRef, Fixity6, GlobalReactionResult, GravityLoad, LoadCase, LoadCombination,
@@ -104,6 +104,7 @@ class Report:
     unsupported: Counter = field(default_factory=Counter)
     unmapped: dict[str, set] = field(default_factory=lambda: defaultdict(set))
     notes: list[str] = field(default_factory=list)
+    document: Document | None = None   # the payload's Document record (kind analysis_export); not in to_dict
 
     def lossless(self) -> bool:
         return not self.unsupported and not self.unmapped
@@ -657,10 +658,15 @@ def _order(objs: list[dict]) -> list[dict]:
     return sorted(objs, key=rank)
 
 
+def analysis_document(doc_sha: str, name: str, role: str = "BHoM JSON payload") -> Document:
+    """The Document record behind every ModelEvidence this module writes (doc_sha = the payload's sha256)."""
+    return Document(sha256=doc_sha, kind=DocKind.analysis_export, name=name, role=role)
+
+
 def bhom_to_schema(objs: list[dict], *, doc_sha: str, source: ResultSource, source_name: str = "bhom-json",
                    at: str | None = None) -> tuple[StructuralBundle, Report]:
     """A list of BHoM-serialised objects (top level; nesting is followed) -> a validated bundle."""
-    rep = Report()
+    rep = Report(document=analysis_document(doc_sha, source_name))
     cv = _In(doc_sha, source, at, rep)
     for o in _order(objs):
         cv.any(o)
