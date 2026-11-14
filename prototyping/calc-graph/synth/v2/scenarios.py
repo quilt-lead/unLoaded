@@ -29,7 +29,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 
 from . import aisc, gravity as G, lateral as LAT, model, records
-from .generate import OUT, _clean, build
+from .generate import OUT, _clean, build, write_json_atomic
 
 THRESH = 0.05
 LATERAL_KINDS = {"seismic", "wind", "frame_analysis", "brace"}   # the lateral ANALYSIS (frame members are SFRS demand, see resized)
@@ -213,8 +213,7 @@ def run_one(sc) -> dict:
     # minimum-change re-design: every surviving element keeps its size/detail unless it fails
     d_new, exp = build(L, keep={e["id"]: e for e in base["elements"]})
     os.makedirs(os.path.join(OUT, "scenarios"), exist_ok=True)
-    with open(os.path.join(OUT, "scenarios", f"{sc[0]}.json"), "w") as fh:
-        json.dump(exp, fh, sort_keys=True)
+    write_json_atomic(os.path.join(OUT, "scenarios", f"{sc[0]}.json"), exp, sort_keys=True)
     b_rec = {r["id"]: r for r in base["records"]}
     n_rec = {r["id"]: r for r in exp["records"]}
     b_el = {e["id"]: e for e in base["elements"]}
@@ -286,8 +285,7 @@ def main() -> None:
     old = json.load(open(path)) if a.only and os.path.exists(path) else {"scenarios": []}
     merged = {k["id"]: k for k in old["scenarios"]}
     merged.update({k["id"]: k for k in keys})
-    with open(path, "w") as fh:
-        json.dump({"threshold": THRESH, "scenarios": [merged[k] for k in sorted(merged)]}, fh, indent=1, sort_keys=True)
+    write_json_atomic(path, {"threshold": THRESH, "scenarios": [merged[k] for k in sorted(merged)]}, indent=1, sort_keys=True)
     for k in keys:
         print(f"{k['id']} {k['difficulty']:<11} stale {len(k['changed_records']):>4}  resized {len(k['resized']):>3}  "
               f"over@cur {len(k['over_at_current']):>3}  lateral {len(k['lateral_changed']):>3}  clashes {len(k['clashes'])}  "

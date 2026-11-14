@@ -90,8 +90,8 @@ def main() -> None:
     est = estimate(imp, adapters, design)
     out["example"] = {"impact": imp, "estimate": est}
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
-    with open(a.out, "w") as fh:
-        json.dump(out, fh, indent=1, default=str)
+    from synth.v2.generate import write_json_atomic   # readers never see a half-written file
+    write_json_atomic(a.out, out, indent=1, default=str)
     print(f"\n== example estimate: {est['summary']['headline']}")
     if a.quiet:
         return

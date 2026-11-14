@@ -35,6 +35,22 @@ def _clean(o):
     return o
 
 
+def write_json_atomic(path: str, obj, **kw) -> None:
+    """json.dump to a temp file beside `path`, then os.replace: readers see the old or the new
+    file, never a partial one. Used for every JSON artefact under data/synthetic_v2."""
+    d = os.path.dirname(os.path.abspath(path))
+    os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".tmp-", suffix=".json", dir=d)
+    try:
+        with os.fdopen(fd, "w") as fh:
+            json.dump(obj, fh, **kw)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
 def build(layout: model.Layout | None = None, keep: dict | None = None) -> tuple[dict, dict]:
     layout = layout or model.base_layout()
     d = design.run(layout, keep=keep)
@@ -48,8 +64,25 @@ def build(layout: model.Layout | None = None, keep: dict | None = None) -> tuple
 
 
 def generate(out: str = OUT) -> dict:
+    """Every artefact is written into a staging directory inside `out` and then moved into place
+    with os.replace (atomic on one filesystem), so a reader of `out` never sees a half-written
+    file - other sessions read drawings.pdf / model.ifc / calc_package.pdf while this runs."""
     os.makedirs(out, exist_ok=True)
     t = time.time()
+    stage = tempfile.mkdtemp(prefix=".generate-", dir=out)
+    try:
+        written, summary = _generate_into(stage)
+        for name in written:
+            os.replace(os.path.join(stage, name), os.path.join(out, name))
+    finally:
+        for name in os.listdir(stage):
+            os.remove(os.path.join(stage, name))
+        os.rmdir(stage)
+    return {"seconds": round(time.time() - t, 1), **summary, "files": sorted(f for f in os.listdir(out) if not f.startswith("."))}
+
+
+def _generate_into(out: str) -> tuple[list[str], dict]:
+    """Write every artefact into `out` (a fresh staging directory); returns (file names, summary)."""
     d, exp = build()
     gids = ifc_v2.write(exp, os.path.join(out, "model.ifc"), d)
     for e in exp["elements"]:
@@ -81,12 +114,13 @@ def generate(out: str = OUT) -> dict:
         pass
     with open(os.path.join(out, "design.json"), "w") as fh:
         json.dump(exp, fh, indent=1, sort_keys=True)
-    return {"seconds": round(time.time() - t, 1), "elements": len(exp["elements"]), "records": len(exp["records"]),
-            "relations": len(exp["relations"]), "files": sorted(os.listdir(out))}
+    return (sorted(f for f in os.listdir(out) if os.path.isfile(os.path.join(out, f))),
+            {"elements": len(exp["elements"]), "records": len(exp["records"]), "relations": len(exp["relations"])})
 
 
 def _sha(dirpath: str) -> dict:
-    return {f: hashlib.sha256(open(os.path.join(dirpath, f), "rb").read()).hexdigest() for f in sorted(os.listdir(dirpath))}
+    return {f: hashlib.sha256(open(os.path.join(dirpath, f), "rb").read()).hexdigest() for f in sorted(os.listdir(dirpath))
+            if os.path.isfile(os.path.join(dirpath, f))}
 
 
 def main() -> None:
