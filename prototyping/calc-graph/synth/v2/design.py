@@ -166,9 +166,21 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
     columns = {}
     for c, info in topo.columns.items():
         rx = rx_all[c]
+        o0 = LAT.SYS["y"]["O0"]
+
+        def extra(size, c=c, rx=rx, roles=info["roles"]):
+            """SCBF: gravity + Omega0 x the brace-frame axial (AISC 341 F2.3), per storey."""
+            segs = G.column_demands(topo, rx, size, roles)
+            out = {}
+            for sg in segs:
+                pe = scbf["col_e"].get((c, sg["storey"]), 0.0)
+                pg = _seis_fac(sg["P"])
+                out[sg["storey"]] = {"OM": (pg + o0 * pe, sg["combos"]["LC2"]["mux"] * 0.6, sg["combos"]["LC2"]["muy"] * 0.6)}
+            return out
+        in_scbf = "scbf_column" in info["roles"] and bool(scbf.get("col_e"))
         if "smf_column" in info["roles"] and c[-1] in smf:
             size = smf[c[-1]]["col"]
-            segs = G.column_demands(topo, rx, size)
+            segs = G.column_demands(topo, rx, size, info["roles"])
             fr = smf[c[-1]]["analysis"]["columns"]
             st = max((s for s in (1, 2, 3)), key=lambda s: fr[(c, s)]["uc_frame"])
             v = fr[(c, st)]
@@ -180,21 +192,20 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             r = {"size": size, "uc": uc, "eq": eq, "lc": v["lc"], "storey": st, "pu": pu, "mux": v["mu"], "muy": 0.0,
                  "phi_pn": pn, "phi_mnx": mn, "phi_mny": aisc.phi_mny(size), "segs": segs, "ok": uc <= 1.0,
                  "source": "SMF frame analysis"}
-        elif "scbf_column" in info["roles"] and scbf.get("col_e"):
-            o0 = LAT.SYS["y"]["O0"]
-
-            def extra(size, c=c):
-                segs = G.column_demands(topo, rx, size)
-                out = {}
-                for sg in segs:
-                    pe = scbf["col_e"].get((c, sg["storey"]), 0.0)
-                    pg = _seis_fac(sg["P"])
-                    out[sg["storey"]] = {"OM": (pg + o0 * pe, sg["combos"]["LC2"]["mux"] * 0.6, sg["combos"]["LC2"]["muy"] * 0.6)}
-                return out
-            r = G.size_column(topo, rx, extra, min_size=keep.get(f"COL-{c}", {}).get("size"))
+            if in_scbf:
+                # also in the line-3 SCBF (3A / 3D): the Omega0 brace-frame axial check the SCBF-only
+                # columns get, with the line-3 gravity moments on this column's weak / strong axis
+                # as model.column_depth_axis orients it; the worse of the two checks governs
+                om = G.check_column(size, segs, extra(size))
+                r["scbf_om_uc"] = om["uc"]
+                if om["uc"] > uc:
+                    r = {**om, "segs": segs, "scbf_om_uc": om["uc"], "smf_uc": uc,
+                         "source": "SMF frame analysis + Omega0 x SCBF axial (SCBF governs)"}
+        elif in_scbf:
+            r = G.size_column(topo, rx, extra, min_size=keep.get(f"COL-{c}", {}).get("size"), roles=info["roles"])
             r["source"] = "gravity + Omega0 x SCBF axial"
         else:
-            r = G.size_column(topo, rx, min_size=keep.get(f"COL-{c}", {}).get("size"))
+            r = G.size_column(topo, rx, min_size=keep.get(f"COL-{c}", {}).get("size"), roles=info["roles"])
             r["source"] = "gravity (eccentric reactions)"
         r["roles"] = info["roles"]
         columns[c] = r

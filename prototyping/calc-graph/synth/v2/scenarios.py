@@ -123,7 +123,7 @@ def at_current_sizes(L: model.Layout, base: dict) -> dict:
         if cid not in sizes or info["roles"] != ["gravity"]:
             continue
         size = sizes[cid]["size"]
-        segs = G.column_demands(topo, rx[c], size)
+        segs = G.column_demands(topo, rx[c], size, topo.columns[c]["roles"])
         r = G.check_column(size, segs)
         out[cid] = {"uc": r["uc"], "pu": r["pu"], "size": size}
         fid = f"F-{c}"

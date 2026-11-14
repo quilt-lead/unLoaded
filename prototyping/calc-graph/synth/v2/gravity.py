@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 
 from . import aisc
-from .model import FTG_TOP, LEVELS, PIER_TOP, STOREY_H, WALL_PSF, Member, Topology, area_at, wall_klf
+from .model import FTG_TOP, LEVELS, PIER_TOP, STOREY_H, WALL_PSF, Member, Topology, area_at, column_depth_axis, wall_klf
 
 E_KSF = aisc.E * 144.0
 COMBOS = {"LC1": (1.4, 0.0, 0.0), "LC2": (1.2, 1.6, 0.5), "LC3": (1.2, 0.5, 1.6)}  # D, L, Lr
@@ -277,11 +277,15 @@ def reactions_to_columns(topo: Topology, framing: dict) -> dict[str, dict]:
 
 
 # ------------------------------------------------------------------ columns
-def column_demands(topo: Topology, rx: dict, size: str) -> list[dict]:
+def column_demands(topo: Topology, rx: dict, size: str, roles=None) -> list[dict]:
     """Per storey segment (1 = L1-L2 ...): Pu, Mux, Muy for each combo; eccentric shear-tab
-    reactions (e = d/2 + 3 in to flanges / 3 in to web), pattern live on one side."""
+    reactions (e = d/2 + 3 in to flanges / 3 in to web), pattern live on one side. Which plan
+    direction frames into the flanges follows model.column_depth_axis(roles); Mux is the
+    strong-axis moment (reactions into the flanges), Muy the weak-axis one (into the web)."""
     s = aisc.get(size)
-    ex, ey = (s["d"] / 2 + 3.0) / 12, 3.0 / 12
+    strong = column_depth_axis(roles or [])
+    weak = "y" if strong == "x" else "x"
+    e_of = {strong: (s["d"] / 2 + 3.0) / 12, weak: 3.0 / 12}
     levels = [l for l, _, _ in LEVELS]
     sw = s["W"] / 1000.0
     joint_m: dict[str, dict] = {}
@@ -297,7 +301,7 @@ def column_demands(topo: Topology, rx: dict, size: str) -> list[dict]:
         for c in COMBOS:
             fd, fl, flr = COMBOS[c]
             mm = {}
-            for d, e in (("x", ex), ("y", ey)):
+            for d, e in e_of.items():
                 a, b = sides[(d, 1)], sides[(d, -1)]
                 # dead balanced, live/roof live on the heavier side only (pattern)
                 ua = fd * a[0] + fl * a[1] + flr * a[2] - fd * b[0]
@@ -317,7 +321,7 @@ def column_demands(topo: Topology, rx: dict, size: str) -> list[dict]:
         share = 0.5 if si < len(levels) - 1 else 1.0
         rows = {}
         for c in COMBOS:
-            rows[c] = {"pu": fac(p, c), "mux": joint_m[top][c]["x"] * share, "muy": joint_m[top][c]["y"] * share}
+            rows[c] = {"pu": fac(p, c), "mux": joint_m[top][c][strong] * share, "muy": joint_m[top][c][weak] * share}
         segs.append({"storey": si + 1, "h": STOREY_H[top], "P": p, "combos": rows, "top": top})
     return segs
 
@@ -341,13 +345,13 @@ def check_column(size: str, segs: list[dict], extra: dict | None = None) -> dict
     return {"size": size, **worst, "ok": worst["uc"] <= 1.0}
 
 
-def size_column(topo, rx, extra_fn=None, candidates=None, min_size: str | None = None) -> dict:
+def size_column(topo, rx, extra_fn=None, candidates=None, min_size: str | None = None, roles=None) -> dict:
     cands = candidates or aisc.column_candidates()
     if min_size:
         cands = [min_size] + [c for c in cands if c != min_size and aisc.get(c)["W"] >= aisc.get(min_size)["W"]]
     last = None
     for c in cands:
-        segs = column_demands(topo, rx, c)
+        segs = column_demands(topo, rx, c, roles)
         r = check_column(c, segs, extra_fn(c) if extra_fn else None)
         r["segs"] = segs
         last = r

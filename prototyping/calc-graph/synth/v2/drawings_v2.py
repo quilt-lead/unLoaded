@@ -28,7 +28,7 @@ import math
 
 import pymupdf
 
-from .model import GX, GY, LEVELS
+from .model import GX, GY, LEVELS, column_depth_axis
 
 W, H = 2592.0, 1728.0
 HELV, BOLD = "helv", "hebo"
@@ -515,7 +515,7 @@ def legend(sh: Sheet, y: float, items) -> float:
             sh.poly([(cx + 13, cy - 5), (cx + 24, cy), (cx + 13, cy + 5)], width=0.4, fill=BLACK)
             sh.line((cx - 13, cy), (cx + 13, cy), width=0.5)
         elif kind == "column":
-            sh.column_i((cx, cy), False, 7, 6, 1.6)
+            sh.column_i((cx, cy), column_depth_axis(["gravity"]) == "x", 7, 6, 1.6)
         elif kind == "brace":
             sh.line((cx - 20, cy), (cx + 20, cy), width=2.8)
             sh.text(cx, cy + 12, "*SCBF", 6, anchor="c")
@@ -769,7 +769,7 @@ def sheet_foundation(ds: DrawingSet):
         hp = p["b_in"] / 12 / 2 * PS
         sh.rect(X - hp, Y - hp, X + hp, Y + hp, width=1.3)
         col = ds.cols[c]
-        sh.column_i((X, Y), "smf_column" in col["roles"], 6.5, 5.5, 1.5)
+        sh.column_i((X, Y), column_depth_axis(col["roles"]) == "x", 6.5, 5.5, 1.5)
         mk = ftg_mark(f["B_ft"])
         box = sh.text(X + hp + 3, Y + hb - 5, mk, 10, BOLD)
         sh.occ(f["id"], "plan_tag", mk, box)
@@ -909,7 +909,7 @@ def sheet_framing(ds: DrawingSet, level: str, number: str):
         sh.line((X, py(y1) - 14), (X, py(y2) + 14), width=1.2, dashes="[10 4] 0", color=GREY)
     # columns
     for cid, col in ds.cols.items():
-        sh.column_i((px(col["x"]), py(col["y"])), "smf_column" in col["roles"])
+        sh.column_i((px(col["x"]), py(col["y"])), column_depth_axis(col["roles"]) == "x")
     # detail callouts: first instance of each connection type at this level
     seen = {}
     for m in mems:

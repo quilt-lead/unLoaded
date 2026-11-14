@@ -22,7 +22,7 @@ from calcgraph.analysis import etabs
 from calcgraph.ifc_common import IfcBuilder
 
 from . import aisc
-from .model import DECK_T_IN, PIER_TOP
+from .model import DECK_T_IN, PIER_TOP, column_depth_axis
 
 NS = uuid.UUID("5b8f2a0e-7c1d-4f7e-9d3a-0c2b6e9a4d11")
 FT = 0.3048
@@ -103,7 +103,8 @@ def write(exp: dict, path: str, design: dict, label: str = "Base design",
         ux, uy = m["p2"][0] - m["p1"][0], m["p2"][1] - m["p1"][1]
         if sup["type"] == "column":
             s_ = aisc.get(sup["size"])
-            half = (s_["d"] if abs(ux) >= abs(uy) else s_["bf"]) / 2   # columns: depth along X
+            along_depth = (abs(ux) >= abs(uy)) == (column_depth_axis(sup.get("roles", [])) == "x")
+            half = (s_["d"] if along_depth else s_["bf"]) / 2
         elif sup["type"] in ("beam", "girder"):
             half = aisc.get(sup["size"])["tw"] / 2
         else:
@@ -142,7 +143,9 @@ def write(exp: dict, path: str, design: dict, label: str = "Base design",
                   "Grade": "A992"})
         elif t == "column":
             s = aisc.get(e["size"])
-            ax = B.ax((e["x"] * FT, e["y"] * FT, e["z0"] * FT), (0, 0, 1), (0, 1, 0))
+            # profile depth runs along local Y = Z x RefDirection: RefDirection +Y puts it along global X
+            ref = (0, 1, 0) if column_depth_axis(e.get("roles", [])) == "x" else (-1, 0, 0)
+            ax = B.ax((e["x"] * FT, e["y"] * FT, e["z0"] * FT), (0, 0, 1), ref)
             # physical bottom = top of its base plate (column stands on the plate on the pier)
             emit("IfcColumn", e, e["id"], e["size"], (ax, B.solid(iprof(e["size"]), (e["z1"] - e["z0"]) * FT)), "Level 1",
                  "COLUMN", {"Section": e["size"], "Grid": e["grid"], "Grade": "A992"})

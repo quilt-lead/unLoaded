@@ -201,7 +201,7 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
     the topology marks `wall`, wind story forces from the C-WIND records, ELF Cs / k from the
     C-ELF records, the seismic mass from the same areas + allowances lateral.seismic_weights uses."""
     from synth.v2 import lateral as LAT
-    from synth.v2.model import DECK_T_IN, GX, GY, area_at, area_record_id, wall_klf
+    from synth.v2.model import DECK_T_IN, GX, GY, area_at, area_record_id, column_depth_axis, wall_klf
     from synth.v2.model import build as build_topology
     frames = frames or frame_input_from_design(exp)
     layout = layout or layout_from_design(exp)
@@ -344,7 +344,7 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
         pl = pt_label[f"col:{c['grid']}"]
         for k in range(1, len(st)):
             add_frame(lab, st[k][0], "COLUMN", c["id"], pl, pl, st[k - 1][2], st[k][2], c["size"], False,
-                      {"roles": c["roles"], "angle_deg": 90.0 if "scbf_column" in c["roles"] else 0.0,
+                      {"roles": c["roles"], "angle_deg": 0.0 if column_depth_axis(c["roles"]) == "x" else 90.0,
                        "size_source": c.get("size_source", "design")}, 1)
     for m in frames["members"]:
         lab = flabel("B", _plan_key(m["id"]))
@@ -916,6 +916,22 @@ def _design_area_totals(exp: dict) -> dict[str, dict[str, float]]:
     return out
 
 
+def _columns_oriented(parsed: dict, exp: dict) -> bool:
+    """Every column LINEASSIGN's ANG is what synth.v2.model.column_depth_axis gives the design
+    element (0 = depth along X, 90 = along Y): the e2k cannot drift from the IFC / drawings / calcs."""
+    from synth.v2.model import column_depth_axis
+    by_el = EtabsAdapter(exp).label_map()["by_element"]
+    ang = {(a["label"], a["story"]): float(a.get("ang") or 0.0) for a in parsed["line_assigns"]}
+    cols = [e for e in exp["elements"] if e["type"] == "column"]
+    for e in cols:
+        want = 0.0 if column_depth_axis(e.get("roles", [])) == "x" else 90.0
+        for seg in by_el.get(e["id"], []):
+            got = ang.get((seg["label"], seg["story"]))
+            if got is None or abs(got - want) > 1e-6:
+                return False
+    return bool(cols)
+
+
 def e2k_load_check(path: str, exp: dict, tol: float = 0.01) -> dict:
     """Read an .e2k back (e2k.read_e2k + e2k.load_summary) and compare what ETABS will be given
     with design.json: total D (self weight + SDL), L and Lr against the column base reactions;
@@ -973,7 +989,8 @@ def e2k_load_check(path: str, exp: dict, tol: float = 0.01) -> dict:
               "sdl_type_super_dead": parsed["load_patterns"].get("SDL", {}).get("TYPE") == "Super Dead",
               "units_kip_ft": parsed["units"] == ["KIP", "FT", "F"],
               "one_eccentricity_per_seismic_pattern": all(" " not in str(v.get("DIR", "")) for v in parsed["seismic"].values()),
-              "combos_15_design": sum(1 for c in parsed["combos"].values() if c.get("TYPE") == "Linear Add") == 15}
+              "combos_15_design": sum(1 for c in parsed["combos"].values() if c.get("TYPE") == "Linear Add") == 15,
+              "column_orientation_matches_design": _columns_oriented(parsed, exp)}
     ok = all(r["ok"] for r in rows) and all(struct.values())
     return {"path": path, "rows": rows, "structure": struct, "max_abs_rel_err": max(abs(r["rel_err"]) for r in rows),
             "summary": sm, "ok": ok}

@@ -46,6 +46,22 @@ PARAPET_FT = 3.0
 DECK_T_IN = {"L2": 6.25, "L3": 6.25, "RF": 1.5}   # total deck + topping depth (in), floors / roof
 
 
+def column_depth_axis(roles) -> str:
+    """Plan axis ("x" | "y") a column's web / depth runs along, i.e. the direction its STRONG
+    axis resists bending in. The one orientation rule the calcs (gravity.column_demands
+    eccentricities, SMF / SCBF checks), the IFC, the drawings and the ETABS export all read.
+
+    Every column has its depth along X:
+    - SMF columns (lines A and D, frames along X): strong axis in the moment frame - the AISC 358
+      prequalified RBS connection is a beam-flange-to-column-flange connection (Issy, 2026-11-14,
+      for 3A / 3D, which are also in the line-3 braced frame).
+    - SCBF columns (line 3, frame along Y): the line-3 braces and collector girders gusset to the
+      column web, as at 3A / 3D; braced-frame columns are axial members (pinned beams, braces).
+    - gravity columns: girders (along Y) frame into the web (e = 3 in), beams along X into the
+      flanges (e = d/2 + 3 in), the eccentricities the column calc has always used."""
+    return "x"
+
+
 def wall_trib_h(level: str) -> float:
     """Height of perimeter wall carried at `level` (ft): half the storey below + half the storey
     above, or the parapet at the roof. The one definition gravity line loads, the seismic weight
