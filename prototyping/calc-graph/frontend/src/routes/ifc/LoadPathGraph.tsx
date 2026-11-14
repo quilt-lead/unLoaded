@@ -165,6 +165,7 @@ export function LoadPathGraph({ ix, sel, impact, onSelect }: { ix: IfcIndex; sel
         info="graph.ifc-load-path"
         height="max(420px, calc(100vh - 340px))"
         fitMinZoom={0.5}
+        compactLanes
         selectedId={selectedId}
         selectedEdgeId={edgeSel?.id}
         onNodeClick={(n) => (n.id.startsWith("calc:") ? onSelect({ kind: "calc", id: n.id.slice(5) }) : onSelect({ kind: "el", id: n.id }))}

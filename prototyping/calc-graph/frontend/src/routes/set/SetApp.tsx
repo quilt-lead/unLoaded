@@ -484,8 +484,9 @@ export default function SetApp() {
                 edges={built.edges}
                 lanes={built.lanes}
                 info="graph.set"
-                height={Math.max(380, Math.min(1600, Math.max(...built.lanes.map((l) => built.nodes.filter((n) => n.lane === l.id).length)) * 58 + 90))}
+                height={Math.max(380, Math.min(1500, Math.max(...built.lanes.map((l) => built.nodes.filter((n) => n.lane === l.id).length)) * 56 * 0.75 + 110))}
                 fitMinZoom={0.6}
+                compactLanes
                 selectedId={selNodeId(sel)}
                 onNodeClick={(n) => n.data?.run()}
                 onEdgeClick={(e) => e.data?.run()}

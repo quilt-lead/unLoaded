@@ -204,7 +204,7 @@ export function overviewGraph(x: SetIndex, a: Actions): Built {
     const key = `${e.sheet}|${e.type}#${calcSec(c)}`;
     bundle.set(key, (bundle.get(key) ?? 0) + 1);
   }
-  const enodes: GN[] = ekeys.map((key) => {
+  const enodes: GN[] = ekeys.map((key): GN => {
     const es = ecl.get(key)!;
     const nl = es.filter((e) => x.linksByEl.has(e.id)).length;
     const [sh, ty] = key.split("|");
@@ -219,7 +219,7 @@ export function overviewGraph(x: SetIndex, a: Actions): Built {
       data: { run: () => a.overviewEls(key, first.id) },
     };
   });
-  const cnodes: GN[] = ckeys.map((key) => {
+  const cnodes: GN[] = ckeys.map((key): GN => {
     const cs = ccl.get(key)!;
     const nl = cs.filter((c) => x.linksByCalc.has(c.id)).length;
     const first = cs.find((c) => x.linksByCalc.has(c.id)) ?? cs[0];
@@ -231,7 +231,7 @@ export function overviewGraph(x: SetIndex, a: Actions): Built {
       data: { run: () => a.overviewCalcs(first.id) },
     };
   });
-  const edges: GE[] = [...bundle.entries()].map(([key, n]) => {
+  const edges: GE[] = [...bundle.entries()].map(([key, n]): GE => {
     const [ek, ck] = key.split("#");
     return {
       id: `b:${key}`,
