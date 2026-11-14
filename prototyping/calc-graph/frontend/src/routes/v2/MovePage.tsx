@@ -530,7 +530,7 @@ function HeatList({
   selected: string | null;
   onSelect: (c: string) => void;
 }) {
-  if (!heat) return <p className="muted">Loading the heat view...</p>;
+  if (!heat) return <p className="muted">Computing the heat view: a 2 ft probe move for every column. This takes a minute or two right after the server starts, then it is cached.</p>;
   const rows = Object.entries(heat).sort((a, b) => {
     const sa = bandMode === "construction" ? a[1].score_construction ?? a[1].score : a[1].score;
     const sb = bandMode === "construction" ? b[1].score_construction ?? b[1].score : b[1].score;
