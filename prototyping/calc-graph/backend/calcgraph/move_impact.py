@@ -393,46 +393,57 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
     sub = lp.subgraph(affected).copy()
     sub.add_nodes_from(affected)
     order = list(nx.lexicographical_topological_sort(sub))
-    resolved = {}
-    for _pass in range(1):
+    def solve(geo_: dict, carried_: dict) -> dict:
+        """Re-solve every affected member (carried first) for one geometry / support state."""
+        out = {}
         for mid in order:
             e, rv = member_loads(mid)
-            if not rv or "w_D_klf" not in rv:
+            if not rv or "w_D_klf" not in rv or "p1" not in e:
                 continue
             roof = e.get("level") == "RF"
             sw = rv.get("self_wt_klf") or 0.0
             w = [rv["w_D_klf"] + sw, rv["w_L_klf"], rv["w_Lr_klf"]]
-            p1 = geo.get(mid, {}).get("p1", e["p1"][:2])
-            p2 = geo.get(mid, {}).get("p2", e["p2"][:2])
+            p1 = geo_.get(mid, {}).get("p1", e["p1"][:2])
+            p2 = geo_.get(mid, {}).get("p2", e["p2"][:2])
             L = math.dist(p1, p2)
             pts = []
-            for c, cend in eff_carried.get(mid, []):
+            for c, cend in carried_.get(mid, []):
                 ce = g.el.get(c)
                 if not ce or "p1" not in ce:
                     continue
-                if c in resolved:
-                    rvec = resolved[c]["Ri_c" if cend == "i" else "Rj_c"]
+                if c in out:
+                    rvec = out[c]["Ri_c" if cend == "i" else "Rj_c"]
                 else:
                     crv = next((g.rec[r]["values"] for r in g.designed.get(c, []) if g.rec[r]["kind"] in ("beam_design", "smf_beam")), None)
                     if not crv:
                         continue
                     rvec = _vec(crv, "R_i" if cend == "i" else "R_j", roof)
-                cp = geo.get(c, {}).get("p1" if cend == "i" else "p2", (ce["p1"] if cend == "i" else ce["p2"])[:2])
+                cp = geo_.get(c, {}).get("p1" if cend == "i" else "p2", (ce["p1"] if cend == "i" else ce["p2"])[:2])
                 pts.append((math.dist(p1, cp), rvec))
-            stops = sorted([0.0] + [a for a, _ in pts] + [L])
-            lb = max(b - a for a, b in zip(stops, stops[1:])) if e["type"] == "girder" else 0.0
+            stops = sorted([0.0] + [x for x, _ in pts] + [L])
+            lb = max(q - p_ for p_, q in zip(stops, stops[1:])) if e["type"] == "girder" else 0.0
             r = resolve_beam(L, w, pts, e["size"], roof, lb)
             r["Ri_c"], r["Rj_c"] = _reactions(L, w, pts)
-            resolved[mid] = r
-            old_rec = next((g.rec[x] for x in g.designed.get(mid, []) if g.rec[x]["kind"] in ("beam_design", "smf_beam")), None)
-            est[mid] = {"element": mid, "size": e["size"], "span_old": e.get("span_ft"), "span_new": round(L, 3),
-                        "mu_old": old_rec["values"].get("Mu_kft") if old_rec else None, "mu_new": round(r["mu"], 1),
-                        "uc_old": old_rec["uc"] if old_rec else None, "uc_new": round(r["uc"], 3), "governs": r["governs"],
-                        "method": "estimate - local PyNite re-solve at current size", "record": old_rec["id"] if old_rec else None}
-            if r["uc"] > 1.0:
-                est[mid]["size_est"] = _size_up(e["size"], r)
-            old_rx[mid] = {"i": _vec(rv, "R_i", roof), "j": _vec(rv, "R_j", roof)}
-            new_rx[mid] = {"i": r["Ri_c"], "j": r["Rj_c"]}
+            out[mid] = r
+        return out
+
+    # the same local model before and after: reaction deltas come from the geometry change alone
+    # (not from comparing a re-solve with rounded printed values)
+    before = solve({}, g.carried)
+    resolved = solve(geo, eff_carried)
+    for mid, r in resolved.items():
+        e, rv = member_loads(mid)
+        roof = e.get("level") == "RF"
+        old_rec = next((g.rec[x] for x in g.designed.get(mid, []) if g.rec[x]["kind"] in ("beam_design", "smf_beam")), None)
+        est[mid] = {"element": mid, "size": e["size"], "span_old": e.get("span_ft"), "span_new": round(r["L"], 3),
+                    "mu_old": old_rec["values"].get("Mu_kft") if old_rec else None, "mu_new": round(r["mu"], 1),
+                    "uc_old": old_rec["uc"] if old_rec else None, "uc_new": round(r["uc"], 3), "governs": r["governs"],
+                    "method": "estimate - local PyNite re-solve at current size", "record": old_rec["id"] if old_rec else None}
+        if r["uc"] > 1.0:
+            est[mid]["size_est"] = _size_up(e["size"], r)
+        b0 = before.get(mid)
+        old_rx[mid] = ({"i": b0["Ri_c"], "j": b0["Rj_c"]} if b0 else {"i": _vec(rv, "R_i", roof), "j": _vec(rv, "R_j", roof)})
+        new_rx[mid] = {"i": r["Ri_c"], "j": r["Rj_c"]}
 
     # ---- connections at both ends of every affected member
     for mid in list(resolved) + ([m for mg in (rg["merged"] if remove else []) for m in mg["members"]]):

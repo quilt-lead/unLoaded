@@ -38,14 +38,33 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(ROOT, "data", "synthetic_v2", "move_eval.json"))
     ap.add_argument("--json-out", default=None, help="evaluate_all contract: {metrics, gated}")
+    ap.add_argument("--source", choices=["design", "ingested"], default="design",
+                    help="design = generator registry; ingested = registry rebuilt from the documents + IFC")
     a = ap.parse_args()
     base = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "design.json")))
+    to_truth = None
+    if a.source == "ingested":
+        from calcgraph import registry_engine
+        ing = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "registry_ingested.json")))
+        eng = registry_engine.to_engine(ing, os.path.join(ROOT, "data", "synthetic_v2", "model.ifc"))
+        # map an ingested record (REC:<sheet>#n) to the truth record id by (calc, subject element) -
+        # used ONLY for scoring, never by the engine
+        idx = {(r["calc"], e): r["id"] for r in base["records"] for e in r["elements"]}
+        to_truth = {r["id"]: idx.get((r["calc"], r["elements"][0])) for r in eng["records"] if r["elements"]}
+        base_for_engine = eng
+        if a.out.endswith("move_eval.json"):
+            a.out = a.out.replace("move_eval.json", "move_eval_ingested.json")
+    else:
+        base_for_engine = base
     key = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "answer_key.json")))
     rows, errs, conf = [], [], {}
     tp_t = fp_t = fn_t = tp_s = fp_s = fn_s = 0
     for k in key["scenarios"]:
         t = time.time()
-        res = move_impact.impact(base, k["column"], k["dx"], k["dy"], remove=k["kind"] == "remove")
+        res = move_impact.impact(base_for_engine, k["column"], k["dx"], k["dy"], remove=k["kind"] == "remove")
+        if to_truth is not None:
+            for s_ in res["stale"]:
+                s_["record"] = to_truth.get(s_["record"]) or s_["record"]
         truth = set(k["changed_records"])
         # records that cannot exist before the change (new members) are not predictable by id
         truth_known = {r for r in truth if k["changed_records"][r] != "new record"}
