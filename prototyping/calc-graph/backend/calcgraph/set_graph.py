@@ -25,6 +25,9 @@ Element <-> calc links (score, rule):
   0.45 size only             the page's member type is unknown
   0.45 drawing ref only      calc cites the element's sheet, names the same role (jamb / header /
                              stud) but prints another size
+Every link is gated by SYSTEM_SECTIONS: the member's structural system (lateral, gravity,
+jamb, exterior stud, foundation, stair, detail) fixes which calc sections it may link to.
+HSS sizes matched through RISA's eighths-of-an-inch walls say so in the rule text.
 Positional registration of plans against calc sketches is NOT used: the 2021 calc model
 and the 2023 drawings use different grid systems (see findings).
 """
@@ -278,12 +281,62 @@ def _same_role(el_text: str, title: str) -> bool:
     return any(re.search(rx, el_text.upper()) and re.search(rx, title.upper()) for rx in roles.values())
 
 
+# A member's structural system decides which calc sections may hold its calc. Every link
+# rule goes through link.add(), which refuses a pair this table does not allow, so no
+# rule can route a lateral member to a gravity page (or a stair member to building calcs).
+SYSTEM_SECTIONS: dict[str, set[str]] = {
+    "lateral": {"C"},              # moment frames (S3.0.1, SMF markers, *SFRS-starred tags)
+    "gravity": {"B"},              # framing-plan beams / columns, elevator framing, trellis
+    "jamb": {"B", "E"},            # exterior HSS jambs: gravity columns in RISAFloor AND wall-opening jambs in E
+    "exterior stud": {"E"},        # wall elevations / sections, CFS studs and tracks
+    "foundation": {"D"},           # footings, piers, grade / tie beams
+    "stair": {"STAIR"},            # stair sheets -> the stair calc package only
+    "detail": {"B", "E"},          # typical details: gravity steel or metal studs
+}
+
+
+def system_of(el: dict) -> str:
+    k = el["sheet_kind"]
+    if k == "smf" or el["mark"] == "SMF" or el["params"].get("sfrs"):
+        return "lateral"
+    if k == "stair":
+        return "stair"
+    if el["cat"] in ("Footing", "Pile") or el["mark"].startswith(("TB", "GB")):
+        return "foundation"
+    if el["family"] == "CFS" or k == "wall":
+        return "exterior stud"
+    if el["type"] == "HSS jamb":
+        return "jamb"
+    if k == "details":
+        return "detail"
+    return "gravity"
+
+
+def calc_section(p: dict) -> str:
+    return "STAIR" if p["doc"] == "stair" else p["section"]
+
+
+def risa_note(raw: str, norm: str) -> str:
+    """Say so whenever a size only matched by reading RISA's eighths-of-an-inch wall."""
+    m = re.match(r"^(HSS|L)(\d+(?:\.\d+)?)[Xx](\d+(?:\.\d+)?)[Xx](\d+(?:\.\d+)?)$", raw or "")
+    if m and float(m.group(4)) >= 1:
+        return f' (RISA {raw.upper()} read as {m.group(2)}x{m.group(3)}x{m.group(4)}/8 = {norm.split("X")[-1]}")'
+    return ""
+
+
 def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
     links: dict[tuple, dict] = {}
     stats: dict[str, int] = defaultdict(int)
     usable = [p for p in pages if not p["toc"]]
 
     def add(el, p, score, tier, rule, el_ev, c_ev):
+        sysname = system_of(el)
+        if calc_section(p) not in SYSTEM_SECTIONS[sysname]:
+            stats[f"refused: {sysname} member -> section {calc_section(p)}"] += 1
+            return
+        if el["size_norm"] and el["size_norm"] in p.get("size_raw", {}):
+            rule += risa_note(p["size_raw"][el["size_norm"]], el["size_norm"])
+        rule = f"{rule} [{sysname} system -> section {calc_section(p)}]"
         k = (el["id"], p["id"])
         if k in links and links[k]["score"] >= score:
             return
@@ -292,7 +345,7 @@ def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
         else:
             stats[links[k]["tier"]] -= 1
             stats[tier] += 1
-        links[k] = {"el": el["id"], "calc": p["id"], "score": score, "tier": tier, "rule": rule,
+        links[k] = {"el": el["id"], "calc": p["id"], "score": score, "tier": tier, "rule": rule, "system": sysname,
                     "evidence": {"el": el_ev, "calc": c_ev}}
 
     def el_ev(el, note=""):
@@ -321,10 +374,6 @@ def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
             if sn not in p["sizes"]:
                 continue
             kind = kinds[p["id"]]
-            if el["sheet_kind"] == "stair" or p["doc"] == "stair":
-                if not (el["sheet_kind"] == "stair" and p["doc"] == "stair"):
-                    if kind == "Stair":
-                        continue
             want = {"Beam": "Beam", "Column": "Column", "Wall": "Stud"}.get(el["cat"], "")
             if el["family"] == "HSS" and el["cat"] == "Beam":
                 want = "Stud" if kind == "Stud" else "Beam"
@@ -369,7 +418,8 @@ def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
                 f"{', '.join(labs[:4])}{'…' if len(labs) > 4 else ''} ({note}); which joint is this footing is not determined",
                 {**el_ev(el), "extra": [{"doc": "plans", "page": sch["page"], "rects": sch["rects"], "text": sch["text"]}]},
                 _ev(p, [r["rect"] for _, r in hits][:4], " | ".join(r["text"] for _, r in hits[:3]), "footing geometry rows"))
-    return list(links.values()), dict(stats)
+    refused = {k: v for k, v in stats.items() if k.startswith("refused")}
+    return list(links.values()), {"tiers": {k: v for k, v in stats.items() if not k.startswith("refused")}, "refused": refused}
 
 
 def findings(elements, pages, links, sheets) -> list[dict]:
@@ -460,5 +510,6 @@ def coverage(elements, element_edges, pages, cedges, links, lp_stats, ce_stats, 
         "calc_pages": len(pages), "calc_pages_linked": lp, "calc_pages_unlinked": len(pages) - lp,
         "calc_edges": len(cedges), "calc_edges_by_rule": ce_stats["by_rule"], "floor_level_check": ce_stats["floor_levels"],
         "load_path_edges": len(element_edges), "load_path": lp_stats,
-        "links": len(links), "links_by_tier": link_stats,
+        "links": len(links), "links_by_tier": link_stats["tiers"], "links_refused_by_system": link_stats["refused"],
+        "system_sections": {k: sorted(v) for k, v in SYSTEM_SECTIONS.items()},
     }
