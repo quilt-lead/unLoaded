@@ -286,7 +286,8 @@ class Label(_M):
 class Calcs(_M):
     page_id: PageId
     banner_regex: re.Pattern
-    boilerplate: list[str]                   # alternatives of one case-insensitive whole-line regex
+    boilerplate: list[str]                   # alternatives of one case-insensitive whole-line regex (generic)
+    extra_boilerplate: list[str]             # + the set's own header lines (firm, address, project, job no.)
     continued_regex: re.Pattern
     stamp_text_regex: re.Pattern | None      # stamp text overprinted on every page, removed from table rows
     stamp_colors: list[int]                  # span colours of that stamp, dropped from characters
@@ -320,7 +321,7 @@ class Calcs(_M):
     _boiler: re.Pattern = PrivateAttr()
 
     def model_post_init(self, _ctx) -> None:
-        self._boiler = re.compile("^(" + "|".join(self.boilerplate) + ")$", re.I)
+        self._boiler = re.compile("^(" + "|".join(self.boilerplate + self.extra_boilerplate) + ")$", re.I)
 
     @property
     def boilerplate_rx(self) -> re.Pattern:

@@ -88,7 +88,7 @@ drawings:
 
 calcs:
   page_id:
-    regex: '^[A-H]\d{1,3}(?:_\d{1,3})?$'
+    regex: '^[A-H]\d{1,3}(?:[_-]\d{1,3})?$'
     exclude: [A36, A53, A500, A572, A992, A325, A490, A307, A615, A706, A1085]   # material grades
     regions:
       - {x_min: 480, y_max: 45}               # top-right corner of a letter page
@@ -118,6 +118,7 @@ calcs:
     - 'description:?'
     - '\d+:\d+ [ap]m'
     - '[a-z]+ \d+, 20\d\d'
+  extra_boilerplate: []
   continued_regex: '(?i)\s*\((?:Continued|cont\.?)\)\s*'
   stamp_text_regex: null
   stamp_colors: []

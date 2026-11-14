@@ -1,0 +1,59 @@
+# Synthetic v2 set (synth/v2: drawings.pdf from drawings_v2.py, calc_package.pdf). Tuned against a
+# local render of the generator's working tree (2026-11-14); re-check when the generator changes.
+# Committed: the set is fictional (no copyrighted source).
+id: synthetic-v2
+name: Synthetic v2 - Harbor View Office Building (fictional)
+extends: default
+match:
+  # PDF titles: "Structural drawings - Harbor View Office Building (synthetic)",
+  # "Structural calculations - Harbor View Office (synthetic)"
+  pdf_metadata: {title: 'Harbor View Office.*\(synthetic\)$'}
+
+drawings:
+  title_block:
+    x_min: {pt: 2310}                       # ARCH D 2592 x 1728 pt; title-block strip starts at x = 2316
+    sheet_number_regex: '^S-\d{3}$'         # S-001 .. S-601, 54 pt bold, tallest text in the strip
+    title_window_above_pt: 240              # first title line top sits 230.5 pt above the number's top
+  notes_column:
+    x_min: {pt: 1990}                       # plan notes column starts at x = 2006 ("FRAMING PLAN NOTES")
+  details:
+    type_sheet_regex: '^S-50\d$'            # S-501 typical steel connections, S-502 brace / base plate
+    categories:
+      - {prefix: S-501, category: steel connection}
+      - {prefix: S-502, category: brace and base plate}
+    # KNOWN GAP (layout, not profile): v2 detail titles put the number (14 pt) in a circle LEFT of
+    # the 15 pt title; connections.read_details pairs a ~25 pt number with title words to its LEFT,
+    # so v2 connection types are not expected to be found until the reader handles that layout.
+  symbol_legend:
+    sheet_kinds: [framing]
+    line_prefix: ''                          # v2 legend lines are "MOMENT CONNECTION (...). SEE 1/S-501."
+    entries:
+      - {phrase: MOMENT CONNECTION, kind: mrf, name: Moment connection}
+      - {phrase: DRAG / COLLECTOR CONNECTION, kind: drag, name: Drag / collector connection}
+    # unverified: the v2 moment flag and drag diamond are drawn differently from the shapes the
+    # classifier in connections.find_symbols was tuned on
+
+calcs:
+  page_id:
+    regex: '^[A-H]\d{1,2}-\d{1,3}$'         # "B1-1", "C4-1", "D3-3": section letter, calc no., page
+    regions:
+      - {x_min: 480, y_max: 45}               # calc pad "sheet no." box
+      - {x_min: 460, y_max: 60}               # hand-calc sheets: "SHEET D3-3" a little lower
+      - {x_max: 45, y_min: 40, y_max: 130}
+  extra_boilerplate:                         # the fictional firm's calc-pad header
+    - 'corliss vane.*'
+    - 'harbor view office.*'
+    - '410 wharf street.*'
+    - 'port ellery.*'
+    - '2611-04.*'
+    - 'subject'
+    - 'by / chk'
+    - 'sheet [a-h]\d+-\d+'
+  title:
+    pad:                                     # calc pad: subject value at y ~48, heading at y ~70
+      marker_line: sheet no.
+      heading_min_size: 13
+      heading_y: {lo: 62, hi: 90}
+      subject_y: {lo: 45, hi: 60}
+      subject_x: {lo: 210, hi: 390}
+# positional: null / null (default) - derived from sheet kinds: S-101 foundation, S-201/202/203 framing

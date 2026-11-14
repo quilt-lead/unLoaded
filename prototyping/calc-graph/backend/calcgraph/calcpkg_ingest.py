@@ -1,5 +1,5 @@
 """Calc graph from a real calc package: one node per calc page, keyed by the engineer's
-sheet number (KPFF "sheet no." A1, B10, C23 ...), grouped by section (A-E) and by
+sheet number (the "sheet no." on the calc pad: A1, B10, C23 ...), grouped by section (A-E) and by
 sub-calc (consecutive pages carrying the same table / sketch title).
 
 Every token the graph or the mapper uses (entity labels, member sizes, drawing
@@ -55,7 +55,7 @@ def _title(lines: list[dict], words, pf) -> tuple[str, list, list[dict]]:
     Enercalc   'Steel Beam' + the DESCRIPTION value on the same baseline
     RISA       table titles (11.6 pt, x < 60) / sketch titles (12 pt, rotated); RISA-3D
                output uses 9 pt titles at x < 60 just under the header block
-    calc pad   KPFF pad: the 10+ pt heading under the header, else the subject field
+    calc pad   firm calc pad: the heading under the header, else the subject field
     else       first line that is not header boilerplate
     """
     C, T = pf.calcs, pf.calcs.title
@@ -181,7 +181,7 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
             "truncated": truncated[:20], "drawing_refs": refs, "lines": lines,
             "subtotal": sm,
         })
-    # sections carry forward over pages without their own id (none expected in KPFF output)
+    # sections carry forward over pages without their own id (none expected in calc-pad output)
     _group(pages, C.continued_regex)
     return {"pages": pages, "meta": {"page_count": len(doc)}}
 
