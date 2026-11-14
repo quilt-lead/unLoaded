@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calc Graph - Drawing Set</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="setview">
+<header>
+  <h1>Calc Graph</h1>
+  <span class="crumb">Drawing set</span>
+  <b id="setName" class="setname"></b>
+  <span class="spacer"></span>
+  <button id="overviewBtn" title="Back to the overview of all links">Overview</button>
+  <a class="filebtn" href="/" title="The IFC (BIM model) project view">IFC project view</a>
+  <button id="themeBtn" title="Toggle theme">◐</button>
+</header>
+<div class="pills" id="pills"></div>
+<main class="smain">
+  <section class="panel" id="left">
+    <div class="ltop">
+      <div class="tabs" id="ltabs"><button data-t="el" class="on">Elements</button><button data-t="calc">Calc pages</button><button data-t="find">Findings</button></div>
+      <input id="q" type="search" placeholder="Search size, sheet, grid, calc id, title" autocomplete="off">
+    </div>
+    <div id="list"></div>
+  </section>
+  <section id="graphWrap2"><div id="graph"></div></section>
+  <section class="panel" id="right">
+    <div id="insp"></div>
+    <div class="splitbar"><span id="splitTitle"></span><button id="closeSplit" class="sm" title="Back to a single page">Close</button></div>
+    <div class="views"><div id="pvA"></div><div id="pvB"></div></div>
+  </section>
+</main>
+<div class="foot">Elements are tags read off the structural S-sheets; calc pages are the KPFF package pages by sheet number. Every link and edge is a deterministic rule and keeps the words it came from on both documents. Source PDFs stay on this machine and are rendered on demand.</div>
+<script type="module" src="/src/set/main.ts"></script>
+</body>
+</html>

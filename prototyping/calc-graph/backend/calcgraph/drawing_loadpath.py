@@ -17,10 +17,11 @@ Rules:
                    beam's line (girder)
   column->column   a column position on an upper plan within 14 pt of a column position
                    on the plan below (after grid registration)
-  column->footing  a footing mark sits at the corner of its footing: the column at
-                   distance between 0.4 x and 0.71 x the scheduled footing width (+40 pt for
-                   the mark box) from the mark, nearest such column wins; scale from the
-                   sheet's grid dimensions is 1/8" = 1'-0" (9 pt / ft), checked below
+  column->footing  a footing mark sits at the corner of its footing: columns between 0.4 x
+                   and 0.71 x the scheduled pad width (+40 pt for the mark box) from the mark are
+                   candidates; one footing per column and one column per footing, best fit to
+                   the expected corner distance first. Scale 1/8" = 1'-0" = 9 pt/ft (grid 6-5 is
+                   dimensioned 15'-6" and drawn 140 pt apart on S2.0.x: 9.03 pt/ft)
 Unresolved beam ends and column tags whose leader cannot be followed are counted, not guessed.
 """
 from __future__ import annotations
@@ -276,23 +277,30 @@ def infer(doc_path: str, sheets: list[dict], elements: list[dict]) -> tuple[list
                                                        _ev(below_c, f"column below on {on}, {d:.0f} pt after grid registration")])
         # 4. footings
         if s["kind"] == "foundation":
+            # candidate (footing mark, column) pairs; a mark sits at its footing's corner, so the
+            # expected centre distance is 0.71 x width + ~12 pt for the mark box. Each column takes
+            # one footing and each footing one column, best fit first.
+            cands = []
             for f in by_sheet[s["sheet"]]:
                 if f["cat"] != "Footing":
                     continue
                 sch = f.get("schedule")
                 width = (sch["width_ft"] if sch else 4.0) * PT_PER_FT
                 fx, fy = (f["bbox"][0] + f["bbox"][2]) / 2, (f["bbox"][1] + f["bbox"][3]) / 2
-                cand = []
                 for c in cols_of[s["sheet"]]:
                     d = math.hypot(c["at"][0] - fx, c["at"][1] - fy)
                     if 0.4 * width <= d <= 0.71 * width + 40:
-                        cand.append((d, c))
-                if cand:
-                    d, c = min(cand, key=lambda t: t[0])
-                    add(c, f, "column->footing", [
-                        _ev(c, "column position (leader end)"),
-                        _ev(f, f"footing mark {d:.0f} pt from the column; scheduled width "
-                               f"{width / PT_PER_FT:.1f} ft = {width:.0f} pt at 1/8\" = 1'-0\"")])
-                else:
-                    stats["footing marks with no column in range"] += 1
+                        cands.append((abs(d - (0.71 * width + 12)), d, width, f, c))
+            used_f, used_c = set(), set()
+            for err, d, width, f, c in sorted(cands, key=lambda t: t[0]):
+                if f["id"] in used_f or c["id"] in used_c:
+                    continue
+                used_f.add(f["id"])
+                used_c.add(c["id"])
+                add(c, f, "column->footing", [
+                    _ev(c, "column position (leader end)"),
+                    _ev(f, f"footing mark {d:.0f} pt from the column (corner of a {width / PT_PER_FT:.1f} ft pad "
+                           f"expects ~{0.71 * width + 12:.0f} pt at 1/8\" = 1'-0\")")])
+            stats["footing marks with no column in range"] += sum(
+                1 for f in by_sheet[s["sheet"]] if f["cat"] == "Footing" and f["id"] not in used_f)
     return list(edges.values()), dict(stats)

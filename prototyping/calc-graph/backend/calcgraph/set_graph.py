@@ -353,14 +353,22 @@ def link(elements: list[dict], pages: list[dict]) -> tuple[list[dict], dict]:
         sch = el.get("schedule")
         if el["cat"] != "Footing" or not sch:
             continue
+        per_page: dict[str, list] = defaultdict(list)
         for p, r in rows:
             if abs(r["L"] - sch["length_ft"]) < 0.01 and abs(r["W"] - sch["width_ft"]) < 0.01:
-                th = sch["thick_ft"] * 12
-                note = "thickness matches" if abs(th - r["T_in"]) < 0.5 else f"thickness differs: plan {th:.0f} in, calc {r['T_in']:.0f} in"
-                add(el, p, 0.75, "footing schedule", f"{el['mark']} {sch['length_ft']:g}x{sch['width_ft']:g} ft = "
-                    f"{r['label']} {r['L']:g}x{r['W']:g} ft ({note})",
-                    {**el_ev(el), "extra": [{"doc": "plans", "page": sch["page"], "rects": sch["rects"], "text": sch["text"]}]},
-                    _ev(p, [r["rect"]], r["text"], "footing geometry row"))
+                per_page[p["id"]].append((p, r))
+        for pid, hits in per_page.items():
+            p = hits[0][0]
+            th = sch["thick_ft"] * 12
+            same_t = [r for _, r in hits if abs(th - r["T_in"]) < 0.5]
+            note = (f"thickness {th:.0f} in matches" if len(same_t) == len(hits)
+                    else f"thickness: plan {th:.0f} in, calc {', '.join(sorted({f'{r['T_in']:.0f}' for _, r in hits}))} in")
+            labs = [r["label"] for _, r in hits]
+            add(el, p, 0.75, "footing schedule",
+                f"{el['mark']} {sch['length_ft']:g}x{sch['width_ft']:g} ft pad = {len(hits)} RISA footing row(s) "
+                f"{', '.join(labs[:4])}{'…' if len(labs) > 4 else ''} ({note}); which joint is this footing is not determined",
+                {**el_ev(el), "extra": [{"doc": "plans", "page": sch["page"], "rects": sch["rects"], "text": sch["text"]}]},
+                _ev(p, [r["rect"] for _, r in hits][:4], " | ".join(r["text"] for _, r in hits[:3]), "footing geometry rows"))
     return list(links.values()), dict(stats)
 
 

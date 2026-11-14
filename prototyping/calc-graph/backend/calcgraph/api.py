@@ -5,12 +5,16 @@ import os
 import tempfile
 
 import pymupdf
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import hashlib
+import json
+import threading
+
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import pipeline
+from . import pipeline, set_pipeline
 from .store import Store
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -184,6 +188,94 @@ def impact(pid: int, gid: str, mode: str = "change"):
 def export(pid: int):
     return JSONResponse(pipeline.export(st, _pid(pid)),
                         headers={"Content-Disposition": 'attachment; filename="calc-graph-mapping.json"'})
+
+
+# ---------------- drawing-set projects (PDF plans + calc packages, no BIM model) ----------------
+_DOCS: dict[str, pymupdf.Document] = {}
+_PDF_LOCK = threading.Lock()  # PyMuPDF documents are not thread-safe
+
+
+def _set_meta(sid: str) -> dict:
+    try:
+        set_pipeline.safe_sid(sid)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    mp = os.path.join(set_pipeline.SETS_DIR, sid, "meta.json")
+    if not os.path.exists(mp):
+        raise HTTPException(404, f"set {sid} not found - run: uv run calc-graph ingest-set")
+    return json.load(open(mp))
+
+
+def _local_only(request: Request) -> None:
+    if request.client and request.client.host not in ("127.0.0.1", "::1", "localhost", "testclient"):
+        raise HTTPException(403, "source documents are served to localhost only")
+
+
+def _doc_path(sid: str, doc: str) -> str:
+    m = _set_meta(sid)
+    if doc not in m["docs"]:
+        raise HTTPException(404, f"no document {doc!r} in set {sid}")
+    path = m["docs"][doc]["path"]
+    if not os.path.exists(path):
+        raise HTTPException(404, f"source PDF missing on this machine: {os.path.basename(path)}")
+    return path
+
+
+@app.get("/api/sets")
+def sets():
+    return set_pipeline.list_sets()
+
+
+@app.get("/api/sets/{sid}/graph")
+def set_graph(sid: str):
+    _set_meta(sid)
+    return FileResponse(os.path.join(set_pipeline.SETS_DIR, sid, "graph.json"), media_type="application/json",
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/sets/{sid}/docs/{doc}/file")
+def set_doc_file(sid: str, doc: str, request: Request):
+    _local_only(request)
+    path = _doc_path(sid, doc)
+    return FileResponse(path, media_type="application/pdf", filename=os.path.basename(path))
+
+
+@app.get("/api/sets/{sid}/docs/{doc}/pages/{n}.png")
+def set_page_png(sid: str, doc: str, n: int, request: Request, clip: str = "", w: int = 1400):
+    """Render page n (1-based) of an original PDF, optionally only the clip 'x0,y0,x1,y1' (PDF points),
+    w pixels wide. Highlights are drawn by the client so renders stay cacheable. Cache: data/sets/<sid>/cache."""
+    _local_only(request)
+    path = _doc_path(sid, doc)
+    w = max(64, min(int(w), 4096))
+    key = hashlib.sha1(f"{doc}|{n}|{clip}|{w}".encode()).hexdigest()[:20]
+    cdir = os.path.join(set_pipeline.SETS_DIR, sid, "cache")
+    cfile = os.path.join(cdir, key + ".png")
+    if os.path.exists(cfile):
+        return FileResponse(cfile, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
+    with _PDF_LOCK:
+        d = _DOCS.get(path)
+        if d is None:
+            d = _DOCS[path] = pymupdf.open(path)
+        if not 1 <= n <= len(d):
+            raise HTTPException(404, "no such page")
+        page = d[n - 1]
+        rect = page.rect
+        if clip:
+            try:
+                x0, y0, x1, y1 = (float(v) for v in clip.split(","))
+            except ValueError:
+                raise HTTPException(400, f"bad clip {clip!r}")
+            rect = pymupdf.Rect(x0, y0, x1, y1) & page.rect
+            if rect.is_empty:
+                raise HTTPException(400, "clip is outside the page")
+        zoom = min(w / rect.width, 12.0)
+        if rect.width * zoom * rect.height * zoom > 24e6:
+            zoom = (24e6 / (rect.width * rect.height)) ** 0.5
+        png = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=rect, alpha=False).tobytes("png")
+    os.makedirs(cdir, exist_ok=True)
+    with open(cfile, "wb") as fh:
+        fh.write(png)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 
 if os.path.isdir(DIST):
