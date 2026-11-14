@@ -200,13 +200,13 @@ def c_sourced():
        bad.source == "mock" and "not configured" in (bad.fallback_reason or "") and recs
        and all("live unavailable" in x.fields["source_label"] for x in recs), bad.fallback_reason or "")
     ok("C4 fallback keeps the synthetic state for the impact engine", bad.state is not None, "")
-    os.environ["CALCGRAPH_PLATFORM_FORMA"] = "live"
-    try:
     from calcgraph.platforms import get_adapters
     reg = get_adapters(design)
     ok("C6 get_adapters() is the registration point: every adapter is a SourcedAdapter reporting source/fallback_reason",
        all(isinstance(a, SourcedAdapter) and a.describe()["source"] == "mock" and a.fallback_reason for a in reg),
        ", ".join(f"{a.name}={a.describe()['source']}" for a in reg))
+    os.environ["CALCGRAPH_PLATFORM_FORMA"] = "live"
+    try:
         f = SourcedAdapter(get_mock_adapters(design, ["forma"])[0], st)
         f.list("elements")
         ok("C5 env CALCGRAPH_PLATFORM_FORMA=live selects live; no token -> mock + reason", f.selected == "live"
@@ -231,8 +231,6 @@ def d_change_order():
        f"rfis={[x['ref'] for x in co.get('rfis', [])]}, warnings={co.get('warnings')}")
     cs = construction_status("COL-3B", ads)
     ok("D2 construction_status runs with a live adapter in the set", isinstance(cs, dict), f"keys {sorted(cs)[:6]}")
-
-
     _d_unknown_float(design)
 
 
@@ -281,6 +279,8 @@ def _d_unknown_float(design):
                         raw_reads.append(f"{os.path.relpath(path, ROOT)}:{i}")
     ok("D6 ratchet: nothing reads fields['total_float_days'] directly (read NormalizedRecord.total_float, which may be None)",
        not raw_reads, ", ".join(raw_reads))
+
+
 # ------------------------------------------------------------------ E. seeding script
 def _seed(argv):
     import seed_platform_sandbox as seed
