@@ -221,7 +221,8 @@ def invoke(target: Any, iface: Any, name: str,
         elif p.ParameterType.IsByRef:
             v = _placeholder(p.ParameterType)
         elif p.HasDefaultValue:
-            v = p.DefaultValue
+            # an enum default comes back from reflection as its underlying int
+            v = _coerce(p.DefaultValue, p.ParameterType)
         else:
             v = _placeholder(p.ParameterType)
         _set_slot(args, i, v, p.ParameterType)

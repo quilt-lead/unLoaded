@@ -8,9 +8,11 @@
 #   ./bridge.sh smoke      call the read-only endpoints through the tunnel
 #   ./bridge.sh stop       stop the bridge on the desk and close the tunnel
 #
-# Desk: CALCGRAPH_DESK (default internal-windows-desktop). Port: CALCGRAPH_BRIDGE_PORT (8765).
+# Desk: CALCGRAPH_DESK (default internal-windows-desktop-getst: the inside desk as getst, the
+# Windows user who is signed in on screen and owns the ETABS licence sign-in). Port:
+# CALCGRAPH_BRIDGE_PORT (8765).
 set -euo pipefail
-DESK="${CALCGRAPH_DESK:-internal-windows-desktop}"
+DESK="${CALCGRAPH_DESK:-internal-windows-desktop-getst}"
 PORT="${CALCGRAPH_BRIDGE_PORT:-8765}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/calcgraph-bridge"

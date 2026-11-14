@@ -90,6 +90,47 @@ def _uninstall_entries() -> list[dict[str, str]]:
     return sorted(out, key=lambda e: e["name"])
 
 
+CSI_PROGIDS = ("CSI.ETABS.API.ETABSObject", "CSI.SAP2000.API.SapObject")
+
+
+def _reg_default(root: Any, path: str, name: str = "") -> str | None:
+    import winreg
+
+    for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+        try:
+            with winreg.OpenKey(root, path, 0, winreg.KEY_READ | view) as k:
+                return str(winreg.QueryValueEx(k, name)[0])
+        except OSError:
+            continue
+    return None
+
+
+def oapi_registration() -> list[dict[str, Any]]:
+    """COM registration of the CSI OAPI ProgIDs (what cHelper.CreateObjectProgID resolves).
+
+    Read-only registry look-up: ProgID -> CLSID -> server (InprocServer32 for a .NET COM
+    class: mscoree.dll plus Assembly/CodeBase; LocalServer32 for an exe server)."""
+    import winreg
+
+    out = []
+    for progid in CSI_PROGIDS:
+        clsid = _reg_default(winreg.HKEY_CLASSES_ROOT, rf"{progid}\CLSID")
+        row: dict[str, Any] = {"progid": progid, "registered": clsid is not None, "clsid": clsid}
+        if clsid:
+            base = rf"CLSID\{clsid}"
+            for srv in ("InprocServer32", "LocalServer32"):
+                v = _reg_default(winreg.HKEY_CLASSES_ROOT, rf"{base}\{srv}")
+                if v is not None:
+                    row[srv] = v
+            for name in ("Assembly", "CodeBase", "RuntimeVersion"):
+                v = _reg_default(winreg.HKEY_CLASSES_ROOT, rf"{base}\InprocServer32", name)
+                if v is not None:
+                    row[name] = v
+            row["curver"] = _reg_default(winreg.HKEY_CLASSES_ROOT, rf"{progid}\CurVer")
+        out.append(row)
+    return out
+
+
 def csi_installs() -> list[dict[str, Any]]:
     """CSI products on disk, with the OAPI assembly each exposes (licence state is unknown
     until the product is started: see POST /csi/start)."""
@@ -207,6 +248,7 @@ def inventory() -> dict[str, Any]:
         "disk_c_free_gb": round(free / 2**30, 1),
         "disk_c_total_gb": round(total / 2**30, 1),
         "csi": csi_installs(),
+        "csi_oapi_registration": oapi_registration(),
         "bhom": bhom(),
         "apps": _apps(),
         "dotnet": _dotnet(),

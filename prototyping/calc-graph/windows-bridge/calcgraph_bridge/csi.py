@@ -116,6 +116,23 @@ def status() -> dict[str, Any]:
     }
 
 
+def api_probe(product: str = "ETABS") -> dict[str, Any]:
+    """Load the product's OAPI assembly into the bridge's CLR and resolve the entry types
+    start() uses. Starts nothing: no ETABS process, no licence check."""
+    inst, dll, ns, progid = _pick_install(product)
+    asm = rt.add_reference(dll)
+    want = ("cHelper", "Helper", "cOAPI", "cSapModel", "cAnalysisResults", "cFrameObj", "cDesignSteel")
+    types = {n: asm.GetType(f"{ns}.{n}") is not None for n in want}
+    probe: dict[str, Any] = {
+        "product": inst["product"], "exe_version": inst["exe_version"], "dll": dll,
+        "assembly": asm.FullName, "namespace": ns, "progid": progid, "types": types,
+        "all_types_found": all(types.values()), "process_started": False,
+    }
+    if types["cOAPI"]:
+        probe["cOAPI_methods_sample"] = sorted({m.Name for m in asm.GetType(f"{ns}.cOAPI").GetMethods()})[:20]
+    return probe
+
+
 def start(product: str = "ETABS", attach: bool = False, visible: bool = False) -> dict[str, Any]:
     """Attach to a running instance (``attach``) or start a new one through the API helper.
 

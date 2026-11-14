@@ -11,6 +11,7 @@ Endpoints
 - POST /bhom/etabs/pull     ETABS -> BHoM objects / results (ETABS_Toolkit adapter)
 - POST /bhom/etabs/push     BHoM objects -> ETABS (ETABS_Toolkit adapter)
 - GET  /csi/status          CSI installs + attached session
+- GET  /csi/api             load the OAPI assembly and resolve its entry types (no app started)
 - POST /csi/start           start (hidden) or attach to ETABS/SAP2000 via the OAPI helper
 - POST /csi/open            open a COPY of an .e2k/.edb (desk path, or e2k text from the Mac)
 - POST /csi/run             save the copy as .edb and run the analysis
@@ -133,11 +134,41 @@ class InspectBody(BaseModel):
     max_types: int = 40
 
 
+_ro_handlers: list[Any] = []
+
+
+def _ensure_reflection_only_resolver() -> None:
+    """Reflection-only loads do not resolve dependencies on their own: a netstandard 2.0
+    assembly (CSI's ETABSv1.dll) needs ``netstandard`` from the framework, and vendor
+    assemblies need their siblings. Resolve by name, then from the requester's folder."""
+    if _ro_handlers:
+        return
+    from System import AppDomain, ResolveEventHandler
+    from System.Reflection import Assembly, AssemblyName
+
+    def _resolve(_sender: Any, args: Any) -> Any:
+        try:
+            return Assembly.ReflectionOnlyLoad(args.Name)
+        except Exception:
+            pass
+        if args.RequestingAssembly is not None:
+            cand = os.path.join(os.path.dirname(args.RequestingAssembly.Location),
+                                AssemblyName(args.Name).Name + ".dll")
+            if os.path.isfile(cand):
+                return Assembly.ReflectionOnlyLoadFrom(cand)
+        return None
+
+    h = ResolveEventHandler(_resolve)
+    AppDomain.CurrentDomain.ReflectionOnlyAssemblyResolve += h
+    _ro_handlers.append(h)
+
+
 def _inspect(path: str, max_types: int) -> dict[str, Any]:
     from System.Reflection import Assembly, AssemblyName, CustomAttributeData, ReflectionTypeLoadException
 
     name = AssemblyName.GetAssemblyName(path)
     out: dict[str, Any] = {"path": path, "name": name.Name, "version": str(name.Version)}
+    _ensure_reflection_only_resolver()
     try:
         asm = Assembly.ReflectionOnlyLoadFrom(path)
     except Exception as exc:  # coreclr has no reflection-only context
@@ -206,6 +237,11 @@ class StartBody(BaseModel):
     product: str = "ETABS"
     attach: bool = False
     visible: bool = False
+
+
+@app.get("/csi/api")
+def csi_api(product: str = "ETABS") -> dict[str, Any]:
+    return rt.on_clr(csi.api_probe, product)
 
 
 @app.post("/csi/start")
