@@ -21,7 +21,7 @@
 <main class="smain">
   <section class="panel" id="left">
     <div class="ltop">
-      <div class="tabs" id="ltabs"><button data-t="el" class="on">Elements</button><button data-t="calc">Calc pages</button><button data-t="find">Findings</button></div>
+      <div class="tabs" id="ltabs"><button data-t="el" class="on">Elements</button><button data-t="rec" title="Calc package as design records: section - run - table - record">Calc records</button><button data-t="calc" title="Calc package pages (evidence containers)">Calc pages</button><button data-t="conn" title="Connection details and where they are placed">Connections</button><button data-t="find">Findings</button></div>
       <input id="q" type="search" placeholder="Search size, sheet, grid, calc id, title" autocomplete="off">
     </div>
     <div id="list"></div>
@@ -29,7 +29,15 @@
   <section id="centerPane">
     <div class="ctabs"><button id="tabG" class="on">Graph</button><button id="tab3" title="Structural model built from the plans">3D model (from plans)</button><span class="note" id="note3d"></span></div>
     <div id="graphWrap2"><div id="graph"></div></div>
-    <div id="wrap3d" hidden><div id="v3d"></div><div class="legend3d" id="legend3d"></div><div class="prog3d" id="prog3d"></div></div>
+    <div id="wrap3d" hidden><div id="v3d"></div><div class="legend3d" id="legend3d"></div><div class="prog3d" id="prog3d"></div>
+      <div class="side3d"><div class="ctl3d" id="ctl3d" hidden>
+        <label><input type="checkbox" id="cbDrawn" checked><span> Drawn model (2023 plans)</span></label>
+        <label><input type="checkbox" id="cbMk" checked><span> Connection markers</span></label>
+        <label title="The 2021 RISAFloor gravity model from the calc records - not registered to the drawings"><input type="checkbox" id="cbCalc"><span> Calc model (RISAFloor 2021)</span></label>
+        <div id="placeRow" hidden><label><input type="radio" name="place" value="beside" checked><span> Beside - no alignment</span></label>
+        <label title="Centres the two plan extents on each other - a visual approximation, not a registration"><input type="radio" name="place" value="extents"><span> Overlaid on building extents (approximation)</span></label></div>
+      </div>
+      <div class="ban3d" id="ban3d" hidden></div></div></div>
   </section>
   <section class="panel" id="right">
     <div id="insp"></div>
@@ -37,7 +45,7 @@
     <div class="views"><div id="pvA"></div><div id="pvB"></div></div>
   </section>
 </main>
-<div class="foot">Elements are tags read off the structural S-sheets; calc pages are the KPFF package pages by sheet number. Every link and edge is a deterministic rule and keeps the words it came from on both documents. Source PDFs stay on this machine and are rendered on demand.</div>
+<div class="foot">Elements are tags read off the structural S-sheets; calc records are the rows of the KPFF package tables (RISA, Enercalc, CFS, hand calcs), with pages kept as evidence; connections are the S8 details and where they are called out. Every link and edge is a deterministic rule and keeps the words it came from on both documents. Source PDFs stay on this machine and are rendered on demand.</div>
 <script type="module" src="/src/set/main.ts"></script>
 </body>
 </html>

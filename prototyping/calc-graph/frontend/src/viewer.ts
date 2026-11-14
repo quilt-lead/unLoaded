@@ -9,6 +9,8 @@ export class Viewer {
   camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
   controls: OrbitControls;
   group = new THREE.Group();
+  /** Extra scene content a page adds beside the IFC model (overlays, markers); not touched by clear(). */
+  extra = new THREE.Group();
   meshes = new Map<string, THREE.Mesh[]>(); // GlobalId -> meshes
   meshToGid = new Map<THREE.Object3D, string>();
   grid: THREE.GridHelper | null = null;
@@ -32,6 +34,7 @@ export class Viewer {
     sun.position.set(40, 80, 30);
     this.scene.add(sun);
     this.scene.add(this.group);
+    this.scene.add(this.extra);
     new ResizeObserver(() => this.resize()).observe(el);
     this.resize();
     const loop = () => {
@@ -71,6 +74,7 @@ export class Viewer {
     url: string,
     rev: number,
     onProgress: (t: string, pct: number) => void,
+    toOrigin = true,
   ) {
     onProgress("Loading IFC engine…", 5);
     if (!this.ifc) {
@@ -82,7 +86,9 @@ export class Viewer {
     onProgress("Downloading model…", 15);
     const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
     onProgress("Building geometry…", 40);
-    const mid = api.OpenModel(buf, { COORDINATE_TO_ORIGIN: true });
+    // toOrigin=false keeps the IFC's own coordinates (metres, Y up), so a page can place
+    // content it computed in the same building coordinates (e.g. connection markers).
+    const mid = api.OpenModel(buf, { COORDINATE_TO_ORIGIN: toOrigin });
     this.clear();
     const vtx = new THREE.Vector3(),
       nrm = new THREE.Vector3();
@@ -186,13 +192,35 @@ export class Viewer {
       );
   }
 
-  pick(ev: MouseEvent): string | null {
+  private aim(ev: MouseEvent) {
     const r = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
       ((ev.clientX - r.left) / r.width) * 2 - 1,
       -((ev.clientY - r.top) / r.height) * 2 + 1,
     );
     this.ray.setFromCamera(ndc, this.camera);
+  }
+
+  /** Nearest visible object of `objs` under the mouse (for page-added content in `extra`). */
+  hitExtra(ev: MouseEvent, objs: THREE.Object3D[]): THREE.Intersection | null {
+    this.aim(ev);
+    const vis = objs.filter((o) => {
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) if (!p.visible) return false;
+      return true;
+    });
+    return this.ray.intersectObjects(vis, false)[0] ?? null;
+  }
+
+  /** Distance along the ray to the IFC member pick() would return (Infinity if none). */
+  pickDist(ev: MouseEvent): number {
+    this.aim(ev);
+    const hits = this.ray.intersectObjects(this.group.children.filter((m) => m.visible), false);
+    const solid = hits.find((h) => ((h.object as THREE.Mesh).material as THREE.Material).opacity > 0.3);
+    return (solid ?? hits[0])?.distance ?? Infinity;
+  }
+
+  pick(ev: MouseEvent): string | null {
+    this.aim(ev);
     // Dimmed / x-rayed members are a highlight state, not unpickable: prefer the
     // nearest solid member on the ray, else the nearest faded one.
     const cand = this.group.children.filter((m) => m.visible);
