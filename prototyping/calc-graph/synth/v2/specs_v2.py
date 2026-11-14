@@ -75,7 +75,10 @@ def content(exp: dict) -> list[dict]:
     roof_deck = [e["id"] for e in exp["elements"] if e["type"] == "deck" and e["level"] == "RF"]
     crit = next(r["values"] for r in exp["records"] if r["id"] == "A1-CRIT")
     smf_lines = ", ".join(f.split("-")[-1] for f in smf)
-    scbf_lines = ", ".join(f.split("-")[-1] for f in scbf)
+    # SCBF lines from the frame elements (the layout's lateral scheme): "line 3" / "lines 1 and 5"
+    scbf_l = [f.split("-")[-1] for f in scbf]
+    scbf_lines = ("line " if len(scbf_l) == 1 else "lines ") + (
+        scbf_l[0] if len(scbf_l) == 1 else ", ".join(scbf_l[:-1]) + " and " + scbf_l[-1])
     w_list = ", ".join(t.split(":")[1] for t in w_types)
     hss_list = ", ".join(t.split(":")[1] for t in hss)
 
@@ -125,7 +128,7 @@ def content(exp: dict) -> list[dict]:
                     "100 percent of those welds after cooling.", smf + ["DETAIL:MC-1", "MAT:E70XX"],
                     ["Verify the reduced beam section (RBS) cut geometry and surface finish before welding.",
                      "Verify that backing bars are removed, the root back-gouged and reinforced, and weld tabs removed."]),
-                  P(f"Special concentrically braced frames (line {scbf_lines}): continuous inspection of gusset plate "
+                  P(f"Special concentrically braced frames ({scbf_lines}): continuous inspection of gusset plate "
                     "welds and brace end connections; verify the gusset clearance zone.", scbf + bg),
                   P("High-strength bolting: observe pre-installation verification; periodic inspection of snug-tight joints; "
                     "continuous inspection of pretensioned and slip-critical joints in the seismic force-resisting system.",
@@ -331,7 +334,7 @@ def content(exp: dict) -> list[dict]:
             ("GENERAL", [
                 A("SUMMARY",
                   P("This Section includes structural steel framing: floor and roof beams and girders, columns, base "
-                    f"plates, special moment frames on lines {smf_lines}, special concentrically braced frames on line "
+                    f"plates, special moment frames on lines {smf_lines}, special concentrically braced frames on "
                     f"{scbf_lines}, collectors, and their connections.", frames),
                   P("Related Sections: 05 05 23 Metal Fastenings; 05 31 00 Steel Decking; 07 81 00 Applied Fireproofing; "
                     "01 45 33 Code-Required Special Inspections.")),

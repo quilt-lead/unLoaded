@@ -1132,9 +1132,11 @@ def calc_C6(pkg, ctx):
                      (r"P_u \coloneq \Omega_0 \cdot F_x \cdot \dfrac{L_{coll}}{L_{line}} = %.1f \cdot %.1f\ \mathrm{kip} \cdot \dfrac{%.1f\ \mathrm{ft}}{%.0f\ \mathrm{ft}} = %.1f\ \mathrm{kip}"
                       % (v["Omega0"], fe, m.span, L, v["Pu_k"]), f"Pu := Omega0*Fx*Lcoll/Lline = {v['Pu_k']:.1f} kip", "eval")]
         else:
-            fy = d["seismic"]["y"]["Fx"][m.level]
+            line_sc = d["scbf"].get(m.line, {})
+            fy = line_sc.get("fy", d["seismic"]["y"]["Fx"])[m.level]
+            src = (r"\mathrm{line\ %s,\ C5}" % m.line) if line_sc.get("basis") == "etabs-reviewed" else r"\mathrm{C1}"
             L = gy[-1][1] - gy[0][1]
-            items = [(r"\Omega_0 \coloneq %.1f\qquad F_{y.%s} \coloneq %.1f\ \mathrm{kip}\ (\mathrm{C1})" % (v["Omega0"], m.level, fy),
+            items = [(r"\Omega_0 \coloneq %.1f\qquad F_{y.%s} \coloneq %.1f\ \mathrm{kip}\ (%s)" % (v["Omega0"], m.level, fy, src),
                       f"Omega0 := {v['Omega0']:.1f}  Fy := {fy:.1f} kip", "in"),
                      (r"P_u \coloneq \Omega_0 \cdot F_y \cdot \dfrac{L_{coll} / 2}{L_y} = %.1f \cdot %.1f\ \mathrm{kip} \cdot \dfrac{%.2f\ \mathrm{ft}}{%.0f\ \mathrm{ft}} = %.1f\ \mathrm{kip}"
                       % (v["Omega0"], fy, m.span / 2, L, v["Pu_k"]), f"Pu := {v['Pu_k']:.1f} kip", "eval")]
@@ -1216,6 +1218,8 @@ def calc_C_smf(pkg, ctx, calc):
     pg.insert_text((470, y - 160), f"Beams: {s['beam']} (RBS)", fontname="helv", fontsize=6.5)
     pg.insert_text((470, y - 151), f"Columns: {s['col']}", fontname="helv", fontsize=6.5)
     pg.insert_text((470, y - 142), "Bases: fixed (BP-3)", fontname="helv", fontsize=6.5)
+    if s.get("shear_def"):
+        pg.insert_text((470, y - 133), SHEAR_DEF_TXT, fontname="helv", fontsize=6.5)
     y += 8
     y = risa_title(pg, y, "Load Combinations")
     s1, s2 = 1.2 + 0.2 * LAT.SDS, 0.9 - 0.2 * LAT.SDS
@@ -1225,10 +1229,19 @@ def calc_C_smf(pkg, ctx, calc):
           ["EUN", "1.0E (drift, Cd/Ie applied)", "No"], ["WSV", "0.42W (service wind)", "No"]]
     y, _ = table(pg, 40, y, [("Label", 50, "l"), ("Combination", 200, "l"), ("Code check", 60, "c")], lc, **RISA_TBL)
     y += 10
-    y = risa_title(pg, y, f"Joint Loads - E (line share {fr['values']['share']:.3f} of V, incl. 5% accidental torsion)")
+    dia = d["seismic"].get("diaphragm", {}).get("x")
+    if dia:   # reviewed basis: rigid diaphragm with torsion resisted by both directions' lines
+        y = risa_title(pg, y, f"Joint Loads - E (line share {fr['values']['share']:.3f} of V_X, rigid diaphragm, incl. "
+                              "accidental torsion)")
+    else:
+        y = risa_title(pg, y, f"Joint Loads - E (line share {fr['values']['share']:.3f} of V, incl. 5% accidental torsion)")
     jl = [[f"{c0}_{i + 1}", L["name"], f"{fr['values']['Fe_k'][L['key']]:.1f}", f"{s['fw'][L['key']]:.1f}"]
           for i, L in enumerate(ctx["levels"]) for c0 in [colpos[0][0]]]
     y, _ = table(pg, 40, y, [("Joint", 50, "l"), ("Level", 60, "l"), ("FX E (k)", 60, "r"), ("FX W (k)", 60, "r")], jl, **RISA_TBL)
+    if dia:
+        y += 8
+        pg.insert_text((40, y), _diaphragm_txt(dia, "x"), fontname="helv", fontsize=6.0)
+        y += 4
     y += 10
     y = risa_title(pg, y, f"SMF-{yl} Story Drift - ASCE 7-16 12.8.6 / 12.12-1 (Cd = %.1f, Ie = %.1f)" % (LAT.SYS["x"]["Cd"], LAT.IE))
     top = y - 14
@@ -1281,30 +1294,66 @@ def calc_C_smf(pkg, ctx, calc):
     deco(pg, 2, 2)
 
 
+def _diaphragm_txt(dia: dict, d_: str) -> str:
+    """One line on the rigid-diaphragm split of the reviewed basis (synth/v2/lateral.py rigid_diaphragm)."""
+    axis = "y" if d_ == "x" else "x"
+    return (f"Rigid diaphragm, torsion resisted by the X and Y lines: CR at {axis} = {dia['cr']:.1f} ft; +/- 5% accidental "
+            f"ecc. x Ax = {dia['Ax']:.2f} (12.8.4.3); torsional irregularity dmax/davg = {dia['torsion_ratio']:.3f} "
+            f"({dia['irregularity']}, Table 12.3-1).")
+
+
+SHEAR_DEF_TXT = "Timoshenko members, Av = d tw"
+
+
 def calc_C5(pkg, ctx):
+    """One RISA model per braced line: geometry, drift, braces, columns - and, for the reviewed
+    basis, the line's girders checked in the braced frame (frame combos + AISC 341 F2.3)."""
+    for xl, sc in ctx["d"]["scbf"].items():
+        fr = ctx["rec"].get(f"C-SCBF:{xl}")
+        if fr is not None:
+            _calc_C5_line(pkg, ctx, xl, sc, fr)
+
+
+def _calc_C5_line(pkg, ctx, xl, sc, fr):
     d = ctx["d"]
-    sc = d["scbf"]
-    fr = ctx["rec"].get("C-SCBF:3")
+    el = ctx["el"]
     recs = ctx["recs"]["C5"]
-    deco = risa_deco("SCBF-3", None)
+    reviewed = sc.get("basis") == "etabs-reviewed"
+    npages = 3 if reviewed else 2
+    deco = risa_deco(f"SCBF-{xl}", None)
     pg, sheet = pkg.new_page("C5", "risa")
     y = deco(pg, 1, None)
-    y = risa_title(pg, y, "Frame Geometry - Special Concentrically Braced Frame Line 3 (elevation, chevron)")
+    y = risa_title(pg, y, f"Frame Geometry - Special Concentrically Braced Frame Line {xl} (elevation, chevron)")
     colpos = sorted(((e["grid"].split("/")[1], e["y"]) for e in ctx["exp"]["elements"]
-                     if e["type"] == "column" and e["grid"].startswith("3/")), key=lambda t: t[1])
+                     if e["type"] == "column" and e["grid"].startswith(f"{xl}/")), key=lambda t: t[1])
     lv = [(L["key"], L["elev_ft"]) for L in ctx["levels"]]
-    zs = [0.0] + [z for _, z in lv]
     braces = []
     for e in ctx["exp"]["elements"]:
-        if e["type"] == "brace":
+        if e["type"] == "brace" and e["frame"] == f"SCBF-{xl}":
             braces.append((e["p1"][1], e["p2"][1], e["p1"][2], e["p2"][2], e["id"]))
     mlabs = [(braces[0][0], braces[0][0], 0, "")]
-    y = _elev(pg, 90, y + 8, 340, 150, [(f"3{c}", p) for c, p in colpos], lv, mlabs, braces, fixed=False)
+    y = _elev(pg, 90, y + 8, 340, 150, [(f"{xl}{c}", p) for c, p in colpos], lv, mlabs, braces, fixed=False)
     pg.insert_text((470, y - 160), f"Braces: {risa_shape(sc.get('brace', '-'))}", fontname="helv", fontsize=6.5)
     pg.insert_text((470, y - 151), "Beams pinned, continuous at work point", fontname="helv", fontsize=6.5)
     pg.insert_text((470, y - 142), "Bases: pinned (BP-4)", fontname="helv", fontsize=6.5)
+    if sc.get("shear_def"):
+        pg.insert_text((470, y - 133), SHEAR_DEF_TXT, fontname="helv", fontsize=6.5)
+    if reviewed:
+        pg.insert_text((470, y - 124), "Girders: sized in frame (p. 3)", fontname="helv", fontsize=6.5)
     y += 8
-    y = risa_title(pg, y, "SCBF-3 Story Drift - ASCE 7-16 12.12-1 (Cd = %.1f, rho = %.1f)" % (LAT.SYS["y"]["Cd"], LAT.SYS["y"]["rho"]))
+    if reviewed:
+        dia = d["seismic"].get("diaphragm", {}).get("y")
+        y = risa_title(pg, y, f"Joint Loads - E (line share {fr['values']['share']:.3f} of V_Y, rigid diaphragm, incl. "
+                              "accidental torsion)")
+        jl = [[f"{xl}{colpos[0][0]}_{i + 1}", L["name"], f"{fr['values']['Fe_k'][L['key']]:.1f}"]
+              for i, L in enumerate(ctx["levels"])]
+        y, _ = table(pg, 40, y, [("Joint", 50, "l"), ("Level", 60, "l"), ("FY E (k)", 60, "r")], jl, **RISA_TBL)
+        y += 8
+        if dia:
+            pg.insert_text((40, y), _diaphragm_txt(dia, "y"), fontname="helv", fontsize=6.0)
+            y += 12
+        y += 2
+    y = risa_title(pg, y, f"SCBF-{xl} Story Drift - ASCE 7-16 12.12-1 (Cd = %.1f, rho = %.1f)" % (LAT.SYS["y"]["Cd"], LAT.SYS["y"]["rho"]))
     top = y - 14
     dr = [[x["level"], f"{x['h']:.1f}", f"{x['delta_in']:.3f}", f"{x['allow_in']:.3f}", f"{x['ratio']:.3f}"] for x in fr["values"]["drifts"]]
     y, _ = table(pg, 40, y, [("Story", 40, "l"), ("h (ft)", 40, "r"), ("Delta x (in)", 60, "r"), ("Allow (in)", 56, "r"),
@@ -1312,26 +1361,40 @@ def calc_C5(pkg, ctx):
     y += 10
     pg.insert_text((40, y), f"Expected brace tension Ry Fy Ag = {fr['values']['expected_T_k']:.1f} k (AISC 341 F2.6c, Ry = {LAT.RY_HSS}) "
                             "- to brace gussets, E4.", fontname="helv", fontsize=6.3)
-    pkg.place(fr["id"], R(36, top, 576, y + 3), f"SCBF-3 story drift ratio {fr['uc']:.3f}", fr["elements"])
+    if reviewed:
+        y += 8
+        pg.insert_text((40, y), f"Frame stiffness k = {fr['values']['k_kip_per_ft']:.1f} kip/ft (shear deformation included).",
+                       fontname="helv", fontsize=6.3)
+    pkg.place(fr["id"], R(36, top, 576, y + 3), f"SCBF-{xl} story drift ratio {fr['uc']:.3f}", fr["elements"])
     y += 14
     y = risa_title(pg, y, "Load Combinations")
     s1 = 1.2 + 0.2 * LAT.SDS
-    y, _ = table(pg, 40, y, [("Label", 50, "l"), ("Combination", 200, "l")],
-                 [["S1", f"{s1:.1f}D + 0.5L + {LAT.SYS['y']['rho']:.1f}E"], ["EUN", "1.0E (drift)"]], **RISA_TBL)
-    deco(pg, 1, 2)
+    if reviewed:
+        s2 = 0.9 - 0.2 * LAT.SDS
+        rho = LAT.SYS["y"]["rho"]
+        lc = [["G1", "1.4D"], ["G2", "1.2D + 1.6L (L = floor live or roof live)"], ["S1", f"{s1:.1f}D + 0.5L + {rho:.1f}E"],
+              ["S2", f"{s2:.1f}D + {rho:.1f}E"], ["S3", f"{s1:.1f}D + 0.5L - {rho:.1f}E"], ["S4", f"{s2:.1f}D - {rho:.1f}E"],
+              ["F2.3", "AISC 341 F2.3 unbalanced chevron load + 1.2D + 0.5L (girders)"], ["EUN", "1.0E (drift)"]]
+        y, _ = table(pg, 40, y, [("Label", 50, "l"), ("Combination", 260, "l")], lc, **RISA_TBL)
+    else:
+        y, _ = table(pg, 40, y, [("Label", 50, "l"), ("Combination", 200, "l")],
+                     [["S1", f"{s1:.1f}D + 0.5L + {LAT.SYS['y']['rho']:.1f}E"], ["EUN", "1.0E (drift)"]], **RISA_TBL)
+    deco(pg, 1, npages)
     pg, sheet = pkg.new_page("C5", "risa")
     y = deco(pg, 2, None)
     y = risa_title(pg, y, "Member AISC 360-16 (LRFD) Steel Code Checks - Braces (E3 / D2 / KL/r <= 200)")
-    br = [r for r in recs if r["kind"] == "brace"]
+    lc_of = {v: k for k, v in LAT.SCBF_COMBO_TXT.items()}
+    br = [r for r in recs if r["kind"] == "brace" and el[r["elements"][0]]["frame"] == f"SCBF-{xl}"]
     rows = [[r["elements"][0], risa_shape(r["values"]["size"]), f"{r['values']['L_ft']:.2f}", f"{r['values']['Pu_k']:.1f}",
-             f"{r['values']['phiPn_k']:.1f}", f"{r['values']['KL_r']:.1f}", f"{r['uc']:.3f}", "S1"] for r in br]
+             f"{r['values']['phiPn_k']:.1f}", f"{r['values']['KL_r']:.1f}", f"{r['uc']:.3f}",
+             lc_of.get(r["lc"], "S1") if reviewed else "S1"] for r in br]
     y, rects = table(pg, 40, y, [("Label", 90, "l"), ("Shape", 64, "l"), ("L (ft)", 40, "r"), ("Pu (k)", 44, "r"),
                                  ("phi*Pnc (k)", 54, "r"), ("KL/r", 40, "r"), ("UC Max", 44, "r"), ("LC", 34, "c")], rows, **RISA_TBL)
     for r, rect in zip(br, rects):
         pkg.place(r["id"], rect, f"{r['elements'][0]} {risa_shape(r['values']['size'])}", r["elements"])
     y += 12
     y = risa_title(pg, y, "Columns - gravity + Omega0 x SCBF axial (H1)")
-    cm = [r for r in recs if r["kind"] == "column_design"]
+    cm = [r for r in recs if r["kind"] == "column_design" and el[r["elements"][0]]["grid"].split("/")[0] == xl]
     rows = [[r["elements"][0], r["values"]["size"], str(r["values"]["storey"]), f"{r['values']['Pu_k']:.1f}",
              f"{r['values']['phiPn_k']:.1f}", f"{r['values']['Mux_kft']:.1f}", f"{r['values']['Muy_kft']:.1f}",
              f"{r['uc']:.3f}", r["lc"], r["values"]["eq"]] for r in cm]
@@ -1344,8 +1407,70 @@ def calc_C5(pkg, ctx):
     y = risa_title(pg, y, "Column axial from E (unfactored), by storey")
     rows = [[c, str(st), f"{v:.1f}"] for (c, st), v in sorted(sc.get("col_e", {}).items())]
     table(pg, 40, y, [("Column", 50, "l"), ("Story", 40, "r"), ("P E (k)", 60, "r")], rows, **RISA_TBL)
-    deco(pg, 2, 2)
-    _ = zs
+    deco(pg, 2, npages)
+    if reviewed:
+        _calc_C5_girders(pkg, ctx, xl, deco, npages)
+
+
+def _calc_C5_girders(pkg, ctx, xl, deco, npages):
+    """Page 3 of a braced line (reviewed basis): every girder on the line checked in the braced frame
+    under the full combo set (real point loads), and the chevron F2.3 unbalanced-load check of the
+    braced-bay girders. The governing case is what sizes the girder (UC Max)."""
+    el = ctx["el"]
+    gr = [r for r in ctx["recs"]["C5"] if r["kind"] == "scbf_girder" and el[r["elements"][0]]["line"] == xl]
+    pg, sheet = pkg.new_page("C5", "risa")
+    y = deco(pg, 3, None)
+    y = risa_title(pg, y, f"Member AISC 360-16 (LRFD) Steel Code Checks - Girders on Line {xl} (H1 / G2, frame combos)")
+    rows = []
+    for r in gr:
+        v = r["values"]
+        rows.append([r["elements"][0], v["size"], f"{v['span_ft']:.2f}", f"{v['Lb_ft']:.2f}", f"{v['Mu_kft']:.1f}",
+                     f"{v['phiMn_kft']:.1f}", f"{v['Vu_k']:.1f}", f"{v['phiVn_k']:.1f}", f"{v['Pu_k']:.1f}",
+                     f"{v['phiPn_k']:.1f}", f"{r['uc']:.3f}", v["governs_combo"]])
+    y, rects = table(pg, 40, y, [("Label", 64, "l"), ("Shape", 48, "l"), ("L (ft)", 32, "r"), ("Lb (ft)", 32, "r"),
+                                 ("Mu (k-ft)", 40, "r"), ("phi*Mn (k-ft)", 52, "r"), ("Vu (k)", 32, "r"),
+                                 ("phi*Vn (k)", 40, "r"), ("Pu (k)", 32, "r"), ("phi*Pnc (k)", 44, "r"),
+                                 ("UC Max", 36, "r"), ("LC", 28, "c")], rows, **RISA_TBL)
+    for r, rect in zip(gr, rects):
+        pkg.place(r["id"], rect, f"{r['elements'][0]} {r['values']['size']}", r["elements"])
+    y += 10
+    pg.insert_text((40, y), "Mu, Vu, Pu: worst combination from the frame (point loads from the infill beams at their real "
+                            "positions).  UC Max = max(H1, Vu / phi*Vn) over the frame combos and F2.3.", fontname="helv", fontsize=6.0)
+    y += 8
+    pg.insert_text((40, y), "LC = governing case (see Load Combinations, page 1).  Each girder starts from its gravity (RAM, B1 to B3) "
+                            "size and is increased until every case passes.", fontname="helv", fontsize=6.0)
+    y += 16
+    f23r = [r for r in gr if r["values"].get("F2_3")]
+    if f23r:
+        y = risa_title(pg, y, "AISC 341-16 F2.3 / F2.4a Chevron Girder - Unbalanced Load (braced bays)")
+        # full-precision F2.3 results from the design (the record keeps them to 0.1)
+        sc = ctx["d"]["scbf"][xl]
+        by_id = {k: tuple(key_.split("|")) for key_, k in sc.get("girder_ids", {}).items()}
+        f23 = {r["id"]: sc["girders"][(by_id[r["elements"][0]][0], int(by_id[r["elements"][0]][1]))]["f23"] for r in f23r}
+        rows = []
+        for r in f23r:
+            f = f23[r["id"]]
+            rows.append([r["elements"][0], f"{f['T_exp']:.1f}", f"{f['C_post']:.1f}", f"{f['Pv_unbalanced']:.1f}",
+                         f"{f['P_axial']:.1f}", f"{f['M_gravity']:.1f}", f"{f['Mu']:.1f}", f"{f['Vu']:.1f}", f["eq"],
+                         f"{f['uc']:.3f}"])
+        y, rects = table(pg, 40, y, [("Label", 64, "l"), ("T exp (k)", 44, "r"), ("0.3 C exp (k)", 54, "r"),
+                                     ("Pv unbal (k)", 52, "r"), ("P axial (k)", 46, "r"), ("M grav (k-ft)", 54, "r"),
+                                     ("Mu (k-ft)", 44, "r"), ("Vu (k)", 36, "r"), ("Eqn", 40, "c"), ("UC", 36, "r")],
+                         rows, **RISA_TBL)
+        for r, rect in zip(f23r, rects):
+            pkg.place(r["id"], rect, f"{r['elements'][0]} F2.3 UC {f23[r['id']]['uc']:.3f}", r["elements"],
+                      how="calc_block")
+        y += 10
+        for t in ("Braces at expected tension T = Ry Fy Ag and post-buckling compression 0.3 x min(Ry Fy Ag, 1.14 Fcre Ag);",
+                  "Pv = (T - 0.3 C) sin(theta) at mid-span of a girder spanning column to column; P axial = (T + 0.3 C) cos(theta) / 2;",
+                  "Mu = M gravity (1.2D + 0.5L, real loads) + Pv L / 4;  Vu = R gravity + Pv / 2."):
+            pg.insert_text((40, y), t, fontname="helv", fontsize=6.0)
+            y += 8
+    y += 8
+    y = risa_title(pg, y, "Governing combination per girder")
+    rows = [[r["elements"][0], r["values"]["governs_combo"], r["lc"]] for r in gr]
+    table(pg, 40, y, [("Label", 64, "l"), ("LC", 30, "c"), ("Combination", 380, "l")], rows, **RISA_TBL)
+    deco(pg, 3, npages)
 
 
 # ======================================================================= D
@@ -1444,7 +1569,8 @@ def calc_D3(pkg, ctx):
             ok_v = v["Vu_k"] <= v["phiVn_k"]
             lines.append(f"  Vu = {v['Vu_k']:.1f} k {'<' if ok_v else '>'} ØVn = {v['phiVn_k']:.1f} k  {'OK' if ok_v else 'NG!'}  (#4 @ 6\")")
             if v["tie_k"]:
-                lines.append(f"  tie T = {v['tie_k']:.1f} k -> {v['tie_bars']}  (rho V/4, C5)")
+                lines.append(f"  tie T = {v['tie_k']:.1f} k -> {v['tie_bars']}  "
+                             + ("(rho V share/4, C5)" if d["seismic"].get("diaphragm") else "(rho V/4, C5)"))
             hh = 13.0 * len(lines) + 8
             blocks.append((r, gid, lines, y, hh, v))
             y += hh + 10
@@ -1708,10 +1834,12 @@ def calc_E4(pkg, ctx):
         mc.y = y0 + i * 21
         regs[t] = mc.rows([it], x=320)
     mc.y = y0 + 3 * 21 + 4
-    if sc.get("brace"):
-        b = aisc.get(sc["brace"])
-        mc.rows([(r"T_{exp} \coloneq R_y F_y A_g = %.1f \cdot %.0f\ \mathrm{ksi} \cdot %.2f\ \mathrm{in}^2 = %.1f\ \mathrm{kip}\quad (341\ F2.6c)"
-                  % (LAT.RY_HSS, aisc.FY_HSS, b["A"], sc["expected_t"]), f"T_exp := Ry Fy Ag = {sc['expected_t']:.1f} kip", "eval")])
+    lines_b = [(xl, r) for xl, r in sc.items() if r.get("brace")]
+    for xl, r in lines_b:   # one expected brace tension per braced line (its own brace size)
+        b = aisc.get(r["brace"])
+        sub, lab = ("", "") if len(lines_b) == 1 else (r".%s" % xl, f".{xl}")
+        mc.rows([(r"T_{exp%s} \coloneq R_y F_y A_g = %.1f \cdot %.0f\ \mathrm{ksi} \cdot %.2f\ \mathrm{in}^2 = %.1f\ \mathrm{kip}\quad (341\ F2.6c)"
+                  % (sub, LAT.RY_HSS, aisc.FY_HSS, b["A"], r["expected_t"]), f"T_exp{lab} := Ry Fy Ag = {r['expected_t']:.1f} kip", "eval")])
     mc.text(40, mc.y, "Assignment: lightest typical with phiRn >= demand; '*' = exceeds the largest typical (special design).", size=8.2)
     mc.y += 8
     mc.finish()
@@ -1818,6 +1946,18 @@ def _stamp_png() -> bytes:
     return buf.getvalue()
 
 
+def _grade_beam_txt(ctx) -> str:
+    """'grade beams on the perimeter and line 3' - from the layout's lateral scheme."""
+    lat = ctx["exp"]["building"]["lateral"]
+    gx, gy = ctx["grids"]["x"], ctx["grids"]["y"]
+    edge = {gx[0][0], gx[-1][0], gy[0][0], gy[-1][0]}
+    inner = [l for l in list(lat["grade_beam_x"]) + list(lat["grade_beam_y"]) if l not in edge]
+    if not inner:
+        return "grade beams on the perimeter"
+    from .records import lines_txt
+    return f"grade beams on the perimeter and line{'s' if len(inner) > 1 else ''} {lines_txt(inner)}"
+
+
 def cover(pkg, ctx):
     pg, sheet = pkg.new_page("COVER", "cover")
     exp = ctx["exp"]
@@ -1842,7 +1982,7 @@ def cover(pkg, ctx):
     lines = [f"Building: {len(ctx['levels'])} storeys, roof at {ctx['levels'][-1]['elev_ft']:.0f} ft; grid "
              f"{len(ctx['grids']['x'])} x {len(ctx['grids']['y'])} lines; composite deck floors, steel roof deck.",
              f"Lateral: X - {sx['values']['system'] if sx else '-'}; Y - {sy['values']['system'] if sy else '-'}.",
-             f"Foundations: spread footings on piers, grade beams on the perimeter and line 3.  Records in this package: {len(exp['records'])}."]
+             f"Foundations: spread footings on piers, {_grade_beam_txt(ctx)}.  Records in this package: {len(exp['records'])}."]
     for s in lines:
         pg.insert_text((90, y), s, fontname="helv", fontsize=7.6)
         y += 11

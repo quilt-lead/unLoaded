@@ -3,9 +3,11 @@
     write(exp, d, path)   # called by synth.v2.generate
 
 Sheets: S-001 general notes, S-101 foundation plan (+ footing / grade beam schedules),
-S-201 / S-202 / S-203 framing plans (L2, L3, roof), S-301 frame elevations (SMF A, SMF D,
-SCBF 3), S-401 column / pier / grade beam / base plate schedules, S-501 / S-502 typical
-connection details, S-601 sections. Every printed appearance of an element, type, detail or
+S-201 / S-202 / S-203 framing plans (L2, L3, roof), S-301 frame elevations (the SMF lines, plus
+the braced frame when the layout has one SCBF line; with more, S-302 holds one braced frame
+elevation per line), S-401 column / pier / grade beam / base plate schedules, S-501 / S-502
+typical connection details, S-601 sections. Every frame line, collector bay, grade beam line and
+braced-frame callout comes from the layout's lateral scheme (exp["building"]["lateral"]). Every printed appearance of an element, type, detail or
 material is recorded in exp["occurrences"] with its exact text and its box in PDF points
 (top-left origin), so one element is traceable from its plan tag to its elevation tag, its
 schedule row and the detail its callout points at.
@@ -412,6 +414,29 @@ class DrawingSet:
             self.conn_by_member.setdefault(c["member"], []).append(c)
         self.cols = {e["id"][4:]: e for e in self.by_type["column"]}
         self.det_rows: list[dict] = []
+        # the lateral system is layout input (exp["building"]["lateral"]): every frame line, collector
+        # bay, grade beam line and braced-frame callout on the sheets is derived from it
+        self.lat = exp["building"]["lateral"]
+        self.mf = list(self.lat["mf_lines"])          # SMF letter lines (along X)
+        self.bf = list(self.lat["bf_lines"])          # SCBF number lines (along Y)
+        self.bf_sheet = "S-302" if len(self.bf) > 1 else "S-301"   # sheet holding the braced frame elevations
+        self.sheet_list = sheet_list(self)
+
+    @property
+    def smf_frames(self) -> list[str]:
+        return [f"FRAME:SMF-{yl}" for yl in self.mf]
+
+    @property
+    def scbf_frames(self) -> list[str]:
+        return [f"FRAME:SCBF-{xl}" for xl in self.bf]
+
+    def scbf_base(self) -> dict:
+        """The braced-frame base the foundation section cut and S-601 section 3 show: the first
+        SCBF line's first braced bay, its south column, the grade beam along that bay and the
+        level-1 brace from that column."""
+        xl = self.bf[0]
+        ya, yb = self.lat["bf_lines"][xl][0]
+        return {"line": xl, "col": f"{xl}{ya}", "bay": (ya, yb), "gb": f"GB-{xl}-{ya}{yb}", "brace": f"BR-L1-{xl}-{ya}{yb}-S"}
 
     def rel(self, src, dst, kind):
         r = {"src": src, "dst": dst, "kind": kind}
@@ -429,6 +454,31 @@ class DrawingSet:
             "keywords": "",
         })
         self.doc.save(path, garbage=3, deflate=True, no_new_id=True)
+
+
+def and_list(items) -> str:
+    """'3' / '1 AND 5' / 'A, D, 1 AND 5' (drawing notes are upper case)."""
+    items = list(items)
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " AND " + items[-1]
+
+
+def lines_of(items) -> str:
+    """'LINE 3' / 'LINES 1 AND 5'."""
+    items = list(items)
+    return ("LINE " if len(items) == 1 else "LINES ") + and_list(items)
+
+
+def bays_txt(coll: dict) -> str:
+    """Collector bays from the scheme ({line: [[a, b], ...]}), lines with the same bays grouped:
+    'BAYS 1-2 AND 4-5 OF LINES A AND D'."""
+    groups: dict[tuple, list] = {}
+    for line, bays in coll.items():
+        groups.setdefault(tuple(tuple(b) for b in bays), []).append(line)
+    out = []
+    for bays, lines in groups.items():
+        bt = and_list([f"{a}-{b}" for a, b in bays])
+        out.append(("BAY " if len(bays) == 1 else "BAYS ") + bt + " OF " + lines_of(lines))
+    return and_list(out)
 
 
 def member_tag(e: dict) -> str:
@@ -616,9 +666,9 @@ def sheet_general_notes(ds: DrawingSet):
     heading("LATERAL DESIGN CRITERIA")
     note("1.", f"SEISMIC: {crit['seismic']}. EQUIVALENT LATERAL FORCE PROCEDURE.")
     note("2.", f"N-S/E-W (X): {ex['system'].upper()}, R = {ex['R']:g}, CD = {ex['Cd']:g}, OMEGA0 = {ex['Omega0']:g}, "
-               f"CS = {ex['Cs']:g}, V = {ex['V_k']:g} KIPS.", ["FRAME:SMF-A", "FRAME:SMF-D"])
+               f"CS = {ex['Cs']:g}, V = {ex['V_k']:g} KIPS.", ds.smf_frames)
     note("3.", f"(Y): {ey['system'].upper()}, R = {ey['R']:g}, CD = {ey['Cd']:g}, OMEGA0 = {ey['Omega0']:g}, "
-               f"CS = {ey['Cs']:g}, V = {ey['V_k']:g} KIPS.", ["FRAME:SCBF-3"])
+               f"CS = {ey['Cs']:g}, V = {ey['V_k']:g} KIPS.", ds.scbf_frames)
     note("4.", f"WIND: {crit['wind'].upper()}, RISK CATEGORY II. MWFRS BASE SHEAR X = {rec['C-WIND:X']['values']['V_k']:g} K, "
                f"Y = {rec['C-WIND:Y']['values']['V_k']:g} K (SEISMIC GOVERNS).")
     note("5.", "SOILS: " + crit["soil"].upper() + " PER GEOTECHNICAL REPORT (BY OTHERS). BOTTOM OF FOOTING 1'-6\" MIN BELOW "
@@ -678,16 +728,15 @@ def sheet_general_notes(ds: DrawingSet):
     heading("FOUNDATIONS")
     for n, t in enumerate([
         "FOOTINGS BEAR ON UNDISTURBED NATIVE SOIL OR ENGINEERED FILL APPROVED BY THE GEOTECHNICAL ENGINEER.",
-        "GRADE BEAMS ON LINES A, D, 1 AND 5 SUPPORT THE PERIMETER WALL; LINE 3 GRADE BEAMS ARE TIES BETWEEN BRACED "
-        "FRAME FOOTINGS. SEE FOUNDATION SCHEDULES ON S-101 AND S-401.",
+        grade_beam_note(ds),
         "CONCRETE COVER: 3\" CAST AGAINST EARTH, 2\" FORMED AND EXPOSED, 1-1/2\" PIER TIES.",
     ], 1):
         note(f"{n}.", t)
     heading("SPECIAL INSPECTIONS (IBC CH. 17)", 17 * 12 + 60)
     srows, srefs = [], []
     for item, freq, ref, refs in [
-        ("SMF DEMAND CRITICAL CJP WELDS", "CONTINUOUS", "AISC 341 J6, AWS D1.8", ["FRAME:SMF-A", "FRAME:SMF-D", "DETAIL:MC-1", "MAT:E70XX"]),
-        ("SCBF GUSSET WELDS AND BRACES", "CONTINUOUS", "AISC 341 J6", ["FRAME:SCBF-3", "DETAIL:BG-3"]),
+        ("SMF DEMAND CRITICAL CJP WELDS", "CONTINUOUS", "AISC 341 J6, AWS D1.8", ds.smf_frames + ["DETAIL:MC-1", "MAT:E70XX"]),
+        ("SCBF GUSSET WELDS AND BRACES", "CONTINUOUS", "AISC 341 J6", ds.scbf_frames + ["DETAIL:BG-3"]),
         ("PRETENSIONED / SC BOLTS (SFRS)", "PERIODIC", "AISC 360 N5.6", ["MAT:F3125-A325"]),
         ("STRUCTURAL STEEL FABRICATION", "PERIODIC", "IBC 1704.2.5", ["MAT:A992", "MAT:A500C"]),
         ("ULTRASONIC TEST OF CJP WELDS", "100% SFRS", "AISC 341 J6.2", ["DETAIL:MC-1"]),
@@ -715,7 +764,7 @@ def sheet_general_notes(ds: DrawingSet):
         sh.text(x + 64, state["y"], t, 9)
         state["y"] += 12.5
     heading("SHEET INDEX")
-    for s in SHEET_LIST:
+    for s in ds.sheet_list:
         col_break(14)
         x = xs[state["k"]]
         sh.text(x, state["y"], s[0], 9, BOLD)
@@ -723,16 +772,40 @@ def sheet_general_notes(ds: DrawingSet):
         state["y"] += 12.5
 
 
-SHEET_LIST = [
-    ("S-001", "GENERAL NOTES, DESIGN CRITERIA AND SPECIAL INSPECTIONS"), ("S-101", "FOUNDATION PLAN"),
-    ("S-201", "LEVEL 2 FRAMING PLAN"), ("S-202", "LEVEL 3 FRAMING PLAN"), ("S-203", "ROOF FRAMING PLAN"),
-    ("S-301", "MOMENT FRAME ELEVATIONS AND BRACED FRAME ELEVATION"), ("S-401", "COLUMN AND FOUNDATION SCHEDULES"),
-    ("S-501", "TYPICAL STEEL CONNECTION DETAILS"), ("S-502", "TYPICAL BRACE AND BASE PLATE DETAILS"),
-    ("S-601", "SECTIONS"),
-]
+def elevation_sheets(ds: "DrawingSet") -> list[tuple[str, str]]:
+    """One S-301 holding the SMF elevations and the braced frame elevation when there is one SCBF
+    line; with more, the braced frames get their own sheet S-302 (one elevation per line)."""
+    if len(ds.bf) == 1:
+        return [("S-301", "MOMENT FRAME ELEVATIONS AND BRACED FRAME ELEVATION")]
+    return [("S-301", "MOMENT FRAME ELEVATIONS"), ("S-302", f"BRACED FRAME ELEVATIONS - {lines_of(ds.bf)}")]
+
+
+def sheet_list(ds: "DrawingSet") -> list[tuple[str, str]]:
+    return [("S-001", "GENERAL NOTES, DESIGN CRITERIA AND SPECIAL INSPECTIONS"), ("S-101", "FOUNDATION PLAN"),
+            ("S-201", "LEVEL 2 FRAMING PLAN"), ("S-202", "LEVEL 3 FRAMING PLAN"), ("S-203", "ROOF FRAMING PLAN"),
+            *elevation_sheets(ds), ("S-401", "COLUMN AND FOUNDATION SCHEDULES"),
+            ("S-501", "TYPICAL STEEL CONNECTION DETAILS"), ("S-502", "TYPICAL BRACE AND BASE PLATE DETAILS"),
+            ("S-601", "SECTIONS")]
 
 
 # =========================================================================== S-101
+def grade_beam_note(ds: "DrawingSet") -> str:
+    """General note on the grade beam lines, from the scheme: the perimeter lines carry the wall;
+    braced-frame lines tie the braced-frame footings (interior lines are ties only)."""
+    lines = list(ds.lat["grade_beam_x"]) + list(ds.lat["grade_beam_y"])
+    edge = {GX[0][0], GX[-1][0], GY[0][0], GY[-1][0]}
+    perim = [l for l in lines if l in edge]
+    ties = [l for l in ds.bf if l in lines]
+    s = f"GRADE BEAMS ON {lines_of(perim)} SUPPORT THE PERIMETER WALL"
+    inner = [l for l in ties if l not in edge]
+    outer = [l for l in ties if l in edge]
+    if inner:
+        s += f"; LINE {and_list(inner)} GRADE BEAMS ARE TIES BETWEEN BRACED FRAME FOOTINGS"
+    if outer:
+        s += f"; THE LINE {and_list(outer)} GRADE BEAMS ALSO TIE THE BRACED FRAME FOOTINGS"
+    return s + ". SEE FOUNDATION SCHEDULES ON S-101 AND S-401."
+
+
 def gb_mark(g: dict) -> str:
     return "GB2" if g.get("tie_bars") else "GB1"
 
@@ -789,10 +862,21 @@ def sheet_foundation(ds: DrawingSet):
         up = 1 if bp["y"] < 40 else -1     # bubble toward the inside of the plan
         sh.callout((X + 6, Y - 6 * up), (X + hb + 34, Y - up * (hb + 30)), num, s, [bp["id"]])
         ds.rel(bp["id"], f"DET:{num}/{s}", "detailed-by")
+    edge = {GX[0][0], GX[-1][0], GY[0][0], GY[-1][0]}
+    edge_ties = [l for l in ds.bf if l in edge and any(g["line"] == l and g.get("tie_bars") for g in ds.by_type["grade_beam"])]
     # sections
     sh.section_cut((px(33), py(-4)), (px(33), py(9)), "1", "S-601",
                    ["COL-2A", "BP-2A", "P-2A", "F-2A", "GB-A-12", "GB-A-23"])
-    sh.section_cut((px(57), py(-4)), (px(57), py(12)), "3", "S-601", ["F-3A", "P-3A", "COL-3A", "BP-3A", "GB-3-AB", "BR-L1-3-AB-S"])
+    sb = ds.scbf_base()   # cut along the braced line, 3 ft inside the building from the column
+    col = ds.cols[sb["col"]]
+    # east of the column the cut also clears the footing mark, which is drawn on that side of the pier
+    f_ = foot[sb["col"]]
+    clear = (pier[sb["col"]]["b_in"] / 12 / 2 * PS + 3 + tlen(ftg_mark(f_["B_ft"]), 10, BOLD) + 10) / PS
+    xc = col["x"] + (max(3.0, clear) if col["x"] < (GX[0][1] + GX[-1][1]) / 2 else -3.0)
+    ya_, yb_ = (col["y"] - 4, col["y"] + 12) if col["y"] < (GY[0][1] + GY[-1][1]) / 2 else (col["y"] - 12, col["y"] + 4)
+    c_ = sb["col"]
+    sh.section_cut((px(xc), py(ya_)), (px(xc), py(yb_)), "3", "S-601",
+                   [f"F-{c_}", f"P-{c_}", f"COL-{c_}", f"BP-{c_}", sb["gb"], sb["brace"]])
     sh.drawing_title(215, 1530, "1", "FOUNDATION PLAN", "3/16\" = 1'-0\"")
     sh.north_arrow(1880, 1560)
     sh.scale_bar(1400, 1540, PS, "GRAPHIC SCALE")
@@ -806,7 +890,9 @@ def sheet_foundation(ds: DrawingSet):
          ["MAT:CONC-4000", "MAT:REBAR-A615"]),
         ("CENTER FOOTINGS AND PIERS ON COLUMN GRID INTERSECTIONS U.N.O.", []),
         ("BASE PLATES AND ANCHOR RODS PER COLUMN SCHEDULE S-401 AND DETAILS 4/S-502 THRU 7/S-502.", ["MAT:F1554"]),
-        ("GB1 = PERIMETER WALL GRADE BEAM. GB2 = BRACED FRAME TIE GRADE BEAM. SEE GRADE BEAM SCHEDULE.", []),
+        ("GB1 = PERIMETER WALL GRADE BEAM. GB2 = BRACED FRAME TIE GRADE BEAM"
+         + (f" (ALSO CARRIES THE PERIMETER WALL ON {lines_of(edge_ties)})" if edge_ties else "")
+         + ". SEE GRADE BEAM SCHEDULE.", []),
     ])
     y += 14
     sh.text(NOTES_X0, y, "FOOTING SCHEDULE", 11, BOLD)
@@ -840,7 +926,7 @@ def sheet_foundation(ds: DrawingSet):
         g = gbs[mk][0]
         y += 15
         vals = [mk, f"{g['b_in']}\"", f"{g['h_in']}\"", "(3) #6 T&B" + (" + " + g["tie_bars"].replace(" cont.", " CONT") if g["tie_bars"] else ""),
-                "TIE" if g["tie_bars"] else "WALL"]
+                ("WALL + TIE" if any(e["line"] in edge for e in gbs[mk]) else "TIE") if g["tie_bars"] else "WALL"]
         boxes = [sh.text(x, y, v, 7.5, BOLD if i == 0 else HELV) for i, (x, v) in enumerate(zip(xs, vals))]
         sh.line((NOTES_X0, y + 4), (NOTES_X1, y + 4), width=0.3)
         sh.occ([e["id"] for e in gbs[mk]], "schedule_row", " ".join(vals), bb(*boxes))
@@ -902,7 +988,7 @@ def sheet_framing(ds: DrawingSet, level: str, number: str):
             elif t.startswith("DC"):
                 box = sh.drag_diamond(q)
                 sh.occ(c["id"], "plan_tag", "", box, symbol="drag_connection")
-    # braced frame below: heavy dashed line offset from line 3 girders in braced bays
+    # braced frame below: heavy dashed line offset from the SCBF-line girders in braced bays
     for m in sfrs_x:
         (x1, y1, _), (x2, y2, _) = m["p1"], m["p2"]
         X = px(x1) + 9
@@ -970,7 +1056,7 @@ def sheet_framing(ds: DrawingSet, level: str, number: str):
         ("moment", "MOMENT CONNECTION (MC-1, RBS). SEE 1/S-501."),
         ("drag", "DRAG / COLLECTOR CONNECTION (DC). SEE 8/S-501."),
         ("column", "STEEL COLUMN BELOW / ABOVE. SEE COLUMN SCHEDULE S-401."),
-        ("brace", "SPECIAL CONCENTRICALLY BRACED FRAME BELOW. SEE S-301."),
+        ("brace", f"SPECIAL CONCENTRICALLY BRACED FRAME BELOW. SEE {ds.bf_sheet}."),
         ("callout", "DETAIL CALLOUT: DETAIL NUMBER OVER SHEET NUMBER."),
         ("section", "SECTION CUT. SEE S-601."),
         ("text", ("W##X## (n) c=#\"", "MEMBER SIZE, (n) TOTAL SHEAR STUDS, c= MIDSPAN CAMBER. * = SFRS MEMBER.")),
@@ -1043,6 +1129,8 @@ def elevation(ds: DrawingSet, sh: Sheet, line: str, axis: str, ox: float, base: 
     braced_left = {}   # column -> side for tag (outside the braced bay)
     if axis == "y":
         for e in ds.by_type.get("brace", []):
+            if e["frame"] != f"SCBF-{line}":
+                continue
             bay = e["id"].split("-")[3]
             braced_left[f"{line}{bay[0]}"] = "l"
             braced_left[f"{line}{bay[1]}"] = "r"
@@ -1119,24 +1207,58 @@ def elevation(ds: DrawingSet, sh: Sheet, line: str, axis: str, ox: float, base: 
 
 
 def sheet_elevations(ds: DrawingSet):
-    sh = Sheet(ds, "S-301", "MOMENT FRAME ELEVATIONS AND BRACED FRAME ELEVATION", "elevation", None, "1/8\" = 1'-0\"")
-    sh.frame()
-    elevation(ds, sh, "A", "x", 250, 442, "1")
-    elevation(ds, sh, "D", "x", 250, 948, "2")
-    elevation(ds, sh, "3", "y", 250, 1454, "3")
-    notes_column(sh, "FRAME ELEVATION NOTES", [
-        ("* INDICATES MEMBER OF THE SEISMIC FORCE-RESISTING SYSTEM (SFRS).", ["FRAME:SMF-A", "FRAME:SMF-D", "FRAME:SCBF-3"]),
+    """S-301: the SMF elevations, plus the braced frame elevation when there is one SCBF line;
+    with more SCBF lines the braced frames go on S-302, one elevation per line."""
+    slots = [(442, "1"), (948, "2"), (1454, "3")]
+    sheets = elevation_sheets(ds)
+    mf_notes = [
         ("SMF BEAM-TO-COLUMN CONNECTIONS ARE MC-1 REDUCED BEAM SECTION (RBS) PER AISC 358 CH. 5, SEE 1/S-501. "
-         "PROTECTED ZONE AT EACH RBS: NO ATTACHMENTS.", ["DETAIL:MC-1"]),
+         "PROTECTED ZONE AT EACH RBS: NO ATTACHMENTS.", ["DETAIL:MC-1"])]
+    bf_notes = [
         ("SCBF BRACE CONNECTIONS: GUSSET PLATES BG-1 THRU BG-3 PER 1/S-502 THRU 3/S-502, DESIGNED FOR EXPECTED BRACE "
-         "TENSION RY FY AG.", ["DETAIL:BG-1", "DETAIL:BG-2", "DETAIL:BG-3"]),
-        ("COLLECTOR (DRAG) BEAMS IN BAYS 1-2 AND 4-5 OF LINES A AND D AND BAY B-C OF LINE 3: DRAG CONNECTIONS DC-1 THRU "
-         "DC-3 PER 8/S-501 THRU 10/S-501.", ["DETAIL:DC-1", "DETAIL:DC-2", "DETAIL:DC-3"]),
-        ("SMF COLUMN BASES: FIXED BASE PLATE BP-3 (6/S-502). SCBF COLUMN BASES: BP-4 WITH SHEAR LUG (7/S-502).",
-         ["DETAIL:BP-3", "DETAIL:BP-4"]),
-        ("HSS BRACES ASTM A500 GR C; W SHAPES ASTM A992.", ["MAT:A500C", "MAT:A992"]),
-        ("FOUNDATIONS SHOWN DASHED FOR REFERENCE; SEE S-101.", []),
-    ])
+         "TENSION RY FY AG.", ["DETAIL:BG-1", "DETAIL:BG-2", "DETAIL:BG-3"])]
+    coll_x, coll_y = bays_txt(ds.lat["collectors_x"]), bays_txt(ds.lat["collectors_y"])
+    drag = ["DETAIL:DC-1", "DETAIL:DC-2", "DETAIL:DC-3"]
+    tail = [("HSS BRACES ASTM A500 GR C; W SHAPES ASTM A992.", ["MAT:A500C", "MAT:A992"]),
+            ("FOUNDATIONS SHOWN DASHED FOR REFERENCE; SEE S-101.", [])]
+    if len(sheets) == 1:
+        sh = Sheet(ds, *sheets[0], "elevation", None, "1/8\" = 1'-0\"")
+        sh.frame()
+        for (base, num), (line, axis) in zip(slots, [(l, "x") for l in ds.mf] + [(l, "y") for l in ds.bf]):
+            elevation(ds, sh, line, axis, 250, base, num)
+        notes_column(sh, "FRAME ELEVATION NOTES", [
+            ("* INDICATES MEMBER OF THE SEISMIC FORCE-RESISTING SYSTEM (SFRS).", ds.smf_frames + ds.scbf_frames),
+            *mf_notes, *bf_notes,
+            (f"COLLECTOR (DRAG) BEAMS IN {coll_x} AND {coll_y}: DRAG CONNECTIONS DC-1 THRU "
+             "DC-3 PER 8/S-501 THRU 10/S-501.", drag),
+            ("SMF COLUMN BASES: FIXED BASE PLATE BP-3 (6/S-502). SCBF COLUMN BASES: BP-4 WITH SHEAR LUG (7/S-502).",
+             ["DETAIL:BP-3", "DETAIL:BP-4"]),
+            *tail])
+        return
+    sh = Sheet(ds, *sheets[0], "elevation", None, "1/8\" = 1'-0\"")
+    sh.frame()
+    for (base, num), line in zip(slots, ds.mf):
+        elevation(ds, sh, line, "x", 250, base, num)
+    notes_column(sh, "FRAME ELEVATION NOTES", [
+        ("* INDICATES MEMBER OF THE SEISMIC FORCE-RESISTING SYSTEM (SFRS).", ds.smf_frames),
+        *mf_notes,
+        (f"COLLECTOR (DRAG) BEAMS IN {coll_x}: DRAG CONNECTIONS DC-1 THRU DC-3 PER 8/S-501 THRU 10/S-501.", drag),
+        ("SMF COLUMN BASES: FIXED BASE PLATE BP-3 (6/S-502).", ["DETAIL:BP-3"]),
+        (f"BRACED FRAME ELEVATIONS ({lines_of(ds.bf)}): SEE {sheets[1][0]}.", ds.scbf_frames),
+        ("W SHAPES ASTM A992.", ["MAT:A992"]),
+        tail[1]])
+    sh = Sheet(ds, *sheets[1], "elevation", None, "1/8\" = 1'-0\"")
+    sh.frame()
+    for (base, num), line in zip(slots, ds.bf):
+        elevation(ds, sh, line, "y", 250, base, num)
+    notes_column(sh, "BRACED FRAME ELEVATION NOTES", [
+        ("* INDICATES MEMBER OF THE SEISMIC FORCE-RESISTING SYSTEM (SFRS).", ds.scbf_frames),
+        *bf_notes,
+        ("CHEVRON BRACES: BRACED-BAY GIRDERS ARE DESIGNED FOR THE AISC 341 F2.3 UNBALANCED LOAD (BRACES AT EXPECTED "
+         "TENSION AND POST-BUCKLING COMPRESSION) AND THE FRAME LOAD COMBINATIONS; SEE CALC C5.", ds.scbf_frames),
+        (f"COLLECTOR (DRAG) BEAMS IN {coll_y}: DRAG CONNECTIONS DC-1 THRU DC-3 PER 8/S-501 THRU 10/S-501.", drag),
+        ("SCBF COLUMN BASES: BP-4 WITH SHEAR LUG (7/S-502).", ["DETAIL:BP-4"]),
+        *tail])
 
 
 # =========================================================================== S-401 schedules
@@ -1543,10 +1665,11 @@ def sheet_sections(ds: DrawingSet):
     tag(cx - 320, top - 90, "3/4\" DIA HEADED STUDS, 1 PER RIB MIN", ["MAT:STUD"], (cx - 14, top - 20))
     tag(cx - 320, top + 40, "T.O.S. LEVEL 2 EL. 14'-0\"", ["LEVEL:L2"])
     sh.drawing_title(1070, top + d + 120, "2", "SECTION AT COMPOSITE FLOOR BEAM - LEVEL 2", "1-1/2\" = 1'-0\"", width=440)
-    # 3: SCBF base on line 3 at A (cut along line 3)
+    # 3: SCBF base at the first braced bay of the first SCBF line (cut along that line, as on S-101)
+    sb = ds.scbf_base()
     gl3 = 1250.0
-    yb3 = footing_stack(560, gl3, "3A", "GB-3-AB", False)
-    br = ds.el["BR-L1-3-AB-S"]
+    yb3 = footing_stack(560, gl3, sb["col"], sb["gb"], False)
+    br = ds.el[sb["brace"]]
     sh.line((560 + 20, gl3 - 10), (560 + 230, gl3 - 250), width=2.4)
     sh.line((560 + 32, gl3 - 4), (560 + 242, gl3 - 244), width=2.4)
     sh.poly([(560 + 7 * k, gl3 - 4), (560 + 90, gl3 - 4), (560 + 7 * k, gl3 - 100)], width=1.1)
@@ -1555,7 +1678,8 @@ def sheet_sections(ds: DrawingSet):
     num, s = DETAIL_AT[dtype(cxi)]
     tag(560 + 250, gl3 - 120, f"GUSSET {dtype(cxi)} PER {num}/{s}", [cxi["id"]], (560 + 60, gl3 - 30))
     ds.rel(cxi["id"], f"DET:{num}/{s}", "detailed-by")
-    sh.drawing_title(300, yb3 + 60, "3", "SECTION AT SCBF COLUMN BASE - LINE 3 / A", "3/4\" = 1'-0\"", width=440)
+    sh.drawing_title(300, yb3 + 60, "3", f"SECTION AT SCBF COLUMN BASE - LINE {sb['line']} / {sb['bay'][0]}", "3/4\" = 1'-0\"",
+                     width=440)
     notes_column(sh, "SECTION NOTES", [
         ("SECTIONS ARE CUT ON S-101 AND S-201. FOOTING, PIER AND GRADE BEAM SIZES PER S-101 AND S-401.", []),
         ("PROVIDE 3\" CLEAR COVER TO REINFORCING CAST AGAINST EARTH.", ["MAT:REBAR-A615"]),

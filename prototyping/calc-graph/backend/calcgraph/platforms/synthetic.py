@@ -425,6 +425,19 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
     rng = random.Random(seed)
     as_of_d = as_of_date(as_of)
     els = {e["id"]: e for e in design["elements"]}
+    # the design's lateral frames (FRAME:SMF-A, FRAME:SCBF-1, ...): one connection submittal per frame
+    # line, whatever lines the layout has; the first SCBF line carries the revise-and-resubmit story
+    smf_frames = sorted(k.split(":", 1)[1] for k, e in els.items() if e["type"] == "frame" and e.get("system") == "SMF")
+    scbf_frames = sorted(k.split(":", 1)[1] for k, e in els.items() if e["type"] == "frame" and e.get("system") == "SCBF")
+    rr_frame = scbf_frames[0] if scbf_frames else None
+    scbf_line = rr_frame.split("-", 1)[1] if rr_frame else ""
+    scbf_cols = sorted(k[4:] for k, e in els.items() if e["type"] == "column" and "scbf_column" in (e.get("roles") or []))
+    # the RFI narratives name a real element of the design's braced frame: an interior braced-frame column,
+    # an L2 brace of the first braced line and its collector girder
+    rfi_col = next((c for c in scbf_cols if c[:-1] == scbf_line and c[-1] in "BC"), scbf_cols[0] if scbf_cols else "3B")
+    rfi_brace = next((k for k in sorted(els) if k.startswith(f"BR-L2-{scbf_line}-") and k.endswith("-N")), "BR-L2-3-AB-N")
+    rfi_coll = next((k for k in sorted(els) if k.startswith(f"G-L2-{scbf_line}-") and "collector" in (els[k].get("roles") or [])),
+                    "G-L2-3-BC")
     rels = design["relations"]
 
     def seq_of_x(x: float) -> str:
@@ -484,11 +497,12 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
         act(f"FDN-{s}", f"Footings, piers, grade beams {sl}: excavate, form, set rods, pour", "3.3 Foundations - construct",
             12, [f"DEL-RB-{s}", "DEL-AR", "REV-MIX", "MOB"] + crew, f"SUB-RB-{s}")
     # steel: frame-line connection submittals gate the first fabrication
-    for fl, nm in (("SMF-A", "SMF line A moment connections (RBS)"), ("SMF-D", "SMF line D moment connections (RBS)"),
-                   ("SCBF-3", "SCBF line 3 brace gusset connections")):
+    frame_subs = [(fl, f"SMF line {fl[4:]} moment connections (RBS)") for fl in smf_frames] + \
+                 [(fl, f"SCBF line {fl[5:]} brace gusset connections") for fl in scbf_frames]
+    for fl, nm in frame_subs:
         act(f"DET-{fl}", f"{nm}: detail", "4.1 Steel - submittals", 10, ["MS-NTP"], f"SUB-{fl}")
-        act(f"REV-{fl}", f"{nm}: EOR review" + (" (rev 0 R&R, rev 1)" if fl == "SCBF-3" else ""),
-            "4.1 Steel - submittals", 20 if fl == "SCBF-3" else 10, [f"DET-{fl}"], f"SUB-{fl}")
+        act(f"REV-{fl}", f"{nm}: EOR review" + (" (rev 0 R&R, rev 1)" if fl == rr_frame else ""),
+            "4.1 Steel - submittals", 20 if fl == rr_frame else 10, [f"DET-{fl}"], f"SUB-{fl}")
     prev = None
     pkgs_order = [(lv, s) for lv, _ in LV for s, _ in SQ]
     for i, (lv, s) in enumerate(pkgs_order):
@@ -498,7 +512,7 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
         act(f"DET-{k}", f"Steel shop drawings {lname} {sname}: detail", "4.1 Steel - submittals",
             14 if i == 0 else 9, ["MS-NTP"] + ([f"DET-{prev}"] if prev else []), pkg)
         act(f"REV-{k}", f"Steel shop drawings {lname} {sname}: EOR review", "4.1 Steel - submittals", 10, [f"DET-{k}"], pkg)
-        fab_pred = [f"REV-{k}"] + ([f"FAB-{prev}"] if prev else ["REV-SMF-A", "REV-SMF-D", "REV-SCBF-3"])
+        fab_pred = [f"REV-{k}"] + ([f"FAB-{prev}"] if prev else [f"REV-{fl}" for fl, _ in frame_subs])
         act(f"FAB-{k}", f"Steel {lname} {sname}: fabricate", "4.2 Steel - fabrication", 8, fab_pred, pkg)
         del_pred = [f"FAB-{k}"] + ([(f"ERECT-{prev}", "SS", 4)] if prev else [])
         act(f"DEL-{k}", f"Steel {lname} {sname}: deliver", "4.3 Steel - delivery", 2, del_pred, pkg)
@@ -667,12 +681,11 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
             "Structural Steel Framing", "anchor_rods", ["DET-AR", "REV-AR", "FAB-AR", "DEL-AR", "FDN-S2"],
             [e for e in fdn_all if e.startswith("BP-")], C["steel"])
     n = 2
-    for fl, nm in (("SMF-A", "Special moment frame line A - RBS moment connections (MC-1)"),
-                   ("SMF-D", "Special moment frame line D - RBS moment connections (MC-1)"),
-                   ("SCBF-3", "Special concentrically braced frame line 3 - brace gusset connections")):
+    for fl, nm in [(fl, f"Special moment frame line {fl[4:]} - RBS moment connections (MC-1)") for fl in smf_frames] + \
+                  [(fl, f"Special concentrically braced frame line {fl[5:]} - brace gusset connections") for fl in scbf_frames]:
         add_sub(f"SUB-{fl}", f"05 12 00-{n:03d}", nm, "05 12 00", "Structural Steel Framing", "connection_design",
-                [f"DET-{fl}", f"REV-{fl}"], frame_elems(fl), C["steel"], revision=1 if fl == "SCBF-3" else 0,
-                response_override="Approved as Noted" if fl == "SCBF-3" else "Approved")
+                [f"DET-{fl}", f"REV-{fl}"], frame_elems(fl), C["steel"], revision=1 if fl == rr_frame else 0,
+                response_override="Approved as Noted" if fl == rr_frame else "Approved")
         n += 1
     for lv, s in pkgs_order:
         k = f"ST-{lv}-{s}"
@@ -715,20 +728,20 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
 
     dd = data_day
     rfi_specs = [
-        ("RFI-001", "Anchor rod projection at base plate BP-3B vs pier P-3B ties",
-         "Pier P-3B top ties conflict with the anchor rod template at BP-3B (SCBF column). Confirm tie spacing may "
+        ("RFI-001", f"Anchor rod projection at base plate BP-{rfi_col} vs pier P-{rfi_col} ties",
+         f"Pier P-{rfi_col} top ties conflict with the anchor rod template at BP-{rfi_col} (SCBF column). Confirm tie spacing may "
          "open to 6 in. within 8 in. of the pier top.",
          "Ties may be relocated as proposed; keep (2) #4 ties within top 5 in. See SK-S-01.",
-         "closed", ["BP-3B", "P-3B", "COL-3B"], -95, -88, "S-501", "03 20 00", "no", "no"),
+         "closed", [f"BP-{rfi_col}", f"P-{rfi_col}", f"COL-{rfi_col}"], -95, -88, "S-501", "03 20 00", "no", "no"),
         ("RFI-002", "Shear tab ST-5 at G-L3-2-BC to COL-2B: tab clashes with column flange stiffener",
          "Detailer reports the ST-5 tab for girder G-L3-2-BC at COL-2B lands on the stiffener of the SMF-adjacent "
          "column detail. Request alternate tab location or extended tab.",
          None, "open", ["CX-G-L3-2-BC-i", "G-L3-2-BC", "COL-2B"], -6, None, "S-401", "05 12 00", "tbd", "tbd"),
-        ("RFI-003", "SCBF gusset BG-3 at BR-L2-3-AB-N: gusset vs deck rib at Level 3",
-         "Gusset plate BG-3 at the top of BR-L2-3-AB-N projects 2 in. above top of steel into the deck flute at "
-         f"{frames_into('BR-L2-3-AB-N', 'j') or 'G-L3-3-AB'}. Confirm deck closure / notch acceptable.",
+        ("RFI-003", f"SCBF gusset BG-3 at {rfi_brace}: gusset vs deck rib at Level 3",
+         f"Gusset plate BG-3 at the top of {rfi_brace} projects 2 in. above top of steel into the deck flute at "
+         f"{frames_into(rfi_brace, 'j')}. Confirm deck closure / notch acceptable.",
          "Notch deck and provide pour stop closure per detail 7/S-402; gusset geometry unchanged.",
-         "answered", ["CX-BR-L2-3-AB-N-j", "BR-L2-3-AB-N", frames_into("BR-L2-3-AB-N", "j") or "G-L3-3-AB"], -30, -18,
+         "answered", [f"CX-{rfi_brace}-j", rfi_brace, frames_into(rfi_brace, "j")], -30, -18,
          "S-402", "05 12 00", "no", "no"),
         ("RFI-004", "Footing F-2B top of footing vs storm line crossing",
          "Civil storm line crosses under F-2B at el. -3.5 ft. Request lowering F-2B by 1'-0\".",
@@ -742,9 +755,9 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
          "Mechanical RTU-2 curb is 14 ft x 8 ft; infill beams B-RF-34-AB1/AB2 at 10 ft spacing do not catch the curb. "
          "Provide curb support framing.",
          None, "open", ["B-RF-34-AB1", "B-RF-34-AB2", "G-RF-3-AB", "G-RF-4-AB"], -4, None, "S-203", "05 12 00", "tbd", "tbd"),
-        ("RFI-007", "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+        ("RFI-007", f"Drag connection DC-1 at collector {rfi_coll}: bolt count",
          "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.",
-         None, "draft", ["CX-G-L2-3-BC-i", "CX-G-L2-3-BC-j", "G-L2-3-BC"], -1, None, "S-402", "05 12 00", "tbd", "tbd"),
+         None, "draft", [f"CX-{rfi_coll}-i", f"CX-{rfi_coll}-j", rfi_coll], -1, None, "S-402", "05 12 00", "tbd", "tbd"),
     ]
     rfis = []
     for ref, subj, q, ans, st, eids, d_open, d_ans, sheet, spec, ci, si in rfi_specs:
@@ -881,8 +894,9 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
         ("S-203", "Roof framing plan", ids_where(lambda e: e.get("level") == "RF" and e["type"] in ("beam", "girder")) + ["DK-RF"]),
         ("S-301", "Special moment frame elevations - lines A and D",
          ids_where(lambda e: (e.get("frame") or "").startswith("SMF") or any(f.startswith("SMF") for f in e.get("frames") or []))),
-        ("S-302", "Braced frame elevation - line 3",
-         ids_where(lambda e: e.get("frame") == "SCBF-3" or "SCBF-3" in (e.get("frames") or []))),
+        ("S-302", "Braced frame elevation" + ("s" if len(scbf_frames) > 1 else "") + " - line"
+         + ("s " if len(scbf_frames) > 1 else " ") + " and ".join(f[5:] for f in scbf_frames),
+         ids_where(lambda e: (e.get("frame") or "") in scbf_frames or any(f in scbf_frames for f in e.get("frames") or []))),
         ("S-401", "Typical beam connection details (ST-2 to ST-7)",
          ids_where(lambda e: e["type"] == "connection" and e["conn_type"].startswith("ST"))),
         ("S-402", "Moment, drag and brace connection details",
