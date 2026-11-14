@@ -142,7 +142,9 @@ def main() -> None:
                                                                      == p2t.get(l["calc_key"]))}
 
         # ---------------- load path ----------------
-        pred_lp = {(e["src"], e["dst"]) for e in s["edges"]}
+        # v1 truth models connection plates as path nodes (member -> plate -> support), so the
+        # derived member -> support edge that loadpath adds "via" a plate is not part of it
+        pred_lp = {(e["src"], e["dst"]) for e in s["edges"] if "via connection" not in (e.get("rule") or "")}
         true_lp = {tuple(x) for x in truth["load_path"]}
         report["load_path_rev1"] = prf(len(pred_lp & true_lp), len(pred_lp - true_lp), len(true_lp - pred_lp))
 
@@ -164,7 +166,7 @@ def main() -> None:
                    "reject": by2.get((drop["global_id"], drop["calc_key"]), {}).get("status")}
         diff = st.compare_models(rev1, rev2)
         r2 = truth["rev2"]
-        pred_lp2 = {(e["src"], e["dst"]) for e in s2["edges"]}
+        pred_lp2 = {(e["src"], e["dst"]) for e in s2["edges"] if "via connection" not in (e.get("rule") or "")}
         true_lp2 = {tuple(x) for x in r2["load_path"]}
         report["revisions"] = {
             "model_revisions": [r["id"] for r in st.revisions(pid) if r["kind"] == "model"],

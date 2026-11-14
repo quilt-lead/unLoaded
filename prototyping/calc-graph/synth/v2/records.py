@@ -170,7 +170,7 @@ def export(d: dict) -> dict:
         tid = typ(f"TYPE:{r['size']}", kind="section", name=r["size"], material="MAT:A992")
         frames = info["frames"]
         els.append({"id": cid, "type": "column", "size": r["size"], "grid": info["grid"], "x": r1(info["x"], 3),
-                    "y": r1(info["y"], 3), "z0": 0.0, "z1": LV_Z["RF"], "roles": info["roles"], "frames": frames,
+                    "y": r1(info["y"], 3), "z0": round(PIER_TOP + d["base_plates"][c]["t"] / 12, 4), "z1": LV_Z["RF"], "roles": info["roles"], "frames": frames,
                     "sfrs": info["roles"] != ["gravity"]})
         rel(cid, tid, "instance-of")
         rel(cid, f"GRID:{c[:-1]}", "member-of")
@@ -204,7 +204,7 @@ def export(d: dict) -> dict:
         rel(bpid, f"DETAIL:{btype}", "instance-of")
         rel(cid, bpid, "connected-by")
         rel(cid, pid, "bears-on", via=bpid)
-        rel(bpid, pid, "bears-on")
+        rel(bpid, pid, "connected-by")
         rec(f"E-BP:{c}", "E5", [bpid], "base_plate", {"type": bp["type"], "plate": f"PL{bp['t']}x{bp['B']:.0f}x{bp['N']:.0f}",
                                                     "rods": bp["rods"], "Pu_k": r1(bp["pu"], 1), "phiPp_k": r1(bp["phi_pp"], 1)},
             bp["pu"], bp["phi_pp"], bp["uc"], "concrete bearing (J8-2)", "", "kip", [rid, f"E-TYP:{btype}"])
@@ -231,8 +231,8 @@ def export(d: dict) -> dict:
                     "p2": [r1(g["p2"][0], 3), r1(g["p2"][1], 3), FTG_TOP], "b_in": g["b_in"], "h_in": g["h_in"],
                     "tie_bars": g["tie_bars"]})
         rel(gid, "MAT:CONC-4000", "instance-of")
-        rel(gid, f"F-{g['a']}", "frames-into")
-        rel(gid, f"F-{g['b']}", "frames-into")
+        rel(gid, f"F-{g['a']}", "frames-into", end="i")
+        rel(gid, f"F-{g['b']}", "frames-into", end="j")
         rel(gid, f"GRID:{g['line']}", "member-of")
         rec(f"D-GB:{gid}", "D3", [gid], "grade_beam",
             {"b_in": g["b_in"], "h_in": g["h_in"], "span_ft": r1(g["span"]), "Mu_kft": r1(g["mu"], 1), "phiMn_kft": r1(g["phimn"], 1),

@@ -37,6 +37,7 @@ def pr(pred: set, truth: set) -> tuple[float, float]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(ROOT, "data", "synthetic_v2", "move_eval.json"))
+    ap.add_argument("--json-out", default=None, help="evaluate_all contract: {metrics, gated}")
     a = ap.parse_args()
     base = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "design.json")))
     key = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "answer_key.json")))
@@ -86,6 +87,16 @@ def main() -> None:
         "health": {"exact": agree, "within_one": within, "confusion_truth_x_engine": conf},
     }
     json.dump({"summary": summary, "rows": rows, "uc_errors": errs}, open(a.out, "w"), indent=1)
+    if a.json_out:
+        m = {"stale_topological_precision": summary["stale_topological"]["precision"],
+             "stale_topological_recall": summary["stale_topological"]["recall"],
+             "stale_screened_precision": summary["stale_screened"]["precision"],
+             "stale_screened_recall": summary["stale_screened"]["recall"],
+             "uc_within_0_05": summary["uc_error"]["within_0.05"],
+             "uc_over_flag_agreement": summary["uc_error"]["over_flag_agreement"],
+             "health_band_exact": agree / max(1, len(rows)), "health_band_within_one": within / max(1, len(rows)),
+             "uc_abs_err_p90": summary["uc_error"]["p90"]}
+        json.dump({"metrics": m, "gated": [k for k in m if k != "uc_abs_err_p90"]}, open(a.json_out, "w"), indent=1)
     for r in rows:
         print(f"{r['id']} P/R topo {r['P_topo']:.2f}/{r['R_topo']:.2f}  scr {r['P_scr']:.2f}/{r['R_scr']:.2f}  "
               f"uc err {r['uc_med_err']}  band {r['band']:<11} truth {r['truth_band']:<11} {r['label'][:48]}")

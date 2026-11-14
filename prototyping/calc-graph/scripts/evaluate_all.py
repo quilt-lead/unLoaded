@@ -111,7 +111,8 @@ def st_v2_ifc(a) -> dict:
     gid = {e["id"]: e.get("global_id") for e in d["elements"]}
     true_lp = {(gid[r["src"]], gid[r["dst"]]) for r in d["relations"]
                if r["kind"] in ("frames-into", "bears-on") and gid.get(r["src"]) and gid.get(r["dst"])}
-    pred_lp = {(e["src"], e["dst"]) for e in loadpath.infer(els)}
+    # the load path proper; connected-by edges are the connection nodes on it (not frames-into / bears-on)
+    pred_lp = {(e["src"], e["dst"]) for e in loadpath.infer(els) if e.get("kind") in ("frames-into", "bears-on")}
     lp, lr = prf(len(pred_lp & true_lp), len(pred_lp - true_lp), len(true_lp - pred_lp))
     und = lambda s: {frozenset(x) for x in s}
     ulp, ulr = prf(len(und(pred_lp) & und(true_lp)), len(und(pred_lp) - und(true_lp)), len(und(true_lp) - und(pred_lp)))
