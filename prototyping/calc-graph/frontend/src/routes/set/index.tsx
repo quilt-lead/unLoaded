@@ -1,20 +1,12 @@
-// R2 owns src/routes/set. Placeholder until the drawing-set view is ported.
+// R2 owns src/routes/set: the drawing-set view (elements, calc records, calc pages, connections,
+// findings, graph, 3D from the plans, inspector and split evidence).
 import { Routes, Route } from "react-router-dom";
+import SetApp from "./SetApp";
 
 export default function SetRoutes() {
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <div className="page">
-            <h1>Drawing-set view</h1>
-            <p className="page-lede">
-              Being ported to React. Meanwhile use the <a href="/legacy/set.html">legacy page</a>.
-            </p>
-          </div>
-        }
-      />
+      <Route index element={<SetApp />} />
     </Routes>
   );
 }
