@@ -333,6 +333,19 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
                     "text": text, "rule": rule, "confidence": conf})
 
     sheets = {s["sheet"]: s for s in plans["sheets"]}
+    _pw = {}
+
+    _pl = {}
+
+    def page_lines(pno):
+        if pno not in _pl:
+            _pl[pno] = _lines_of(doc[pno - 1])
+        return _pl[pno]
+
+    def page_words(pno):
+        if pno not in _pw:
+            _pw[pno] = doc[pno - 1].get_text("words")
+        return _pw[pno]
     # ---- grid bubbles
     for s in plans["sheets"]:
         for ax in ("cols", "rows"):
@@ -353,7 +366,7 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
         cx, cy = (el["bbox"][0] + el["bbox"][2]) / 2, (el["bbox"][1] + el["bbox"][3]) / 2
         pt = T(cx, cy)
         storeys = _storeys_for(s["level"], info)
-        bbox = _union(el["rects"])
+        bbox = _tag_box(page_words(s["page"]), el)
         if el["mark"]:
             want = {"F": ("footing", "centre"), "P": ("pier", "centre"), "G": ("grade_beam", "axis"), "T": ("grade_beam", "axis")}.get(el["mark"][0])
             if not want or el["mark"] == "SMF":
@@ -364,6 +377,9 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
                 tag_of[el["id"]] = nid
                 marks[el["mark"]].add(nid)
                 docc(nid, s, bbox, "plan_tag", el["text"], f"plan mark -> nearest {want[0]} in plan (registered by grid)", conf)
+                for (src, dst, k) in list(R.rels):
+                    if src == nid and k == "instance-of" and R.nodes[dst]["kind"] == "type":
+                        docc(dst, s, bbox, "plan_tag", el["text"], "plan mark of an instance of this type", conf)
                 stats["plan tags resolved"] += 1
             else:
                 stats["plan tags unresolved"] += 1
@@ -405,7 +421,7 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
             docc(fid, s, w[:4], "plan_tag", w[4], "frame system marker on a plan, nearest grid line", "inferred")
             stats["frame markers"] += 1
     # ---- elevations
-    _elevations(R, doc, plans, info, grid, docc, stats, tag_of)
+    views = _elevations(R, doc, plans, info, grid, docc, stats, tag_of)
     # ---- details, callouts, plan symbols (connections reader)
     con = connections.build(path, plans["sheets"], plans["elements"], [], {}, profile=pf)
     det_type = {}
@@ -422,9 +438,18 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
             R.rel(tid, did, "detailed-by", "detail title names the typical detail mark")
             docc(tid, sheets[t["sheet"]], _union(t["title_rects"]), "detail", t["title"], "detail title", "exact")
             det_type[t["id"]] = tid
-            for sp in t.get("spec", []):
-                for mid in governs(sp["text"], R)["materials"]:
-                    docc(mid, sheets[t["sheet"]], sp["rect"], "detail", sp["text"], "material designation inside a detail", "exact")
+            pls = [l for l in page_lines(t["page"]) if t["bbox"][0] <= l["bbox"][0] and l["bbox"][2] <= t["bbox"][2]
+                   and t["bbox"][1] <= l["bbox"][1] and l["bbox"][3] <= t["number_rect"][1] - 2 and l["dir"][0] > 0.99]
+            for l in pls:
+                g = governs(l["text"], R)
+                for mid in g["materials"]:
+                    docc(mid, sheets[t["sheet"]], l["bbox"], "detail", l["text"], f"material named inside a detail ({g['why'][mid]})",
+                         "exact" if g["why"][mid] == "designation" else "inferred")
+            # the detail's caption: the text line directly above its title bar (capacity / type summary)
+            cap = [l for l in pls if 0 <= t["number_rect"][1] - l["bbox"][3] <= 50]
+            if cap:
+                l = max(cap, key=lambda l: l["bbox"][3])
+                docc(tid, sheets[t["sheet"]], l["bbox"], "detail", l["text"], "caption line above the detail's title bar", "inferred")
     plates = [n for n, x in info.items() if x["type"] == "connection"]
     for ins in con["instances"]:
         s = sheets[ins["sheet"]]
@@ -451,11 +476,57 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
         if not sym and ins.get("type_id"):
             R.rel(nid, f"DET:{ins['type_id']}", "detailed-by", "callout bubble points at the drawn detail", conf)
         stats[f"connection instances resolved ({how})"] += 1
+    # ---- connection symbols on elevations: the set's plan legend exemplars, found in each registered view
+    lg_sheet = next((sh for sh, lg in con["legends"].items() if lg), None)
+    if lg_sheet and views:
+        s0 = sheets[lg_sheet]
+        pg = doc[s0["page"] - 1]
+        legend = con["legends"][lg_sheet]
+        tpl = connections.legend_templates(pg.get_drawings(), legend, min(v["rect"][0] for v in legend.values()))
+        for v in views:
+            s = v["sheet"]
+            drw = doc[s["page"] - 1].get_drawings()
+            for sym in connections.find_by_template(drw, tpl, (40, v["y0"], s["cutoff"], v["y1"])):
+                r = sym["rect"]
+                tid = det_type.get((legend.get(sym["kind"]) or {}).get("detail") or "")
+                if not tid:
+                    continue
+                fam = tid.split(":")[1].split("-")[0]
+                pt = v["to3d"]((r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2)
+                cands = [n for n in plates if (info[n]["mark"] or "").split("-")[0] == fam]
+                nid, conf = _conf(_nearest(pt, cands, info, "centre"), 1.0)
+                if nid:
+                    docc(nid, s, [r.x0, r.y0, r.x1, r.y1], "elevation_tag", "", "elevation symbol (plan legend exemplar) -> nearest plate of that detail family", conf)
+                    stats["elevation symbols resolved"] += 1
+                else:
+                    stats["elevation symbols unresolved"] += 1
     # ---- schedules
     _schedules(R, doc, plans, info, grid, marks, docc, stats)
     # ---- notes
     _notes(R, doc, plans, info, docc, stats)
     return {"sheets": plans["sheets"], "stats": dict(stats), "legend_check": con["legend_check"]}
+
+
+def _tag_box(words: list, el: dict, gap: float = 8.0) -> list[float]:
+    """The printed tag: the size / mark word plus the words that continue it on its baseline
+    ("W18X40 (30) c=3/4\"") - reading direction followed for rotated tags, stopping at a gap."""
+    b = el["bbox"]
+    box = list(b)
+    vert = el.get("vertical_text")
+    for _ in range(6):
+        nxt = None
+        for w in words:
+            if vert:   # rotated 90 deg, read bottom-up: the next word sits above
+                if abs((w[0] + w[2]) / 2 - (box[0] + box[2]) / 2) < 2 and 0 <= box[1] - w[3] <= gap and (w[3] - w[1]) > (w[2] - w[0]):
+                    nxt = w
+            elif abs((w[1] + w[3]) / 2 - (box[1] + box[3]) / 2) < 2 and 0 <= w[0] - box[2] <= gap:
+                nxt = w
+            if nxt:
+                break
+        if not nxt:
+            break
+        box = [min(box[0], nxt[0]), min(box[1], nxt[1]), max(box[2], nxt[2]), max(box[3], nxt[3])]
+    return _r(box)
 
 
 def _lines_of(page) -> list[dict]:
@@ -468,7 +539,10 @@ def _lines_of(page) -> list[dict]:
     return out
 
 
-def _elevations(R, doc, plans, info, grid, docc, stats, tag_of):
+def _elevations(R, doc, plans, info, grid, docc, stats, tag_of) -> list[dict]:
+    """Frame elevations: each view (title "... FRAME - LINE A") is registered to the model by its grid
+    bubbles (along the line) and level markers (height); returns the views with their transforms."""
+    views = []
     title_rx = re.compile(r"^((?:[A-Z-]+ ){0,3}[A-Z-]*FRAME)\s*-\s*LINE\s+([A-Z0-9.]+)$")
     lvl_rx = re.compile(r"^(LEVEL\s*\d+|ROOF)\s+EL\.\s*(-?\d+)'\s*-\s*(\d+)\"")
     for s in plans["sheets"]:
@@ -503,28 +577,39 @@ def _elevations(R, doc, plans, info, grid, docc, stats, tag_of):
                     docc(f"GRID:{b[4]}", s, b[:4], "grid_bubble", b[4], "grid bubble in a frame elevation", "exact")
             lv = []
             for l2 in lines:
-                m = lvl_rx.match(l2["text"])
-                if m and y0 <= l2["bbox"][1] <= y1:
+                if not (y0 <= l2["bbox"][1] <= y1):
+                    continue
+                # a level marker: "LEVEL 2 EL. 14'-0\"" on one line, or the name over the elevation (two lines)
+                below = [l3 for l3 in lines if abs(l3["bbox"][0] - l2["bbox"][0]) < 6 and 0 < l3["bbox"][1] - l2["bbox"][3] < 20]
+                for txt, box in [(l2["text"], l2["bbox"])] + [(l2["text"] + " " + l3["text"], _union([l2["bbox"], l3["bbox"]])) for l3 in below]:
+                    m = lvl_rx.match(txt)
+                    if not m:
+                        continue
                     ft = int(m.group(2)) + (int(m.group(3)) / 12) * (1 if int(m.group(2)) >= 0 else -1)
-                    lv.append(((l2["bbox"][1] + l2["bbox"][3]) / 2, ft * 0.3048, m.group(1)))
+                    lv.append(((box[1] + box[3]) / 2, ft * 0.3048, m.group(1)))
                     lk = level_key(m.group(1))
                     if lk and f"LEVEL:{lk}" in R.nodes:
-                        docc(f"LEVEL:{lk}", s, l2["bbox"], "elevation_tag", l2["text"], "level marker in an elevation", "exact")
+                        docc(f"LEVEL:{lk}", s, box, "elevation_tag", txt, "level marker in an elevation", "exact")
+                    break
             ta, tz = _fit(pairs), _fit([(y, z) for y, z, _ in lv])
             if not ta or not tz:
                 continue
+
+            def to3d(x, y, ta=ta, tz=tz, line=line, perp_axis=perp_axis):
+                a, z = ta[0] * x + ta[1], tz[0] * y + tz[1]
+                return (grid[line]["pos"], a, z) if perp_axis == "x" else (a, grid[line]["pos"], z)
+            views.append({"sheet": s, "y0": y0, "y1": y1, "to3d": to3d, "frame": fid})
             for el in plans["elements"]:
                 if el["sheet"] != s["sheet"] or el["mark"] or not el["size_norm"]:
                     continue
                 cx, cy = (el["bbox"][0] + el["bbox"][2]) / 2, (el["bbox"][1] + el["bbox"][3]) / 2
                 if not (y0 <= cy <= y1):
                     continue
-                a, z = ta[0] * cx + ta[1], tz[0] * cy + tz[1]
-                pt = (grid[line]["pos"], a, z) if perp_axis == "x" else (a, grid[line]["pos"], z)
+                pt = to3d(cx, cy)
                 cands = [n for n, x in info.items() if x["section"] == el["size_norm"] and x["type"] in ("beam", "girder", "column", "brace")]
                 best = _nearest(pt, cands, info)
                 nid, conf = _conf(best, 1.5)
-                bbox = _union(el["rects"])
+                bbox = _tag_box(words, el)
                 tid = f"TYPE:{el['size_norm']}"
                 R.node(tid, "type", "section", el["size_norm"])
                 docc(tid, s, bbox, "elevation_tag", el["text"], "size text on an elevation", "exact")
@@ -535,6 +620,7 @@ def _elevations(R, doc, plans, info, grid, docc, stats, tag_of):
                     stats["elevation tags resolved"] += 1
                 else:
                     stats["elevation tags unresolved"] += 1
+    return views
 
 
 def profiles_grid_label(words, y0, y1, cutoff):
@@ -567,29 +653,43 @@ def _schedules(R, doc, plans, info, grid, marks, docc, stats):
         page = doc[s["page"] - 1]
         words = [w for w in page.get_text("words") if w[2] < (s["cutoff"] if s["kind"] in ("framing",) else 2316)]
         rows = _rows_of(words)
-        # (a) grid-keyed schedule: a header row of >= 4 grid intersection labels; cells below by column
-        for hi, row in enumerate(rows):
-            heads = [w for w in row if gl.match(w[4])]
+        # (a) grid-keyed schedule: a header row of >= 4 grid intersection labels; each text line below sits in
+        #     the column whose header it is centred under, down to the table's end (a 60 pt gap)
+        lines = [l for l in _lines_of(page) if l["dir"][0] > 0.99]
+        for row in rows:
+            heads = [w for w in row if gl.match(w[4]) and all(x in grid for x in gl.match(w[4]).groups() if x)]
             if len(heads) < 4:
                 continue
-            for w in [w for r2 in rows[hi + 1:hi + 14] for w in r2]:
-                col = min(heads, key=lambda h: abs((h[0] + h[2]) / 2 - (w[0] + w[2]) / 2))
-                if abs((col[0] + col[2]) / 2 - (w[0] + w[2]) / 2) > 30:
+            hy = max(h[3] for h in heads)
+            x_lo, x_hi = min(h[0] for h in heads) - 40, max(h[2] for h in heads) + 40
+            body = sorted((l for l in lines if l["bbox"][1] > hy and x_lo <= l["bbox"][0] <= x_hi), key=lambda l: l["bbox"][1])
+            last_y = hy
+            for l in body:
+                if l["bbox"][1] - last_y > 60:
+                    break
+                last_y = max(last_y, l["bbox"][3])
+                lc = (l["bbox"][0] + l["bbox"][2]) / 2
+                col = min(heads, key=lambda h: abs((h[0] + h[2]) / 2 - lc))
+                if abs((col[0] + col[2]) / 2 - lc) > 30:
                     continue
                 m = gl.match(col[4])
-                a, b = (m.group(1), m.group(2)) if m.group(1) else (m.group(4), m.group(3))
-                if a not in grid or b not in grid:
+                ga, gb = (m.group(1), m.group(2)) if m.group(1) else (m.group(4), m.group(3))
+                if ga not in grid or gb not in grid:
                     continue
-                gx = grid[a]["pos"] if grid[a]["axis"] == "x" else grid[b]["pos"]
-                gy = grid[b]["pos"] if grid[b]["axis"] == "y" else grid[a]["pos"]
-                t = w[4]
+                gx = grid[ga]["pos"] if grid[ga]["axis"] == "x" else grid[gb]["pos"]
+                gy = grid[gb]["pos"] if grid[gb]["axis"] == "y" else grid[ga]["pos"]
+                t = l["text"].strip()
+                for fm in re.finditer(r"\b(" + "|".join(_SYS) + r")\s+([A-Z0-9]{1,2})\b", t):
+                    fid = f"FRAME:{fm.group(1)}-{fm.group(2)}"
+                    if fid in R.nodes:
+                        docc(fid, s, l["bbox"], "schedule_row", t, f"system cell under {col[4]} names the frame", "exact")
                 info_sz = sizes.norm(t)
                 if info_sz and info_sz["kind"] == "steel":
                     want = ("column",)
                     tid = f"TYPE:{info_sz['norm']}"
                     R.node(tid, "type", "section", info_sz["norm"])
-                    docc(tid, s, w[:4], "schedule_row", t, "size in a grid-keyed schedule", "exact")
-                elif _MARK.fullmatch(t) or re.fullmatch(r"[FP]\d+(?:\.\d)?", t):
+                    docc(tid, s, l["bbox"], "schedule_row", t, "size in a grid-keyed schedule", "exact")
+                elif _MARK.fullmatch(t) or re.fullmatch(r"[A-Z]{1,2}\d+(?:\.\d)?", t):
                     want = {"F": ("footing",), "P": ("pier",), "B": ("connection",)}.get(t[0], ())
                 else:
                     continue
@@ -597,23 +697,31 @@ def _schedules(R, doc, plans, info, grid, marks, docc, stats):
                 best = sorted((math.hypot((info[n]["min"][0] + info[n]["max"][0]) / 2 - gx, (info[n]["min"][1] + info[n]["max"][1]) / 2 - gy), n)
                               for n in cands)
                 if best and best[0][0] <= 0.6:
-                    docc(best[0][1], s, w[:4], "schedule_row", t, f"grid-keyed schedule cell under {col[4]} -> element at that intersection", "exact")
+                    docc(best[0][1], s, l["bbox"], "schedule_row", t, f"grid-keyed schedule cell under {col[4]} -> element at that intersection", "exact")
                     stats["schedule cells resolved"] += 1
-        # (b) type-mark schedule rows: first word a printed mark with instances
+        # (b) type-mark schedule rows: a row segment (words split at 60 pt gaps) led by a printed mark that has
+        #     instances; kept only where >= 2 such segments line up (a table), so a lone label is not a schedule
+        cand = []
         for row in rows:
-            w0 = row[0]
-            key = w0[4]
-            if key not in marks and f"DETAIL:{key}" not in R.nodes:
-                continue
-            if len(row) < 3 or gl.match(key):
-                continue
-            seg = [w0]
+            segs, cur = [], [row[0]]
             for w in row[1:]:
-                if w[0] - seg[-1][2] > 60:
-                    break
-                seg.append(w)
-            if len(seg) < 3:
+                if w[0] - cur[-1][2] > 60:
+                    segs.append(cur)
+                    cur = [w]
+                else:
+                    cur.append(w)
+            segs.append(cur)
+            for seg in segs:
+                key = seg[0][4]
+                gm = gl.match(key)
+                is_grid = bool(gm) and all(x in grid for x in gm.groups() if x)   # "1/A" / "A-1" of THIS grid
+                if len(seg) < 3 or is_grid or (key not in marks and f"DETAIL:{key}" not in R.nodes):
+                    continue
+                cand.append(seg)
+        for seg in cand:
+            if not any(o is not seg and abs(o[0][0] - seg[0][0]) <= 3 and 0 < abs(o[0][1] - seg[0][1]) <= 40 for o in cand):
                 continue
+            key = seg[0][4]
             bbox, text = _union([w[:4] for w in seg]), " ".join(w[4] for w in seg)
             for nid in sorted(marks.get(key, ())):
                 docc(nid, s, bbox, "schedule_row", text, "type-mark schedule row -> every instance with that mark", "exact")
@@ -743,12 +851,32 @@ def ingest_specs(R: Registry, path: str) -> dict:
         for c in p["chunks"]:
             R.occ(p["id"], occ(c, p["rule"], "exact"))
         g = governs(p["text"], R)
+        _category_material(R, p, g)
         for nid in g["materials"] + g["types"] + g["details"] + g["frames"] + g["decks"] + g["piers"]:
             conf = "exact" if g["why"][nid] in ("designation", "size", "detail mark") else "inferred"
             R.rel(nid, p["id"], "specified-by", f"spec paragraph names it ({g['why'][nid]})", conf)
             for c in p["chunks"]:
                 R.occ(nid, occ(c, f"spec paragraph names it ({g['why'][nid]})", conf))
     return {"sections": len(sp["sections"]), "paragraphs": len(sp["paragraphs"])}
+
+
+_CATEGORY_NOUNS = {"footing": r"\bFOOTINGS?\b", "grade_beam": r"\bGRADE BEAMS?\b", "deck": r"\bDECK\b", "pier": r"\bPIERS?\b"}
+
+
+def _category_material(R: Registry, p: dict, g: dict):
+    """A product paragraph that cites ONE material by designation and names element categories
+    ("Footings, piers and grade beams: f'c = 4,000 psi") makes the untyped elements of those categories
+    instances of that material (elements that already have a section / type mark keep their type)."""
+    des = [m for m in g["materials"] if g["why"][m] == "designation"]
+    if len(des) != 1 or p.get("part") != "2":
+        return
+    T = p["text"].upper()
+    typed = {s for (s, d, k) in R.rels if k == "instance-of"}
+    for cat, rx in _CATEGORY_NOUNS.items():
+        if re.search(rx, T):
+            for nid, n in R.nodes.items():
+                if n["kind"] == "element" and n["type"] == cat and nid not in typed:
+                    R.rel(nid, des[0], "instance-of", f"product paragraph {p['id']} names the category and one material", "inferred")
 
 
 def ensure_materials(R: Registry, texts: list[str]):
@@ -782,10 +910,24 @@ def ingest_calcs(R: Registry, path: str, pf) -> dict:
             R.rel(r["subject"], r["id"], "designed-by", "calc record's leading identifier names its subject")
             by_subject[r["subject"]].append(r["id"])
     for r in res["records"]:
+        subj = R.nodes.get(r["subject"] or "", {})
         for m in r["mentions"]:
+            # a connection is designed for the SUPPORTED member's end reaction (load path rule below); the
+            # support it also names ("To" column) does not feed it, so a connection record takes only the
+            # typical detail it names from its mentions
+            if subj.get("type") == "connection" and R.nodes.get(m, {}).get("kind") == "element":
+                continue
             for src in by_subject.get(m, []):
                 if src != r["id"]:
                     R.rel(src, r["id"], "feeds", "record mentions an element / detail designed by another record", "inferred")
+    # load path -> calc dependency: the record designing a supported member feeds the record designing its
+    # support (the reaction is a load on it) and the record designing the connection between them
+    for (s, d, k), rel in list(R.rels.items()):
+        if k not in ("frames-into", "bears-on") or R.nodes[s]["type"] == "deck":
+            continue
+        for rs in by_subject.get(s, []):
+            for rd in by_subject.get(d, []) + by_subject.get(rel.get("via") or "", []):
+                R.rel(rs, rd, "feeds", "load path: the supported member's design reaction loads its support / connection", "inferred")
     return {"records": len(res["records"]), "unreadable_pages": res["unreadable_pages"], "stats": res["stats"],
             "software": {p["sheet_id"]: p["software"] for p in pk["pages"]}}
 
