@@ -3,7 +3,8 @@
 #
 #   ./bridge.sh deploy     copy this package to C:\calcgraph\bridge on the desk
 #   ./bridge.sh setup      user-space Python 3.12 + venv under C:\calcgraph (desk/setup.ps1)
-#   ./bridge.sh start      start the bridge on the desk, bound to 127.0.0.1:$PORT
+#   ./bridge.sh start      start the bridge in the desk user's signed-in session (so the CSI
+#                          OAPI can attach to an ETABS started on screen), 127.0.0.1:$PORT
 #   ./bridge.sh tunnel     ssh -L $PORT:127.0.0.1:$PORT in the background (pid in $STATE)
 #   ./bridge.sh smoke      call the read-only endpoints through the tunnel
 #   ./bridge.sh stop       stop the bridge on the desk and close the tunnel
@@ -50,5 +51,5 @@ case "${1:-}" in
   stop)
     desk_ps "$HERE/desk/stop.ps1" -Port "$PORT" || true
     if [ -f "$STATE/tunnel.pid" ]; then kill "$(cat "$STATE/tunnel.pid")" 2>/dev/null || true; rm -f "$STATE/tunnel.pid"; echo "tunnel closed"; fi ;;
-  *) sed -n '2,12p' "$0"; exit 2 ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
 esac
