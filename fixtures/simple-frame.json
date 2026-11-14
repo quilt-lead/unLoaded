@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "version": 1,
+    "schema": "HAND-WRITTEN",
+    "project": "Simple frame fixture",
+    "units": "m",
+    "source": { "format": "fixture", "file": "simple-frame.json" }
+  },
+  "levels": [
+    { "id": "L0", "name": "Foundation", "elevation": 0 },
+    { "id": "L1", "name": "Level 1", "elevation": 3.5 }
+  ],
+  "elements": [
+    {
+      "id": "F1", "kind": "footing", "mark": "F1", "name": "Pad footing F1", "levelId": "L0",
+      "params": { "Pset_FootingCommon.Reference": "PF-1500" },
+      "geometry": { "bbox": { "min": [-0.75, -0.75, -0.6], "max": [0.75, 0.75, 0] } },
+      "source": { "format": "fixture", "nativeType": "IfcFooting" }
+    },
+    {
+      "id": "F2", "kind": "footing", "mark": "F2", "name": "Pad footing F2", "levelId": "L0",
+      "params": { "Pset_FootingCommon.Reference": "PF-1500" },
+      "geometry": { "bbox": { "min": [5.25, -0.75, -0.6], "max": [6.75, 0.75, 0] } },
+      "source": { "format": "fixture", "nativeType": "IfcFooting" }
+    },
+    {
+      "id": "C1", "kind": "column", "mark": "C1", "profile": "W10X49", "material": "S355", "levelId": "L0",
+      "params": { "Pset_ColumnCommon.LoadBearing": true },
+      "geometry": {
+        "bbox": { "min": [-0.13, -0.13, 0], "max": [0.13, 0.13, 3.5] },
+        "axis": { "start": [0, 0, 0], "end": [0, 0, 3.5] }
+      },
+      "source": { "format": "fixture", "nativeType": "IfcColumn" }
+    },
+    {
+      "id": "C2", "kind": "column", "mark": "C2", "profile": "W10X49", "material": "S355", "levelId": "L0",
+      "params": { "Pset_ColumnCommon.LoadBearing": true },
+      "geometry": {
+        "bbox": { "min": [5.87, -0.13, 0], "max": [6.13, 0.13, 3.5] },
+        "axis": { "start": [6, 0, 0], "end": [6, 0, 3.5] }
+      },
+      "source": { "format": "fixture", "nativeType": "IfcColumn" }
+    },
+    {
+      "id": "B1", "kind": "beam", "mark": "B101", "profile": "W16X26", "material": "S355", "levelId": "L1",
+      "params": { "Pset_BeamCommon.Span": 5.72, "Pset_BeamCommon.LoadBearing": true },
+      "geometry": {
+        "bbox": { "min": [0.14, -0.07, 3.1], "max": [5.86, 0.07, 3.5] },
+        "axis": { "start": [0.14, 0, 3.3], "end": [5.86, 0, 3.3] },
+        "section": { "depth": 0.4, "width": 0.14 }
+      },
+      "source": { "format": "fixture", "nativeType": "IfcBeam" }
+    },
+    {
+      "id": "K1", "kind": "connection", "mark": "ST-1", "name": "Shear tab B101/C1", "levelId": "L1",
+      "params": { "Connection.Type": "shear tab", "Connection.Bolts": 3, "Connection.BoltGrade": "A325" },
+      "geometry": { "bbox": { "min": [0.13, 0.07, 3.15], "max": [0.25, 0.08, 3.45] } },
+      "source": { "format": "fixture", "nativeType": "IfcPlate" }
+    },
+    {
+      "id": "K2", "kind": "connection", "mark": "ST-1", "name": "Shear tab B101/C2", "levelId": "L1",
+      "params": { "Connection.Type": "shear tab", "Connection.Bolts": 3, "Connection.BoltGrade": "A325" },
+      "geometry": { "bbox": { "min": [5.75, 0.07, 3.15], "max": [5.87, 0.08, 3.45] } },
+      "source": { "format": "fixture", "nativeType": "IfcPlate" }
+    },
+    {
+      "id": "S1", "kind": "slab", "mark": "S1", "name": "Level 1 slab", "material": "C30/37", "levelId": "L1",
+      "params": { "Pset_SlabCommon.Thickness": 0.2 },
+      "geometry": { "bbox": { "min": [-0.5, -3, 3.5], "max": [6.5, 3, 3.7] } },
+      "source": { "format": "fixture", "nativeType": "IfcSlab" }
+    }
+  ],
+  "relations": [
+    {
+      "a": "B1", "b": "K1", "kind": "connects",
+      "evidence": { "rule": "IfcRelConnectsWithRealizingElements", "source": "explicit", "detail": { "ifcRelId": 9001 } }
+    }
+  ],
+  "warnings": [],
+  "_expected": {
+    "_note": "Edges a correct buildGraph() should produce (connectivity + supports direction). Not part of the contract.",
+    "supports": [
+      ["S1", "B1"],
+      ["B1", "K1"], ["K1", "C1"],
+      ["B1", "K2"], ["K2", "C2"],
+      ["C1", "F1"], ["C2", "F2"]
+    ],
+    "notSupports": [["B1", "C1"], ["B1", "C2"]]
+  }
+}

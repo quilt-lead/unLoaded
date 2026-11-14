@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, RotateCcw, CheckCircle2, AlertTriangle, Columns } from 'lucide-react';
 import {
   BimGraphData,
@@ -21,7 +21,7 @@ import {
   isElementTypeNode,
   isInstanceNode,
 } from './utils/graphEngine';
-import { BIM_PARSERS } from './utils/ifcParser';
+import { importModel } from './loaders/parsers';
 import { HeaderBar } from './components/HeaderBar';
 import { FilterBar } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
@@ -77,9 +77,12 @@ export const App: React.FC = () => {
     visible: false,
   });
 
+  const toastTimer = useRef<number | undefined>(undefined);
   const showToast = useCallback((message: string, isError = false) => {
     setToast({ message, isError, visible: true });
-    window.setTimeout(() => {
+    // One timer: a newer toast (e.g. import progress -> result) restarts the countdown.
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => {
       setToast((prev) => ({ ...prev, visible: false }));
     }, 3400);
   }, []);
@@ -118,54 +121,47 @@ export const App: React.FC = () => {
   }, [baseSnapshot, compareSnapshot]);
 
   const handleUploadFile = useCallback(
-    (file: File, slot: 'base' | 'compare') => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const cleanText = String(ev.target?.result || '')
-            .replace(/^\uFEFF/, '')
-            .trim();
-          const parser = BIM_PARSERS.find((p) => p.canParse(cleanText, file.name));
-          if (!parser) {
-            showToast('Unsupported file type. Upload an .ifc STEP file or .json BIM graph.', true);
-            return;
-          }
-          const { graph, rawLinks: parsedLinks } = parser.parse(cleanText, file.name);
-          if (graph.nodes.length <= 1) {
-            showToast('No physical structural elements found in file.', true);
-            return;
-          }
-
-          setGroups([]);
-          setSelectedNodeId(null);
-          setSelectedNodeIds(new Set());
-          setSelectedCalcNodeId(null);
-          setSelectedCalcNodeIds(new Set());
-          setResetTrigger((c) => c + 1);
-
-          if (slot === 'compare') {
-            if (!baseSnapshot) {
-              // If user clicked Compare DB first before loading DB A, load into DB A and prompt for DB B
-              setBaseSnapshot({ graph, rawLinks: parsedLinks });
-              showToast(`Loaded DB A (${graph.projectName || file.name}). Click "Compare DB" again to pick DB B.`);
-              return;
-            }
-            setCompareSnapshot({ graph, rawLinks: parsedLinks });
-            const diffRes = computeDatabaseDiff(baseSnapshot.graph, baseSnapshot.rawLinks, graph, parsedLinks);
-            const s = diffRes.summary;
-            showToast(`Diff ready: +${s.addedCount} added, ~${s.modifiedCount} modified, -${s.removedCount} removed`);
-          } else {
-            setBaseSnapshot({ graph, rawLinks: parsedLinks });
-            const catCount = graph.nodes.filter(isElementTypeNode).length;
-            const instCount = graph.nodes.filter(isInstanceNode).length;
-            showToast(`Loaded DB A via ${parser.name}: ${instCount} elements across ${catCount} types`);
-          }
-        } catch (err: any) {
-          showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
+    async (file: File, slot: 'base' | 'compare') => {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const { graph, rawLinks: parsedLinks, warnings, parser } = await importModel(file.name, bytes, (msg) =>
+          showToast(`${msg}…`)
+        );
+        if (!graph.nodes.some(isInstanceNode)) {
+          showToast('No physical structural elements found in file.', true);
+          return;
         }
-      };
-      reader.onerror = () => showToast('Failed to read file from disk.', true);
-      reader.readAsText(file);
+        if (warnings.length > 0) console.warn(`[import] ${file.name}: ${warnings.length} warning(s)`, warnings);
+        const warnText =
+          warnings.length > 0 ? ` • ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (see console)` : '';
+
+        setGroups([]);
+        setSelectedNodeId(null);
+        setSelectedNodeIds(new Set());
+        setSelectedCalcNodeId(null);
+        setSelectedCalcNodeIds(new Set());
+        setResetTrigger((c) => c + 1);
+
+        if (slot === 'compare') {
+          if (!baseSnapshot) {
+            // If user clicked Compare DB first before loading DB A, load into DB A and prompt for DB B
+            setBaseSnapshot({ graph, rawLinks: parsedLinks });
+            showToast(`Loaded DB A (${graph.projectName || file.name}). Click "Compare DB" again to pick DB B.`);
+            return;
+          }
+          setCompareSnapshot({ graph, rawLinks: parsedLinks });
+          const diffRes = computeDatabaseDiff(baseSnapshot.graph, baseSnapshot.rawLinks, graph, parsedLinks);
+          const s = diffRes.summary;
+          showToast(`Diff ready: +${s.addedCount} added, ~${s.modifiedCount} modified, -${s.removedCount} removed${warnText}`);
+        } else {
+          setBaseSnapshot({ graph, rawLinks: parsedLinks });
+          const catCount = graph.nodes.filter(isElementTypeNode).length;
+          const instCount = graph.nodes.filter(isInstanceNode).length;
+          showToast(`Loaded DB A via ${parser.name}: ${instCount} elements across ${catCount} types${warnText}`);
+        }
+      } catch (err: any) {
+        showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
+      }
     },
     [baseSnapshot, showToast]
   );

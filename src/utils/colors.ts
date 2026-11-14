@@ -149,10 +149,10 @@ export const DIFF_PALETTE: Record<'added' | 'removed' | 'modified' | 'unchanged'
 };
 
 export function getEffectiveNodeColor(node: BimNode | null | undefined, heatmapMode: boolean, diffMode = false): string {
+  if (!node) return '#15803d';
   if (diffMode && node.diffStatus && isInstanceNode(node)) {
     return DIFF_PALETTE[node.diffStatus];
   }
-  if (!node) return '#15803d';
   if (heatmapMode && isInstanceNode(node)) {
     return getHeatmapColor(node.utilization);
   }
