@@ -11,6 +11,8 @@ import os
 import re
 import time
 
+from collections import Counter
+
 from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, plans_to_ifc, set_graph
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -55,7 +57,95 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
         json.dump(graph, fh)
     with open(os.path.join(out, "meta.json"), "w") as fh:
         json.dump({"id": sid, "name": name, "docs": docs}, fh, indent=1)
+    # the record and connection layers read this graph's elements: rebuild them in the same run so
+    # integrated.json can never pair a new graph with old records / connections
+    build_records(sid)
+    build_connections(sid)
+    finish_set(sid)
     return graph
+
+
+def _dir(sid: str) -> str:
+    return os.path.join(SETS_DIR, safe_sid(sid))
+
+
+def _load(sid: str, name: str):
+    p = os.path.join(_dir(sid), name)
+    return json.load(open(p)) if os.path.exists(p) else None
+
+
+def build_records(sid: str) -> dict:
+    """Calc package -> design records (calc_records.json). Reads graph.json for the positional fit."""
+    from . import calc_records
+    d, meta, graph = _dir(sid), _load(sid, "meta.json"), _load(sid, "graph.json")
+    calcs = [(v["path"], k, None if k == "calcs" else k.upper()) for k, v in meta["docs"].items() if v["role"] == "Calc package"]
+    t0 = time.time()
+    out = calc_records.build(calcs, graph, meta["docs"]["plans"]["path"])
+    out["set"] = sid
+    out["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S %Z")
+    out["source_graph_built_at"] = (graph or {}).get("built_at")
+    out["build_seconds"] = round(time.time() - t0, 1)
+    with open(os.path.join(d, "calc_records.json"), "w") as fh:
+        json.dump(out, fh)
+    return out
+
+
+def build_connections(sid: str) -> dict:
+    """S8 details -> connection types; callouts / plan symbols -> instances attached to elements (connections.json)."""
+    from . import connections
+    d, meta, g = _dir(sid), _load(sid, "meta.json"), _load(sid, "graph.json")
+    docs = meta["docs"]
+    calc_docs = [(k, v["path"]) for k, v in docs.items() if v.get("role") == "Calc package"]
+    calc_ids = {(c["doc"], c["page"]): c["id"] for c in g["calcs"]}
+    t0 = time.time()
+    s_sheets = [s for s in g["sheets"] if s["sheet"].startswith("S")]
+    out = connections.build(docs["plans"]["path"], s_sheets, g["elements"], calc_docs, calc_ids)
+    inst = out["instances"]
+    att = [i for i in inst if i["attached"]]
+    cov = {
+        "connection_types": len(out["types"]),
+        "connection_types_titled_as_connections": sum(t["is_connection"] for t in out["types"]),
+        "types_with_instances": sum(1 for t in out["types"] if t["instances"]),
+        "instances": len(inst),
+        "instances_attached": len(att),
+        "instances_unattached": len(inst) - len(att),
+        "unattached_located_via_view": sum(1 for i in inst if not i["attached"] and i.get("located_via_view")),
+        "unattached_located_via_view_with_elements": sum(1 for i in inst if not i["attached"] and i.get("view_elements")),
+        "unattached_by_sheet": dict(Counter(i["sheet"] for i in inst if not i["attached"])),
+        "views": len(out["views"]),
+        "instances_by_via": dict(Counter(i["via"] for i in inst)),
+        "instances_by_sheet_via": dict(Counter(f"{i['sheet']} {i['via']}{' ' + i['symbol'] if i['symbol'] else ''}" for i in inst)),
+        "instances_missing_type": sorted({i["ref"] for i in inst if i.get("missing_type")}),
+        "detail_to_detail_refs": len(out["detail_refs"]),
+        "other_callouts": len(out["other_callouts"]),
+        "note_refs": len(out["note_refs"]),
+        "legend_check": out["legend_check"],
+        "calc_hits_by_rule": dict(Counter(h["rule"] for h in out["calc"]["hits"])),
+        "calc_pages_designing_connections": sorted({f"{h['calc']} ({h['doc']} p{h['page']})" for h in out["calc"]["hits"] if h["designs_connection"]}),
+        "calc_detail_refs": sorted({f"{r['calc']} -> {r['ref']} ({r['target_kind']})" for r in out["calc"]["detail_refs"]}),
+        "unresolved_refs": sorted({o["ref"] for o in out["other_callouts"] if "not found" in o["kind"]} | {r["ref"] for r in out["detail_refs"] if not r["known"]}),
+        "stats": out["stats"],
+        "build_seconds": round(time.time() - t0, 1),
+    }
+    res = {"id": sid, "built_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "source_graph_built_at": g.get("built_at"),
+           "coverage": cov} | out
+    with open(os.path.join(d, "connections.json"), "w") as fh:
+        json.dump(res, fh, default=lambda o: list(o) if isinstance(o, tuple) else str(o))
+    return res
+
+
+def finish_set(sid: str) -> dict | None:
+    """graph.json + calc_records.json + connections.json -> integrated.json (what the app reads).
+    Every builder calls this last, so the integrated view always reflects the files on disk."""
+    from . import set_integrate
+    graph, cr, conns, meta = (_load(sid, n) for n in ("graph.json", "calc_records.json", "connections.json", "meta.json"))
+    if not (graph and cr and conns):
+        return None
+    out = set_integrate.build(graph, cr, conns, meta)
+    out["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S %Z")
+    with open(os.path.join(_dir(sid), "integrated.json"), "w") as fh:
+        json.dump(out, fh)
+    return out
 
 
 def list_sets() -> list[dict]:

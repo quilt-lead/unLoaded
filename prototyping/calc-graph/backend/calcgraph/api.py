@@ -233,6 +233,17 @@ def set_graph(sid: str):
                         headers={"Cache-Control": "no-store"})
 
 
+@app.get("/api/sets/{sid}/integrated")
+def set_integrated(sid: str):
+    """Calc records, calc load path, connection nodes, 2021 calc-model overlay and their findings
+    (built by every set builder via set_pipeline.finish_set)."""
+    _set_meta(sid)
+    path = os.path.join(set_pipeline.SETS_DIR, sid, "integrated.json")
+    if not os.path.exists(path):
+        raise HTTPException(404, "no integrated.json yet - run: uv run python scripts/build_calc_records.py")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/sets/{sid}/model.ifc")
 def set_model_ifc(sid: str, request: Request):
     """3D structural model built from the plans (derived data: localhost only, never committed)."""
