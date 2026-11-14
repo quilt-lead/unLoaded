@@ -313,7 +313,7 @@ from .move_api import router as _v2_router; app.include_router(_v2_router)  # sy
 from .store_api import router as _store_router; app.include_router(_store_router)  # schema-shaped store endpoints (store_api.py)
 
 class _SpaStatic(StaticFiles):
-    """Built UI (frontend/dist). Real files are served as-is (the legacy pages at /legacy/ included);
+    """Built UI (frontend/dist). Real files are served as-is;
     any other non-API path that is not a file returns index.html, so React Router deep links such as
     /dev/components or /set/... load the app instead of a 404."""
 

@@ -1,5 +1,5 @@
-// Response types of the IFC-path project endpoints (/api/projects/{pid}/...). Moved from the vanilla app's
-// src/legacy/api.ts; not schema-shaped (the schema-shaped form is /api/store/projects/{pid}/bundle).
+// Response types of the IFC-path project endpoints (/api/projects/{pid}/...). Moved from the former vanilla
+// app; not schema-shaped (the schema-shaped form is /api/store/projects/{pid}/bundle).
 export interface IfcElement {
   global_id: string;
   express_id: number;

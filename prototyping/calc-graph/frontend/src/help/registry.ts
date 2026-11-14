@@ -116,8 +116,7 @@ export const HELP = {
   // ---------------------------------------------------------------- app shell
   "nav.viewer-switch": {
     title: "Viewer switch",
-    short: "Switch between the views: the synthetic IFC app, the drawing-set view, the v2 move-a-column work, and the old (legacy) pages.",
-    real: "The legacy pages are the previous vanilla version, kept until the React port matches them.",
+    short: "Switch between the views: the synthetic IFC app, the drawing-set view and the v2 move-a-column work.",
   },
   "nav.theme": {
     title: "Theme",
@@ -157,10 +156,6 @@ export const HELP = {
     short: "Move or remove a column in the synthetic v2 building and see which calcs to redo, how hard the change is, and the potential change order.",
     real: "Built on synthetic data; construction platform records and ETABS are mocked and labelled as such.",
     terms: ["term.synthetic", "term.element-registry"],
-  },
-  "home.legacy": {
-    title: "Legacy pages",
-    short: "The previous (vanilla) version of the two views, kept reachable until the React port reaches parity.",
   },
 
   // ---------------------------------------------------------------- dev gallery: v2 sample panel

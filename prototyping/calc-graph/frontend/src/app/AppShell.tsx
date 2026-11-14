@@ -3,7 +3,7 @@ import { InfoTip } from "../help/InfoTip";
 import { useTheme } from "../theme/ThemeProvider";
 import "./shell.css";
 
-/** The viewers the switch offers. Legacy is a separate (non-React) page, so it is a plain link. */
+/** The viewers the switch offers. */
 const VIEWS = [
   { to: "/ifc", label: "Synthetic IFC", title: "Synthetic BIM model + synthetic calc package (3D IFC viewer)" },
   { to: "/set", label: "Drawing set", title: "A drawing set and calc package read as documents; every node opens the original PDF" },
@@ -24,9 +24,6 @@ export function AppShell() {
               {v.label}
             </NavLink>
           ))}
-          <a href="/legacy/" title="The previous vanilla pages, until the React port reaches parity">
-            Legacy
-          </a>
         </nav>
         <InfoTip id="nav.viewer-switch" />
         <span className="spacer" />

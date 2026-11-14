@@ -33,13 +33,6 @@ export function Home() {
           <p>Move or remove a column in the synthetic v2 building and see the calcs to redo and the potential change order.</p>
           <Link className="btn primary" to="/v2">Open</Link>
         </article>
-        <article className="home-card">
-          <h2>
-            Legacy pages <InfoTip id="home.legacy" />
-          </h2>
-          <p>The previous vanilla version of both views, until the React port reaches parity.</p>
-          <a className="btn" href="/legacy/">Open legacy</a>
-        </article>
       </div>
     </div>
   );

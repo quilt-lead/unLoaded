@@ -2,7 +2,7 @@
 //  1. an id used in the UI is not in the help registry (src/help/registry.ts);
 //  2. a registry entry is used nowhere (glossary terms and declared families excepted);
 //  3. a JSX tag of a component in REQUIRE_INFO is written without an `info=` prop;
-//  4. a source file under src/ (outside src/legacy) contains an em dash (house style: hyphens);
+//  4. a source file under src/ contains an em dash (house style: hyphens);
 //  5. an entry has an empty title/short or a `terms` link to a non-term id.
 // How ids are found (string literals only - ids must be literal so this script can see them):
 //   <InfoTip id="x">   info="x"   info={"x"}   info: "x"   helpFamily("fam", ...) marks fam.* used.
@@ -16,7 +16,7 @@ const SRC = join(ROOT, "src");
 const REGISTRY = join(SRC, "help", "registry.ts");
 /** per-feature entry files merged into HELP by registry.ts (e.g. entries/v2.ts); parsed as registry */
 const ENTRY_DIR = join(SRC, "help", "entries");
-const SKIP_DIRS = new Set([join(SRC, "legacy"), join(SRC, "types")]);
+const SKIP_DIRS = new Set([join(SRC, "types")]);
 /** components whose every use must pass info= (their props also require it in TypeScript) */
 export const REQUIRE_INFO = ["Panel", "StatPill", "Tabs", "Legend", "GraphView", "PdfPage", "PdfSplit", "EvidenceCompare", "Viewer3D"];
 

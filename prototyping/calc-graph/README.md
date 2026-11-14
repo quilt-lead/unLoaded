@@ -51,7 +51,7 @@ removed on top. For frontend work: `uv run calc-graph serve` plus `cd frontend &
 |---|---|
 | `synth/` | deterministic generator: IfcOpenShell IFC4 steel frame (459 elements, marks in psets, storeys, footings, plates as connections), PyNite member forces, PyMuPDF calc package (contents page, RAM-style tables, Mathcad-style sheets with mathtext formulas, Excel/VBA grids, one scanned hand-calc page with no text layer, cross-references), ground-truth JSON, rev 2 model |
 | `backend/calcgraph/` | `ifc_ingest` (IfcOpenShell), `loadpath` (geometry contact rules), `pdf_ingest` (PyMuPDF words + spans), `segment` + `matcher` (port of the mockup's `segment()` / `runMapping()`), `calcdeps` (calc graph), `impact` (propagation), `store` (SQLite revisions), `api` (FastAPI) |
-| `frontend/` | Vite + React 18 + TypeScript app (React Router, TanStack Query, React Flow + dagre, pdf.js, three.js + web-ifc via `src/viewer.ts`). Shared components in `src/components/`, help registry + glossary in `src/help/` (ratchet `scripts/check-help.mjs` runs in `npm run build`), gallery at `/dev/components`. The previous vanilla pages stay at `/legacy/` and `/legacy/set.html` until the port reaches parity |
+| `frontend/` | Vite + React 18 + TypeScript app (React Router, TanStack Query, React Flow + dagre, pdf.js, three.js + web-ifc via `src/viewer.ts`). Shared components in `src/components/`, help registry + glossary in `src/help/` (ratchet `scripts/check-help.mjs` runs in `npm run build`), gallery at `/dev/components`. |
 | `scripts/evaluate.py` | precision / recall per tier and per calc, load path, calc edges, revisions |
 | `docs/screenshots/` | headless, timestamped captures of the running app |
 

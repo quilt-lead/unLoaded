@@ -1,5 +1,5 @@
 // Response types of the drawing-set endpoints (/api/sets/{sid}/graph and /integrated).
-// Moved verbatim from the vanilla set view (src/legacy/set/main.ts) so the React port shares one copy;
+// Moved verbatim from the vanilla set view (the former vanilla page) so the React port shares one copy;
 // these files are not schema-shaped yet (the schema-shaped form is /api/store/sets/{sid}/bundle).
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface Ev {
