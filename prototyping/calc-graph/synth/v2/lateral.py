@@ -32,13 +32,17 @@ LV = [l for l, _, _ in LEVELS]
 ZS = {l: z for l, _, z in LEVELS}
 
 
+STEEL_ALLOW_PSF = {"L2": 8.0, "L3": 8.0, "RF": 6.0}   # framing + columns allowance (design-office practice)
+
+
 def seismic_weights(topo: Topology, framing: dict, col_sizes: dict) -> dict:
-    """W per level (kip): area dead + partition allowance + steel + exterior walls."""
+    """W per level (kip): area dead + partition allowance + a steel framing allowance (psf,
+    not the as-designed tonnage - so a member re-size does not re-trigger the ELF) +
+    exterior walls. framing / col_sizes are accepted for the record but not used."""
     out = {}
     lx, ly = GX[-1][1] - GX[0][1], GY[-1][1] - GY[0][1]
     for lv in LV:
         w = 0.0
-        covered = set()
         for ar in topo.layout.areas:
             if ar.level != lv:
                 continue
@@ -46,12 +50,9 @@ def seismic_weights(topo: Topology, framing: dict, col_sizes: dict) -> dict:
             if ar.kind == "roof":
                 a = lx * ly - sum((o.x1 - o.x0) * (o.y1 - o.y0) for o in topo.layout.areas if o.level == lv and o.kind == "mech")
             w += a * (ar.d_psf + ar.seis_extra_psf) / 1000
-            covered.add(ar.name)
-        w += sum(r["sw"] * r["span"] for k, r in framing.items() if topo.members[k].level == lv)
+        w += lx * ly * STEEL_ALLOW_PSF[lv] / 1000
         h_trib = STOREY_H[lv] / 2 + (STOREY_H[LV[LV.index(lv) + 1]] / 2 if lv != LV[-1] else PARAPET_FT)
         w += 2 * (lx + ly) * h_trib * WALL_PSF / 1000
-        for c, sz in col_sizes.items():
-            w += aisc.get(sz)["W"] / 1000 * h_trib
         out[lv] = w
     return out
 
@@ -218,7 +219,7 @@ def smf_candidates():
     return beams, cols
 
 
-def design_smf(line: str, cols, beam_loads, f_e, f_w, gravity_p: dict) -> dict:
+def design_smf(line: str, cols, beam_loads, f_e, f_w, gravity_p: dict, keep: tuple[str, str] | None = None) -> dict:
     """Lightest (beam, column) pair, uniform up the frame, passing drift, member strength
     (with gravity column axial added), SCWB and RBS span/depth >= 7."""
     beams, columns = smf_candidates()
@@ -226,6 +227,9 @@ def design_smf(line: str, cols, beam_loads, f_e, f_w, gravity_p: dict) -> dict:
     col_len = len(cols) * ZS[LV[-1]]
     pairs = sorted(((b, c) for b in beams for c in columns),
                    key=lambda bc: aisc.get(bc[0])["W"] * beam_len + aisc.get(bc[1])["W"] * col_len)
+    if keep:   # minimum change: current pair first, then only pairs no lighter in either member
+        kb, kc = aisc.get(keep[0])["W"], aisc.get(keep[1])["W"]
+        pairs = [keep] + [p for p in pairs if p != keep and aisc.get(p[0])["W"] >= kb and aisc.get(p[1])["W"] >= kc]
     s = SYS["x"]
     last = None
     failed_drift: list[tuple[float, float]] = []
@@ -265,12 +269,15 @@ def design_smf(line: str, cols, beam_loads, f_e, f_w, gravity_p: dict) -> dict:
     return {"beam": b, "col": c, "analysis": r, "checks": checks, "ok": False, "infeasible": True}
 
 
-def design_scbf(cols, beam_loads, f_e, beam_size: str, col_size: str, braced_bays: list[int]) -> dict:
+def design_scbf(cols, beam_loads, f_e, beam_size: str, col_size: str, braced_bays: list[int], keep: str | None = None) -> dict:
     """Chevron SCBF: lightest square HSS brace (KL = full length, K = 1, KL/r <= 200, AISC 341
     F2.5b b/t limit already in the candidate filter); braces + pinned beams in PyNite."""
     s = SYS["y"]
     last = None
-    for br in aisc.hss_candidates():
+    cands = aisc.hss_candidates()
+    if keep:
+        cands = [keep] + [c for c in cands if c != keep and aisc.get(c)["W"] >= aisc.get(keep)["W"]]
+    for br in cands:
         b = aisc.get(br)
         m = _frame(cols, beam_loads, beam_size, col_size, {"E": f_e}, base_fixed=False, pinned_beams=True,
                    braces=braced_bays, brace_size=br)

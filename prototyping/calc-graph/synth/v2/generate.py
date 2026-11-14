@@ -35,9 +35,9 @@ def _clean(o):
     return o
 
 
-def build(layout: model.Layout | None = None) -> tuple[dict, dict]:
+def build(layout: model.Layout | None = None, keep: dict | None = None) -> tuple[dict, dict]:
     layout = layout or model.base_layout()
-    d = design.run(layout)
+    d = design.run(layout, keep=keep)
     exp = records.export(d)
     exp["building"] = {"name": "Harbor View Office (synthetic)", "grids": {"x": model.GX, "y": model.GY},
                        "levels": [{"key": k, "name": n, "elev_ft": z} for k, n, z in model.LEVELS],

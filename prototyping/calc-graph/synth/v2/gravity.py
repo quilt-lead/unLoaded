@@ -201,9 +201,9 @@ def max_bolts(size: str) -> int:
     return max(2, min(7, int((t_in - 1.0) // 3)))
 
 
-def assign_tab(size: str, ru: float) -> dict:
-    nmax = max_bolts(size)
-    for n in range(2, nmax + 1):
+def assign_tab(size: str, ru: float, n_min: int = 2) -> dict:
+    nmax = max(max_bolts(size), n_min)
+    for n in range(n_min, nmax + 1):
         if SHEAR_TABS[n]["phi_rn"] >= ru:
             return {**SHEAR_TABS[n], "uc": ru / SHEAR_TABS[n]["phi_rn"], "ru": ru, "special": False}
     t = SHEAR_TABS[nmax]
@@ -211,10 +211,13 @@ def assign_tab(size: str, ru: float) -> dict:
 
 
 # ------------------------------------------------------------------ gravity framing
-def design_framing(topo: Topology, fixed_sizes: dict[str, str] | None = None) -> dict:
+def design_framing(topo: Topology, fixed_sizes: dict[str, str] | None = None, keep: dict[str, str] | None = None) -> dict:
     """Design every gravity-designed member (smf_beam members get loads only; their size
-    comes from the lateral design). Returns {member id: result}."""
+    comes from the lateral design). fixed_sizes: check at exactly this size. keep: minimum-
+    change re-design - keep the current size if it passes, else the lightest heavier shape.
+    Returns {member id: result}."""
     fixed_sizes = fixed_sizes or {}
+    keep = keep or {}
     mem = topo.members
     supported_on: dict[str, list[str]] = {k: [] for k in mem}
     for m in mem.values():
@@ -247,6 +250,11 @@ def design_framing(topo: Topology, fixed_sizes: dict[str, str] | None = None) ->
             lb = 0.0
         if k in fixed_sizes:
             r = check_beam(fixed_sizes[k], m.span, w, pts[k], lb, roof)
+        elif k in keep:
+            r = check_beam(keep[k], m.span, w, pts[k], lb, roof)
+            if not r["ok"]:
+                cw = aisc.get(keep[k])["W"]
+                r = size_beam(m.span, w, pts[k], lb, roof, candidates=[c for c in aisc.beam_candidates() if aisc.get(c)["W"] > cw])
         else:
             r = size_beam(m.span, w, pts[k], lb, roof)
         r["pts"] = [(a, p) for a, p in pts[k]]
@@ -343,7 +351,7 @@ def check_column(size: str, segs: list[dict], extra: dict | None = None) -> dict
 def size_column(topo, rx, extra_fn=None, candidates=None, min_size: str | None = None) -> dict:
     cands = candidates or aisc.column_candidates()
     if min_size:
-        cands = [c for c in cands if aisc.get(c)["W"] >= aisc.get(min_size)["W"]]
+        cands = [min_size] + [c for c in cands if c != min_size and aisc.get(c)["W"] >= aisc.get(min_size)["W"]]
     last = None
     for c in cands:
         segs = column_demands(topo, rx, c)
@@ -402,14 +410,14 @@ def assign_base_plate(size: str, pu: float, roles: list[str], pier: str) -> dict
     return {"type": bp + "*", "phi_pp": cap, "pu": pu, "uc": pu / cap, "special": True, **BASE_PLATES[bp]}
 
 
-def design_footing(p_service: float, pu: float, pier: str) -> dict:
+def design_footing(p_service: float, pu: float, pier: str, b_min: float = 0.0, h_min: int = 18) -> dict:
     """Square spread footing: bearing (ASD, net qa), punching (ACI 318-19 22.6, beta=1) and
     one-way shear (22.5) at factored qu, thickness in 2" steps from 18"."""
     c = PIERS[pier]["b"] / 12
-    b = max(4.0, math.ceil(math.sqrt(p_service / QA) * 2) / 2)
+    b = max(4.0, math.ceil(math.sqrt(p_service / QA) * 2) / 2, b_min)
     q = p_service / b**2
     qu = pu / b**2
-    for h_in in range(18, 62, 2):
+    for h_in in range(max(18, h_min), 62, 2):
         d = (h_in - 4.0) / 12
         bo = 4 * (c + d)
         vu_p = pu - qu * (c + d) ** 2

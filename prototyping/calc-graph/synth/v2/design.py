@@ -44,9 +44,14 @@ def _centre_of_mass(layout: Layout) -> tuple[float, float]:
     return sx / sw, sy / sw
 
 
-def run(layout: Layout) -> dict:
+def run(layout: Layout, keep: dict | None = None) -> dict:
+    """keep = {element id: element dict} of a CURRENT design: minimum-change re-design (keep
+    each surviving element's size / detail if it still passes, else the next heavier one) -
+    how an engineer re-designs after a move. None = fresh lightest-passing design."""
+    keep = keep or {}
     topo = build(layout)
-    framing = G.design_framing(topo)
+    ksize = {k: v["size"] for k, v in keep.items() if v.get("type") in ("beam", "girder") and k in topo.members}
+    framing = G.design_framing(topo, keep=ksize)
     infeasible = [k for k, r in framing.items() if r.get("infeasible")]
 
     # ---------- lateral
@@ -91,7 +96,13 @@ def run(layout: Layout) -> dict:
             fe = {lv: ex["Fx"][lv] * shares[yl] for lv in LV}
             fw = {lv: wx["Fx"][lv] * shares[yl] for lv in LV}
             gp = {c: grav_p_seis(c) for c, _ in L["cols"]}
-            smf[yl] = LAT.design_smf(yl, L["cols"], L["bl"], fe, fw, gp)
+            kp = None
+            kc = [keep.get(f"COL-{c}") for c, _ in L["cols"]]
+            kb = [keep.get(k) for k, m in topo.members.items() if "smf_beam" in m.roles and m.line == yl]
+            if keep and all(kc) and all(kb) and kb:
+                kp = (max((b["size"] for b in kb), key=lambda z: aisc.get(z)["W"]),
+                      max((c["size"] for c in kc), key=lambda z: aisc.get(z)["W"]))
+            smf[yl] = LAT.design_smf(yl, L["cols"], L["bl"], fe, fw, gp, keep=kp)
             smf[yl].update(share=shares[yl], fe=fe, fw=fw, gp=gp)
             kx[yl] = smf[yl]["analysis"]["k"]
     # SCBF line
@@ -108,7 +119,8 @@ def run(layout: Layout) -> dict:
     fy = {lv: ey["Fx"][lv] for lv in LV}
     scbf_beam = max((framing[k]["size"] for k, m in topo.members.items() if "scbf_beam" in m.roles),
                     key=lambda s: aisc.get(s)["W"], default="W18X35")
-    scbf = LAT.design_scbf(bcols, bl3, fy, scbf_beam, "W14X90", braced) if braced else {"ok": True, "forces": {}, "col_e": {}, "drifts": []}
+    kbr = next((v["size"] for k, v in keep.items() if v.get("type") == "brace"), None)
+    scbf = LAT.design_scbf(bcols, bl3, fy, scbf_beam, "W14X90", braced, keep=kbr) if braced else {"ok": True, "forces": {}, "col_e": {}, "drifts": []}
 
     # ---------- smf beams sized by the frame -> recheck those members with fixed size for reactions
     fixed = {}
@@ -132,7 +144,10 @@ def run(layout: Layout) -> dict:
             pu = o0 * fy[m.level] * (m.span / 2) / ydim
         r0 = framing[k]
         size = r0["size"]
-        for cand in [c for c in aisc.beam_candidates() if aisc.get(c)["W"] >= aisc.get(size)["W"]]:
+        cands = [c for c in aisc.beam_candidates() if aisc.get(c)["W"] >= aisc.get(size)["W"]]
+        if size in cands:
+            cands = [size] + [c for c in cands if c != size]
+        for cand in cands:
             r = G.check_beam(cand, m.span, r0["w"], r0["pts"], r0["lb"], m.level == "RF")
             pn = aisc.phi_pn(cand, m.span, 0.5)
             mu_seis = r["mu"] * (1.4 / 1.6)
@@ -144,7 +159,7 @@ def run(layout: Layout) -> dict:
         if cand != size:
             fixed[k] = cand
     if fixed:
-        framing = _refix(topo, framing, fixed)
+        framing = G.design_framing(topo, fixed_sizes=fixed, keep=ksize)
     rx_all = G.reactions_to_columns(topo, framing)
 
     # ---------- columns
@@ -176,10 +191,10 @@ def run(layout: Layout) -> dict:
                     pg = _seis_fac(sg["P"])
                     out[sg["storey"]] = {"OM": (pg + o0 * pe, sg["combos"]["LC2"]["mux"] * 0.6, sg["combos"]["LC2"]["muy"] * 0.6)}
                 return out
-            r = G.size_column(topo, rx, extra)
+            r = G.size_column(topo, rx, extra, min_size=keep.get(f"COL-{c}", {}).get("size"))
             r["source"] = "gravity + Omega0 x SCBF axial"
         else:
-            r = G.size_column(topo, rx)
+            r = G.size_column(topo, rx, min_size=keep.get(f"COL-{c}", {}).get("size"))
             r["source"] = "gravity (eccentric reactions)"
         r["roles"] = info["roles"]
         columns[c] = r
@@ -205,7 +220,9 @@ def run(layout: Layout) -> dict:
                 conns[cid] = {"id": cid, "member": k, "end": end, "to": to, **a,
                               "check": "drag force Omega0 x Fx share vs typical drag connection"}
             else:
-                a = G.assign_tab(rr["size"], ru)
+                old = keep.get(cid, {}).get("conn_type", "")
+                n_min = int(old.split("-")[1].rstrip("*")) if old.startswith("ST-") else 2
+                a = G.assign_tab(rr["size"], ru, n_min)
                 conns[cid] = {"id": cid, "member": k, "end": end, "to": to, **{x: a[x] for x in ("type", "phi_rn", "ru", "uc", "special", "bolts", "governs")},
                               "check": "end reaction vs typical shear tab capacity"}
     for bid, b in topo.braces.items():
@@ -229,7 +246,8 @@ def run(layout: Layout) -> dict:
         p_serv = max(p[0] + p[1] + p[2], p[0] + 0.75 * p[1] + 0.75 * p[2] + 0.75 * 0.7 * pe)
         pu = max(max(G.fac(p, lc) for lc in G.COMBOS), _seis_fac(p) + (LAT.SYS["y"]["O0"] if "scbf_column" in info["roles"] else 1.0) * pe)
         pier = "P-2" if info["roles"] != ["gravity"] else "P-1"
-        f = G.design_footing(p_serv, pu, pier)
+        kf = keep.get(f"F-{c}", {})
+        f = G.design_footing(p_serv, pu, pier, kf.get("B_ft", 0.0), kf.get("h_in", 18))
         footings[c] = {**f, "x": info["x"], "y": info["y"], "P": p, "pe": pe}
         pc = G.pier_capacity(pier)
         piers[c] = {"type": pier, "pu": pu, "phi_pn": pc, "uc": pu / pc, **G.PIERS[pier]}
@@ -255,13 +273,6 @@ def run(layout: Layout) -> dict:
             "seismic": {"x": ex, "y": ey, "weights": weights, "cm": (cmx, cmy)}, "wind": {"x": wx, "y": wy},
             "smf": smf, "scbf": scbf, "collectors": coll, "infeasible": infeasible,
             "shear_tabs": G.SHEAR_TABS}
-
-
-def _refix(topo: Topology, framing: dict, fixed: dict) -> dict:
-    """Re-run the framing with the frame/collector sizes fixed, keeping every other member at
-    its lightest passing size (re-sized, since a heavier collector adds a little self-weight
-    to the girder it frames into)."""
-    return G.design_framing(topo, fixed_sizes=fixed)
 
 
 def find_clashes(footings: dict, gbs: dict) -> list[dict]:
