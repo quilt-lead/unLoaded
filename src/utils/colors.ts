@@ -140,7 +140,18 @@ export function getContrastingTextStyle(bgColorStr: string): { fill: string; sha
   return { fill: '#ffffff', shadow: '0 1px 2px rgba(0, 0, 0, 0.78)' };
 }
 
-export function getEffectiveNodeColor(node: BimNode | null | undefined, heatmapMode: boolean): string {
+
+export const DIFF_PALETTE: Record<'added' | 'removed' | 'modified' | 'unchanged', string> = {
+  added: '#10b981',     // Emerald Green (New in Compare DB)
+  removed: '#ef4444',   // Crimson Red (Removed from Base DB)
+  modified: '#f59e0b',  // Vivid Amber (Changed section, load, strength, utilization, or PDF rev)
+  unchanged: '#475569', // Muted Slate
+};
+
+export function getEffectiveNodeColor(node: BimNode | null | undefined, heatmapMode: boolean, diffMode = false): string {
+  if (diffMode && node.diffStatus && isInstanceNode(node)) {
+    return DIFF_PALETTE[node.diffStatus];
+  }
   if (!node) return '#15803d';
   if (heatmapMode && isInstanceNode(node)) {
     return getHeatmapColor(node.utilization);

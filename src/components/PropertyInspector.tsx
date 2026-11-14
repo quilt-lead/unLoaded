@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CircleDot, FileText, ArrowUpRight, Layers, Link2, Calculator } from 'lucide-react';
 import { BimLink, BimNode } from '../types/bim';
 import {
@@ -7,17 +7,21 @@ import {
   getNodeDocuments,
   isInstanceNode,
 } from '../utils/graphEngine';
-import { getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
+import { DIFF_PALETTE, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 
 interface PropertyInspectorProps {
   nodes: BimNode[];
   links: BimLink[];
   rawLinks: BimLink[];
+  groups?: { id: string; name: string; nodeIds: string[] }[];
   selectedNodeId: string | null;
   selectedNodeIds: Set<string>;
   activeLoadChainNodeIds: Set<string>;
   heatmapMode: boolean;
+  diffMode?: boolean;
   onSelectNode: (id: string) => void;
+  onSelectGroup?: (groupId: string) => void;
+  onRenameGroup?: (groupId: string, newName: string) => void;
   onClearSelection: () => void;
   onOpenDocument: (nodeId: string, docId?: string, preserveSelection?: boolean) => void;
   onSwitchToCalcGraph: (calcNodeId?: string) => void;
@@ -27,15 +31,21 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   nodes,
   links,
   rawLinks,
+  groups = [],
   selectedNodeId,
   selectedNodeIds,
   activeLoadChainNodeIds,
   heatmapMode,
+  diffMode = false,
   onSelectNode,
+  onSelectGroup,
+  onRenameGroup,
   onClearSelection,
   onOpenDocument,
   onSwitchToCalcGraph,
 }) => {
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState<string>('');
   const node = selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) : null;
 
   if (!node) {
@@ -130,6 +140,71 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
 
   return (
     <div className="space-y-3">
+      {(() => {
+        const containingGroups = groups.filter((g) => g.nodeIds.includes(node.id));
+        if (containingGroups.length === 0) return null;
+        return (
+          <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-xl p-2.5 space-y-1.5">
+            {containingGroups.map((g) => (
+              <div key={g.id} className="flex items-center justify-between gap-2">
+                {renamingGroupId === g.id ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={() => {
+                      if (renameDraft.trim() && onRenameGroup) onRenameGroup(g.id, renameDraft.trim());
+                      setRenamingGroupId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (renameDraft.trim() && onRenameGroup) onRenameGroup(g.id, renameDraft.trim());
+                        setRenamingGroupId(null);
+                      }
+                      if (e.key === 'Escape') setRenamingGroupId(null);
+                    }}
+                    className="flex-1 px-2 py-0.5 rounded bg-black/50 text-white mono text-[10px] border border-emerald-400 focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelectGroup?.(g.id)}
+                    title="Click to select entire group"
+                    className="mono text-[10px] font-semibold text-emerald-200 hover:text-white flex items-center gap-1.5 truncate"
+                  >
+                    <Layers className="w-3 h-3 text-emerald-300 flex-shrink-0" />
+                    <span className="truncate">{g.name}</span>
+                    <span className="text-emerald-400/80">({g.nodeIds.length})</span>
+                  </button>
+                )}
+                {renamingGroupId !== g.id && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onSelectGroup?.(g.id)}
+                      className="mono text-[9px] text-emerald-300 hover:text-white underline"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenamingGroupId(g.id);
+                        setRenameDraft(g.name);
+                      }}
+                      className="mono text-[9px] text-zinc-300 hover:text-white underline"
+                    >
+                      Rename
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {multiList.length > 1 && (
         <div className="bg-indigo-500/15 border border-indigo-400/35 rounded-xl p-2.5 space-y-1.5">
           <div className="flex items-center justify-between">
@@ -182,6 +257,47 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           {node.desc || 'Structural BIM element entity.'}
         </p>
       </div>
+
+      {/* Database Diff Comparison Card (DB A vs DB B) */}
+      {diffMode && node.diffStatus && (
+        <div
+          className="rounded-xl p-2.5 border space-y-2"
+          style={{
+            backgroundColor: 'rgba(15, 18, 25, 0.72)',
+            borderColor: DIFF_PALETTE[node.diffStatus],
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <span
+              className="mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{
+                backgroundColor: `${DIFF_PALETTE[node.diffStatus]}26`,
+                color: DIFF_PALETTE[node.diffStatus],
+              }}
+            >
+              DIFF: {node.diffStatus.toUpperCase()}
+            </span>
+            <span className="mono text-[9px] text-zinc-400">DB A → DB B</span>
+          </div>
+
+          {node.diffChanges && node.diffChanges.length > 0 ? (
+            <div className="space-y-1.5">
+              {node.diffChanges.map((chg, i) => (
+                <div key={i} className="bg-black/40 rounded-lg p-2 border border-white/[0.06] text-[10px]">
+                  <span className="mono text-[9px] text-zinc-400 uppercase block">{chg.field}</span>
+                  <div className="flex items-center justify-between gap-2 mt-0.5 mono">
+                    <span className="text-rose-300 line-through truncate">{chg.before}</span>
+                    <span className="text-zinc-500">→</span>
+                    <span className="text-emerald-300 font-semibold truncate">{chg.after}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-zinc-400 italic">No property changes between DB A and DB B.</p>
+          )}
+        </div>
+      )}
 
       {isInstanceNode(node) && (
         <div className="grid grid-cols-2 gap-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.07]">

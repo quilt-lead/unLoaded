@@ -2,7 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Crosshair, RotateCcw, CheckCircle2, AlertTriangle, Columns } from 'lucide-react';
 import {
   BimGraphData,
+  BimLink,
   BimNode,
+  DatabaseDiffSummary,
+  DiffStatus,
   DockSide,
   FilterState,
   NodeGroup,
@@ -12,11 +15,11 @@ import {
 import {
   buildCalculationGraph,
   buildHierarchyLinks,
+  computeDatabaseDiff,
   computeLoadPathTrace,
   getAllDocumentsFlattened,
   isElementTypeNode,
   isInstanceNode,
-  normalizeGraphData,
 } from './utils/graphEngine';
 import { BIM_PARSERS } from './utils/ifcParser';
 import { HeaderBar } from './components/HeaderBar';
@@ -33,7 +36,12 @@ export const App: React.FC = () => {
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
 
-  const [projectName, setProjectName] = useState<string>('Hudson Point Tower (14F)');
+  // Dual-Database State (Base DB A + Optional Compare DB B)
+  const [baseSnapshot, setBaseSnapshot] = useState<{ graph: BimGraphData; rawLinks: BimLink[] } | null>(null);
+  const [compareSnapshot, setCompareSnapshot] = useState<{ graph: BimGraphData; rawLinks: BimLink[] } | null>(null);
+  const [diffFilter, setDiffFilter] = useState<'ALL' | 'CHANGED' | DiffStatus>('ALL');
+
+  const [projectName, setProjectName] = useState<string>('No Model Loaded');
   const [elementNodes, setElementNodes] = useState<BimNode[]>([]);
   const [rawLinks, setRawLinks] = useState<BimGraphData['links']>([]);
   const [groups, setGroups] = useState<NodeGroup[]>([]);
@@ -76,26 +84,41 @@ export const App: React.FC = () => {
     }, 3400);
   }, []);
 
+  // Recompute active merged graph whenever Base DB (A) or Compare DB (B) changes
+  const diffSummary: DatabaseDiffSummary | null = useMemo(() => {
+    if (!baseSnapshot || !compareSnapshot) return null;
+    const diffRes = computeDatabaseDiff(
+      baseSnapshot.graph,
+      baseSnapshot.rawLinks,
+      compareSnapshot.graph,
+      compareSnapshot.rawLinks
+    );
+    return diffRes.summary;
+  }, [baseSnapshot, compareSnapshot]);
+
   useEffect(() => {
-    fetch('./data/bim-database.json')
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((parsed) => {
-        const normalized = normalizeGraphData(parsed, parsed.projectName || 'Hudson Point Tower (14F)');
-        setProjectName(normalized.projectName || 'Hudson Point Tower (14F)');
-        setElementNodes(normalized.nodes);
-        setRawLinks(Array.isArray(parsed.links) ? parsed.links : normalized.links);
-        showToast(`Loaded ${normalized.projectName} (${normalized.nodes.length} elements)`);
-      })
-      .catch(() => {
-        showToast('Ready — click "Import IFC / DB" to load an .ifc or .json BIM model.', false);
-      });
-  }, [showToast]);
+    if (!baseSnapshot) return;
+    if (!compareSnapshot) {
+      setProjectName(baseSnapshot.graph.projectName || 'Loaded Model');
+      setElementNodes(baseSnapshot.graph.nodes);
+      setRawLinks(baseSnapshot.rawLinks);
+      setDiffFilter('ALL');
+      return;
+    }
+
+    const diffRes = computeDatabaseDiff(
+      baseSnapshot.graph,
+      baseSnapshot.rawLinks,
+      compareSnapshot.graph,
+      compareSnapshot.rawLinks
+    );
+    setProjectName(`${diffRes.summary.baseName} vs ${diffRes.summary.compareName}`);
+    setElementNodes(diffRes.mergedNodes);
+    setRawLinks(diffRes.mergedRawLinks);
+  }, [baseSnapshot, compareSnapshot]);
 
   const handleUploadFile = useCallback(
-    (file: File) => {
+    (file: File, slot: 'base' | 'compare') => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
@@ -113,9 +136,6 @@ export const App: React.FC = () => {
             return;
           }
 
-          setProjectName(graph.projectName || file.name);
-          setElementNodes(graph.nodes);
-          setRawLinks(parsedLinks);
           setGroups([]);
           setSelectedNodeId(null);
           setSelectedNodeIds(new Set());
@@ -123,9 +143,23 @@ export const App: React.FC = () => {
           setSelectedCalcNodeIds(new Set());
           setResetTrigger((c) => c + 1);
 
-          const catCount = graph.nodes.filter(isElementTypeNode).length;
-          const instCount = graph.nodes.filter(isInstanceNode).length;
-          showToast(`Imported via ${parser.name}: ${instCount} elements across ${catCount} IFC types`);
+          if (slot === 'compare') {
+            if (!baseSnapshot) {
+              // If user clicked Compare DB first before loading DB A, load into DB A and prompt for DB B
+              setBaseSnapshot({ graph, rawLinks: parsedLinks });
+              showToast(`Loaded DB A (${graph.projectName || file.name}). Click "Compare DB" again to pick DB B.`);
+              return;
+            }
+            setCompareSnapshot({ graph, rawLinks: parsedLinks });
+            const diffRes = computeDatabaseDiff(baseSnapshot.graph, baseSnapshot.rawLinks, graph, parsedLinks);
+            const s = diffRes.summary;
+            showToast(`Diff ready: +${s.addedCount} added, ~${s.modifiedCount} modified, -${s.removedCount} removed`);
+          } else {
+            setBaseSnapshot({ graph, rawLinks: parsedLinks });
+            const catCount = graph.nodes.filter(isElementTypeNode).length;
+            const instCount = graph.nodes.filter(isInstanceNode).length;
+            showToast(`Loaded DB A via ${parser.name}: ${instCount} elements across ${catCount} types`);
+          }
         } catch (err: any) {
           showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
         }
@@ -133,10 +167,32 @@ export const App: React.FC = () => {
       reader.onerror = () => showToast('Failed to read file from disk.', true);
       reader.readAsText(file);
     },
-    [showToast]
+    [baseSnapshot, showToast]
   );
 
-  // Element Graph links & Calculation Graph synthesis
+  const handleSwapDatabases = useCallback(() => {
+    if (!baseSnapshot || !compareSnapshot) return;
+    const prevBase = baseSnapshot;
+    const prevCompare = compareSnapshot;
+    setBaseSnapshot(prevCompare);
+    setCompareSnapshot(prevBase);
+    setSelectedNodeId(null);
+    setSelectedNodeIds(new Set());
+    setSelectedCalcNodeId(null);
+    setSelectedCalcNodeIds(new Set());
+    showToast(
+      `Swapped models: A is now "${prevCompare.graph.projectName || 'DB B'}" ↔ B is now "${prevBase.graph.projectName || 'DB A'}"`
+    );
+  }, [baseSnapshot, compareSnapshot, showToast]);
+
+  const handleClearDiff = useCallback(() => {
+    setCompareSnapshot(null);
+    setDiffFilter('ALL');
+    setSelectedNodeId(null);
+    setSelectedNodeIds(new Set());
+    showToast('Exited Diff Mode — showing Base DB (A)');
+  }, [showToast]);
+
   const hierarchyLinks = useMemo(() => buildHierarchyLinks(elementNodes, rawLinks), [elementNodes, rawLinks]);
 
   const { calcNodes, calcLinks, docToElementIds } = useMemo(
@@ -164,7 +220,10 @@ export const App: React.FC = () => {
       .map(([fl]) => fl);
   }, [elementNodes]);
 
-  const isFilterActive = Boolean(filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL');
+  const isDiffFilterActive = Boolean(diffSummary && diffFilter !== 'ALL');
+  const isFilterActive = Boolean(
+    filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL' || isDiffFilterActive
+  );
 
   const { matchingNodeIds, totalInstances } = useMemo(() => {
     const targetList = (activeView === 'calculation-graph' ? calcNodes : elementNodes).filter(isInstanceNode);
@@ -174,6 +233,13 @@ export const App: React.FC = () => {
     targetList.forEach((n) => {
       if (filters.type !== 'ALL' && n.parent !== filters.type && n.categoryParent !== filters.type) return;
       if (filters.level !== 'ALL' && n.floor && n.floor !== 'ALL' && n.floor !== filters.level) return;
+
+      if (diffSummary && diffFilter !== 'ALL' && activeView !== 'calculation-graph') {
+        const st = n.diffStatus || 'unchanged';
+        if (diffFilter === 'CHANGED' && st === 'unchanged') return;
+        if (diffFilter !== 'CHANGED' && st !== diffFilter) return;
+      }
+
       if (q) {
         const hay = `${n.id} ${n.label} ${n.floor || ''} ${n.strengthLabel || ''} ${n.desc || ''}`.toLowerCase();
         if (!hay.includes(q)) return;
@@ -182,7 +248,7 @@ export const App: React.FC = () => {
     });
 
     return { matchingNodeIds: matched, totalInstances: targetList.length };
-  }, [activeView, calcNodes, elementNodes, filters]);
+  }, [activeView, calcNodes, elementNodes, filters, diffSummary, diffFilter]);
 
   const allDocs = useMemo(
     () =>
@@ -194,7 +260,6 @@ export const App: React.FC = () => {
     [elementNodes, activeView, isFilterActive, matchingNodeIds, heatmapMode]
   );
 
-  // Select element in Element Graph / 3D
   const handleSelectElementNode = useCallback(
     (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean; skipZoomFit?: boolean }) => {
       if (opts?.toggleMulti) {
@@ -221,7 +286,6 @@ export const App: React.FC = () => {
     []
   );
 
-  // Select calculation node in Calculation Graph -> highlights mapped elements in 3D & Element Graph!
   const handleSelectCalcNode = useCallback(
     (calcId: string) => {
       setSelectedCalcNodeId(calcId);
@@ -234,6 +298,42 @@ export const App: React.FC = () => {
       }
     },
     [docToElementIds]
+  );
+
+  const handleSelectGroup = useCallback(
+    (groupId: string, opts?: { toggleMulti?: boolean }) => {
+      const grp = groups.find((g) => g.id === groupId);
+      if (!grp || grp.nodeIds.length === 0) return;
+      if (opts?.toggleMulti) {
+        setSelectedNodeIds((prev) => {
+          const next = new Set(prev);
+          const allSelected = grp.nodeIds.every((id) => next.has(id));
+          if (allSelected) {
+            grp.nodeIds.forEach((id) => next.delete(id));
+            setSelectedNodeId(next.size > 0 ? Array.from(next).pop() || null : null);
+          } else {
+            grp.nodeIds.forEach((id) => next.add(id));
+            setSelectedNodeId(grp.nodeIds[0]);
+          }
+          return next;
+        });
+      } else {
+        setSelectedNodeIds(new Set(grp.nodeIds));
+        setSelectedNodeId(grp.nodeIds[0]);
+      }
+      setFit3dTrigger((c) => c + 1);
+    },
+    [groups]
+  );
+
+  const handleRenameGroup = useCallback(
+    (groupId: string, newName: string) => {
+      const trimmed = newName.trim();
+      if (!trimmed) return;
+      setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name: trimmed } : g)));
+      showToast(`Renamed group to "${trimmed}"`);
+    },
+    [showToast]
   );
 
   const handleClearSelection = useCallback(() => {
@@ -323,6 +423,7 @@ export const App: React.FC = () => {
 
   const handleResetAll = useCallback(() => {
     setFilters({ search: '', type: 'ALL', level: 'ALL' });
+    setDiffFilter('ALL');
     handleClearSelection();
     setViewer3dDock('float');
     setInspectorDock('float');
@@ -390,12 +491,16 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', onUp);
   };
 
+  const diffMode = Boolean(diffSummary);
+
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title="3D Structural Model"
+      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
       indicatorClassName={
-        selectedNodeId
+        diffMode
+          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
+          : selectedNodeId
           ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] animate-pulse'
           : heatmapMode
           ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
@@ -437,13 +542,20 @@ export const App: React.FC = () => {
           matchingNodeIds={matchingNodeIds}
           isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
           heatmapMode={heatmapMode}
+          diffMode={diffMode}
           fitTrigger={fit3dTrigger}
           resetTrigger={resetTrigger}
           onSelectNode={handleSelectElementNode}
         />
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
           <span className="truncate text-zinc-200">
-            {selectedNodeId ? 'Mapped Element & Load Path' : heatmapMode ? 'Utilization Heatmap' : '3D Structural Frame'}
+            {diffMode
+              ? `+${diffSummary?.addedCount} Added • ~${diffSummary?.modifiedCount} Mod • -${diffSummary?.removedCount} Rem`
+              : selectedNodeId
+              ? 'Mapped Element & Load Path'
+              : heatmapMode
+              ? 'Utilization Heatmap'
+              : '3D Structural Frame'}
           </span>
           <span className="text-zinc-500 ml-2 flex-shrink-0">RMB Orbit • MMB Pan</span>
         </div>
@@ -454,7 +566,7 @@ export const App: React.FC = () => {
   const renderInspectorPanel = () => (
     <DockableHudPanel
       id="inspectorPanel"
-      title={activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
+      title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
       indicatorClassName={
         selectedNodeId
           ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
@@ -474,11 +586,15 @@ export const App: React.FC = () => {
           nodes={elementNodes}
           links={hierarchyLinks}
           rawLinks={rawLinks}
+          groups={groups}
           selectedNodeId={selectedNodeId}
           selectedNodeIds={selectedNodeIds}
           activeLoadChainNodeIds={activeLoadChainNodeIds}
           heatmapMode={heatmapMode}
+          diffMode={diffMode}
           onSelectNode={(id) => handleSelectElementNode(id)}
+          onSelectGroup={(gid) => handleSelectGroup(gid)}
+          onRenameGroup={handleRenameGroup}
           onClearSelection={handleClearSelection}
           onOpenDocument={handleOpenDocument}
           onSwitchToCalcGraph={(calcId) => {
@@ -505,13 +621,19 @@ export const App: React.FC = () => {
         heatmapMode={heatmapMode}
         onToggleHeatmap={() => setHeatmapMode((v) => !v)}
         onUploadFile={handleUploadFile}
+        diffSummary={diffSummary}
+        onSwapDatabases={handleSwapDatabases}
+        onClearDiff={handleClearDiff}
         onResetAll={handleResetAll}
       />
 
       <FilterBar
         filters={filters}
         onChangeFilters={setFilters}
-        onClearFilters={() => setFilters({ search: '', type: 'ALL', level: 'ALL' })}
+        onClearFilters={() => {
+          setFilters({ search: '', type: 'ALL', level: 'ALL' });
+          setDiffFilter('ALL');
+        }}
         isFilterActive={isFilterActive}
         categories={categories}
         floors={floors}
@@ -520,6 +642,9 @@ export const App: React.FC = () => {
         traceSteps={traceSteps}
         onChangeTraceSteps={setTraceSteps}
         heatmapMode={heatmapMode}
+        diffSummary={diffSummary}
+        diffFilter={diffFilter}
+        onChangeDiffFilter={setDiffFilter}
         matchedCount={matchingNodeIds.size}
         totalInstances={totalInstances}
       />
@@ -566,8 +691,11 @@ export const App: React.FC = () => {
               matchingNodeIds={matchingNodeIds}
               isFilterActive={isFilterActive}
               heatmapMode={heatmapMode}
+              diffMode={diffMode}
               resetTrigger={resetTrigger}
               onSelectNode={handleSelectElementNode}
+              onSelectGroup={handleSelectGroup}
+              onRenameGroup={handleRenameGroup}
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveNodes}
               onGroupSelection={handleGroupSelection}
@@ -585,6 +713,7 @@ export const App: React.FC = () => {
               matchingNodeIds={matchingNodeIds}
               isFilterActive={isFilterActive}
               heatmapMode={false}
+              diffMode={false}
               resetTrigger={resetTrigger}
               onSelectNode={(id) => handleSelectCalcNode(id)}
               onClearSelection={handleClearSelection}
@@ -624,6 +753,7 @@ export const App: React.FC = () => {
                 matchingNodeIds={matchingNodeIds}
                 isFilterActive={isFilterActive}
                 heatmapMode={heatmapMode}
+                diffMode={diffMode}
                 fitTrigger={fit3dTrigger}
                 resetTrigger={resetTrigger}
                 onSelectNode={handleSelectElementNode}
@@ -639,6 +769,7 @@ export const App: React.FC = () => {
               selectedNodeId={selectedNodeId}
               activeLoadChainNodeIds={activeLoadChainNodeIds}
               filterBySelectedElement={docFilterBySelected}
+              diffMode={diffMode}
               onClearElementFilter={() => setDocFilterBySelected(false)}
               initialDocId={initialDocId}
               onLocateElement={(nodeId, view) => {
