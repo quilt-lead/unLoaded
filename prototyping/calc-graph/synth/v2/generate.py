@@ -58,7 +58,8 @@ def build(layout: model.Layout | None = None, keep: dict | None = None) -> tuple
     exp["building"] = {"name": "Harbor View Office (synthetic)", "grids": {"x": model.GX, "y": model.GY},
                        "levels": [{"key": k, "name": n, "elev_ft": z} for k, n, z in model.LEVELS],
                        "areas": [a.__dict__ for a in layout.areas], "layout_label": layout.label,
-                       "columns": {c: list(p) for c, p in layout.cols.items()}, "removed": sorted(layout.removed)}
+                       "columns": {c: list(p) for c, p in layout.cols.items()}, "removed": sorted(layout.removed),
+                       "lateral": layout.lateral.to_dict()}
     exp["aisc_verification"] = aisc.verify()
     return d, _clean(exp)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 
 from . import aisc, gravity as G, lateral as LAT
-from .model import (BF_LINE, GX, GY, LEVELS, MF_LINES, STOREY_H, Layout, Topology, build)
+from .model import (GX, GY, LEVELS, STOREY_H, Layout, Topology, build)
 
 LV = [l for l, _, _ in LEVELS]
 DRAG_TYPES = {"DC-1": 60.0, "DC-2": 120.0, "DC-3": 200.0}
@@ -74,6 +74,9 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             out[si + 1] = tot
         return out
 
+    sch = layout.lateral
+    reviewed = not sch.original
+    MF_LINES, BF_LINES = sch.MF, sch.BF
     smf = {}
     lines_x = {}
     for yl in MF_LINES:
@@ -88,10 +91,43 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
                 w = G.line_loads(m, topo)
                 bl[(m.level, bi)] = (w[0], w[1] + w[2])
         lines_x[yl] = {"cols": cols, "bl": bl, "y": sum(topo.columns[c]["y"] for c, _ in cols) / len(cols)}
+    # SCBF lines along Y: columns, braced bay indices, girder loads, gravity girder sizes
+    lines_y = {}
+    for xl, bays in BF_LINES.items():
+        bcols = sorted(((c, topo.columns[c]["y"]) for c in topo.columns if c[:-1] == xl), key=lambda t: t[1])
+        braced = [i for i in range(len(bcols) - 1) if (bcols[i][0][-1], bcols[i + 1][0][-1]) in bays]
+        bl3, gsz, glb, gid = {}, {}, {}, {}
+        for k, m in topo.members.items():
+            if m.kind == "girder" and m.line == xl:
+                r = framing[k]
+                bi = [c for c, _ in bcols].index(m.i["col"])
+                if reviewed:   # the girder's real loads: uniform (walls, strips) + the infill reactions
+                    bl3[(m.level, bi)] = {"w": (r["w"][0], r["w"][1] + r["w"][2]),
+                                          "pts": [(a, p[0], p[1] + p[2]) for a, p in r["pts"]]}
+                else:          # first issue: point loads smeared into a uniform load
+                    tot = [r["Ri"][n] + r["Rj"][n] for n in range(3)]
+                    bl3[(m.level, bi)] = (tot[0] / r["span"] - r["sw"], (tot[1] + tot[2]) / r["span"])
+                gsz[(m.level, bi)], glb[(m.level, bi)], gid[(m.level, bi)] = r["size"], r["lb"], k
+        lines_y[xl] = {"cols": bcols, "braced": braced, "bl": bl3, "gsz": gsz, "glb": glb, "gid": gid,
+                       "x": sum(topo.columns[c]["x"] for c, _ in bcols) / max(len(bcols), 1)}
     ydim = GY[-1][1] - GY[0][1]
+    xdim = GX[-1][1] - GX[0][1]
     kx = {yl: 1.0 for yl in lines_x}
-    for _it in range(2):
-        shares = LAT.distribute(1.0, {yl: (kx[yl], lines_x[yl]["y"]) for yl in lines_x}, cmy, ydim)
+    ky = {xl: 1.0 for xl in lines_y}
+    scbf, diaphragm = {}, {}
+    kbr = {v.get("frame"): v["size"] for v in keep.values() if v.get("type") == "brace"}
+    kbr_any = next(iter(kbr.values()), None)
+    for _it in range(2 if not reviewed else 3):
+        if reviewed:
+            lx = {yl: (kx[yl], lines_x[yl]["y"]) for yl in lines_x}
+            ly = {xl: (ky[xl], lines_y[xl]["x"]) for xl in lines_y if lines_y[xl]["braced"]}
+            diaphragm = {"x": LAT.rigid_diaphragm(1.0, "x", lx, ly, (cmx, cmy), (xdim, ydim)),
+                         "y": LAT.rigid_diaphragm(1.0, "y", lx, ly, (cmx, cmy), (xdim, ydim)) if ly else None}
+            shares = diaphragm["x"]["shares"]
+            shares_y = diaphragm["y"]["shares"] if ly else {}
+        else:
+            shares = LAT.distribute(1.0, {yl: (kx[yl], lines_x[yl]["y"]) for yl in lines_x}, cmy, ydim)
+            shares_y = {xl: 1.0 for xl in lines_y}   # one braced line takes the whole Y force
         for yl, L in lines_x.items():
             fe = {lv: ex["Fx"][lv] * shares[yl] for lv in LV}
             fw = {lv: wx["Fx"][lv] * shares[yl] for lv in LV}
@@ -102,31 +138,42 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             if keep and all(kc) and all(kb) and kb:
                 kp = (max((b["size"] for b in kb), key=lambda z: aisc.get(z)["W"]),
                       max((c["size"] for c in kc), key=lambda z: aisc.get(z)["W"]))
-            smf[yl] = LAT.design_smf(yl, L["cols"], L["bl"], fe, fw, gp, keep=kp)
+            smf[yl] = LAT.design_smf(yl, L["cols"], L["bl"], fe, fw, gp, keep=kp, shear_def=reviewed)
             smf[yl].update(share=shares[yl], fe=fe, fw=fw, gp=gp)
             kx[yl] = smf[yl]["analysis"]["k"]
-    # SCBF line
-    xl = BF_LINE[0]
-    bcols = sorted(((c, topo.columns[c]["y"]) for c in topo.columns if c[:-1] == xl), key=lambda t: t[1])
-    braced = [i for i in range(len(bcols) - 1) if (bcols[i][0][-1], bcols[i + 1][0][-1]) in BF_LINE[1]]
-    bl3 = {}
-    for k, m in topo.members.items():
-        if m.kind == "girder" and m.line == xl:
-            r = framing[k]
-            tot = [r["Ri"][n] + r["Rj"][n] for n in range(3)]
-            bi = [c for c, _ in bcols].index(m.i["col"])
-            bl3[(m.level, bi)] = (tot[0] / r["span"] - r["sw"], (tot[1] + tot[2]) / r["span"])
-    fy = {lv: ey["Fx"][lv] for lv in LV}
-    scbf_beam = max((framing[k]["size"] for k, m in topo.members.items() if "scbf_beam" in m.roles),
-                    key=lambda s: aisc.get(s)["W"], default="W18X35")
-    kbr = next((v["size"] for k, v in keep.items() if v.get("type") == "brace"), None)
-    scbf = LAT.design_scbf(bcols, bl3, fy, scbf_beam, "W14X90", braced, keep=kbr) if braced else {"ok": True, "forces": {}, "col_e": {}, "drifts": []}
+        if not reviewed and _it == 0:
+            continue   # the first issue designed its SCBF once, after the SMF shares settled
+        for xl, L in lines_y.items():
+            if not L["braced"]:
+                scbf[xl] = {"ok": True, "forces": {}, "col_e": {}, "drifts": []}
+                continue
+            fy = {lv: ey["Fx"][lv] * shares_y[xl] for lv in LV}
+            if reviewed:
+                kg = {bk: keep[L["gid"][bk]]["size"] for bk in L["gid"] if L["gid"][bk] in keep}
+                r = LAT.design_scbf(L["cols"], L["bl"], fy, None, "W14X90", L["braced"], keep=kbr.get(f"SCBF-{xl}", kbr_any),
+                                    basis="etabs-reviewed", girder_sizes=L["gsz"], girder_lb=L["glb"], keep_girders=kg)
+            else:
+                scbf_beam = max((framing[k]["size"] for k, m in topo.members.items() if "scbf_beam" in m.roles),
+                                key=lambda z: aisc.get(z)["W"], default="W18X35")
+                r = LAT.design_scbf(L["cols"], L["bl"], fy, scbf_beam, "W14X90", L["braced"], keep=kbr_any)
+            r.update(share=shares_y[xl], fy=fy, line=xl, girder_ids={f"{lv}|{bi}": k for (lv, bi), k in L["gid"].items()})
+            scbf[xl] = r
+            ky[xl] = r["k"]
+    col_e_all = {k: v for r in scbf.values() for k, v in r.get("col_e", {}).items()}
+    fy_line = {xl: r.get("fy", {}) for xl, r in scbf.items()}
 
     # ---------- smf beams sized by the frame -> recheck those members with fixed size for reactions
     fixed = {}
     for k, m in topo.members.items():
         if "smf_beam" in m.roles and m.line in smf:
             fixed[k] = smf[m.line]["beam"]
+    if reviewed:   # SCBF-line girders sized in the frame (full combos + F2.3) govern over the simple-span size
+        for xl, r in scbf.items():
+            for key_, k in r.get("girder_ids", {}).items():
+                lv, bi = key_.split("|")
+                gs = r["girder_sizes"][(lv, int(bi))]
+                if aisc.get(gs)["W"] > aisc.get(framing[k]["size"])["W"]:
+                    fixed[k] = gs
     # collectors
     coll = {}
     for k, m in topo.members.items():
@@ -139,11 +186,14 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             lbld = GX[-1][1] - GX[0][1]
             o0 = LAT.SYS["x"]["O0"]
             pu = o0 * line_f[m.level] * m.span / lbld
-        else:                  # girder on the SCBF line
+        else:                  # girder on an SCBF line
             o0 = LAT.SYS["y"]["O0"]
-            pu = o0 * fy[m.level] * (m.span / 2) / ydim
+            line_f = fy_line.get(m.line)
+            if not line_f:
+                continue
+            pu = o0 * line_f[m.level] * (m.span / 2) / ydim
         r0 = framing[k]
-        size = r0["size"]
+        size = fixed.get(k, r0["size"])
         cands = [c for c in aisc.beam_candidates() if aisc.get(c)["W"] >= aisc.get(size)["W"]]
         if size in cands:
             cands = [size] + [c for c in cands if c != size]
@@ -173,11 +223,11 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             segs = G.column_demands(topo, rx, size, roles)
             out = {}
             for sg in segs:
-                pe = scbf["col_e"].get((c, sg["storey"]), 0.0)
+                pe = col_e_all.get((c, sg["storey"]), 0.0)
                 pg = _seis_fac(sg["P"])
                 out[sg["storey"]] = {"OM": (pg + o0 * pe, sg["combos"]["LC2"]["mux"] * 0.6, sg["combos"]["LC2"]["muy"] * 0.6)}
             return out
-        in_scbf = "scbf_column" in info["roles"] and bool(scbf.get("col_e"))
+        in_scbf = "scbf_column" in info["roles"] and bool(col_e_all)
         if "smf_column" in info["roles"] and c[-1] in smf:
             size = smf[c[-1]]["col"]
             segs = G.column_demands(topo, rx, size, info["roles"])
@@ -237,7 +287,7 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
                 conns[cid] = {"id": cid, "member": k, "end": end, "to": to, **{x: a[x] for x in ("type", "phi_rn", "ru", "uc", "special", "bolts", "governs")},
                               "check": "end reaction vs typical shear tab capacity"}
     for bid, b in topo.braces.items():
-        exp_t = scbf.get("expected_t", 0.0)
+        exp_t = scbf.get(b["frame"].split("-", 1)[1], {}).get("expected_t", 0.0)
         for end in ("i", "j"):
             cid = f"CX-{bid}-{end}"
             a = _assign(BRACE_GUSSETS, exp_t)
@@ -253,7 +303,7 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
         if "smf_column" in info["roles"] and c[-1] in smf:
             pe = smf[c[-1]]["analysis"]["columns"][(c, "base")]["p_e"]
         if "scbf_column" in info["roles"]:
-            pe = max(pe, scbf.get("col_e", {}).get((c, 1), 0.0))
+            pe = max(pe, col_e_all.get((c, 1), 0.0))
         p_serv = max(p[0] + p[1] + p[2], p[0] + 0.75 * p[1] + 0.75 * p[2] + 0.75 * 0.7 * pe)
         pu = max(max(G.fac(p, lc) for lc in G.COMBOS), _seis_fac(p) + (LAT.SYS["y"]["O0"] if "scbf_column" in info["roles"] else 1.0) * pe)
         pier = "P-2" if info["roles"] != ["gravity"] else "P-1"
@@ -272,16 +322,17 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             fr = smf[g["line"]]["analysis"]["columns"]
             m_end = max(fr.get((g["a"], "base"), {}).get("m_base", 0.0), fr.get((g["b"], "base"), {}).get("m_base", 0.0)) / 2
         tie = 0.0
-        if g["line"] == BF_LINE[0]:
+        if g["line"] in BF_LINES and g["line"] in scbf:
             # brace base shear of one braced bay, shared into the line by the tie grade beam
-            tie = LAT.SYS["y"]["rho"] * ey["V"] / 4
+            tie = LAT.SYS["y"]["rho"] * ey["V"] * scbf[g["line"]].get("share", 1.0) / 4
         gbs[gid] = {**G.design_grade_beam(L, g["wall"], m_end, tie), "a": g["a"], "b": g["b"], "line": g["line"],
                     "p1": g["p1"], "p2": g["p2"]}
 
     clashes = find_clashes(footings, gbs)
     return {"layout": layout, "topo": topo, "framing": framing, "columns": columns, "connections": conns,
             "footings": footings, "piers": piers, "base_plates": plates, "grade_beams": gbs, "clashes": clashes,
-            "seismic": {"x": ex, "y": ey, "weights": weights, "cm": (cmx, cmy)}, "wind": {"x": wx, "y": wy},
+            "seismic": {"x": ex, "y": ey, "weights": weights, "cm": (cmx, cmy), "diaphragm": diaphragm},
+            "wind": {"x": wx, "y": wy},
             "smf": smf, "scbf": scbf, "collectors": coll, "infeasible": infeasible,
             "shear_tabs": G.SHEAR_TABS}
 

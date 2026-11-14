@@ -10,12 +10,17 @@ Framing scheme (typical composite-deck office):
 - girders along Y on every number line, column to column
 - infill beams along X at third points of each bay (deck span 8'-4" to 10'-0"), framing
   into the girders; grid beams along X on every letter line, column to column
-- 2 special moment frame (SMF) lines along X: lines A and D, bays 2-3 and 3-4 (RBS)
-- 1 special concentrically braced frame (SCBF) line along Y: line 3, bays A-B and C-D
-  (chevron); girder 3 B-C is the collector between them
-- collectors: grid beams A 1-2 / 4-5, D 1-2 / 4-5 (drag into the SMF), girder 3 B-C
-- spread footing + pier under every column; grade beams on lines A, D, 1, 5 (perimeter
-  wall, SMF base moments) and line 3 (ties the braced-frame footings)
+- the lateral system is part of the layout (Layout.lateral, a LateralScheme); the base design
+  (perimeter_scheme) is
+  - 2 special moment frame (SMF) lines along X: lines A and D, bays 2-3 and 3-4 (RBS)
+  - 2 special concentrically braced frame (SCBF) lines along Y on the PERIMETER: lines 1 and 5,
+    bays A-B and C-D (chevron); girders 1 B-C / 5 B-C are the collectors between them. Both Y
+    lines sit 60 ft from the centre of mass, so the Y system resists torsion as well as the X
+    frames (ETABS 23.3.2 on the original single-centre-line layout found a torsional first mode,
+    T = 0.921 s, RZ 0.88 - original_scheme keeps that layout as a named scenario)
+  - collectors: grid beams A 1-2 / 4-5, D 1-2 / 4-5 (drag into the SMF), girders 1 / 5 B-C
+  - spread footing + pier under every column; grade beams on lines A, D, 1, 5 (perimeter
+    wall, SMF base moments; the line-1 / line-5 grade beams also tie the braced-frame footings)
 
 Move semantics (recorded in the notes file): a moved column keeps its grid identity and
 its members; members re-frame to its new position (skew), infill beams keep their y and
@@ -35,11 +40,79 @@ STOREY_H = {"L2": 14.0, "L3": 13.0, "RF": 13.0}
 FTG_TOP = -3.0          # top of footing (ft); pier from -3.0 to -0.5, base plate at 0.0 (slab on grade)
 PIER_TOP = -0.5
 
-MF_LINES = {"A": ("2", "3", "4"), "D": ("2", "3", "4")}     # SMF along X: columns on these number lines
-BF_LINE = ("3", [("A", "B"), ("C", "D")])                    # SCBF along Y on line 3, braced bays
-COLLECTORS_X = {"A": [("1", "2"), ("4", "5")], "D": [("1", "2"), ("4", "5")]}
-COLLECTORS_Y = {"3": [("B", "C")]}
-GRADE_BEAM_LINES = {"x": ["A", "D"], "y": ["1", "5", "3"]}   # x: along X on letter line; y: along Y on number line
+
+@dataclass(frozen=True)
+class LateralScheme:
+    """The seismic force-resisting system as layout input - every consumer (design, records,
+    drawings, calc package, IFC, ETABS export, comparator) reads the frame lines from here,
+    through the topology, never from a module constant.
+
+    basis: "etabs-reviewed" - the design method after the 2026-11-14 ETABS 23.3.2 review (frames
+    with shear deformation, SCBF girders with their real point loads and every combo); "original"
+    - the method the first issue used (Euler-Bernoulli frames, girder loads smeared uniform, SCBF
+    girders not checked in the frame), kept so the original building regenerates byte for byte."""
+    name: str
+    mf_lines: tuple            # ((letter line, (number lines of its columns)), ...) - SMF along X
+    bf_lines: tuple            # ((number line, ((ya, yb), ...braced bays)), ...) - SCBF along Y
+    collectors_x: tuple        # ((letter line, ((xa, xb), ...)), ...)
+    collectors_y: tuple        # ((number line, ((ya, yb), ...)), ...)
+    grade_beam_x: tuple        # letter lines with grade beams along X
+    grade_beam_y: tuple        # number lines with grade beams along Y
+    basis: str = "etabs-reviewed"
+
+    @property
+    def MF(self) -> dict[str, tuple]:
+        return dict(self.mf_lines)
+
+    @property
+    def BF(self) -> dict[str, list]:
+        return {k: list(v) for k, v in self.bf_lines}
+
+    @property
+    def CX(self) -> dict[str, list]:
+        return {k: list(v) for k, v in self.collectors_x}
+
+    @property
+    def CY(self) -> dict[str, list]:
+        return {k: list(v) for k, v in self.collectors_y}
+
+    @property
+    def original(self) -> bool:
+        return self.basis == "original"
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "basis": self.basis, "mf_lines": {k: list(v) for k, v in self.mf_lines},
+                "bf_lines": {k: [list(b) for b in v] for k, v in self.bf_lines},
+                "collectors_x": {k: [list(b) for b in v] for k, v in self.collectors_x},
+                "collectors_y": {k: [list(b) for b in v] for k, v in self.collectors_y},
+                "grade_beam_x": list(self.grade_beam_x), "grade_beam_y": list(self.grade_beam_y)}
+
+    @staticmethod
+    def from_dict(d: dict) -> "LateralScheme":
+        return LateralScheme(d["name"], tuple((k, tuple(v)) for k, v in d["mf_lines"].items()),
+                             tuple((k, tuple(tuple(b) for b in v)) for k, v in d["bf_lines"].items()),
+                             tuple((k, tuple(tuple(b) for b in v)) for k, v in d["collectors_x"].items()),
+                             tuple((k, tuple(tuple(b) for b in v)) for k, v in d["collectors_y"].items()),
+                             tuple(d["grade_beam_x"]), tuple(d["grade_beam_y"]), d.get("basis", "etabs-reviewed"))
+
+
+_SMF_AD = (("A", ("2", "3", "4")), ("D", ("2", "3", "4")))
+_COLL_X = (("A", (("1", "2"), ("4", "5"))), ("D", (("1", "2"), ("4", "5"))))
+
+
+def perimeter_scheme() -> LateralScheme:
+    """Base design: SMF A / D along X, chevron SCBF on the perimeter lines 1 and 5 along Y."""
+    bays = (("A", "B"), ("C", "D"))
+    return LateralScheme("Perimeter SCBF on lines 1 and 5", _SMF_AD, (("1", bays), ("5", bays)),
+                         _COLL_X, (("1", (("B", "C"),)), ("5", (("B", "C"),))), ("A", "D"), ("1", "5"))
+
+
+def original_scheme() -> LateralScheme:
+    """The first issue: one SCBF on line 3 at the centre of mass (no torsional resistance in Y),
+    designed with the original method. ETABS finds a torsional mode 1 and SMF drift over the limit."""
+    return LateralScheme("Original layout - single SCBF on line 3", _SMF_AD, (("3", (("A", "B"), ("C", "D"))),),
+                         _COLL_X, (("3", (("B", "C"),)),), ("A", "D"), ("1", "5", "3"), basis="original")
+
 
 WALL_PSF = 15.0
 PARAPET_FT = 3.0
@@ -123,6 +196,7 @@ class Layout:
     removed: set[str] = field(default_factory=set)
     areas: list[Area] = field(default_factory=default_areas)
     label: str = "Base design"
+    lateral: LateralScheme = field(default_factory=perimeter_scheme)
 
     def copy(self) -> "Layout":
         return copy.deepcopy(self)
@@ -179,24 +253,31 @@ class Topology:
     braces: dict[str, dict]
     grade_beams: dict[str, dict]
 
+    @property
+    def scheme(self) -> LateralScheme:
+        return self.layout.lateral
 
-def _col_role(c: str) -> tuple[list[str], list[str]]:
+
+def _col_role(c: str, sch: LateralScheme) -> tuple[list[str], list[str]]:
     xl, yl = c[:-1], c[-1]
     roles, frames = [], []
-    if yl in MF_LINES and xl in MF_LINES[yl]:
+    mf, bf = sch.MF, sch.BF
+    if yl in mf and xl in mf[yl]:
         roles.append("smf_column")
         frames.append(f"SMF-{yl}")
-    if xl == BF_LINE[0] and any(yl in bay for bay in BF_LINE[1]):
+    if xl in bf and any(yl in bay for bay in bf[xl]):
         roles.append("scbf_column")
         frames.append(f"SCBF-{xl}")
     return roles or ["gravity"], frames
 
 
 def build(layout: Layout) -> Topology:
+    sch = layout.lateral
+    MF_LINES, BF_LINES, COLLECTORS_X, COLLECTORS_Y = sch.MF, sch.BF, sch.CX, sch.CY
     cols = {c: p for c, p in layout.cols.items() if c not in layout.removed}
     columns = {}
     for c, (x, y) in cols.items():
-        roles, frames = _col_role(c)
+        roles, frames = _col_role(c, sch)
         columns[c] = {"x": x, "y": y, "roles": roles, "frames": frames, "grid": f"{c[:-1]}/{c[-1]}"}
     members: dict[str, Member] = {}
     xlabels = [l for l, _ in GX]
@@ -212,7 +293,7 @@ def build(layout: Layout) -> Topology:
                 mid = f"G-{lv}-{xl}-{ya}{yb}"
                 m = Member(mid, "girder", lv, xl, {"col": ca}, {"col": cb}, cols[ca], cols[cb], [],
                            wall=xl in ("1", "5"), roles=["gravity"])
-                if xl == BF_LINE[0] and (ya, yb) in BF_LINE[1]:
+                if xl in BF_LINES and (ya, yb) in BF_LINES[xl]:
                     m.roles = ["scbf_beam"]
                     m.frame = f"SCBF-{xl}"
                 if xl in COLLECTORS_Y and (ya, yb) in COLLECTORS_Y[xl]:
@@ -296,10 +377,9 @@ def build(layout: Layout) -> Topology:
 
     # braces: chevron in each braced bay, every storey, from the column bases to beam mid-span above
     braces = {}
-    xl = BF_LINE[0]
     zs = [0.0] + [z for _, _, z in LEVELS]
     lvs = ["L1"] + [l for l, _, _ in LEVELS]
-    for ya, yb in BF_LINE[1]:
+    for xl, ya, yb in [(xl, ya, yb) for xl, bays in BF_LINES.items() for ya, yb in bays]:
         ca, cb = f"{xl}{ya}", f"{xl}{yb}"
         if ca not in cols or cb not in cols:
             continue
@@ -314,13 +394,13 @@ def build(layout: Layout) -> Topology:
 
     # grade beams: segments between consecutive present columns on the grade-beam lines
     gbs = {}
-    for yl in GRADE_BEAM_LINES["x"]:
+    for yl in sch.grade_beam_x:
         present = [x for x, _ in GX if f"{x}{yl}" in cols]
         for a, b in zip(present, present[1:]):
             gid = f"GB-{yl}-{a}{b}"
             gbs[gid] = {"id": gid, "line": yl, "a": f"{a}{yl}", "b": f"{b}{yl}", "p1": cols[f"{a}{yl}"],
                         "p2": cols[f"{b}{yl}"], "smf": yl in MF_LINES, "wall": True}
-    for xl_ in GRADE_BEAM_LINES["y"]:
+    for xl_ in sch.grade_beam_y:
         present = [y for y, _ in GY if f"{xl_}{y}" in cols]
         for a, b in zip(present, present[1:]):
             gid = f"GB-{xl_}-{a}{b}"

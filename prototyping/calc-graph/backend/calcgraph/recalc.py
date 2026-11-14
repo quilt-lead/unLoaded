@@ -31,8 +31,8 @@ METHOD = ("calc-graph re-run - synth v2 design code (gravity statics, PyNite fra
           "AISC 360/341, ACI 318 checks), minimum-change re-design")
 ORDER = {"area_load": 0, "criteria": 0, "beam_design": 1, "smf_beam": 5, "column_design": 2, "footing": 3, "pier": 3,
          "base_plate": 4, "grade_beam": 3, "connection": 4, "typical_detail": 4, "seismic": 5, "wind": 5,
-         "frame_analysis": 5, "brace": 5, "collector": 5}
-LATERAL = {"seismic", "wind", "frame_analysis", "brace", "collector", "smf_beam"}
+         "frame_analysis": 5, "brace": 5, "collector": 5, "scbf_girder": 5}
+LATERAL = {"seismic", "wind", "frame_analysis", "brace", "collector", "smf_beam", "scbf_girder"}
 
 
 def layout_from_change(change: dict):

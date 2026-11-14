@@ -52,16 +52,50 @@ SCENARIOS = [
     ("S14", "Gravity column 2/C removed", "remove", "2C", 0, 0),
     ("S15", "SMF column 2/A moved +2 ft in x (along frame line A)", "move", "2A", 2, 0),
     ("S16", "SMF column 4/D moved -5 ft in x (along frame line D)", "move", "4D", -5, 0),
-    ("S17", "SCBF column 3/B moved +3 ft in y (braced bay A-B)", "move", "3B", 0, 3),
-    ("S18", "Corner column 1/A moved +5 ft in x", "move", "1A", 5, 0),
-    ("S19", "Corner column 5/D moved -5 ft in y", "move", "5D", 0, -5),
-    ("S20", "Perimeter column 1/B moved +5 ft in y (along the line-1 grade beam)", "move", "1B", 0, 5),
+    ("S17", "SCBF column 5/B moved +3 ft in y (braced bay A-B, line 5)", "move", "5B", 0, 3),
+    ("S18", "Corner column 1/A (SCBF line 1) moved +5 ft in x", "move", "1A", 5, 0),
+    ("S19", "Corner column 5/D (SCBF line 5) moved -5 ft in y", "move", "5D", 0, -5),
+    ("S20", "SCBF column 1/B moved +5 ft in y (braced bay A-B, line 1, along the line-1 grade beam)", "move", "1B", 0, 5),
     ("S21", "Gravity column 2/B moved -25 ft in y (footing onto the line-A grade beam)", "move", "2B", 0, -25),
     ("S22", "Column 4/B under the roof mech area moved -5 ft in x", "move", "4B", -5, 0),
     ("S23", "Column 4/B under the roof mech area moved +5 ft in y", "move", "4B", 0, 5),
     ("S24", "Column 4/B under the roof mech area moved +10 ft in x", "move", "4B", 10, 0),
     ("S25", "Gravity column 2/C moved +5 ft in x", "move", "2C", 5, 0),
 ]
+
+
+# Design scenarios: a different lateral system / design basis, not a column move. Written to
+# scenarios/<id>.json (+ <id>.e2k for ETABS) as a FRESH design (no minimum-change keep), listed in
+# answer_key.json under "design_scenarios" - never scored as a move (the move key stays move-only).
+DESIGN_SCENARIOS = [
+    ("ORIG", "Original layout - single SCBF on line 3 (ETABS finds torsion + drift)", model.original_scheme),
+]
+
+
+def run_design_scenario(ds) -> dict:
+    """Fresh design of a design scenario's layout; writes its export and its ETABS e2k, returns a
+    summary for the answer key (lateral system, SFRS sizes, design drift ratios)."""
+    import sys
+    sid, label, scheme = ds
+    L = model.base_layout()
+    L.lateral = scheme()
+    L.label = f"{sid}: {label}"
+    d, exp = build(L)
+    os.makedirs(os.path.join(OUT, "scenarios"), exist_ok=True)
+    path = os.path.join(OUT, "scenarios", f"{sid}.json")
+    write_json_atomic(path, exp, sort_keys=True)
+    sys.path.insert(0, os.path.join(os.path.dirname(OUT), "..", "backend"))
+    from calcgraph.analysis.etabs import EtabsAdapter
+    e2k = os.path.join(OUT, "scenarios", f"{sid}.e2k")
+    tmp = e2k + ".tmp"
+    EtabsAdapter(path).export_model(tmp)
+    os.replace(tmp, e2k)
+    rec = {r["id"]: r for r in exp["records"]}
+    return _clean({"id": sid, "label": label, "kind": "design", "lateral": L.lateral.to_dict(), "file": f"scenarios/{sid}.json",
+                   "e2k": f"scenarios/{sid}.e2k",
+                   "drift": {rid: rec[rid]["demand"] for rid in sorted(rec) if rid.startswith(("C-SMF:", "C-SCBF:"))},
+                   "frames": {rid: {k: rec[rid]["values"].get(k) for k in ("beam", "column", "brace") if rec[rid]["values"].get(k)}
+                              for rid in sorted(rec) if rid.startswith(("C-SMF:", "C-SCBF:"))}})
 
 
 def layout_for(sc) -> model.Layout:
@@ -152,14 +186,14 @@ def smf_drift_at_current(L: model.Layout, base: dict, d_new: dict) -> dict:
             continue
         ob, oc = old["values"]["beam"], old["values"]["column"]
         cols = [c for c, _ in sorted(((c, d_new["topo"].columns[c]["x"]) for c in d_new["topo"].columns
-                                      if c[-1] == yl and c[:-1] in model.MF_LINES[yl]), key=lambda t: t[1])]
+                                      if c[-1] == yl and c[:-1] in d_new["topo"].scheme.MF[yl]), key=lambda t: t[1])]
         cl = [(c, d_new["topo"].columns[c]["x"]) for c in cols]
         bl = {}
         for k, m in d_new["topo"].members.items():
             if "smf_beam" in m.roles and m.line == yl:
                 w = G.line_loads(m, d_new["topo"])
                 bl[(m.level, cols.index(m.i["col"]))] = (w[0], w[1] + w[2])
-        a = LAT.analyse_smf(yl, cl, bl, ob, oc, s["fe"], s["fw"], 1.0, 3.0)
+        a = LAT.analyse_smf(yl, cl, bl, ob, oc, s["fe"], s["fw"], 1.0, 3.0, shear_def=s.get("shear_def", False))
         out[yl] = max(x["ratio"] for x in a["drifts"])
     return out
 
@@ -278,14 +312,23 @@ def main() -> None:
     if not os.path.exists(os.path.join(OUT, "design.json")):
         raise SystemExit("run `uv run python -m synth.v2.generate` first")
     scs = [s for s in SCENARIOS if not a.only or s[0] in a.only.split(",")]
+    if a.only and not scs:
+        scs = []
     t = time.time()
     with ProcessPoolExecutor(max_workers=a.jobs) as ex:
         keys = list(ex.map(run_one, scs))
+    dscs = [s for s in DESIGN_SCENARIOS if not a.only or s[0] in a.only.split(",")]
+    dkeys = [run_design_scenario(s) for s in dscs]
     path = os.path.join(OUT, "answer_key.json")
-    old = json.load(open(path)) if a.only and os.path.exists(path) else {"scenarios": []}
+    old = json.load(open(path)) if a.only and os.path.exists(path) else {"scenarios": [], "design_scenarios": []}
     merged = {k["id"]: k for k in old["scenarios"]}
     merged.update({k["id"]: k for k in keys})
-    write_json_atomic(path, {"threshold": THRESH, "scenarios": [merged[k] for k in sorted(merged)]}, indent=1, sort_keys=True)
+    dmerged = {k["id"]: k for k in old.get("design_scenarios", [])}
+    dmerged.update({k["id"]: k for k in dkeys})
+    write_json_atomic(path, {"threshold": THRESH, "scenarios": [merged[k] for k in sorted(merged)],
+                             "design_scenarios": [dmerged[k] for k in sorted(dmerged)]}, indent=1, sort_keys=True)
+    for k in dkeys:
+        print(f"{k['id']} design scenario: {k['label']} -> {k['file']}, {k['e2k']}")
     for k in keys:
         print(f"{k['id']} {k['difficulty']:<11} stale {len(k['changed_records']):>4}  resized {len(k['resized']):>3}  "
               f"over@cur {len(k['over_at_current']):>3}  lateral {len(k['lateral_changed']):>3}  clashes {len(k['clashes'])}  "

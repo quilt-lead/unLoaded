@@ -19,7 +19,7 @@ with Envelope combos, wind story forces as point loads, and the 15 design combos
 
 The PyNite side is the production analysis, not a re-typed model: synth.v2.design.run is run on
 the design's layout with synth.v2.lateral._frame wrapped, which captures the exact frames the
-design solved (2D SMF lines A / D, 2D SCBF line 3: their beam loads, line shares of the ELF and
+design solved (every 2D SMF and SCBF line the layout has: their beam loads, line shares of the ELF and
 wind, sizes). Those frames are re-solved per load case (D, L, E, W) and combined with the
 design's own combos (analyse_smf: S1 S2 S3 W1 G2; design_scbf: S1). ETABS case results are
 combined with the same factors (D = Dead + SDL, L = Live + Lr as the 2D frames lump them,
@@ -29,7 +29,7 @@ Matching: every PyNite member is located in the 3D model by geometry (line plane
 coordinates) against the adapter's ETABS frame objects; ETABS labels / stories come from the
 real run (GetLabelNameList). PyNite is evaluated at the stations ETABS reports (its automatic end
 offsets put end stations at the support faces). In-plane components: X frames M3 / V2 for beams
-and columns (all columns have their depth along X), Y frame (line 3) M3 / V2 beams, M2 / V3
+and columns (all columns have their depth along X), Y frames (SCBF lines) M3 / V2 beams, M2 / V3
 columns, braces axial.
 
 Not like-for-like and therefore reported but not flagged: SMF column axial outside S1 / S3 (the
@@ -53,7 +53,7 @@ sys.path[:0] = [os.path.join(ROOT, "backend"), ROOT]
 from calcgraph.analysis.base import layout_from_design, load_design  # noqa: E402
 from calcgraph.analysis.etabs import EtabsAdapter  # noqa: E402
 from synth.v2 import design as DSN, lateral as LAT  # noqa: E402
-from synth.v2.model import BF_LINE, LEVELS, MF_LINES, STOREY_H  # noqa: E402
+from synth.v2.model import LEVELS, STOREY_H  # noqa: E402
 
 FLAG_PCT = 5.0
 TINY = 1.0          # kip / kip-ft: below this PyNite value no % is computed (absolute values shown)
@@ -68,7 +68,8 @@ RHO = {"x": LAT.SYS["x"]["rho"], "y": LAT.SYS["y"]["rho"]}
 SMF_COMBOS = {"S1": {"D": 1.2 + 0.2 * SDS, "L": 0.5, "E": RHO["x"]}, "S2": {"D": 0.9 - 0.2 * SDS, "E": RHO["x"]},
               "S3": {"D": 1.2 + 0.2 * SDS, "L": 0.5, "E": -RHO["x"]}, "W1": {"D": 1.2, "L": 0.5, "W": 1.0},
               "G2": {"D": 1.2, "L": 1.6}}
-SCBF_COMBOS = {"S1": {"D": 1.2 + 0.2 * SDS, "L": 0.5, "E": RHO["y"]}}
+SCBF_COMBOS_ORIGINAL = {"S1": {"D": 1.2 + 0.2 * SDS, "L": 0.5, "E": RHO["y"]}}   # the first issue ran S1 only
+SCBF_COMBOS_REVIEWED = LAT.SCBF_COMBOS                                         # every combo, gravity included
 
 
 # ------------------------------------------------------------------ ETABS input
@@ -112,15 +113,17 @@ def frame_rows(res: dict, labels: dict) -> dict:
 # ------------------------------------------------------------------ PyNite (production)
 def capture_design_frames(exp: dict) -> tuple[dict, dict]:
     """Run synth.v2.design.run on the design's layout with lateral._frame wrapped; return
-    ({"A": args, "D": args, "3": args} of the frames the design kept, the design result)."""
+    ({line: args} of the frames the design kept - every SMF and every SCBF line, the design result)."""
     calls = []
     orig = LAT._frame
 
-    def spy(cols, beam_loads, beam, col, fx, base_fixed, pinned_beams=False, braces=None, brace_size=None):
+    def spy(cols, beam_loads, beam, col, fx, base_fixed, pinned_beams=False, braces=None, brace_size=None,
+            shear_def=False, beam_sizes=None):
         calls.append(dict(cols=list(cols), beam_loads=dict(beam_loads), beam=beam, col=col,
                           fx={k: dict(v) for k, v in fx.items()}, base_fixed=base_fixed,
-                          pinned_beams=pinned_beams, braces=braces, brace_size=brace_size))
-        return orig(cols, beam_loads, beam, col, fx, base_fixed, pinned_beams, braces, brace_size)
+                          pinned_beams=pinned_beams, braces=braces, brace_size=brace_size,
+                          shear_def=shear_def, beam_sizes=dict(beam_sizes or {})))
+        return orig(cols, beam_loads, beam, col, fx, base_fixed, pinned_beams, braces, brace_size, shear_def, beam_sizes)
 
     LAT._frame = spy
     try:
@@ -134,10 +137,11 @@ def capture_design_frames(exp: dict) -> tuple[dict, dict]:
         if not hit:
             raise RuntimeError(f"SMF line {yl}: the kept frame was not among the captured _frame calls")
         frames[yl] = hit[-1]
-    sc = d["scbf"]
-    hit = [c for c in calls if c["brace_size"] == sc.get("brace")]
-    if hit:
-        frames[BF_LINE[0]] = hit[-1]
+    for xl, sc in d["scbf"].items():
+        hit = [c for c in calls if c["brace_size"] and c["brace_size"] == sc.get("brace") and c["cols"][0][0][:-1] == xl
+               and (sc.get("fy") is None or c["fx"].get("E") == sc["fy"])]
+        if hit:
+            frames[xl] = hit[-1]
     return frames, d
 
 
@@ -222,8 +226,10 @@ def compare(d: dict, exp: dict) -> dict:
     by_el = {e["id"]: e for e in exp["elements"]}
     sizes_ok = {yl: {"beam": a["beam"], "col": a["col"], "brace": a.get("brace_size")} for yl, a in pf.items()}
     rows, case_rows = [], []
+    reviewed = (exp.get("building", {}).get("lateral") or {}).get("basis", "original") != "original"
+    scbf_combos = SCBF_COMBOS_REVIEWED if reviewed else SCBF_COMBOS_ORIGINAL
     for yl, args in pf.items():
-        is_smf = yl in MF_LINES
+        is_smf = yl in des["smf"]
         if is_smf:
             yv = by_el[f"COL-{args['cols'][0][0]}"]["y"]
             plane = ("X", yv)
@@ -231,7 +237,7 @@ def compare(d: dict, exp: dict) -> dict:
             xv = by_el[f"COL-{args['cols'][0][0]}"]["x"]
             plane = ("Y", xv)
         m = solve(args, with_w=is_smf)
-        combos = SMF_COMBOS if is_smf else SCBF_COMBOS
+        combos = SMF_COMBOS if is_smf else scbf_combos
         eq = ("EQX+ecc", "EQX-ecc") if is_smf else ("EQY+ecc", "EQY-ecc")
         line_name = f"SMF line {yl}" if is_smf else f"SCBF line {yl}"
         for (lab, story), parts in match_members(m, plane, frames3d).items():
@@ -346,9 +352,14 @@ def global_checks(d: dict, exp: dict, des: dict, objs) -> dict:
     # line base shear: ETABS reactions at the base points on the line vs the design's line share
     pts = {o.label: o for o in objs if o.kind == "point" and o.story == "Base"}
     lines = {}
-    for name, case_pair, coord, val in (("SMF line A", ("EQX+ecc", "EQX-ecc"), "y", 0.0),
-                                        ("SMF line D", ("EQX+ecc", "EQX-ecc"), "y", 85.0),
-                                        ("SCBF line 3", ("EQY+ecc", "EQY-ecc"), "x", 60.0)):
+    topo = des["topo"]
+    line_defs = [(f"SMF line {yl}", ("EQX+ecc", "EQX-ecc"), "y",
+                  next(topo.columns[c]["y"] for c in sorted(topo.columns) if c[-1] == yl and c[:-1] in topo.scheme.MF[yl]), yl)
+                 for yl in des["smf"]]
+    line_defs += [(f"SCBF line {xl}", ("EQY+ecc", "EQY-ecc"), "x",
+                   next(topo.columns[c]["x"] for c in sorted(topo.columns) if c[:-1] == xl), xl)
+                  for xl, s in des["scbf"].items() if s.get("forces")]
+    for name, case_pair, coord, val, ln in line_defs:
         labels = {lab for lab, o in pts.items() if abs(o.props[f"{coord}_ft"] - val) < TOL}
         pl = d["point_labels"]
         names = {n for n, l, s in zip(pl["MyName"], pl["MyLabel"], pl["MyStory"]) if l in labels and s == "Base"}
@@ -357,12 +368,12 @@ def global_checks(d: dict, exp: dict, des: dict, objs) -> dict:
         for c in case_pair:
             vals[c] = abs(sum(r[f] for r in rc["joint_reactions"] if r["LoadCase"] == c and r["Obj"] in names))
         if coord == "y":
-            yl = "A" if val == 0 else "D"
-            design_v = sum(des["smf"][yl]["fe"].values())
-            wind_v = sum(des["smf"][yl]["fw"].values())
+            design_v = sum(des["smf"][ln]["fe"].values())
+            wind_v = sum(des["smf"][ln]["fw"].values())
             w_et = abs(sum(r[f] for r in rc["joint_reactions"] if r["LoadCase"] == "WX" and r["Obj"] in names))
         else:
-            design_v = sum(LAT.elf(des["seismic"]["weights"], "y")["Fx"].values())
+            sc = des["scbf"][ln]
+            design_v = sum(sc["fy"].values()) if sc.get("fy") else sum(LAT.elf(des["seismic"]["weights"], "y")["Fx"].values())
             wind_v, w_et = None, None
         lines[name] = {"etabs": vals, "design": design_v, "share_of_V": design_v / recs["C-ELF:X" if coord == "y" else "C-ELF:Y"]["values"]["V_k"],
                        "wind_etabs": w_et, "wind_design": wind_v}
@@ -375,9 +386,11 @@ def global_checks(d: dict, exp: dict, des: dict, objs) -> dict:
         disp[(r["Obj"], r["LoadCase"])] = r
     drifts = []
     stories = ["Base"] + [f"Story{i + 1}" for i in range(len(LEVELS))]
-    for rid, line, d_, cases, cols_on in (("C-SMF:A", "A", "x", ("EQX+ecc", "EQX-ecc"), [f"{n}A" for n in MF_LINES["A"]]),
-                                          ("C-SMF:D", "D", "x", ("EQX+ecc", "EQX-ecc"), [f"{n}D" for n in MF_LINES["D"]]),
-                                          ("C-SCBF:3", "3", "y", ("EQY+ecc", "EQY-ecc"), [f"3{c}" for c in "ABCD"])):
+    sch = topo.scheme
+    drift_defs = [(f"C-SMF:{yl}", yl, "x", ("EQX+ecc", "EQX-ecc"), [f"{n}{yl}" for n in sch.MF[yl]]) for yl in des["smf"]]
+    drift_defs += [(f"C-SCBF:{xl}", xl, "y", ("EQY+ecc", "EQY-ecc"), sorted(c for c in topo.columns if c[:-1] == xl))
+                   for xl, s in des["scbf"].items() if s.get("forces")]
+    for rid, line, d_, cases, cols_on in drift_defs:
         cd = LAT.SYS[d_]["Cd"]
         comp_ = "U1" if d_ == "x" else "U2"
         for row in recs[rid]["values"]["drifts"]:
@@ -461,6 +474,8 @@ def main() -> None:
     ap.add_argument("--save", help="with --bridge: write the fetched JSON here")
     ap.add_argument("--out", help="markdown report (default stdout)")
     ap.add_argument("--json", help="comparison rows as JSON")
+    ap.add_argument("--design", help="design export the e2k was written from (default data/synthetic_v2/design.json); "
+                                     "e.g. data/synthetic_v2/scenarios/ORIG.json")
     a = ap.parse_args()
     names = ("results_cases", "results_combos", "labels", "point_labels")
     if a.bridge:
@@ -477,7 +492,7 @@ def main() -> None:
                 d[n] = json.load(fh)
     else:
         ap.error("give --etabs DIR or --bridge URL")
-    c = compare(d, load_design())
+    c = compare(d, load_design(a.design) if a.design else load_design())
     md = report(c)
     if a.json:
         with open(a.json, "w") as fh:

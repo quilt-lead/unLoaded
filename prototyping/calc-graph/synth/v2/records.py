@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import math
 
-from . import aisc
+from . import aisc, lateral as LAT
 from .gravity import COMBO_TXT, SHEAR_TABS, BASE_PLATES, PIERS, FTG_TOP, PIER_TOP, fac, COMBOS
-from .model import GX, GY, LEVELS, STOREY_H, MF_LINES
+from .model import GX, GY, LEVELS, STOREY_H
 
 LV_Z = {"L1": 0.0, **{l: z for l, _, z in LEVELS}}
 LV_NAME = {"L1": "Level 1", **{l: n for l, n, _ in LEVELS}}
@@ -58,8 +58,30 @@ def _beam_calc(mid: str, m) -> str:
     return {"L2": "B1", "L3": "B2", "RF": "B3"}[m.level]
 
 
+def lines_txt(lines) -> str:
+    """'3' / '1 and 5' / '1, 3 and 5'."""
+    lines = list(lines)
+    return lines[0] if len(lines) == 1 else ", ".join(lines[:-1]) + " and " + lines[-1]
+
+
+def calc_table(scheme) -> dict:
+    """CALC with the SCBF calc (C5) titled from the layout's braced lines."""
+    bf = list(scheme.BF)
+    out = {k: dict(v) for k, v in CALC.items()}
+    if len(bf) == 1:
+        out["C5"].update(title=f"Special concentrically braced frame - line {bf[0]}", table=f"SCBF line {bf[0]}")
+    else:
+        out["C5"].update(title=f"Special concentrically braced frames - lines {lines_txt(bf)}",
+                         table=f"SCBF lines {lines_txt(bf)}")
+    return out
+
+
 def export(d: dict) -> dict:
     topo, fr = d["topo"], d["framing"]
+    sch = topo.scheme
+    MF_LINES = sch.MF
+    CALC = calc_table(sch)
+    scbf_recs = {xl: f"C-SCBF:{xl}" for xl in sch.BF}
     els, rels, recs = [], [], []
     types: dict[str, dict] = {}
 
@@ -114,7 +136,9 @@ def export(d: dict) -> dict:
         els.append({"id": f"GRID:{gl}", "type": "grid", "name": gl, "axis": "y", "pos_ft": pos})
     for yl in MF_LINES:
         els.append({"id": f"FRAME:SMF-{yl}", "type": "frame", "name": f"Special moment frame line {yl}", "system": "SMF"})
-    els.append({"id": "FRAME:SCBF-3", "type": "frame", "name": "Special concentrically braced frame line 3", "system": "SCBF"})
+    for xl in sch.BF:
+        els.append({"id": f"FRAME:SCBF-{xl}", "type": "frame", "name": f"Special concentrically braced frame line {xl}",
+                    "system": "SCBF"})
     for mat, txt in (("MAT:A992", "ASTM A992 Gr 50 wide flange"), ("MAT:A500C", "ASTM A500 Gr C HSS"),
                      ("MAT:A36", "ASTM A36 plate"), ("MAT:F3125-A325", "ASTM F3125 Gr A325 bolts"),
                      ("MAT:F1554", "ASTM F1554 anchor rods"), ("MAT:CONC-4000", "Concrete f'c 4,000 psi"),
@@ -185,7 +209,7 @@ def export(d: dict) -> dict:
             inputs += [f"C-SMF:{c[-1]}"]
         elif "scbf_column" in info["roles"]:
             calc, rid = "C5", f"C-BFC:{c}"
-            inputs += ["C-SCBF:3"]
+            inputs += [scbf_recs[c[:-1]]]
         else:
             calc, rid = "B5", f"B-COL:{c}"
         rec(rid, calc, [cid], "column_design",
@@ -226,7 +250,7 @@ def export(d: dict) -> dict:
              "vu_oneway_k": r1(ft["vu_1"], 1), "phiVc_oneway_k": r1(ft["phivc_1"], 1), "Mu_kft": r1(ft["mu"], 1),
              "As_in2": r1(ft["as"]), "bars": ft["bars"], "governs": ft["governs"], "P_E_k": r1(ft["pe"], 1)},
             ft["p_service"], ft["qa"] * ft["B"] ** 2, ft["uc"], ft["governs"], "D+L (ASD)", "kip",
-            [rid] + ([f"C-SMF:{c[-1]}"] if "smf_column" in info["roles"] else []) + (["C-SCBF:3"] if "scbf_column" in info["roles"] else []))
+            [rid] + ([f"C-SMF:{c[-1]}"] if "smf_column" in info["roles"] else []) + ([scbf_recs[c[:-1]]] if "scbf_column" in info["roles"] else []))
     for gid, g in d["grade_beams"].items():
         els.append({"id": gid, "type": "grade_beam", "line": g["line"], "p1": [r1(g["p1"][0], 3), r1(g["p1"][1], 3), FTG_TOP],
                     "p2": [r1(g["p2"][0], 3), r1(g["p2"][1], 3), FTG_TOP], "b_in": g["b_in"], "h_in": g["h_in"],
@@ -240,7 +264,7 @@ def export(d: dict) -> dict:
              "Vu_k": r1(g["vu"], 1), "phiVn_k": r1(g["phivn"], 1), "M_end_kft": r1(g["m_end"], 1), "tie_k": r1(g["axial_t"], 1),
              "tie_bars": g["tie_bars"]},
             g["mu"], g["phimn"], g["uc"], g["governs"], "1.2D (+E end moment)", "kip-ft",
-            ([f"C-SMF:{g['line']}"] if g["m_end"] else []) + (["C-SCBF:3"] if g["axial_t"] else []))
+            ([f"C-SMF:{g['line']}"] if g["m_end"] else []) + ([scbf_recs[g["line"]]] if g["axial_t"] and g["line"] in scbf_recs else []))
 
     # ---------------- lateral
     for dname, cid_ in (("x", "C-ELF:X"), ("y", "C-ELF:Y")):
@@ -273,14 +297,22 @@ def export(d: dict) -> dict:
                 rec(f"C-MFB:{k}", calc, [k], "smf_beam", {"size": s["beam"], "span_ft": r1(m.span), "Mu_kft": r1(fb["mu"], 1),
                                                           "phiMn_kft": r1(pm, 1), "Vu_k": r1(fb["vu"], 1)},
                     fb["mu"], pm, fb["mu"] / pm, "flexure (frame)", "1.4D+E+0.5L", "kip-ft", [f"C-SMF:{yl}"] + area_recs(m))
-    sc = d["scbf"]
-    if sc.get("forces"):
+    for xl, sc in d["scbf"].items():
+        if not sc.get("forces"):
+            continue
+        srec = scbf_recs[xl]
         drift = max(x["ratio"] for x in sc["drifts"])
-        rec("C-SCBF:3", "C5", ["FRAME:SCBF-3"], "frame_analysis",
-            {"brace": sc["brace"], "drifts": [{k: r1(v, 3) if isinstance(v, float) else v for k, v in x.items()} for x in sc["drifts"]],
-             "expected_T_k": r1(sc["expected_t"], 1)}, drift, 1.0, drift, "story drift (12.12-1)", "E (Cd/Ie)", "ratio",
+        vals = {"brace": sc["brace"], "drifts": [{k: r1(v, 3) if isinstance(v, float) else v for k, v in x.items()} for x in sc["drifts"]],
+                "expected_T_k": r1(sc["expected_t"], 1)}
+        if sc.get("basis") == "etabs-reviewed":
+            vals.update(share=r1(sc["share"], 3), Fe_k={k: r1(v, 1) for k, v in sc["fy"].items()},
+                        k_kip_per_ft=r1(sc["k"], 1), shear_deformation=True)
+        rec(srec, "C5", [f"FRAME:SCBF-{xl}"], "frame_analysis", vals, drift, 1.0, drift, "story drift (12.12-1)", "E (Cd/Ie)", "ratio",
             ["C-ELF:Y"])
+        line_cols = [c for c, _ in sorted(((c, topo.columns[c]["y"]) for c in topo.columns if c[:-1] == xl), key=lambda t: t[1])]
         for bid, b in topo.braces.items():
+            if b["frame"] != f"SCBF-{xl}":
+                continue
             lvs = ["L1"] + [l for l, _, _ in LEVELS]
             els.append({"id": bid, "type": "brace", "size": sc["brace"], "p1": [r1(v, 3) for v in b["p1"]],
                         "p2": [r1(v, 3) for v in b["p2"]], "frame": b["frame"], "roles": ["scbf_brace"], "sfrs": True,
@@ -293,11 +325,31 @@ def export(d: dict) -> dict:
             for end in ("i", "j"):
                 rel(bid, f"CX-{bid}-{end}", "connected-by")
             # PyNite brace name: BR_<level>_<bay idx>_<side>
-            cand = [v for n, v in sc["forces"].items() if n.startswith(f"BR_{b['level_top']}_")]
+            if sc.get("basis") == "etabs-reviewed":   # this brace's own frame member
+                bi = line_cols.index(f"{xl}{b['bay'][0]}") if f"{xl}{b['bay'][0]}" in line_cols else -1
+                cand = [v for n, v in sc["forces"].items() if n == f"BR_{b['level_top']}_{bi}_{0 if b['id'].endswith('-S') else 1}"]
+            else:
+                cand = [v for n, v in sc["forces"].items() if n.startswith(f"BR_{b['level_top']}_")]
             f = max(cand, key=lambda v: v["uc"]) if cand else {"pu": 0, "phi_pn": 1, "uc": 0, "kl_r": 0, "L": 0}
+            lc = f.get("lc", "")
             rec(f"C-BR:{bid}", "C5", [bid], "brace", {"size": sc["brace"], "L_ft": r1(f["L"]), "Pu_k": r1(f["pu"], 1),
                                                      "phiPn_k": r1(f["phi_pn"], 1), "KL_r": r1(f["kl_r"], 1)},
-                f["pu"], f["phi_pn"], f["uc"], "compression (E3) / tension (D2) / KL/r", "1.4D+1.3E+0.5L", "kip", ["C-SCBF:3"])
+                f["pu"], f["phi_pn"], f["uc"], "compression (E3) / tension (D2) / KL/r",
+                LAT.SCBF_COMBO_TXT.get(lc, lc) if lc else "1.4D+1.3E+0.5L", "kip", [srec])
+        for key_, k in sc.get("girder_ids", {}).items():   # etabs-reviewed: every SCBF-line girder checked in the frame
+            lv, bi = key_.split("|")
+            g = sc.get("girders", {}).get((lv, int(bi)))
+            if not g:
+                continue
+            vals = {"size": g["size"], "span_ft": r1(g["span"]), "Lb_ft": r1(g["lb"]), "Mu_kft": r1(g["mu"], 1),
+                    "Vu_k": r1(g["vu"], 1), "Pu_k": r1(g["pu"], 1), "phiMn_kft": r1(g["phi_mn"], 1),
+                    "phiVn_k": r1(g["phi_vn"], 1), "phiPn_k": r1(g["phi_pn"], 1), "governs_combo": g["lc"]}
+            if "f23" in g:
+                vals["F2_3"] = {kk: (r1(vv, 3 if kk in ("uc", "h1") else 1) if isinstance(vv, float) else vv)
+                                for kk, vv in g["f23"].items()}
+            rec(f"C-BFG:{k}", "C5", [k], "scbf_girder", vals, g["mu"] if g["lc"] != "F2.3" else g["f23"]["Mu"], g["phi_mn"],
+                g["uc"], "flexure + axial (H1) / shear, frame combos + AISC 341 F2.3", g["combo_txt"], "kip-ft",
+                [srec, f"B-BM:{k}"])
     for k, cl in d["collectors"].items():
         rec(f"C-COLL:{k}", "C6", [k], "collector", {"size": cl["size"], "Pu_k": r1(cl["pu"], 1), "Omega0": cl["o0"],
                                                    "phiPn_k": r1(cl["phi_pn"], 1), "Mu_kft": r1(cl["mu"], 1),

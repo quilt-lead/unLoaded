@@ -195,8 +195,11 @@ def layout_from_design(exp: dict):
     if not b.get("columns"):
         return model.base_layout()
     areas = [model.Area(**a) for a in b.get("areas", [])] or model.default_areas()
+    # the lateral system is layout input; an export written before it was recorded is the original
+    # single-SCBF-on-line-3 building (the only one that existed then)
+    lat = model.LateralScheme.from_dict(b["lateral"]) if b.get("lateral") else model.original_scheme()
     return model.Layout({c: (float(p[0]), float(p[1])) for c, p in b["columns"].items()},
-                        set(b.get("removed", [])), areas, b.get("layout_label", "Base design"))
+                        set(b.get("removed", [])), areas, b.get("layout_label", "Base design"), lat)
 
 
 def validate_change(change: dict | None, layout) -> dict:

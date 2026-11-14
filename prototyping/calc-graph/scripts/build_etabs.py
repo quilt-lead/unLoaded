@@ -39,7 +39,8 @@ def main() -> None:
     print("  e.g.", json.dumps(ex))
 
     path = os.path.join(DATA_DIR, "model.e2k")
-    info = etabs.export_model(path)
+    info = etabs.export_model(path + ".tmp")   # written beside, then moved: readers never see half a file
+    os.replace(path + ".tmp", path)
     print(f"\nwrote {path}: {info['lines']} lines, {info['points']} plan points, {info['line_labels']} line labels, "
           f"{info['frames']} frame objects (label x story), {info['sections']} sections, {info['combos']} combos")
     rt = etabs.roundtrip(path)

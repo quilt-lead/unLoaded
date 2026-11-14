@@ -26,7 +26,7 @@ How the design maps to ETABS objects
 - Load patterns Dead, SDL, Live, Lr, EQX, EQY, WX, WY; one linear static case per pattern +
   Modal; the ASCE 7-16 2.3 combinations the design uses (gravity LC1-LC3, seismic with
   (1.2+0.2SDS)D / (0.9-0.2SDS)D and rho, wind 1.2D+W+0.5L, overstrength Omega0 E).
-- Story drifts: from the calc records C-SMF:A, C-SMF:D (EQX) and C-SCBF:3 (EQY), shaped like
+- Story drifts: from the calc records C-SMF:<line> (EQX) and C-SCBF:<line> (EQY), shaped like
   SapModel.Results.StoryDrifts rows. Drift = Cd*delta_xe/Ie / h (the amplified design drift
   the records carry), Label = the frame's first column point at that story.
 - Frame design: D/C ratios from the calc records' ``uc`` (B-BM, C-MFB, C-COLL, B-COL, C-MFC,
@@ -552,7 +552,9 @@ def build_objects(exp: dict, frames: dict | None = None, seed: dict | None = Non
 
 def _drift_objects(records: dict, frames: dict, pt_label: dict, st) -> list[AnalysisObject]:
     out = []
-    src = [("C-SMF:A", "EQX", "X", "A"), ("C-SMF:D", "EQX", "X", "D"), ("C-SCBF:3", "EQY", "Y", "3")]
+    # every lateral frame line the design has (C-SMF:<letter line> along X, C-SCBF:<number line> along Y)
+    src = sorted((rid, "EQX", "X", rid.split(":", 1)[1]) for rid in records if rid.startswith("C-SMF:")) + \
+        sorted((rid, "EQY", "Y", rid.split(":", 1)[1]) for rid in records if rid.startswith("C-SCBF:"))
     elev = {lv: z for _, lv, z, _ in st}
     sname = {lv: n for n, lv, _, _ in st}
     for rid, case, d, line in src:
@@ -584,7 +586,7 @@ def _design_objects(records: dict, frame_objs: list[AnalysisObject]) -> list[Ana
         by_el.setdefault(f.element_id, []).append(f)
     per_frame: dict[tuple[str, str], list[dict]] = {}
     for r in records.values():
-        if r["kind"] not in ("beam_design", "smf_beam", "collector", "column_design", "brace") or r.get("uc") is None:
+        if r["kind"] not in ("beam_design", "smf_beam", "collector", "column_design", "brace", "scbf_girder") or r.get("uc") is None:
             continue
         for eid in r["elements"]:
             fos = by_el.get(eid, [])
@@ -843,10 +845,11 @@ class EtabsAdapter(AnalysisAdapter):
             br = base_react.get(r["LoadCase"])
             r["base_FX"], r["base_FY"], r["base_FZ"] = (br["FX"], br["FY"], br["FZ"]) if br else (None, None, None)
         changed = [r for r in design_rows if r["base_section"] and r["section"] != r["base_section"]]
+        drift_lines = list(dict.fromkeys(x["line"] for x in drifts))   # SMF lines, then SCBF lines
         summary = {
-            "max_drift_dc": {ln: max((x["dc"] for x in drifts if x["line"] == ln), default=None) for ln in ("A", "D", "3")},
+            "max_drift_dc": {ln: max((x["dc"] for x in drifts if x["line"] == ln), default=None) for ln in drift_lines},
             "base_max_drift_dc": {ln: max((x["base_dc"] for x in drifts if x["line"] == ln and x["base_dc"] is not None), default=None)
-                                  for ln in ("A", "D", "3")},
+                                  for ln in drift_lines},
             "max_ratio": max((r["Ratio"] for r in design_rows), default=None),
             "frames_over_1": sorted(f"{r['Label']}@{r['Story']}" for r in design_rows if r["Ratio"] > 1.0),
             "sections_changed": len(changed),
