@@ -1,0 +1,787 @@
+"""Contains all the data models used in inputs/outputs"""
+
+from .procore_budget_line_item import ProcoreBudgetLineItem
+from .procore_budget_line_item_currency_configuration import (
+    ProcoreBudgetLineItemCurrencyConfiguration,
+)
+from .procore_budget_line_item_wbs_code import ProcoreBudgetLineItemWbsCode
+from .procore_change_event import ProcoreChangeEvent
+from .procore_change_event_attachments_item import ProcoreChangeEventAttachmentsItem
+from .procore_change_event_change_items_item import ProcoreChangeEventChangeItemsItem
+from .procore_change_event_change_items_item_budget_code import (
+    ProcoreChangeEventChangeItemsItemBudgetCode,
+)
+from .procore_change_event_change_items_item_budget_code_segment_items_item import (
+    ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItem,
+)
+from .procore_change_event_change_items_item_budget_code_segment_items_item_segment import (
+    ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegment,
+)
+from .procore_change_event_change_items_item_budget_code_segment_items_item_segment_structure import (
+    ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegmentStructure,
+)
+from .procore_change_event_change_items_item_budget_code_segment_items_item_segment_type import (
+    ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegmentType,
+)
+from .procore_change_event_change_items_item_budget_code_segment_items_item_status import (
+    ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemStatus,
+)
+from .procore_change_event_change_items_item_budget_impact import (
+    ProcoreChangeEventChangeItemsItemBudgetImpact,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_change import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChange,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_change_adjustment_line_item import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChangeAdjustmentLineItem,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_change_status import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChangeStatus,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_modification import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModification,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_modification_transfer_from_type_0 import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModificationTransferFromType0,
+)
+from .procore_change_event_change_items_item_budget_impact_budget_modification_transfer_to import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModificationTransferTo,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimate,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_calculation_strategy import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateCalculationStrategy,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransfer,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCode,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code_segment_items_item import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItem,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code_segment_items_item_segment import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegment,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code_segment_items_item_segment_structure import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegmentStructure,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code_segment_items_item_segment_type import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegmentType,
+)
+from .procore_change_event_change_items_item_budget_impact_estimate_transfer_from_wbs_code_segment_items_item_status import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemStatus,
+)
+from .procore_change_event_change_items_item_budget_impact_source_of_budget_rom import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfBudgetRom,
+)
+from .procore_change_event_change_items_item_budget_impact_source_of_latest_budget_impact import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfLatestBudgetImpact,
+)
+from .procore_change_event_change_items_item_budget_impact_source_of_stage import (
+    ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfStage,
+)
+from .procore_change_event_change_items_item_cost_impact import (
+    ProcoreChangeEventChangeItemsItemCostImpact,
+)
+from .procore_change_event_change_items_item_cost_impact_change_order_package_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0,
+)
+from .procore_change_event_change_items_item_cost_impact_change_order_package_type_0_contract_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0ContractType,
+)
+from .procore_change_event_change_items_item_cost_impact_change_order_package_type_0_line_item import (
+    ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0LineItem,
+)
+from .procore_change_event_change_items_item_cost_impact_change_order_package_type_0_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0Type,
+)
+from .procore_change_event_change_items_item_cost_impact_commitment_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0,
+)
+from .procore_change_event_change_items_item_cost_impact_commitment_type_0_contract_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0ContractType,
+)
+from .procore_change_event_change_items_item_cost_impact_commitment_type_0_currency_configuration import (
+    ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0CurrencyConfiguration,
+)
+from .procore_change_event_change_items_item_cost_impact_commitment_type_0_line_item import (
+    ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0LineItem,
+)
+from .procore_change_event_change_items_item_cost_impact_commitment_type_0_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0Type,
+)
+from .procore_change_event_change_items_item_cost_impact_contract import (
+    ProcoreChangeEventChangeItemsItemCostImpactContract,
+)
+from .procore_change_event_change_items_item_cost_impact_contract_confirmed_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactContractConfirmedType0,
+)
+from .procore_change_event_change_items_item_cost_impact_contract_confirmed_type_0_contract_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactContractConfirmedType0ContractType,
+)
+from .procore_change_event_change_items_item_cost_impact_contract_proposed_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactContractProposedType0,
+)
+from .procore_change_event_change_items_item_cost_impact_contract_proposed_type_0_contract_type import (
+    ProcoreChangeEventChangeItemsItemCostImpactContractProposedType0ContractType,
+)
+from .procore_change_event_change_items_item_cost_impact_estimate import (
+    ProcoreChangeEventChangeItemsItemCostImpactEstimate,
+)
+from .procore_change_event_change_items_item_cost_impact_estimate_calculation_strategy import (
+    ProcoreChangeEventChangeItemsItemCostImpactEstimateCalculationStrategy,
+)
+from .procore_change_event_change_items_item_cost_impact_non_commitment import (
+    ProcoreChangeEventChangeItemsItemCostImpactNonCommitment,
+)
+from .procore_change_event_change_items_item_cost_impact_request_for_quote_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactRequestForQuoteType0,
+)
+from .procore_change_event_change_items_item_cost_impact_request_for_quote_type_0_status import (
+    ProcoreChangeEventChangeItemsItemCostImpactRequestForQuoteType0Status,
+)
+from .procore_change_event_change_items_item_cost_impact_source_of_latest_cost import (
+    ProcoreChangeEventChangeItemsItemCostImpactSourceOfLatestCost,
+)
+from .procore_change_event_change_items_item_cost_impact_source_of_stage import (
+    ProcoreChangeEventChangeItemsItemCostImpactSourceOfStage,
+)
+from .procore_change_event_change_items_item_cost_impact_vendor import (
+    ProcoreChangeEventChangeItemsItemCostImpactVendor,
+)
+from .procore_change_event_change_items_item_cost_impact_vendor_confirmed_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactVendorConfirmedType0,
+)
+from .procore_change_event_change_items_item_cost_impact_vendor_proposed_type_0 import (
+    ProcoreChangeEventChangeItemsItemCostImpactVendorProposedType0,
+)
+from .procore_change_event_change_items_item_currency_configuration import (
+    ProcoreChangeEventChangeItemsItemCurrencyConfiguration,
+)
+from .procore_change_event_change_items_item_latest_cost_values import (
+    ProcoreChangeEventChangeItemsItemLatestCostValues,
+)
+from .procore_change_event_change_items_item_latest_cost_values_calculation_strategy import (
+    ProcoreChangeEventChangeItemsItemLatestCostValuesCalculationStrategy,
+)
+from .procore_change_event_change_items_item_latest_revenue_values import (
+    ProcoreChangeEventChangeItemsItemLatestRevenueValues,
+)
+from .procore_change_event_change_items_item_latest_revenue_values_calculation_strategy import (
+    ProcoreChangeEventChangeItemsItemLatestRevenueValuesCalculationStrategy,
+)
+from .procore_change_event_change_items_item_notes import (
+    ProcoreChangeEventChangeItemsItemNotes,
+)
+from .procore_change_event_change_items_item_revenue_impact import (
+    ProcoreChangeEventChangeItemsItemRevenueImpact,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_package_type_0 import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_package_type_0_line_item import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0LineItem,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_package_type_0_type import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0Type,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_type_0 import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_type_0_currency_configuration import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0CurrencyConfiguration,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_type_0_line_item import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0LineItem,
+)
+from .procore_change_event_change_items_item_revenue_impact_change_order_type_0_type import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0Type,
+)
+from .procore_change_event_change_items_item_revenue_impact_estimate import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactEstimate,
+)
+from .procore_change_event_change_items_item_revenue_impact_estimate_calculation_strategy import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactEstimateCalculationStrategy,
+)
+from .procore_change_event_change_items_item_revenue_impact_source_of_latest_price import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfLatestPrice,
+)
+from .procore_change_event_change_items_item_revenue_impact_source_of_revenue_rom import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfRevenueRom,
+)
+from .procore_change_event_change_items_item_revenue_impact_source_of_stage import (
+    ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfStage,
+)
+from .procore_change_event_change_items_item_source import (
+    ProcoreChangeEventChangeItemsItemSource,
+)
+from .procore_change_event_change_reason import ProcoreChangeEventChangeReason
+from .procore_change_event_change_type import ProcoreChangeEventChangeType
+from .procore_change_event_created_by import ProcoreChangeEventCreatedBy
+from .procore_change_event_currency_configuration import (
+    ProcoreChangeEventCurrencyConfiguration,
+)
+from .procore_change_event_custom_fields import ProcoreChangeEventCustomFields
+from .procore_change_event_custom_fields_custom_field_custom_field_boolean_definition_id import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldBooleanDefinitionId,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_decimal_definition_id import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldDecimalDefinitionId,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_lov_entries_definition_id import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_lov_entries_definition_id_value_item import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_lov_entry_definition_id import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_lov_entry_definition_id_value import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue,
+)
+from .procore_change_event_custom_fields_custom_field_custom_field_string_definition_id import (
+    ProcoreChangeEventCustomFieldsCustomFieldCustomFieldStringDefinitionId,
+)
+from .procore_change_event_event_origin import ProcoreChangeEventEventOrigin
+from .procore_change_event_external_data import ProcoreChangeEventExternalData
+from .procore_change_event_markup_items_item import ProcoreChangeEventMarkupItemsItem
+from .procore_change_event_markup_items_item_revenue import (
+    ProcoreChangeEventMarkupItemsItemRevenue,
+)
+from .procore_change_event_markup_items_item_wbs_code import (
+    ProcoreChangeEventMarkupItemsItemWbsCode,
+)
+from .procore_change_event_markup_items_item_wbs_code_segment_items_item import (
+    ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItem,
+)
+from .procore_change_event_markup_items_item_wbs_code_segment_items_item_segment import (
+    ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegment,
+)
+from .procore_change_event_markup_items_item_wbs_code_segment_items_item_segment_structure import (
+    ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegmentStructure,
+)
+from .procore_change_event_markup_items_item_wbs_code_segment_items_item_segment_type import (
+    ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegmentType,
+)
+from .procore_change_event_markup_items_item_wbs_code_segment_items_item_status import (
+    ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemStatus,
+)
+from .procore_change_event_notes import ProcoreChangeEventNotes
+from .procore_change_event_prime_contract_for_estimates import (
+    ProcoreChangeEventPrimeContractForEstimates,
+)
+from .procore_change_event_production_quantities_item import (
+    ProcoreChangeEventProductionQuantitiesItem,
+)
+from .procore_change_event_production_quantities_item_budget_change_type_0 import (
+    ProcoreChangeEventProductionQuantitiesItemBudgetChangeType0,
+)
+from .procore_change_event_production_quantities_item_budget_change_type_0_production_quantity import (
+    ProcoreChangeEventProductionQuantitiesItemBudgetChangeType0ProductionQuantity,
+)
+from .procore_change_event_production_quantities_item_estimate import (
+    ProcoreChangeEventProductionQuantitiesItemEstimate,
+)
+from .procore_change_event_production_quantities_item_prime_change_order_type_0 import (
+    ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0,
+)
+from .procore_change_event_production_quantities_item_prime_change_order_type_0_line_item_type_0 import (
+    ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0LineItemType0,
+)
+from .procore_change_event_production_quantities_item_prime_change_order_type_0_production_quantity import (
+    ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0ProductionQuantity,
+)
+from .procore_change_event_production_quantities_item_prime_change_order_type_0_type import (
+    ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0Type,
+)
+from .procore_change_event_production_quantities_item_production_code import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCode,
+)
+from .procore_change_event_production_quantities_item_production_code_cost_code import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeCostCode,
+)
+from .procore_change_event_production_quantities_item_production_code_sub_job_type_0 import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeSubJobType0,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCode,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code_segment_items_item import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItem,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code_segment_items_item_segment import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegment,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code_segment_items_item_segment_structure import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegmentStructure,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code_segment_items_item_segment_type import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegmentType,
+)
+from .procore_change_event_production_quantities_item_production_code_wbs_code_segment_items_item_status import (
+    ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemStatus,
+)
+from .procore_change_event_source import ProcoreChangeEventSource
+from .procore_change_event_status import ProcoreChangeEventStatus
+from .procore_change_order_package import ProcoreChangeOrderPackage
+from .procore_change_order_package_attachments_item import (
+    ProcoreChangeOrderPackageAttachmentsItem,
+)
+from .procore_change_order_package_creator import ProcoreChangeOrderPackageCreator
+from .procore_change_order_package_currency_configuration import (
+    ProcoreChangeOrderPackageCurrencyConfiguration,
+)
+from .procore_change_order_package_custom_fields import (
+    ProcoreChangeOrderPackageCustomFields,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_boolean_definition_id import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldBooleanDefinitionId,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_decimal_definition_id import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldDecimalDefinitionId,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_lov_entries_definition_id import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_lov_entries_definition_id_value_item import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_lov_entry_definition_id import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_lov_entry_definition_id_value import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue,
+)
+from .procore_change_order_package_custom_fields_custom_field_custom_field_string_definition_id import (
+    ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldStringDefinitionId,
+)
+from .procore_change_order_package_designated_reviewer import (
+    ProcoreChangeOrderPackageDesignatedReviewer,
+)
+from .procore_change_order_package_line_items_item import (
+    ProcoreChangeOrderPackageLineItemsItem,
+)
+from .procore_change_order_package_line_items_item_compact import (
+    ProcoreChangeOrderPackageLineItemsItemCompact,
+)
+from .procore_change_order_package_line_items_item_currency_configuration import (
+    ProcoreChangeOrderPackageLineItemsItemCurrencyConfiguration,
+)
+from .procore_change_order_package_line_items_item_holder import (
+    ProcoreChangeOrderPackageLineItemsItemHolder,
+)
+from .procore_change_order_package_line_items_item_line_item_type import (
+    ProcoreChangeOrderPackageLineItemsItemLineItemType,
+)
+from .procore_change_order_package_line_items_item_line_item_type_base_type import (
+    ProcoreChangeOrderPackageLineItemsItemLineItemTypeBaseType,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItem,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_currency_configuration import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemCurrencyConfiguration,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_markup import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkup,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_markup_destination_cost_code import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupDestinationCostCode,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_markup_destination_sub_job import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupDestinationSubJob,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_markup_line_item_type import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupLineItemType,
+)
+from .procore_change_order_package_line_items_item_markup_line_items_item_markup_line_item_type_base_type import (
+    ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupLineItemTypeBaseType,
+)
+from .procore_change_order_package_line_items_item_wbs_code import (
+    ProcoreChangeOrderPackageLineItemsItemWbsCode,
+)
+from .procore_change_order_package_reviewer import ProcoreChangeOrderPackageReviewer
+from .procore_change_order_package_status import ProcoreChangeOrderPackageStatus
+from .procore_change_order_package_type import ProcoreChangeOrderPackageType
+from .procore_cost_code import ProcoreCostCode
+from .procore_cost_code_biller_type import ProcoreCostCodeBillerType
+from .procore_cost_code_line_item_type import ProcoreCostCodeLineItemType
+from .procore_cost_code_line_item_type_base_type import (
+    ProcoreCostCodeLineItemTypeBaseType,
+)
+from .procore_cost_code_parent import ProcoreCostCodeParent
+from .procore_drawing import ProcoreDrawing
+from .procore_drawing_current_revision_type_0 import ProcoreDrawingCurrentRevisionType0
+from .procore_rfi import ProcoreRfi
+from .procore_rfi_assignee import ProcoreRfiAssignee
+from .procore_rfi_assignees_item import ProcoreRfiAssigneesItem
+from .procore_rfi_ball_in_court import ProcoreRfiBallInCourt
+from .procore_rfi_ball_in_courts_item import ProcoreRfiBallInCourtsItem
+from .procore_rfi_connect_export_origin_type_0 import ProcoreRfiConnectExportOriginType0
+from .procore_rfi_cost_code_type_0 import ProcoreRfiCostCodeType0
+from .procore_rfi_cost_impact_type_0 import ProcoreRfiCostImpactType0
+from .procore_rfi_cost_impact_type_0_status import ProcoreRfiCostImpactType0Status
+from .procore_rfi_created_by import ProcoreRfiCreatedBy
+from .procore_rfi_created_by_vendor_type_0 import ProcoreRfiCreatedByVendorType0
+from .procore_rfi_custom_fields import ProcoreRfiCustomFields
+from .procore_rfi_custom_fields_custom_field_custom_field_boolean_definition_id import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldBooleanDefinitionId,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_decimal_definition_id import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldDecimalDefinitionId,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_lov_entries_definition_id import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_lov_entries_definition_id_value_item import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_lov_entry_definition_id import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_lov_entry_definition_id_value import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue,
+)
+from .procore_rfi_custom_fields_custom_field_custom_field_string_definition_id import (
+    ProcoreRfiCustomFieldsCustomFieldCustomFieldStringDefinitionId,
+)
+from .procore_rfi_custom_textfield_1_type_0 import ProcoreRfiCustomTextfield1Type0
+from .procore_rfi_custom_textfield_2_type_0 import ProcoreRfiCustomTextfield2Type0
+from .procore_rfi_distribution_list_item import ProcoreRfiDistributionListItem
+from .procore_rfi_location import ProcoreRfiLocation
+from .procore_rfi_questions_item import ProcoreRfiQuestionsItem
+from .procore_rfi_questions_item_answers_item import ProcoreRfiQuestionsItemAnswersItem
+from .procore_rfi_questions_item_answers_item_attachments_item import (
+    ProcoreRfiQuestionsItemAnswersItemAttachmentsItem,
+)
+from .procore_rfi_questions_item_attachments_item import (
+    ProcoreRfiQuestionsItemAttachmentsItem,
+)
+from .procore_rfi_received_from import ProcoreRfiReceivedFrom
+from .procore_rfi_responsible_contractor_type_0 import (
+    ProcoreRfiResponsibleContractorType0,
+)
+from .procore_rfi_rfi_manager import ProcoreRfiRfiManager
+from .procore_rfi_schedule_impact_type_0 import ProcoreRfiScheduleImpactType0
+from .procore_rfi_schedule_impact_type_0_status import (
+    ProcoreRfiScheduleImpactType0Status,
+)
+from .procore_rfi_specification_section_type_0 import (
+    ProcoreRfiSpecificationSectionType0,
+)
+from .procore_rfi_status import ProcoreRfiStatus
+from .procore_submittal import ProcoreSubmittal
+from .procore_submittal_approvers_item import ProcoreSubmittalApproversItem
+from .procore_submittal_approvers_item_attachments_item import (
+    ProcoreSubmittalApproversItemAttachmentsItem,
+)
+from .procore_submittal_approvers_item_response import (
+    ProcoreSubmittalApproversItemResponse,
+)
+from .procore_submittal_approvers_item_user import ProcoreSubmittalApproversItemUser
+from .procore_submittal_attachments_item import ProcoreSubmittalAttachmentsItem
+from .procore_submittal_ball_in_court_item import ProcoreSubmittalBallInCourtItem
+from .procore_submittal_cost_code_type_0 import ProcoreSubmittalCostCodeType0
+from .procore_submittal_created_by import ProcoreSubmittalCreatedBy
+from .procore_submittal_custom_fields import ProcoreSubmittalCustomFields
+from .procore_submittal_custom_fields_custom_field_custom_field_boolean_definition_id import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldBooleanDefinitionId,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_decimal_definition_id import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldDecimalDefinitionId,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_lov_entries_definition_id import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_lov_entries_definition_id_value_item import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_lov_entry_definition_id import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_lov_entry_definition_id_value import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue,
+)
+from .procore_submittal_custom_fields_custom_field_custom_field_string_definition_id import (
+    ProcoreSubmittalCustomFieldsCustomFieldCustomFieldStringDefinitionId,
+)
+from .procore_submittal_distributed_submittals_item import (
+    ProcoreSubmittalDistributedSubmittalsItem,
+)
+from .procore_submittal_distributed_submittals_item_distributed_by import (
+    ProcoreSubmittalDistributedSubmittalsItemDistributedBy,
+)
+from .procore_submittal_distributed_submittals_item_distributed_to_item import (
+    ProcoreSubmittalDistributedSubmittalsItemDistributedToItem,
+)
+from .procore_submittal_distributed_submittals_item_final_attachments_item import (
+    ProcoreSubmittalDistributedSubmittalsItemFinalAttachmentsItem,
+)
+from .procore_submittal_distribution_members_item import (
+    ProcoreSubmittalDistributionMembersItem,
+)
+from .procore_submittal_location import ProcoreSubmittalLocation
+from .procore_submittal_operation_item_errors_item import (
+    ProcoreSubmittalOperationItemErrorsItem,
+)
+from .procore_submittal_received_from_type_0 import ProcoreSubmittalReceivedFromType0
+from .procore_submittal_responsible_contractor_type_0 import (
+    ProcoreSubmittalResponsibleContractorType0,
+)
+from .procore_submittal_specification_section import (
+    ProcoreSubmittalSpecificationSection,
+)
+from .procore_submittal_status import ProcoreSubmittalStatus
+from .procore_submittal_sub_job_type_0 import ProcoreSubmittalSubJobType0
+from .procore_submittal_submittal_manager import ProcoreSubmittalSubmittalManager
+from .procore_submittal_submittal_package import ProcoreSubmittalSubmittalPackage
+from .procore_submittal_submittal_package_attachments_item import (
+    ProcoreSubmittalSubmittalPackageAttachmentsItem,
+)
+from .procore_submittal_submittal_package_created_by import (
+    ProcoreSubmittalSubmittalPackageCreatedBy,
+)
+from .procore_submittal_submittal_workflow_template_type_0 import (
+    ProcoreSubmittalSubmittalWorkflowTemplateType0,
+)
+from .procore_submittal_task import ProcoreSubmittalTask
+from .procore_submittal_type import ProcoreSubmittalType
+from .procore_task import ProcoreTask
+from .procore_task_created_by import ProcoreTaskCreatedBy
+from .procore_task_updated_by import ProcoreTaskUpdatedBy
+
+__all__ = (
+    "ProcoreBudgetLineItem",
+    "ProcoreBudgetLineItemCurrencyConfiguration",
+    "ProcoreBudgetLineItemWbsCode",
+    "ProcoreChangeEvent",
+    "ProcoreChangeEventAttachmentsItem",
+    "ProcoreChangeEventChangeItemsItem",
+    "ProcoreChangeEventChangeItemsItemBudgetCode",
+    "ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItem",
+    "ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegment",
+    "ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegmentStructure",
+    "ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemSegmentType",
+    "ProcoreChangeEventChangeItemsItemBudgetCodeSegmentItemsItemStatus",
+    "ProcoreChangeEventChangeItemsItemBudgetImpact",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChange",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChangeAdjustmentLineItem",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetChangeStatus",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModification",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModificationTransferFromType0",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactBudgetModificationTransferTo",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimate",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateCalculationStrategy",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransfer",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCode",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItem",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegment",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegmentStructure",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemSegmentType",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactEstimateTransferFromWbsCodeSegmentItemsItemStatus",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfBudgetRom",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfLatestBudgetImpact",
+    "ProcoreChangeEventChangeItemsItemBudgetImpactSourceOfStage",
+    "ProcoreChangeEventChangeItemsItemCostImpact",
+    "ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0ContractType",
+    "ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0LineItem",
+    "ProcoreChangeEventChangeItemsItemCostImpactChangeOrderPackageType0Type",
+    "ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0ContractType",
+    "ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0CurrencyConfiguration",
+    "ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0LineItem",
+    "ProcoreChangeEventChangeItemsItemCostImpactCommitmentType0Type",
+    "ProcoreChangeEventChangeItemsItemCostImpactContract",
+    "ProcoreChangeEventChangeItemsItemCostImpactContractConfirmedType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactContractConfirmedType0ContractType",
+    "ProcoreChangeEventChangeItemsItemCostImpactContractProposedType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactContractProposedType0ContractType",
+    "ProcoreChangeEventChangeItemsItemCostImpactEstimate",
+    "ProcoreChangeEventChangeItemsItemCostImpactEstimateCalculationStrategy",
+    "ProcoreChangeEventChangeItemsItemCostImpactNonCommitment",
+    "ProcoreChangeEventChangeItemsItemCostImpactRequestForQuoteType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactRequestForQuoteType0Status",
+    "ProcoreChangeEventChangeItemsItemCostImpactSourceOfLatestCost",
+    "ProcoreChangeEventChangeItemsItemCostImpactSourceOfStage",
+    "ProcoreChangeEventChangeItemsItemCostImpactVendor",
+    "ProcoreChangeEventChangeItemsItemCostImpactVendorConfirmedType0",
+    "ProcoreChangeEventChangeItemsItemCostImpactVendorProposedType0",
+    "ProcoreChangeEventChangeItemsItemCurrencyConfiguration",
+    "ProcoreChangeEventChangeItemsItemLatestCostValues",
+    "ProcoreChangeEventChangeItemsItemLatestCostValuesCalculationStrategy",
+    "ProcoreChangeEventChangeItemsItemLatestRevenueValues",
+    "ProcoreChangeEventChangeItemsItemLatestRevenueValuesCalculationStrategy",
+    "ProcoreChangeEventChangeItemsItemNotes",
+    "ProcoreChangeEventChangeItemsItemRevenueImpact",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0LineItem",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderPackageType0Type",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0CurrencyConfiguration",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0LineItem",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactChangeOrderType0Type",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactEstimate",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactEstimateCalculationStrategy",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfLatestPrice",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfRevenueRom",
+    "ProcoreChangeEventChangeItemsItemRevenueImpactSourceOfStage",
+    "ProcoreChangeEventChangeItemsItemSource",
+    "ProcoreChangeEventChangeReason",
+    "ProcoreChangeEventChangeType",
+    "ProcoreChangeEventCreatedBy",
+    "ProcoreChangeEventCurrencyConfiguration",
+    "ProcoreChangeEventCustomFields",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldBooleanDefinitionId",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldDecimalDefinitionId",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue",
+    "ProcoreChangeEventCustomFieldsCustomFieldCustomFieldStringDefinitionId",
+    "ProcoreChangeEventEventOrigin",
+    "ProcoreChangeEventExternalData",
+    "ProcoreChangeEventMarkupItemsItem",
+    "ProcoreChangeEventMarkupItemsItemRevenue",
+    "ProcoreChangeEventMarkupItemsItemWbsCode",
+    "ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItem",
+    "ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegment",
+    "ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegmentStructure",
+    "ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemSegmentType",
+    "ProcoreChangeEventMarkupItemsItemWbsCodeSegmentItemsItemStatus",
+    "ProcoreChangeEventNotes",
+    "ProcoreChangeEventPrimeContractForEstimates",
+    "ProcoreChangeEventProductionQuantitiesItem",
+    "ProcoreChangeEventProductionQuantitiesItemBudgetChangeType0",
+    "ProcoreChangeEventProductionQuantitiesItemBudgetChangeType0ProductionQuantity",
+    "ProcoreChangeEventProductionQuantitiesItemEstimate",
+    "ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0",
+    "ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0LineItemType0",
+    "ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0ProductionQuantity",
+    "ProcoreChangeEventProductionQuantitiesItemPrimeChangeOrderType0Type",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCode",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeCostCode",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeSubJobType0",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCode",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItem",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegment",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegmentStructure",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemSegmentType",
+    "ProcoreChangeEventProductionQuantitiesItemProductionCodeWbsCodeSegmentItemsItemStatus",
+    "ProcoreChangeEventSource",
+    "ProcoreChangeEventStatus",
+    "ProcoreChangeOrderPackage",
+    "ProcoreChangeOrderPackageAttachmentsItem",
+    "ProcoreChangeOrderPackageCreator",
+    "ProcoreChangeOrderPackageCurrencyConfiguration",
+    "ProcoreChangeOrderPackageCustomFields",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldBooleanDefinitionId",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldDecimalDefinitionId",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue",
+    "ProcoreChangeOrderPackageCustomFieldsCustomFieldCustomFieldStringDefinitionId",
+    "ProcoreChangeOrderPackageDesignatedReviewer",
+    "ProcoreChangeOrderPackageLineItemsItem",
+    "ProcoreChangeOrderPackageLineItemsItemCompact",
+    "ProcoreChangeOrderPackageLineItemsItemCurrencyConfiguration",
+    "ProcoreChangeOrderPackageLineItemsItemHolder",
+    "ProcoreChangeOrderPackageLineItemsItemLineItemType",
+    "ProcoreChangeOrderPackageLineItemsItemLineItemTypeBaseType",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItem",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemCurrencyConfiguration",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkup",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupDestinationCostCode",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupDestinationSubJob",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupLineItemType",
+    "ProcoreChangeOrderPackageLineItemsItemMarkupLineItemsItemMarkupLineItemTypeBaseType",
+    "ProcoreChangeOrderPackageLineItemsItemWbsCode",
+    "ProcoreChangeOrderPackageReviewer",
+    "ProcoreChangeOrderPackageStatus",
+    "ProcoreChangeOrderPackageType",
+    "ProcoreCostCode",
+    "ProcoreCostCodeBillerType",
+    "ProcoreCostCodeLineItemType",
+    "ProcoreCostCodeLineItemTypeBaseType",
+    "ProcoreCostCodeParent",
+    "ProcoreDrawing",
+    "ProcoreDrawingCurrentRevisionType0",
+    "ProcoreRfi",
+    "ProcoreRfiAssignee",
+    "ProcoreRfiAssigneesItem",
+    "ProcoreRfiBallInCourt",
+    "ProcoreRfiBallInCourtsItem",
+    "ProcoreRfiConnectExportOriginType0",
+    "ProcoreRfiCostCodeType0",
+    "ProcoreRfiCostImpactType0",
+    "ProcoreRfiCostImpactType0Status",
+    "ProcoreRfiCreatedBy",
+    "ProcoreRfiCreatedByVendorType0",
+    "ProcoreRfiCustomFields",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldBooleanDefinitionId",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldDecimalDefinitionId",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue",
+    "ProcoreRfiCustomFieldsCustomFieldCustomFieldStringDefinitionId",
+    "ProcoreRfiCustomTextfield1Type0",
+    "ProcoreRfiCustomTextfield2Type0",
+    "ProcoreRfiDistributionListItem",
+    "ProcoreRfiLocation",
+    "ProcoreRfiQuestionsItem",
+    "ProcoreRfiQuestionsItemAnswersItem",
+    "ProcoreRfiQuestionsItemAnswersItemAttachmentsItem",
+    "ProcoreRfiQuestionsItemAttachmentsItem",
+    "ProcoreRfiReceivedFrom",
+    "ProcoreRfiResponsibleContractorType0",
+    "ProcoreRfiRfiManager",
+    "ProcoreRfiScheduleImpactType0",
+    "ProcoreRfiScheduleImpactType0Status",
+    "ProcoreRfiSpecificationSectionType0",
+    "ProcoreRfiStatus",
+    "ProcoreSubmittal",
+    "ProcoreSubmittalApproversItem",
+    "ProcoreSubmittalApproversItemAttachmentsItem",
+    "ProcoreSubmittalApproversItemResponse",
+    "ProcoreSubmittalApproversItemUser",
+    "ProcoreSubmittalAttachmentsItem",
+    "ProcoreSubmittalBallInCourtItem",
+    "ProcoreSubmittalCostCodeType0",
+    "ProcoreSubmittalCreatedBy",
+    "ProcoreSubmittalCustomFields",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldBooleanDefinitionId",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldDecimalDefinitionId",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionId",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntriesDefinitionIdValueItem",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntryDefinitionId",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldLovEntryDefinitionIdValue",
+    "ProcoreSubmittalCustomFieldsCustomFieldCustomFieldStringDefinitionId",
+    "ProcoreSubmittalDistributedSubmittalsItem",
+    "ProcoreSubmittalDistributedSubmittalsItemDistributedBy",
+    "ProcoreSubmittalDistributedSubmittalsItemDistributedToItem",
+    "ProcoreSubmittalDistributedSubmittalsItemFinalAttachmentsItem",
+    "ProcoreSubmittalDistributionMembersItem",
+    "ProcoreSubmittalLocation",
+    "ProcoreSubmittalOperationItemErrorsItem",
+    "ProcoreSubmittalReceivedFromType0",
+    "ProcoreSubmittalResponsibleContractorType0",
+    "ProcoreSubmittalSpecificationSection",
+    "ProcoreSubmittalStatus",
+    "ProcoreSubmittalSubJobType0",
+    "ProcoreSubmittalSubmittalManager",
+    "ProcoreSubmittalSubmittalPackage",
+    "ProcoreSubmittalSubmittalPackageAttachmentsItem",
+    "ProcoreSubmittalSubmittalPackageCreatedBy",
+    "ProcoreSubmittalSubmittalWorkflowTemplateType0",
+    "ProcoreSubmittalTask",
+    "ProcoreSubmittalType",
+    "ProcoreTask",
+    "ProcoreTaskCreatedBy",
+    "ProcoreTaskUpdatedBy",
+)

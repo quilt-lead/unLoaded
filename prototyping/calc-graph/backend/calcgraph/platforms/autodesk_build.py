@@ -1,5 +1,13 @@
 """Autodesk Construction Cloud (ACC) Build adapter (SYNTHETIC), shaped like the public APS APIs.
 
+NOT generated from a spec. Autodesk's official OpenAPI repository
+(https://github.com/autodesk-platform-services/aps-sdk-openapi, Apache-2.0, checked 2026-11-14)
+publishes Authentication, Data Management, Model Derivative, OSS, Webhooks, Secure Service Account and
+(under forma/) Account Admin, Forms and Issues - but no Submittals, RFIs, Cost Management or Sheets
+spec. So every raw object below is a HAND shape: field names read from the APS reference pages
+listed per object (submittals, budgets, change orders, sheets), or recollection where marked (RFIs v3,
+budget codes). Unlike procore.py, nothing here is validated against a machine-readable schema.
+
 Shapes follow the Autodesk Platform Services ACC reference:
 
 - Submittals items - READ: https://aps.autodesk.com/en/docs/acc/v1/reference/http/submittals-items-GET/

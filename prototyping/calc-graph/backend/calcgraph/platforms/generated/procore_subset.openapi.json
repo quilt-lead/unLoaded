@@ -1,0 +1,4794 @@
+{
+ "components": {
+  "schemas": {
+   "ProcoreBudgetLineItem": {
+    "description": "Budget Line Item",
+    "properties": {
+     "calculation_strategy": {
+      "description": "How original_budget_amount is derived, such as entered directly ('manual') or computed from quantity and unit_cost ('automatic').",
+      "type": "string"
+     },
+     "currency_configuration": {
+      "description": "Currency in which this line item's monetary amounts are denominated.",
+      "properties": {
+       "currency_iso_code": {
+        "description": "ISO 4217 currency code for the line item's amounts.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "id": {
+      "description": "Unique identifier for this budget line item. Use as the {id} path parameter for the Show and Update endpoints.",
+      "type": "integer"
+     },
+     "original_budget_amount": {
+      "description": "Original budgeted amount for this line, before any budget changes.",
+      "format": "float",
+      "type": "number"
+     },
+     "quantity": {
+      "description": "Budgeted quantity in the line's unit of measure. Multiplied by unit_cost when calculation_strategy is 'automatic'.",
+      "format": "float",
+      "type": "number"
+     },
+     "unit_cost": {
+      "description": "Cost per unit of measure. Multiplied by quantity when calculation_strategy is 'automatic'.",
+      "format": "float",
+      "type": "number"
+     },
+     "uom": {
+      "description": "Unit of measure for the line's quantity, such as hours. Any value from the company's configured Units of Measure list.",
+      "type": "string"
+     },
+     "wbs_code": {
+      "description": "Work Breakdown Structure (WBS) code this line item is budgeted against.",
+      "properties": {
+       "description": {
+        "description": "Human-readable description of the WBS code.",
+        "type": "string"
+       },
+       "flat_code": {
+        "description": "Flattened WBS code string combining all segment values.",
+        "type": "string"
+       },
+       "id": {
+        "description": "Unique identifier of the WBS code. Pass as wbs_code_id when creating or updating a line item.",
+        "type": "integer"
+       }
+      },
+      "type": "object"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.1/budget_line_items/{id} (operationId RestV11BudgetLineItemsIdGet) 200 response"
+   },
+   "ProcoreChangeEvent": {
+    "properties": {
+     "attachments": {
+      "items": {
+       "properties": {
+        "filename": {
+         "description": "Filename",
+         "nullable": true,
+         "type": "string"
+        },
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "url": {
+         "description": "Remote Url for attached file",
+         "nullable": true,
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "change_items": {
+      "items": {
+       "properties": {
+        "budget_code": {
+         "description": "Item's associated Budget Code",
+         "properties": {
+          "description": {
+           "description": "wbs code description",
+           "nullable": false,
+           "type": "string"
+          },
+          "flat_code": {
+           "description": "wbs code flat code",
+           "nullable": false,
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "nullable": false,
+           "type": "integer"
+          },
+          "segment_items": {
+           "description": "Work breakdown structure segment items",
+           "items": {
+            "properties": {
+             "code": {
+              "description": "Short alphanumeric code for this segment item (e.g., '01-222'). Combined with sibling segment codes to form the flat_code on the parent WBS code.",
+              "type": "string"
+             },
+             "created_at": {
+              "description": "Timestamp when this segment item was created, in ISO 8601 format.",
+              "format": "date-time",
+              "type": "string"
+             },
+             "id": {
+              "description": "Unique ID of this segment item (cost code, sub-job, line item type, or custom segment item). Use as segment_item_id when constructing a new WBS code via POST /rest/v1.0/projects/{project_id}/work_breakdown_structure/wbs_codes.",
+              "type": "integer"
+             },
+             "in_use": {
+              "description": "Whether this segment item is currently referenced by at least one entity (e.g., a budget line item or WBS code).",
+              "type": "boolean"
+             },
+             "is_parent": {
+              "description": "Whether this segment item has child items in a tiered segment structure. Always false for flat-structure segments.",
+              "type": "boolean"
+             },
+             "name": {
+              "description": "Human-readable name of this segment item (e.g., 'Lighting'). Combined with sibling segment names to form the flat_name on the parent WBS code.",
+              "type": "string"
+             },
+             "parent_id": {
+              "description": "ID of the parent segment item in a tiered segment hierarchy. Null for root-level items or items in a flat-structure segment.",
+              "nullable": true,
+              "type": "integer"
+             },
+             "path_code": {
+              "description": "Full path code for this segment item representing the leaf code in its hierarchy (e.g., '01-222').",
+              "type": "string"
+             },
+             "path_codes": {
+              "description": "Ordered list of code strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+              "items": {
+               "type": "string"
+              },
+              "type": "array"
+             },
+             "path_ids": {
+              "description": "Ordered list of IDs from the root ancestor down to (and including) this segment item. Use to reconstruct the full hierarchy path.",
+              "items": {
+               "type": "integer"
+              },
+              "type": "array"
+             },
+             "path_names": {
+              "description": "Ordered list of name strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+              "items": {
+               "type": "string"
+              },
+              "type": "array"
+             },
+             "segment": {
+              "description": "The WBS segment definition that this segment item belongs to.",
+              "properties": {
+               "created_at": {
+                "description": "Timestamp when this segment definition was created, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               },
+               "delimiter": {
+                "description": "Character used to separate this segment's value from adjacent segments in the flat_code (e.g., '.').",
+                "type": "string"
+               },
+               "id": {
+                "description": "Unique ID of the WBS segment definition.",
+                "type": "integer"
+               },
+               "name": {
+                "description": "Display name of the segment (e.g., 'Cost Code', 'Sub Job').",
+                "type": "string"
+               },
+               "position": {
+                "description": "Display order of this segment within the WBS pattern. Lower numbers appear first when reading the flat_code left to right.",
+                "type": "integer"
+               },
+               "project_can_delete_origin_company": {
+                "description": "Whether project-level users can delete segment items that originated from the company level.",
+                "type": "boolean"
+               },
+               "project_can_modify_origin_project": {
+                "description": "Whether project-level users can modify segment items that originated from this project.",
+                "type": "boolean"
+               },
+               "required": {
+                "description": "Whether this segment must have a value for a WBS code to be valid.",
+                "type": "boolean"
+               },
+               "segment_items_count": {
+                "description": "Total number of segment items defined for this segment.",
+                "type": "integer"
+               },
+               "structure": {
+                "description": "Hierarchy structure of the segment. 'flat' means items have no parent-child relationship; 'tiered' means items can be nested with parent_id references.",
+                "enum": [
+                 "tiered",
+                 "flat"
+                ],
+                "type": "string"
+               },
+               "type": {
+                "description": "Category of this segment. One of: 'cost_code', 'line_item_type', 'sub_job', 'custom', 'attribute'. Determines which domain entity backs the segment items.",
+                "enum": [
+                 "cost_code",
+                 "line_item_type",
+                 "sub_job",
+                 "custom",
+                 "attribute"
+                ],
+                "type": "string"
+               },
+               "updated_at": {
+                "description": "Timestamp when this segment definition was last updated, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               },
+               "wbs_pattern_id": {
+                "description": "ID of the WBS pattern this segment belongs to.",
+                "type": "integer"
+               }
+              },
+              "type": "object"
+             },
+             "status": {
+              "description": "Lifecycle status of the segment item. One of: 'active' (available for selection when creating WBS codes), 'inactive' (not available for new WBS codes).",
+              "enum": [
+               "active",
+               "inactive"
+              ],
+              "type": "string"
+             },
+             "updated_at": {
+              "description": "Timestamp when this segment item was last updated, in ISO 8601 format.",
+              "format": "date-time",
+              "type": "string"
+             }
+            },
+            "type": "object"
+           },
+           "type": "array"
+          }
+         },
+         "type": "object"
+        },
+        "budget_impact": {
+         "properties": {
+          "budget_change": {
+           "properties": {
+            "adjustment_line_item": {
+             "properties": {
+              "amount": {
+               "description": "Sum of all Adjustment Line Item amounts under same adjustment number",
+               "type": "string"
+              },
+              "id": {
+               "description": "Adjustment Line Item ID",
+               "type": "integer"
+              },
+              "number": {
+               "description": "Number of this adjustment",
+               "type": "integer"
+              }
+             },
+             "type": "object"
+            },
+            "days_in_stage": {
+             "description": "Number of days since Change Event Line Item was associated with Budget Change and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "Unique identifier for the Budget Change",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "number": {
+             "description": "Number field of the Budget Change",
+             "type": "integer"
+            },
+            "status": {
+             "description": "Status of the Budget Change",
+             "enum": [
+              "approved",
+              "draft",
+              "under_review",
+              "void"
+             ],
+             "type": "string"
+            },
+            "title": {
+             "description": "Title of Budget Change",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "budget_modification": {
+           "properties": {
+            "amount": {
+             "description": "Amount of budget transferred by this modification, as a decimal string in the project currency. Equal to the transfer_amount supplied on the request.",
+             "nullable": false,
+             "type": "string"
+            },
+            "budget_modification_id": {
+             "deprecated": true,
+             "description": "Deprecated. No longer returned by the create endpoint; retained only for backwards compatibility and will be removed in a future revision.",
+             "nullable": false,
+             "type": "integer"
+            },
+            "notes": {
+             "description": "Free-text notes describing why the budget transfer was made. Null when no notes were provided on creation.",
+             "nullable": true,
+             "type": "string"
+            },
+            "transfer_from": {
+             "description": "Source Budget (Line Item) Code the amount was transferred from. Null when the modification has no source line item.",
+             "nullable": true,
+             "properties": {
+              "id": {
+               "description": "ID of the source Budget Line Item. Use as the budget line item identifier in Budget tool requests.",
+               "nullable": false,
+               "type": "integer"
+              },
+              "name": {
+               "description": "Display name of the source Budget Code.",
+               "nullable": false,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "transfer_to": {
+             "description": "Target Budget (Line Item) Code the amount was transferred to.",
+             "nullable": false,
+             "properties": {
+              "id": {
+               "description": "ID of the target Budget Line Item. Use as the budget line item identifier in Budget tool requests.",
+               "nullable": false,
+               "type": "integer"
+              },
+              "name": {
+               "description": "Display name of the target Budget Code.",
+               "nullable": false,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            }
+           },
+           "type": "object"
+          },
+          "estimate": {
+           "properties": {
+            "amount": {
+             "description": "Estimated budget ROM amount",
+             "nullable": true,
+             "type": "string"
+            },
+            "amount_project_currency": {
+             "description": "Estimated budget ROM amount in project currency",
+             "nullable": true,
+             "type": "string"
+            },
+            "auto_balance": {
+             "description": "Indicates whether the Budget ROM should be automatically balanced",
+             "nullable": true,
+             "type": "boolean"
+            },
+            "calculation_strategy": {
+             "description": "Budget ROM calculation strategy",
+             "enum": [
+              "automatic",
+              "manual"
+             ],
+             "nullable": true,
+             "type": "string"
+            },
+            "quantity": {
+             "description": "Estimated budget ROM quantity",
+             "nullable": true,
+             "type": "string"
+            },
+            "transfer": {
+             "properties": {
+              "amount": {
+               "description": "Estimated budget transfer amount",
+               "type": "string"
+              },
+              "from_wbs_code": {
+               "description": "Item's associated Budget Code",
+               "properties": {
+                "description": {
+                 "description": "wbs code description",
+                 "nullable": false,
+                 "type": "string"
+                },
+                "flat_code": {
+                 "description": "wbs code flat code",
+                 "nullable": false,
+                 "type": "string"
+                },
+                "id": {
+                 "description": "ID",
+                 "nullable": false,
+                 "type": "integer"
+                },
+                "segment_items": {
+                 "description": "Work breakdown structure segment items",
+                 "items": {
+                  "properties": {
+                   "code": {
+                    "description": "Short alphanumeric code for this segment item (e.g., '01-222'). Combined with sibling segment codes to form the flat_code on the parent WBS code.",
+                    "type": "string"
+                   },
+                   "created_at": {
+                    "description": "Timestamp when this segment item was created, in ISO 8601 format.",
+                    "format": "date-time",
+                    "type": "string"
+                   },
+                   "id": {
+                    "description": "Unique ID of this segment item (cost code, sub-job, line item type, or custom segment item). Use as segment_item_id when constructing a new WBS code via POST /rest/v1.0/projects/{project_id}/work_breakdown_structure/wbs_codes.",
+                    "type": "integer"
+                   },
+                   "in_use": {
+                    "description": "Whether this segment item is currently referenced by at least one entity (e.g., a budget line item or WBS code).",
+                    "type": "boolean"
+                   },
+                   "is_parent": {
+                    "description": "Whether this segment item has child items in a tiered segment structure. Always false for flat-structure segments.",
+                    "type": "boolean"
+                   },
+                   "name": {
+                    "description": "Human-readable name of this segment item (e.g., 'Lighting'). Combined with sibling segment names to form the flat_name on the parent WBS code.",
+                    "type": "string"
+                   },
+                   "parent_id": {
+                    "description": "ID of the parent segment item in a tiered segment hierarchy. Null for root-level items or items in a flat-structure segment.",
+                    "nullable": true,
+                    "type": "integer"
+                   },
+                   "path_code": {
+                    "description": "Full path code for this segment item representing the leaf code in its hierarchy (e.g., '01-222').",
+                    "type": "string"
+                   },
+                   "path_codes": {
+                    "description": "Ordered list of code strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+                    "items": {
+                     "type": "string"
+                    },
+                    "type": "array"
+                   },
+                   "path_ids": {
+                    "description": "Ordered list of IDs from the root ancestor down to (and including) this segment item. Use to reconstruct the full hierarchy path.",
+                    "items": {
+                     "type": "integer"
+                    },
+                    "type": "array"
+                   },
+                   "path_names": {
+                    "description": "Ordered list of name strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+                    "items": {
+                     "type": "string"
+                    },
+                    "type": "array"
+                   },
+                   "segment": {
+                    "description": "The WBS segment definition that this segment item belongs to.",
+                    "properties": {
+                     "created_at": {
+                      "description": "Timestamp when this segment definition was created, in ISO 8601 format.",
+                      "format": "date-time",
+                      "type": "string"
+                     },
+                     "delimiter": {
+                      "description": "Character used to separate this segment's value from adjacent segments in the flat_code (e.g., '.').",
+                      "type": "string"
+                     },
+                     "id": {
+                      "description": "Unique ID of the WBS segment definition.",
+                      "type": "integer"
+                     },
+                     "name": {
+                      "description": "Display name of the segment (e.g., 'Cost Code', 'Sub Job').",
+                      "type": "string"
+                     },
+                     "position": {
+                      "description": "Display order of this segment within the WBS pattern. Lower numbers appear first when reading the flat_code left to right.",
+                      "type": "integer"
+                     },
+                     "project_can_delete_origin_company": {
+                      "description": "Whether project-level users can delete segment items that originated from the company level.",
+                      "type": "boolean"
+                     },
+                     "project_can_modify_origin_project": {
+                      "description": "Whether project-level users can modify segment items that originated from this project.",
+                      "type": "boolean"
+                     },
+                     "required": {
+                      "description": "Whether this segment must have a value for a WBS code to be valid.",
+                      "type": "boolean"
+                     },
+                     "segment_items_count": {
+                      "description": "Total number of segment items defined for this segment.",
+                      "type": "integer"
+                     },
+                     "structure": {
+                      "description": "Hierarchy structure of the segment. 'flat' means items have no parent-child relationship; 'tiered' means items can be nested with parent_id references.",
+                      "enum": [
+                       "tiered",
+                       "flat"
+                      ],
+                      "type": "string"
+                     },
+                     "type": {
+                      "description": "Category of this segment. One of: 'cost_code', 'line_item_type', 'sub_job', 'custom', 'attribute'. Determines which domain entity backs the segment items.",
+                      "enum": [
+                       "cost_code",
+                       "line_item_type",
+                       "sub_job",
+                       "custom",
+                       "attribute"
+                      ],
+                      "type": "string"
+                     },
+                     "updated_at": {
+                      "description": "Timestamp when this segment definition was last updated, in ISO 8601 format.",
+                      "format": "date-time",
+                      "type": "string"
+                     },
+                     "wbs_pattern_id": {
+                      "description": "ID of the WBS pattern this segment belongs to.",
+                      "type": "integer"
+                     }
+                    },
+                    "type": "object"
+                   },
+                   "status": {
+                    "description": "Lifecycle status of the segment item. One of: 'active' (available for selection when creating WBS codes), 'inactive' (not available for new WBS codes).",
+                    "enum": [
+                     "active",
+                     "inactive"
+                    ],
+                    "type": "string"
+                   },
+                   "updated_at": {
+                    "description": "Timestamp when this segment item was last updated, in ISO 8601 format.",
+                    "format": "date-time",
+                    "type": "string"
+                   }
+                  },
+                  "type": "object"
+                 },
+                 "type": "array"
+                }
+               },
+               "type": "object"
+              }
+             },
+             "type": "object"
+            },
+            "unit_cost": {
+             "description": "Estimated budget ROM unit cost",
+             "nullable": true,
+             "type": "string"
+            },
+            "unit_cost_project_currency": {
+             "description": "Estimated budget ROM unit cost in project currency",
+             "nullable": true,
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "source_of_budget_rom": {
+           "description": "Source of budget ROM",
+           "enum": [
+            "automatic",
+            "manual",
+            "quantity_by_unit_cost"
+           ],
+           "type": "string"
+          },
+          "source_of_latest_budget_impact": {
+           "description": "Source of latest budget impact",
+           "enum": [
+            "budget_change",
+            "estimate"
+           ],
+           "nullable": true,
+           "type": "string"
+          },
+          "source_of_stage": {
+           "description": "The source of the stage",
+           "enum": [
+            "estimate",
+            "budget_change"
+           ],
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "cost_impact": {
+         "properties": {
+          "change_order_package": {
+           "nullable": true,
+           "properties": {
+            "contract_type": {
+             "description": "The type of the contract associated with the Change Order Package",
+             "enum": [
+              "purchase_order_contract",
+              "work_order_contract"
+             ],
+             "type": "string"
+            },
+            "days_in_stage": {
+             "description": "Number of days since Change Event Line Item was associated with Commitment PCO and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "Change Order Package ID",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "line_item": {
+             "properties": {
+              "amount": {
+               "description": "Change Order Line Item amount",
+               "type": "string"
+              },
+              "amount_project_currency": {
+               "description": "Change Order Line Item amount in project currency",
+               "type": "string"
+              },
+              "holder_id": {
+               "description": "ID of the Potential Change Order that holds the Line Item",
+               "nullable": true,
+               "type": "integer"
+              },
+              "id": {
+               "description": "Change Order Line Item ID",
+               "type": "integer"
+              }
+             },
+             "type": "object"
+            },
+            "number": {
+             "description": "Number of the Change Order Package",
+             "type": "string"
+            },
+            "status": {
+             "description": "Status of the Change Order Package",
+             "nullable": true,
+             "type": "string"
+            },
+            "title": {
+             "description": "Title of the Change Order Package",
+             "nullable": true,
+             "type": "string"
+            },
+            "type": {
+             "description": "Type of Change Order",
+             "enum": [
+              "change_order_package"
+             ],
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "commitment": {
+           "nullable": true,
+           "properties": {
+            "contract_type": {
+             "description": "The type of the contract associated with the Commitment",
+             "enum": [
+              "purchase_order_contract",
+              "work_order_contract"
+             ],
+             "type": "string"
+            },
+            "currency_configuration": {
+             "description": "Currency configuration information for the Commitment",
+             "properties": {
+              "base_currency_iso_code": {
+               "description": "Base currency ISO code (project currency)",
+               "nullable": true,
+               "type": "string"
+              },
+              "currency_exchange_rate": {
+               "description": "The Commitment Contract or Change Order currency exchange rate to project currency",
+               "nullable": true,
+               "type": "string"
+              },
+              "currency_iso_code": {
+               "description": "Currency ISO code of the Commitment Contract",
+               "nullable": true,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "days_in_stage": {
+             "description": "Number of days since Change Event Line Item was associated with Commitment Contract or Commitment PCO and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "ID of the Commitment",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "line_item": {
+             "properties": {
+              "amount": {
+               "description": "Total amount of the Line Item",
+               "type": "string"
+              },
+              "amount_project_currency": {
+               "description": "Total amount of the Line Item in project currency",
+               "type": "string"
+              },
+              "holder_id": {
+               "description": "ID of the entity that holds the Line Item (e.g. the Potential Change Order). Null for contract line items.",
+               "nullable": true,
+               "type": "integer"
+              },
+              "id": {
+               "description": "ID of the Line Item",
+               "type": "integer"
+              }
+             },
+             "type": "object"
+            },
+            "number": {
+             "description": "Number of the Commitment Contract or Change Order",
+             "type": "string"
+            },
+            "status": {
+             "description": "Status of the Commitment",
+             "nullable": true,
+             "type": "string"
+            },
+            "title": {
+             "description": "Commitment title",
+             "nullable": true,
+             "type": "string"
+            },
+            "type": {
+             "description": "Type of Commitment",
+             "enum": [
+              "potential_change_order",
+              "change_order_package",
+              "contract"
+             ],
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "contract": {
+           "properties": {
+            "confirmed": {
+             "description": "the Confirmed Contract associated to the Change Item",
+             "nullable": true,
+             "properties": {
+              "contract_type": {
+               "description": "The type of the Confirmed Contract",
+               "enum": [
+                "purchase_order_contract",
+                "work_order_contract"
+               ],
+               "nullable": false,
+               "type": "string"
+              },
+              "id": {
+               "description": "Confirmed Contract ID",
+               "type": "integer"
+              },
+              "number": {
+               "description": "The number of the Confirmed Contract",
+               "nullable": true,
+               "type": "string"
+              },
+              "status": {
+               "description": "The status of the Confirmed Contract",
+               "nullable": false,
+               "type": "string"
+              },
+              "title": {
+               "description": "The title of the Confirmed Contract",
+               "nullable": true,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "proposed": {
+             "description": "the Proposed Contract associated to the Change Item",
+             "nullable": true,
+             "properties": {
+              "contract_type": {
+               "description": "The type of the Proposed Contract",
+               "enum": [
+                "purchase_order_contract",
+                "work_order_contract"
+               ],
+               "nullable": false,
+               "type": "string"
+              },
+              "id": {
+               "description": "Proposed Contract ID",
+               "type": "integer"
+              },
+              "number": {
+               "description": "The number of the Proposed Contract",
+               "nullable": true,
+               "type": "string"
+              },
+              "status": {
+               "description": "The status of the Proposed Contract",
+               "nullable": false,
+               "type": "string"
+              },
+              "title": {
+               "description": "The title of the Proposed Contract",
+               "nullable": true,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            }
+           },
+           "type": "object"
+          },
+          "estimate": {
+           "properties": {
+            "amount": {
+             "description": "Estimated cost amount",
+             "type": "string"
+            },
+            "calculation_strategy": {
+             "description": "Cost calculation strategy",
+             "enum": [
+              "automatic",
+              "manual"
+             ],
+             "type": "string"
+            },
+            "quantity": {
+             "description": "Estimated cost quantity",
+             "type": "string"
+            },
+            "unit_cost": {
+             "description": "Estimated unit cost",
+             "type": "string"
+            },
+            "unit_of_measure": {
+             "description": "Unit of measure used",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "non_commitment": {
+           "properties": {
+            "amount": {
+             "description": "Latest cost amount",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "request_for_quote": {
+           "description": "Request for Quote data if any present, can be null",
+           "nullable": true,
+           "properties": {
+            "days_in_stage": {
+             "description": "Number of days since Change Event Line Item was associated with Request For Quote and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "Request for Quote ID",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "latest_quote_amount": {
+             "description": "Request for Quote latest quote amount if present, can be null",
+             "nullable": true,
+             "type": "string"
+            },
+            "number": {
+             "description": "Request for quote number",
+             "nullable": true,
+             "type": "string"
+            },
+            "status": {
+             "description": "Request for Quote status",
+             "enum": [
+              "closed",
+              "out_for_pricing",
+              "pending_final_approval",
+              "revise_and_resubmit",
+              "under_review",
+              "withdrawn"
+             ],
+             "nullable": true,
+             "type": "string"
+            },
+            "title": {
+             "description": "Request for Quote title",
+             "nullable": true,
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "source_of_latest_cost": {
+           "description": "Source of latest cost",
+           "enum": [
+            "commitment",
+            "estimate",
+            "latest_quote",
+            "non_commitment"
+           ],
+           "type": "string"
+          },
+          "source_of_stage": {
+           "description": "Source of stage",
+           "enum": [
+            "estimate",
+            "non-commitment",
+            "commitment",
+            "change_order_package",
+            "latest_quote"
+           ],
+           "type": "string"
+          },
+          "vendor": {
+           "properties": {
+            "confirmed": {
+             "description": "The Confirmed Vendor associated to the Change Item",
+             "nullable": true,
+             "properties": {
+              "id": {
+               "description": "Confirmed Vendor ID",
+               "type": "integer"
+              },
+              "name": {
+               "description": "The full name of the Confirmed Vendor",
+               "nullable": false,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "proposed": {
+             "description": "the Proposed Vendor associated to the Change Item",
+             "nullable": true,
+             "properties": {
+              "id": {
+               "description": "Proposed Vendor ID",
+               "type": "integer"
+              },
+              "name": {
+               "description": "The full name of the Proposed Vendor",
+               "nullable": false,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            }
+           },
+           "type": "object"
+          }
+         },
+         "type": "object"
+        },
+        "created_at": {
+         "description": "Timestamp of when the Change Event Line Item was created",
+         "format": "date-time",
+         "type": "string"
+        },
+        "currency_configuration": {
+         "description": "Currency configuration information",
+         "properties": {
+          "currency_iso_code": {
+           "description": "currency ISO code",
+           "nullable": true,
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "deletable": {
+         "description": "Whether the Line Item is deletable",
+         "type": "boolean"
+        },
+        "deleted_at": {
+         "description": "Timestamp of when the Line Item was deleted",
+         "format": "date-time",
+         "type": "string"
+        },
+        "description": {
+         "description": "Description of the Line Item",
+         "type": "string"
+        },
+        "editable": {
+         "description": "Whether the Line Item is editable",
+         "type": "boolean"
+        },
+        "event_id": {
+         "description": "The ID of the associated Change Event",
+         "type": "integer"
+        },
+        "event_number": {
+         "description": "The number of the associated Change Event",
+         "type": "string"
+        },
+        "event_title": {
+         "description": "The title of the associated Change Event",
+         "type": "string"
+        },
+        "id": {
+         "description": "The ID of the Line Item",
+         "type": "integer"
+        },
+        "item_type": {
+         "description": "The type of the Line Item",
+         "type": "string"
+        },
+        "latest_cost_values": {
+         "properties": {
+          "amount": {
+           "description": "Latest cost amount",
+           "type": "string"
+          },
+          "amount_project_currency": {
+           "description": "Latest cost amount in project currency",
+           "type": "string"
+          },
+          "calculation_strategy": {
+           "description": "Latest cost calculation strategy",
+           "enum": [
+            "automatic",
+            "manual"
+           ],
+           "type": "string"
+          },
+          "quantity": {
+           "description": "Latest cost quantity",
+           "type": "string"
+          },
+          "unit_cost": {
+           "description": "Latest unit cost",
+           "type": "string"
+          },
+          "unit_cost_project_currency": {
+           "description": "Latest unit cost in project currency",
+           "type": "string"
+          },
+          "unit_of_measure": {
+           "description": "The unit of measure used",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "latest_revenue_values": {
+         "properties": {
+          "amount": {
+           "description": "Latest revenue amount",
+           "type": "string"
+          },
+          "amount_project_currency": {
+           "description": "Latest revenue amount in project currency",
+           "type": "string"
+          },
+          "calculation_strategy": {
+           "description": "Latest revenue calculation strategy",
+           "enum": [
+            "automatic",
+            "manual"
+           ],
+           "type": "string"
+          },
+          "quantity": {
+           "description": "Latest revenue quantity",
+           "type": "string"
+          },
+          "unit_cost": {
+           "description": "Latest revenue unit cost",
+           "type": "string"
+          },
+          "unit_cost_project_currency": {
+           "description": "Latest revenue unit cost in project currency",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "line_aging": {
+         "description": "Number of days since Change Event Line Item was added to Change Event and until the time the Change Event closed (or until today)",
+         "type": "integer"
+        },
+        "notes": {
+         "description": "After successful update independent actions may be executed. For example: sync WBS code. The failures of those actions will be aggregated under attribute :notes and will not result in a Failure.",
+         "type": "object"
+        },
+        "revenue_impact": {
+         "properties": {
+          "change_order": {
+           "nullable": true,
+           "properties": {
+            "contract_id": {
+             "description": "Prime Contract ID",
+             "type": "integer"
+            },
+            "currency_configuration": {
+             "description": "Currency configuration information for the Change Order",
+             "properties": {
+              "base_currency_iso_code": {
+               "description": "Base currency ISO code (project currency)",
+               "nullable": true,
+               "type": "string"
+              },
+              "currency_exchange_rate": {
+               "description": "The Change Order currency exchange rate to project currency",
+               "nullable": true,
+               "type": "string"
+              },
+              "currency_iso_code": {
+               "description": "Currency ISO code of the Contract Change Order is associated with",
+               "nullable": true,
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "days_in_stage": {
+             "description": "Number of days since change event line item was associated with Prime PCO and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "Change Order ID",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "line_item": {
+             "properties": {
+              "amount": {
+               "description": "Change Order Line Item amount",
+               "type": "string"
+              },
+              "amount_project_currency": {
+               "description": "Change Order Line Item amount in project currency",
+               "type": "string"
+              },
+              "holder_id": {
+               "description": "ID of the Potential Change Order that holds the Line Item",
+               "nullable": true,
+               "type": "integer"
+              },
+              "id": {
+               "description": "Change Order Line Item ID",
+               "type": "integer"
+              }
+             },
+             "type": "object"
+            },
+            "number": {
+             "description": "Number of Change Order",
+             "type": "string"
+            },
+            "status": {
+             "description": "Status of Change Order",
+             "type": "string"
+            },
+            "title": {
+             "description": "Title of Change Order",
+             "type": "string"
+            },
+            "type": {
+             "description": "Type of Change Order",
+             "enum": [
+              "potential_change_order",
+              "change_order_package"
+             ],
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "change_order_package": {
+           "nullable": true,
+           "properties": {
+            "contract_id": {
+             "description": "Prime Contract ID",
+             "type": "integer"
+            },
+            "days_in_stage": {
+             "description": "Number of days since change event line item was associated with Prime PCO and until Change Event was closed (or until today if it wasn't)",
+             "type": "integer"
+            },
+            "id": {
+             "description": "Change Order Package ID",
+             "type": "integer"
+            },
+            "in_status_since": {
+             "description": "Last time this status was updated",
+             "format": "date-time",
+             "nullable": true,
+             "type": "string"
+            },
+            "line_item": {
+             "properties": {
+              "amount": {
+               "description": "Change Order Line Item amount",
+               "type": "string"
+              },
+              "holder_id": {
+               "description": "ID of the Potential Change Order that holds the Line Item",
+               "nullable": true,
+               "type": "integer"
+              },
+              "id": {
+               "description": "Change Order Line Item ID",
+               "type": "integer"
+              }
+             },
+             "type": "object"
+            },
+            "number": {
+             "description": "Number of Change Order Package",
+             "type": "string"
+            },
+            "status": {
+             "description": "Status of the Change Order Package",
+             "type": "string"
+            },
+            "title": {
+             "description": "Title of Change Order Package",
+             "type": "string"
+            },
+            "type": {
+             "description": "Type of Change Order",
+             "enum": [
+              "change_order_package"
+             ],
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "estimate": {
+           "properties": {
+            "amount": {
+             "description": "estimated revenue amount",
+             "type": "string"
+            },
+            "amount_project_currency": {
+             "description": "estimated revenue amount in project currency",
+             "type": "string"
+            },
+            "calculation_strategy": {
+             "description": "revenue calculation strategy",
+             "enum": [
+              "automatic",
+              "manual"
+             ],
+             "type": "string"
+            },
+            "quantity": {
+             "description": "estimated revenue quantity",
+             "type": "string"
+            },
+            "unit_cost": {
+             "description": "estimated unit cost",
+             "type": "string"
+            },
+            "unit_cost_project_currency": {
+             "description": "estimated unit cost in project currency",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "source_of_latest_price": {
+           "description": "Latest price source",
+           "enum": [
+            "change_order",
+            "estimate"
+           ],
+           "type": "string"
+          },
+          "source_of_revenue_rom": {
+           "description": "Revenue ROM source",
+           "enum": [
+            "automatic",
+            "latest_cost",
+            "manual",
+            "no_revenue_expected"
+           ],
+           "type": "string"
+          },
+          "source_of_stage": {
+           "description": "Source of the stage",
+           "enum": [
+            "estimate",
+            "change_order",
+            "change_order_package"
+           ],
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "source": {
+         "description": "Source of Change Item",
+         "enum": [
+          "change_event",
+          "budget_change",
+          "field_initiated_change_orders"
+         ],
+         "type": "string"
+        },
+        "updated_at": {
+         "description": "Timestamp of when the Change Event Line Item was updated",
+         "format": "date-time",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "change_reason": {
+      "properties": {
+       "change_reason": {
+        "description": "The reason for a change",
+        "type": "string"
+       },
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       }
+      },
+      "type": "object"
+     },
+     "change_type": {
+      "properties": {
+       "abbreviation": {
+        "description": "abbreviation",
+        "type": "string"
+       },
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "comments_enabled": {
+      "description": "Comments Enabled",
+      "type": "boolean"
+     },
+     "company_id": {
+      "description": "unique identifier for the company",
+      "type": "integer"
+     },
+     "created_at": {
+      "format": "date-time",
+      "type": "string"
+     },
+     "created_by": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "email address of Change Event creator",
+        "nullable": true,
+        "type": "string"
+       },
+       "name": {
+        "description": "first and last name of Change Event creator",
+        "nullable": true,
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "currency_configuration": {
+      "description": "currency configuration information",
+      "properties": {
+       "currency_iso_code": {
+        "description": "currency ISO code",
+        "nullable": true,
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "custom_fields": {
+      "properties": {
+       "custom_field_%{custom_field_boolean_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "boolean"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_decimal_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "number"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entries_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "items": {
+           "properties": {
+            "id": {
+             "description": "ID of the LOV Entry",
+             "type": "integer"
+            },
+            "label": {
+             "description": "Label of the LOV Entry",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entry_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "properties": {
+           "id": {
+            "description": "ID of the LOV Entry",
+            "type": "integer"
+           },
+           "label": {
+            "description": "Label of the LOV Entry",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "variant": {
+          "description": "The variant of the Custom Field Definition (e.g. `project_directory`). Present only when the definition has an associated variant.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_string_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "string"
+         },
+         "variant": {
+          "description": "The variant of the Custom Field Definition (e.g. `phone_number`). Present only when the definition has an associated variant.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "type": "object"
+     },
+     "deletable": {
+      "type": "boolean"
+     },
+     "deleted_at": {
+      "format": "date-time",
+      "type": "string"
+     },
+     "description": {
+      "description": "description",
+      "type": "string"
+     },
+     "event_origin": {
+      "properties": {
+       "display_name": {
+        "description": "name of event origin used for view",
+        "type": "string"
+       },
+       "origin_id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "origin_type": {
+        "description": "type of object this change event originated from",
+        "type": "string"
+       },
+       "web_page_url": {
+        "description": "web page of event origin",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "external_data": {
+      "properties": {
+       "origin_data": {
+        "description": "The Origin Data of the Change Event",
+        "nullable": true,
+        "type": "string"
+       },
+       "origin_id": {
+        "description": "The Origin ID of the Change Event",
+        "nullable": true,
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "id": {
+      "description": "ID",
+      "type": "integer"
+     },
+     "in_recycle_bin": {
+      "type": "boolean"
+     },
+     "markup_items": {
+      "description": "markup items",
+      "items": {
+       "properties": {
+        "event_id": {
+         "description": "markup item's change event id",
+         "nullable": false,
+         "type": "integer"
+        },
+        "id": {
+         "description": "markup item ID",
+         "nullable": false,
+         "type": "string"
+        },
+        "item_type": {
+         "description": "item type",
+         "type": "string"
+        },
+        "revenue": {
+         "description": "markup item revenue summary",
+         "nullable": false,
+         "properties": {
+          "change_order_amount": {
+           "description": "prime potential change order line items amount",
+           "nullable": false,
+           "type": "string"
+          },
+          "estimate_amount": {
+           "description": "estimated amount",
+           "nullable": false,
+           "type": "string"
+          },
+          "latest_price_amount": {
+           "description": "latest price",
+           "nullable": false,
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "wbs_code": {
+         "description": "Item's associated Budget Code",
+         "properties": {
+          "description": {
+           "description": "wbs code description",
+           "nullable": false,
+           "type": "string"
+          },
+          "flat_code": {
+           "description": "wbs code flat code",
+           "nullable": false,
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "nullable": false,
+           "type": "integer"
+          },
+          "segment_items": {
+           "description": "Work breakdown structure segment items",
+           "items": {
+            "properties": {
+             "code": {
+              "description": "Short alphanumeric code for this segment item (e.g., '01-222'). Combined with sibling segment codes to form the flat_code on the parent WBS code.",
+              "type": "string"
+             },
+             "created_at": {
+              "description": "Timestamp when this segment item was created, in ISO 8601 format.",
+              "format": "date-time",
+              "type": "string"
+             },
+             "id": {
+              "description": "Unique ID of this segment item (cost code, sub-job, line item type, or custom segment item). Use as segment_item_id when constructing a new WBS code via POST /rest/v1.0/projects/{project_id}/work_breakdown_structure/wbs_codes.",
+              "type": "integer"
+             },
+             "in_use": {
+              "description": "Whether this segment item is currently referenced by at least one entity (e.g., a budget line item or WBS code).",
+              "type": "boolean"
+             },
+             "is_parent": {
+              "description": "Whether this segment item has child items in a tiered segment structure. Always false for flat-structure segments.",
+              "type": "boolean"
+             },
+             "name": {
+              "description": "Human-readable name of this segment item (e.g., 'Lighting'). Combined with sibling segment names to form the flat_name on the parent WBS code.",
+              "type": "string"
+             },
+             "parent_id": {
+              "description": "ID of the parent segment item in a tiered segment hierarchy. Null for root-level items or items in a flat-structure segment.",
+              "nullable": true,
+              "type": "integer"
+             },
+             "path_code": {
+              "description": "Full path code for this segment item representing the leaf code in its hierarchy (e.g., '01-222').",
+              "type": "string"
+             },
+             "path_codes": {
+              "description": "Ordered list of code strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+              "items": {
+               "type": "string"
+              },
+              "type": "array"
+             },
+             "path_ids": {
+              "description": "Ordered list of IDs from the root ancestor down to (and including) this segment item. Use to reconstruct the full hierarchy path.",
+              "items": {
+               "type": "integer"
+              },
+              "type": "array"
+             },
+             "path_names": {
+              "description": "Ordered list of name strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+              "items": {
+               "type": "string"
+              },
+              "type": "array"
+             },
+             "segment": {
+              "description": "The WBS segment definition that this segment item belongs to.",
+              "properties": {
+               "created_at": {
+                "description": "Timestamp when this segment definition was created, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               },
+               "delimiter": {
+                "description": "Character used to separate this segment's value from adjacent segments in the flat_code (e.g., '.').",
+                "type": "string"
+               },
+               "id": {
+                "description": "Unique ID of the WBS segment definition.",
+                "type": "integer"
+               },
+               "name": {
+                "description": "Display name of the segment (e.g., 'Cost Code', 'Sub Job').",
+                "type": "string"
+               },
+               "position": {
+                "description": "Display order of this segment within the WBS pattern. Lower numbers appear first when reading the flat_code left to right.",
+                "type": "integer"
+               },
+               "project_can_delete_origin_company": {
+                "description": "Whether project-level users can delete segment items that originated from the company level.",
+                "type": "boolean"
+               },
+               "project_can_modify_origin_project": {
+                "description": "Whether project-level users can modify segment items that originated from this project.",
+                "type": "boolean"
+               },
+               "required": {
+                "description": "Whether this segment must have a value for a WBS code to be valid.",
+                "type": "boolean"
+               },
+               "segment_items_count": {
+                "description": "Total number of segment items defined for this segment.",
+                "type": "integer"
+               },
+               "structure": {
+                "description": "Hierarchy structure of the segment. 'flat' means items have no parent-child relationship; 'tiered' means items can be nested with parent_id references.",
+                "enum": [
+                 "tiered",
+                 "flat"
+                ],
+                "type": "string"
+               },
+               "type": {
+                "description": "Category of this segment. One of: 'cost_code', 'line_item_type', 'sub_job', 'custom', 'attribute'. Determines which domain entity backs the segment items.",
+                "enum": [
+                 "cost_code",
+                 "line_item_type",
+                 "sub_job",
+                 "custom",
+                 "attribute"
+                ],
+                "type": "string"
+               },
+               "updated_at": {
+                "description": "Timestamp when this segment definition was last updated, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               },
+               "wbs_pattern_id": {
+                "description": "ID of the WBS pattern this segment belongs to.",
+                "type": "integer"
+               }
+              },
+              "type": "object"
+             },
+             "status": {
+              "description": "Lifecycle status of the segment item. One of: 'active' (available for selection when creating WBS codes), 'inactive' (not available for new WBS codes).",
+              "enum": [
+               "active",
+               "inactive"
+              ],
+              "type": "string"
+             },
+             "updated_at": {
+              "description": "Timestamp when this segment item was last updated, in ISO 8601 format.",
+              "format": "date-time",
+              "type": "string"
+             }
+            },
+            "type": "object"
+           },
+           "type": "array"
+          }
+         },
+         "type": "object"
+        }
+       },
+       "type": "object"
+      },
+      "nullable": false,
+      "type": "array"
+     },
+     "notes": {
+      "description": "The failures of independent actions will be aggregated under the attribute and will not result in a Failure. For example: sync WBS code.",
+      "type": "object"
+     },
+     "number": {
+      "description": "number",
+      "type": "string"
+     },
+     "prime_contract_for_estimates": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "name of contract",
+        "type": "string"
+       },
+       "number": {
+        "description": "contract number",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "production_quantities": {
+      "description": "change event related production quantities",
+      "items": {
+       "properties": {
+        "budget_change": {
+         "description": "budget change",
+         "nullable": true,
+         "properties": {
+          "description": {
+           "description": "budget change description",
+           "type": "string"
+          },
+          "id": {
+           "description": "budget change id",
+           "nullable": false,
+           "type": "integer"
+          },
+          "number": {
+           "description": "budget change number",
+           "type": "integer"
+          },
+          "production_quantity": {
+           "description": "production quantity",
+           "nullable": false,
+           "properties": {
+            "id": {
+             "description": "budget change production quantity id",
+             "nullable": false,
+             "type": "integer"
+            },
+            "quantity": {
+             "description": "quantity of budget change production quantity",
+             "nullable": false,
+             "type": "string"
+            },
+            "unit_of_measure": {
+             "description": "budget change production quantity unit of measure",
+             "nullable": false,
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "status": {
+           "description": "budget change status",
+           "type": "string"
+          },
+          "title": {
+           "description": "title",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "disabled_fields": {
+         "description": "array of disabled fields for production quantities",
+         "items": {
+          "type": "string"
+         },
+         "nullable": false,
+         "type": "array"
+        },
+        "estimate": {
+         "description": "production quantity estimate",
+         "nullable": false,
+         "properties": {
+          "quantity": {
+           "description": "production quantity quantity",
+           "type": "string"
+          },
+          "unit_of_measure": {
+           "description": "production quantity unit of measure",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "event_id": {
+         "description": "production quantity event id",
+         "nullable": false,
+         "type": "integer"
+        },
+        "id": {
+         "description": "production quantity id",
+         "nullable": false,
+         "type": "integer"
+        },
+        "item_type": {
+         "description": "item type",
+         "type": "string"
+        },
+        "prime_change_order": {
+         "description": "prime contract change order data",
+         "nullable": true,
+         "properties": {
+          "contract_id": {
+           "description": "Prime Contract ID",
+           "type": "integer"
+          },
+          "description": {
+           "description": "Prime PCO description",
+           "type": "string"
+          },
+          "id": {
+           "description": "Package id when type is change_order_package. Potential change order id when type is potential_change_order.",
+           "nullable": false,
+           "type": "integer"
+          },
+          "line_item": {
+           "description": "Present for 1-tier packages. holder_id is the potential change order id used by the change order show page.",
+           "nullable": true,
+           "properties": {
+            "holder_id": {
+             "description": "Potential change order id",
+             "type": "integer"
+            }
+           },
+           "type": "object"
+          },
+          "number": {
+           "description": "Prime PCO number",
+           "type": "integer"
+          },
+          "production_quantity": {
+           "description": "production quantity",
+           "nullable": false,
+           "properties": {
+            "id": {
+             "description": "Prime PCO production quantity id",
+             "nullable": false,
+             "type": "integer"
+            },
+            "quantity": {
+             "description": "quantity of Prime PCO production quantity",
+             "nullable": false,
+             "type": "string"
+            },
+            "unit_of_measure": {
+             "description": "Prime PCO production quantity unit of measure",
+             "nullable": false,
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "status": {
+           "description": "Prime PCO status",
+           "type": "string"
+          },
+          "title": {
+           "description": "title",
+           "type": "string"
+          },
+          "type": {
+           "description": "type of change order",
+           "enum": [
+            "potential_change_order",
+            "change_order_package"
+           ],
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "production_code": {
+         "description": "production quantity cost code and if enabled sub job data",
+         "nullable": false,
+         "properties": {
+          "cost_code": {
+           "description": "cost code data",
+           "nullable": false,
+           "properties": {
+            "description": {
+             "description": "cost code sortable code and name",
+             "type": "string"
+            },
+            "id": {
+             "description": "cost code id",
+             "type": "integer"
+            }
+           },
+           "type": "object"
+          },
+          "sub_job": {
+           "description": "cost code related sub job data in case when cost code biller is subjob",
+           "nullable": true,
+           "properties": {
+            "id": {
+             "description": "sub job id",
+             "type": "integer"
+            },
+            "name": {
+             "description": "sub job name",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "wbs_code": {
+           "description": "Item's associated Budget Code",
+           "properties": {
+            "description": {
+             "description": "wbs code description",
+             "nullable": false,
+             "type": "string"
+            },
+            "flat_code": {
+             "description": "wbs code flat code",
+             "nullable": false,
+             "type": "string"
+            },
+            "id": {
+             "description": "ID",
+             "nullable": false,
+             "type": "integer"
+            },
+            "segment_items": {
+             "description": "Work breakdown structure segment items",
+             "items": {
+              "properties": {
+               "code": {
+                "description": "Short alphanumeric code for this segment item (e.g., '01-222'). Combined with sibling segment codes to form the flat_code on the parent WBS code.",
+                "type": "string"
+               },
+               "created_at": {
+                "description": "Timestamp when this segment item was created, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               },
+               "id": {
+                "description": "Unique ID of this segment item (cost code, sub-job, line item type, or custom segment item). Use as segment_item_id when constructing a new WBS code via POST /rest/v1.0/projects/{project_id}/work_breakdown_structure/wbs_codes.",
+                "type": "integer"
+               },
+               "in_use": {
+                "description": "Whether this segment item is currently referenced by at least one entity (e.g., a budget line item or WBS code).",
+                "type": "boolean"
+               },
+               "is_parent": {
+                "description": "Whether this segment item has child items in a tiered segment structure. Always false for flat-structure segments.",
+                "type": "boolean"
+               },
+               "name": {
+                "description": "Human-readable name of this segment item (e.g., 'Lighting'). Combined with sibling segment names to form the flat_name on the parent WBS code.",
+                "type": "string"
+               },
+               "parent_id": {
+                "description": "ID of the parent segment item in a tiered segment hierarchy. Null for root-level items or items in a flat-structure segment.",
+                "nullable": true,
+                "type": "integer"
+               },
+               "path_code": {
+                "description": "Full path code for this segment item representing the leaf code in its hierarchy (e.g., '01-222').",
+                "type": "string"
+               },
+               "path_codes": {
+                "description": "Ordered list of code strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+                "items": {
+                 "type": "string"
+                },
+                "type": "array"
+               },
+               "path_ids": {
+                "description": "Ordered list of IDs from the root ancestor down to (and including) this segment item. Use to reconstruct the full hierarchy path.",
+                "items": {
+                 "type": "integer"
+                },
+                "type": "array"
+               },
+               "path_names": {
+                "description": "Ordered list of name strings from the root ancestor down to (and including) this segment item, formatted as 'code - name'.",
+                "items": {
+                 "type": "string"
+                },
+                "type": "array"
+               },
+               "segment": {
+                "description": "The WBS segment definition that this segment item belongs to.",
+                "properties": {
+                 "created_at": {
+                  "description": "Timestamp when this segment definition was created, in ISO 8601 format.",
+                  "format": "date-time",
+                  "type": "string"
+                 },
+                 "delimiter": {
+                  "description": "Character used to separate this segment's value from adjacent segments in the flat_code (e.g., '.').",
+                  "type": "string"
+                 },
+                 "id": {
+                  "description": "Unique ID of the WBS segment definition.",
+                  "type": "integer"
+                 },
+                 "name": {
+                  "description": "Display name of the segment (e.g., 'Cost Code', 'Sub Job').",
+                  "type": "string"
+                 },
+                 "position": {
+                  "description": "Display order of this segment within the WBS pattern. Lower numbers appear first when reading the flat_code left to right.",
+                  "type": "integer"
+                 },
+                 "project_can_delete_origin_company": {
+                  "description": "Whether project-level users can delete segment items that originated from the company level.",
+                  "type": "boolean"
+                 },
+                 "project_can_modify_origin_project": {
+                  "description": "Whether project-level users can modify segment items that originated from this project.",
+                  "type": "boolean"
+                 },
+                 "required": {
+                  "description": "Whether this segment must have a value for a WBS code to be valid.",
+                  "type": "boolean"
+                 },
+                 "segment_items_count": {
+                  "description": "Total number of segment items defined for this segment.",
+                  "type": "integer"
+                 },
+                 "structure": {
+                  "description": "Hierarchy structure of the segment. 'flat' means items have no parent-child relationship; 'tiered' means items can be nested with parent_id references.",
+                  "enum": [
+                   "tiered",
+                   "flat"
+                  ],
+                  "type": "string"
+                 },
+                 "type": {
+                  "description": "Category of this segment. One of: 'cost_code', 'line_item_type', 'sub_job', 'custom', 'attribute'. Determines which domain entity backs the segment items.",
+                  "enum": [
+                   "cost_code",
+                   "line_item_type",
+                   "sub_job",
+                   "custom",
+                   "attribute"
+                  ],
+                  "type": "string"
+                 },
+                 "updated_at": {
+                  "description": "Timestamp when this segment definition was last updated, in ISO 8601 format.",
+                  "format": "date-time",
+                  "type": "string"
+                 },
+                 "wbs_pattern_id": {
+                  "description": "ID of the WBS pattern this segment belongs to.",
+                  "type": "integer"
+                 }
+                },
+                "type": "object"
+               },
+               "status": {
+                "description": "Lifecycle status of the segment item. One of: 'active' (available for selection when creating WBS codes), 'inactive' (not available for new WBS codes).",
+                "enum": [
+                 "active",
+                 "inactive"
+                ],
+                "type": "string"
+               },
+               "updated_at": {
+                "description": "Timestamp when this segment item was last updated, in ISO 8601 format.",
+                "format": "date-time",
+                "type": "string"
+               }
+              },
+              "type": "object"
+             },
+             "type": "array"
+            }
+           },
+           "type": "object"
+          }
+         },
+         "type": "object"
+        }
+       },
+       "type": "object"
+      },
+      "nullable": false,
+      "type": "array"
+     },
+     "project_id": {
+      "description": "unique identifier for the project",
+      "type": "integer"
+     },
+     "scope": {
+      "description": "scope",
+      "type": "string"
+     },
+     "source": {
+      "description": "The Change Event source refers to the resource that was responsible for creating this Change Event.",
+      "enum": [
+       "budget_change",
+       "field_initiated_change_orders"
+      ],
+      "type": "string"
+     },
+     "status": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "mapped_to_status": {
+        "description": "mapped_to_status",
+        "type": "string"
+       },
+       "name": {
+        "description": "name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "title": {
+      "description": "title",
+      "type": "string"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.1/change_events/{id} (operationId RestV11ChangeEventsIdGet) 200 response"
+   },
+   "ProcoreChangeOrderPackage": {
+    "properties": {
+     "attachments": {
+      "items": {
+       "properties": {
+        "filename": {
+         "description": ":filename to be deprecated, use :name",
+         "type": "string"
+        },
+        "id": {
+         "type": "integer"
+        },
+        "name": {
+         "description": "Use :name, :filename to be deprecated",
+         "type": "string"
+        },
+        "url": {
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "contract_id": {
+      "description": "ID of the parent contract this change order package belongs to.",
+      "type": "integer"
+     },
+     "created_at": {
+      "description": "Timestamp when the change order package was created, in ISO 8601 format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "creator": {
+      "properties": {
+       "id": {
+        "description": "Unique identifier of the user.",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email/login of the user.",
+        "type": "string"
+       },
+       "name": {
+        "description": "Full name of the user.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "currency_configuration": {
+      "properties": {
+       "base_currency_iso_code": {
+        "description": "Base Currency ISO Code configured from project level; It'll be populated only when multicurrency phase two feature flag is enabled",
+        "nullable": true,
+        "type": "string"
+       },
+       "currency_iso_code": {
+        "description": "Currency ISO Code configured for the financial entity",
+        "nullable": true,
+        "type": "string"
+       }
+      }
+     },
+     "custom_fields": {
+      "properties": {
+       "custom_field_%{custom_field_boolean_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "boolean"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_decimal_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "number"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entries_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "items": {
+           "properties": {
+            "id": {
+             "description": "ID of the LOV Entry",
+             "type": "integer"
+            },
+            "label": {
+             "description": "Label of the LOV Entry",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entry_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "properties": {
+           "id": {
+            "description": "ID of the LOV Entry",
+            "type": "integer"
+           },
+           "label": {
+            "description": "Label of the LOV Entry",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "variant": {
+          "description": "The variant of the Custom Field Definition (e.g. `project_directory`). Present only when the definition has an associated variant.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_string_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "Data type of the Custom Field Definition",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field",
+          "type": "string"
+         },
+         "variant": {
+          "description": "The variant of the Custom Field Definition (e.g. `phone_number`). Present only when the definition has an associated variant.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "type": "object"
+     },
+     "deleted_at": {
+      "description": "Timestamp when the change order package was deleted, in ISO 8601 format. Null unless the record has been deleted.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "description": {
+      "description": "Detailed description of the scope or reason for the change order package.",
+      "type": "string"
+     },
+     "designated_reviewer": {
+      "properties": {
+       "id": {
+        "description": "Unique identifier of the user.",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email/login of the user.",
+        "type": "string"
+       },
+       "name": {
+        "description": "Full name of the user.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "due_date": {
+      "description": "Date the change order package is due (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+     },
+     "executed": {
+      "description": "When true, the change order package has been fully executed (signed by all parties).",
+      "type": "boolean"
+     },
+     "grand_total": {
+      "description": "Total amount of the change order package including markup. Computed from its line items.",
+      "type": "string"
+     },
+     "id": {
+      "description": "Unique identifier for this change order package. Use as the {id} path parameter to retrieve or update it.",
+      "type": "integer"
+     },
+     "invoiced_date": {
+      "description": "Date the change order package was invoiced (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+     },
+     "line_items": {
+      "items": {
+       "properties": {
+        "cost_code": {
+         "properties": {
+          "full_code": {
+           "description": "Full Cost code, including parent prefixes",
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "nullable": true,
+           "type": "integer"
+          },
+          "name": {
+           "description": "Name",
+           "type": "string"
+          }
+         },
+         "title": "compact",
+         "type": "object"
+        },
+        "currency_configuration": {
+         "properties": {
+          "currency_iso_code": {
+           "description": "Currency ISO Code configured for the financial entity",
+           "nullable": true,
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "description": {
+         "description": "Description",
+         "type": "string"
+        },
+        "extended_amount": {
+         "description": "Extended amount",
+         "format": "float",
+         "type": "string"
+        },
+        "holder": {
+         "description": "Holder",
+         "properties": {
+          "holder_type": {
+           "description": "Holder type",
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "type": "integer"
+          }
+         },
+         "type": "object"
+        },
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "line_item_type": {
+         "description": "Line Item Type",
+         "properties": {
+          "base_type": {
+           "description": "Base type",
+           "enum": [
+            "equipment",
+            "materials",
+            "commitment",
+            "owner_cost",
+            "professional_services",
+            "other"
+           ],
+           "type": "string"
+          },
+          "code": {
+           "description": "Code for the Line Item Type",
+           "type": "string"
+          },
+          "id": {
+           "description": "Unique identifier for the Line Item Type",
+           "type": "integer"
+          },
+          "name": {
+           "description": "Name for the Line Item Type",
+           "type": "string"
+          },
+          "origin_data": {
+           "description": "Origin data",
+           "type": "string"
+          },
+          "origin_id": {
+           "description": "Origin ID",
+           "nullable": true,
+           "type": "string"
+          }
+         },
+         "title": "LineItemType",
+         "type": "object"
+        },
+        "markup_line_items": {
+         "items": {
+          "properties": {
+           "amount": {
+            "description": "Markup Line Item amount",
+            "type": "string"
+           },
+           "created_at": {
+            "description": "Created at",
+            "format": "date-time",
+            "type": "string"
+           },
+           "currency_configuration": {
+            "properties": {
+             "currency_iso_code": {
+              "description": "Currency ISO Code configured for the financial entity",
+              "nullable": true,
+              "type": "string"
+             }
+            },
+            "type": "object"
+           },
+           "id": {
+            "description": "Markup Line Item ID",
+            "type": "integer"
+           },
+           "markup": {
+            "properties": {
+             "compounds_markups_above": {
+              "description": "Compounds markups above?",
+              "type": "boolean"
+             },
+             "created_at": {
+              "description": "Created at",
+              "format": "date-time",
+              "type": "string"
+             },
+             "desitination_budget_line_item_id": {
+              "description": "Destination Budget Line Item ID",
+              "type": "integer"
+             },
+             "destination_cost_code": {
+              "properties": {
+               "origin_data": {
+                "description": "Cost Code third party data",
+                "type": "string"
+               },
+               "origin_id": {
+                "description": "Cost Code third party id",
+                "type": "string"
+               }
+              },
+              "type": "object"
+             },
+             "destination_line_item_type": {
+              "description": "Line Item Type",
+              "properties": {
+               "base_type": {
+                "description": "Base type",
+                "enum": [
+                 "equipment",
+                 "materials",
+                 "commitment",
+                 "owner_cost",
+                 "professional_services",
+                 "other"
+                ],
+                "type": "string"
+               },
+               "code": {
+                "description": "Code for the Line Item Type",
+                "type": "string"
+               },
+               "id": {
+                "description": "Unique identifier for the Line Item Type",
+                "type": "integer"
+               },
+               "name": {
+                "description": "Name for the Line Item Type",
+                "type": "string"
+               },
+               "origin_data": {
+                "description": "Origin data",
+                "type": "string"
+               },
+               "origin_id": {
+                "description": "Origin ID",
+                "nullable": true,
+                "type": "string"
+               }
+              },
+              "title": "LineItemType",
+              "type": "object"
+             },
+             "destination_sub_job": {
+              "properties": {
+               "code": {
+                "description": "Unique code in the scope of a Project",
+                "type": "string"
+               },
+               "created_at": {
+                "description": "Created at",
+                "type": "string"
+               },
+               "id": {
+                "description": "ID",
+                "type": "integer"
+               },
+               "name": {
+                "description": "Name",
+                "type": "string"
+               },
+               "origin_data": {
+                "description": "The Third-party Data of the Sub Job",
+                "type": "string"
+               },
+               "origin_id": {
+                "description": "The Third-party ID of the Sub Job",
+                "type": "string"
+               },
+               "updated_at": {
+                "description": "Updated at",
+                "type": "string"
+               }
+              },
+              "type": "object"
+             },
+             "id": {
+              "description": "Markup ID",
+              "type": "integer"
+             },
+             "markup_set": {
+              "description": "Markup set",
+              "type": "string"
+             },
+             "name": {
+              "description": "name",
+              "type": "string"
+             },
+             "percentage": {
+              "description": "Percentage",
+              "type": "string"
+             },
+             "position": {
+              "description": "Position",
+              "type": "integer"
+             },
+             "updated_at": {
+              "description": "Updated at",
+              "format": "date-time",
+              "type": "string"
+             },
+             "wbs_code_id": {
+              "description": "Work Breakdown Structure Code ID",
+              "type": "integer"
+             }
+            },
+            "type": "object"
+           },
+           "updated_at": {
+            "description": "Updated at",
+            "format": "date-time",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "position": {
+         "description": "Position",
+         "type": "integer"
+        },
+        "quantity": {
+         "description": "Quantity",
+         "format": "float",
+         "type": "string"
+        },
+        "total_amount": {
+         "description": "Total amount",
+         "format": "float",
+         "type": "string"
+        },
+        "unit_cost": {
+         "description": "Unit cost",
+         "format": "float",
+         "type": "string"
+        },
+        "uom": {
+         "description": "Unit of measurement",
+         "type": "string"
+        },
+        "wbs_code": {
+         "properties": {
+          "description": {
+           "description": "Wbs Code Description",
+           "type": "string"
+          },
+          "flat_code": {
+           "description": "Wbs Code",
+           "type": "string"
+          },
+          "id": {
+           "description": "Wbs Code ID",
+           "type": "integer"
+          }
+         },
+         "type": "object"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "number": {
+      "description": "Auto-generated, human-readable number identifying the change order package within its contract.",
+      "type": "string"
+     },
+     "origin_code": {
+      "description": "Code identifying this record in an external or integrated system.",
+      "type": "string"
+     },
+     "origin_data": {
+      "description": "Free-form data payload from the external system that created this record.",
+      "type": "string"
+     },
+     "origin_id": {
+      "description": "Identifier of this record in an external or integrated system.",
+      "type": "string"
+     },
+     "paid_date": {
+      "description": "Date the change order package was paid (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+     },
+     "position": {
+      "description": "Sort position of the change order package relative to others in its contract.",
+      "type": "integer"
+     },
+     "private": {
+      "description": "If true, visible to admins only; otherwise visible to those with access to the parent contract.",
+      "type": "boolean"
+     },
+     "review_notes": {
+      "description": "Notes to assist the reviewer",
+      "type": "string"
+     },
+     "reviewed_at": {
+      "description": "Timestamp when the change order package was reviewed, in ISO 8601 format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "reviewer": {
+      "properties": {
+       "id": {
+        "description": "Unique identifier of the user.",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email/login of the user.",
+        "type": "string"
+       },
+       "name": {
+        "description": "Full name of the user.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "revised_substantial_completion_date": {
+      "description": "Revised project substantial-completion date resulting from this change order package (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+     },
+     "revision": {
+      "description": "Revision number, incremented each time the change order package is revised.",
+      "type": "integer"
+     },
+     "schedule_impact_amount": {
+      "description": "Estimated impact to the project schedule, in days.",
+      "type": "integer"
+     },
+     "signed_change_order_received_date": {
+      "description": "Date the signed change order was received from the vendor (YYYY-MM-DD).",
+      "format": "date",
+      "type": "string"
+     },
+     "status": {
+      "description": "Workflow status of the change order package.",
+      "enum": [
+       "draft",
+       "not_pricing",
+       "pricing",
+       "pending",
+       "revised",
+       "proceeding",
+       "not_proceeding",
+       "pending_billable",
+       "no_charge",
+       "approved",
+       "rejected",
+       "void"
+      ],
+      "type": "string"
+     },
+     "title": {
+      "description": "Short title summarizing the change order package.",
+      "type": "string"
+     },
+     "type": {
+      "description": "Subtype of the change order package indicating which kind of contract it belongs to.",
+      "enum": [
+       "PrimeContractChangeOrder",
+       "CommitmentContractChangeOrder",
+       "ChangeOrderPackage"
+      ],
+      "type": "string"
+     },
+     "updated_at": {
+      "description": "Timestamp when the change order package was last updated, in ISO 8601 format.",
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.0/change_order_packages/{id} (operationId RestV10ChangeOrderPackagesIdGet) 200 response"
+   },
+   "ProcoreCostCode": {
+    "properties": {
+     "biller": {
+      "description": "Display name of the entity (project or sub job) that owns this cost code.",
+      "type": "string"
+     },
+     "biller_id": {
+      "description": "Procore ID of the owning project or sub job. Use with biller_type to identify the owning entity.",
+      "type": "integer"
+     },
+     "biller_origin_id": {
+      "description": "ERP origin ID of the owning project or sub job. Null when no ERP origin has been set.",
+      "nullable": true,
+      "type": "string"
+     },
+     "biller_type": {
+      "description": "Type of entity that owns this cost code. One of: 'Project' (a standard project) or 'SubJob' (a sub job within the project).",
+      "enum": [
+       "Project",
+       "SubJob"
+      ],
+      "type": "string"
+     },
+     "budgeted": {
+      "description": "Whether this cost code has been marked as budgeted. True when at least one budget line item exists for this cost code.",
+      "type": "boolean"
+     },
+     "code": {
+      "description": "Cost code segment, not including the parent prefix. For example, for full code \"02-300\", this field is \"300\".",
+      "type": "string"
+     },
+     "created_at": {
+      "description": "Timestamp when this cost code was created, in ISO 8601 format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "deleted_at": {
+      "description": "Timestamp when this cost code was soft-deleted, in ISO 8601 format. Null when the record is active.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "full_code": {
+      "description": "Full cost code including all parent prefixes (e.g. \"02-300\").",
+      "type": "string"
+     },
+     "id": {
+      "description": "Unique identifier for this Cost Code record.",
+      "type": "integer"
+     },
+     "line_item_types": {
+      "description": "Array of line item types (cost types) assigned to this cost code. Each entry represents one Cost Code / Line Item Type assignment.",
+      "items": {
+       "description": "A line item type assigned to this cost code.",
+       "properties": {
+        "base_type": {
+         "description": "Canonical cost category for this line item type. One of: 'equipment', 'materials', 'commitment', 'owner_cost', 'professional_services', 'labor', 'other'.",
+         "enum": [
+          "equipment",
+          "materials",
+          "commitment",
+          "owner_cost",
+          "professional_services",
+          "labor",
+          "other"
+         ],
+         "type": "string"
+        },
+        "code": {
+         "description": "Short code used for CSV import of this Line Item Type.",
+         "type": "string"
+        },
+        "id": {
+         "description": "Unique identifier for the Line Item Type.",
+         "type": "integer"
+        },
+        "name": {
+         "description": "Display name of the Line Item Type.",
+         "type": "string"
+        },
+        "origin_id": {
+         "description": "ERP system identifier for this line item type. Null when not linked to an ERP system.",
+         "nullable": true,
+         "type": "string"
+        }
+       },
+       "title": "LineItemType",
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "name": {
+      "description": "Display name of the cost code.",
+      "type": "string"
+     },
+     "origin_data": {
+      "description": "Free-form third-party metadata string from the ERP system. Null when no ERP origin data has been set.",
+      "type": "string"
+     },
+     "origin_id": {
+      "description": "ERP system identifier for this cost code. Used by sync operations to match records across systems.",
+      "type": "string"
+     },
+     "parent": {
+      "description": "The immediate parent cost code of this record, if any.",
+      "properties": {
+       "id": {
+        "description": "Procore ID of this cost code's parent cost code. Null for root-level cost codes.",
+        "type": "integer"
+       }
+      },
+      "type": "object"
+     },
+     "position": {
+      "description": "Sort order of this cost code within its parent.",
+      "type": "integer"
+     },
+     "sortable_code": {
+      "description": "Deprecated alias for full_code. Use full_code instead. Included for backwards compatibility.",
+      "type": "string"
+     },
+     "standard_cost_code_id": {
+      "description": "ID of the company-level standard cost code that this project cost code was created from. Null when not derived from a standard list.",
+      "type": "integer"
+     },
+     "standard_cost_code_list_id": {
+      "description": "ID of the company-level standard cost code list associated with this cost code via its standard cost code. Null when not linked to a standard list. Only present in the extended view.",
+      "nullable": true,
+      "type": "integer"
+     },
+     "updated_at": {
+      "description": "Timestamp when this cost code was last updated, in ISO 8601 format.",
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.0/cost_codes/{id} (operationId RestV10CostCodesIdGet) 200 response"
+   },
+   "ProcoreDrawing": {
+    "description": "Drawing",
+    "properties": {
+     "current_revision": {
+      "description": "Current drawing revision",
+      "nullable": true,
+      "properties": {
+       "floorplan": {
+        "description": "Revision floorplan status",
+        "type": "boolean"
+       },
+       "has_drawing_sketches": {
+        "description": "Revision has drawing sketches status",
+        "type": "boolean"
+       },
+       "id": {
+        "description": "Revision ID",
+        "type": "integer"
+       },
+       "large_thumbnail_url": {
+        "description": "Large thumbnail url",
+        "type": "string"
+       },
+       "pdf_size": {
+        "description": "PDF file size",
+        "type": "integer"
+       },
+       "pdf_url": {
+        "description": "PDF url address",
+        "type": "string"
+       },
+       "png_size": {
+        "description": "PNG file size",
+        "type": "integer"
+       },
+       "png_url": {
+        "description": "PNG url address",
+        "type": "string"
+       },
+       "revision_number": {
+        "description": "Revision number",
+        "type": "string"
+       },
+       "thumbnail_url": {
+        "description": "Thumbnail url",
+        "type": "string"
+       },
+       "updated_at": {
+        "description": "Revision updated at",
+        "format": "date-time",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "discipline": {
+      "description": "Drawing discipline",
+      "type": "string"
+     },
+     "drawing_discipline_id": {
+      "description": "Drawing discipline ID",
+      "type": "integer"
+     },
+     "drawing_number": {
+      "description": "Canonical drawing number without sheet-number suffix formatting",
+      "type": "string"
+     },
+     "id": {
+      "description": "Drawing ID",
+      "type": "integer"
+     },
+     "number": {
+      "description": "Drawing number",
+      "type": "string"
+     },
+     "obsolete": {
+      "description": "Obsolete status",
+      "type": "boolean"
+     },
+     "sheet_number": {
+      "description": "Sheet number when assigned for multi-sheet drawings",
+      "nullable": true,
+      "type": "integer"
+     },
+     "title": {
+      "description": "Drawing title",
+      "nullable": true,
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.1/drawing_areas/{drawing_area_id}/drawings (operationId RestV11DrawingAreasDrawingAreaIdDrawingsGet) 200 response"
+   },
+   "ProcoreRfi": {
+    "properties": {
+     "accepted": {
+      "description": "RFI Acceptance status, true means the RFI is accepted and closed",
+      "type": "boolean"
+     },
+     "assignee": {
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "assignees": {
+      "description": "RFI Assignees",
+      "items": {
+       "properties": {
+        "id": {
+         "type": "integer"
+        },
+        "login": {
+         "description": "Email",
+         "type": "string"
+        },
+        "name": {
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "ball_in_court": {
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "ball_in_court_role": {
+      "description": "Ball in Court Role (can be Assignees, Creator, or RFI Manager)",
+      "type": "string"
+     },
+     "ball_in_courts": {
+      "description": "Ball In Courts",
+      "items": {
+       "properties": {
+        "id": {
+         "type": "integer"
+        },
+        "login": {
+         "description": "Email",
+         "type": "string"
+        },
+        "name": {
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "connect_export_origin": {
+      "description": "Export origin information for RFIs received via cross-account collaboration. Null for RFIs not received via export.",
+      "nullable": true,
+      "properties": {
+       "rfi_number": {
+        "description": "The originating RFI number. Returns \"Draft\" if the source RFI was a draft at export time.",
+        "type": "string"
+       },
+       "source_provider_name": {
+        "description": "The originating company name (cross-company export) or project name (same-company export).",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "connect_exported_project_ids": {
+      "description": "IDs of connected projects to which this RFI has already been exported. Use this list with connected project permissions to identify prior export destinations and avoid offering duplicate export targets.",
+      "items": {
+       "type": "integer"
+      },
+      "type": "array"
+     },
+     "cost_code": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "cost_impact": {
+      "nullable": true,
+      "properties": {
+       "status": {
+        "description": "Cost impact status",
+        "enum": [
+         "yes_known",
+         "yes_unknown",
+         "no_impact",
+         "tbd",
+         "n_a"
+        ],
+        "nullable": true,
+        "type": "string"
+       },
+       "value": {
+        "description": "Cost impact value in dollars",
+        "nullable": true,
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "created_at": {
+      "description": "Date created",
+      "format": "date-time",
+      "type": "string"
+     },
+     "created_by": {
+      "description": "User who created the RFI.",
+      "properties": {
+       "id": {
+        "description": "Unique identifier for the user's login information.",
+        "type": "integer"
+       },
+       "locale": {
+        "description": "User locale.",
+        "nullable": true,
+        "type": "string"
+       },
+       "login": {
+        "description": "User email address.",
+        "type": "string"
+       },
+       "name": {
+        "description": "User's first and last name without their company name.",
+        "type": "string"
+       },
+       "vendor": {
+        "description": "Company associated with the creator, or null when the creator has no company.",
+        "nullable": true,
+        "properties": {
+         "id": {
+          "description": "Unique identifier for the vendor.",
+          "type": "integer"
+         },
+         "name": {
+          "description": "Vendor name.",
+          "type": "string"
+         }
+        },
+        "required": [
+         "id",
+         "name"
+        ],
+        "type": "object"
+       }
+      },
+      "required": [
+       "id",
+       "login",
+       "name"
+      ],
+      "type": "object"
+     },
+     "current_revision": {
+      "description": "Designate whether or not this RFI is the latest revision",
+      "type": "boolean"
+     },
+     "custom_fields": {
+      "properties": {
+       "custom_field_%{custom_field_boolean_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "boolean"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_decimal_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "number"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entries_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "items": {
+           "properties": {
+            "id": {
+             "description": "The unique identifier of the list of values (LOV) entry.",
+             "type": "integer"
+            },
+            "label": {
+             "description": "The label of the list of values (LOV) entry.",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entry_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "properties": {
+           "id": {
+            "description": "The unique identifier of the list of values (LOV) entry.",
+            "type": "integer"
+           },
+           "label": {
+            "description": "Label of the list of values (LOV) entry.",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_string_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "type": "object"
+     },
+     "custom_textfield_1": {
+      "description": "Custom RFI text field 1",
+      "nullable": true,
+      "properties": {
+       "label": {
+        "description": "Project label for RFI custom text field 1",
+        "type": "string"
+       },
+       "value": {
+        "description": "Value for RFI custom text field 1",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "custom_textfield_2": {
+      "description": "Custom RFI text field 2",
+      "nullable": true,
+      "properties": {
+       "label": {
+        "description": "Project label for RFI custom text field 2",
+        "type": "string"
+       },
+       "value": {
+        "description": "Value for RFI custom text field 2",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "deleted": {
+      "description": "Deleted status (this is only shown on deleted records)",
+      "type": "boolean"
+     },
+     "deleted_at": {
+      "description": "Time deleted (this is only shown on deleted records)",
+      "format": "date-time",
+      "type": "string"
+     },
+     "distribution_list": {
+      "description": "RFI Distribution List of Users",
+      "items": {
+       "properties": {
+        "id": {
+         "type": "integer"
+        },
+        "login": {
+         "description": "Email",
+         "type": "string"
+        },
+        "name": {
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "draft": {
+      "description": "Draft status, true if draft",
+      "type": "boolean"
+     },
+     "drawing_ids": {
+      "description": "Array of IDs for associated Drawings",
+      "items": {
+       "description": "Drawing ID",
+       "type": "integer"
+      },
+      "type": "array"
+     },
+     "drawing_number": {
+      "description": "Drawing Number",
+      "nullable": true,
+      "type": "string"
+     },
+     "due_date": {
+      "description": "Due Date",
+      "format": "date",
+      "type": "string"
+     },
+     "full_number": {
+      "description": "Full Number",
+      "type": "string"
+     },
+     "has_revisions": {
+      "description": "Designate whether or not this RFI has other revisions",
+      "type": "boolean"
+     },
+     "id": {
+      "description": "ID",
+      "type": "integer"
+     },
+     "initiated_at": {
+      "description": "Date initiated",
+      "format": "date-time",
+      "type": "string"
+     },
+     "location": {
+      "nullable": true,
+      "properties": {
+       "created_at": {
+        "description": "Timestamp of Location creation",
+        "format": "date-time",
+        "type": "string"
+       },
+       "id": {
+        "description": "Location ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Location name",
+        "type": "string"
+       },
+       "node_name": {
+        "description": "Location node name",
+        "type": "string"
+       },
+       "parent_id": {
+        "description": "Location parent id",
+        "type": "integer"
+       },
+       "updated_at": {
+        "description": "Timestamp of last update to Location",
+        "format": "date-time",
+        "type": "string"
+       }
+      },
+      "title": "Location",
+      "type": "object"
+     },
+     "number": {
+      "description": "Number",
+      "type": "string"
+     },
+     "prefix": {
+      "description": "Prefix",
+      "nullable": true,
+      "type": "string"
+     },
+     "private": {
+      "description": "Private Status",
+      "type": "boolean"
+     },
+     "questions": {
+      "description": "List of questions",
+      "items": {
+       "properties": {
+        "answers": {
+         "description": "Answers",
+         "items": {
+          "properties": {
+           "answer_date": {
+            "description": "Date",
+            "format": "date-time",
+            "type": "string"
+           },
+           "attachments": {
+            "description": "Attachments",
+            "items": {
+             "properties": {
+              "filename": {
+               "description": ":filename to be deprecated, use :name",
+               "type": "string"
+              },
+              "id": {
+               "type": "integer"
+              },
+              "name": {
+               "description": "Use :name, :filename to be deprecated",
+               "type": "string"
+              },
+              "url": {
+               "type": "string"
+              }
+             },
+             "type": "object"
+            },
+            "type": "array"
+           },
+           "created_by": {
+            "description": "Creator name",
+            "type": "string"
+           },
+           "created_by_id": {
+            "description": "Creator ID",
+            "type": "integer"
+           },
+           "id": {
+            "description": "ID",
+            "type": "integer"
+           },
+           "official": {
+            "description": "Official response, true if official",
+            "type": "boolean"
+           },
+           "plain_text_body": {
+            "description": "Plain text body",
+            "type": "string"
+           },
+           "rich_text_body": {
+            "description": "Rich text body",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "attachments": {
+         "description": "Attachments",
+         "items": {
+          "properties": {
+           "filename": {
+            "description": ":filename to be deprecated, use :name",
+            "type": "string"
+           },
+           "id": {
+            "type": "integer"
+           },
+           "name": {
+            "description": "Use :name, :filename to be deprecated",
+            "type": "string"
+           },
+           "url": {
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "created_by": {
+         "description": "Creator name",
+         "type": "string"
+        },
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "plain_text_body": {
+         "description": "Plain text body",
+         "type": "string"
+        },
+        "question_date": {
+         "description": "Date",
+         "format": "date-time",
+         "type": "string"
+        },
+        "rich_text_body": {
+         "description": "Rich text body",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "received_from": {
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "reference": {
+      "description": "Reference",
+      "nullable": true,
+      "type": "string"
+     },
+     "responsible_contractor": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "revision": {
+      "description": "Revision Number",
+      "type": "string"
+     },
+     "rfi_manager": {
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "schedule_impact": {
+      "nullable": true,
+      "properties": {
+       "status": {
+        "description": "Schedule impact status",
+        "enum": [
+         "yes_known",
+         "yes_unknown",
+         "no_impact",
+         "tbd",
+         "n_a"
+        ],
+        "nullable": true,
+        "type": "string"
+       },
+       "value": {
+        "description": "Schedule impact value in days",
+        "nullable": true,
+        "type": "integer"
+       }
+      },
+      "type": "object"
+     },
+     "source_rfi_header_id": {
+      "description": "The ID of The Root RFI Revision",
+      "type": "integer"
+     },
+     "specification_section": {
+      "nullable": true,
+      "properties": {
+       "description": {
+        "description": "Description",
+        "type": "string"
+       },
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "number": {
+        "description": "Number",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "status": {
+      "description": "Status",
+      "enum": [
+       "open",
+       "closed",
+       "draft",
+       "closed_with_revision",
+       "closed_draft"
+      ],
+      "type": "string"
+     },
+     "subject": {
+      "description": "Subject",
+      "type": "string"
+     },
+     "time_resolved": {
+      "description": "Time RFI was closed",
+      "format": "date-time",
+      "nullable": true,
+      "type": "string"
+     },
+     "translated_status": {
+      "description": "Translated RFI status",
+      "type": "string"
+     },
+     "updated_at": {
+      "description": "Updated at",
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.0/projects/{project_id}/rfis/{id} (operationId RestV10ProjectsProjectIdRfisIdGet) 200 response"
+   },
+   "ProcoreSubmittal": {
+    "description": "Includes all fields, detailed approver info, distribution history, and custom fields.",
+    "properties": {
+     "actual_delivery_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "approvers": {
+      "items": {
+       "properties": {
+        "approver_type": {
+         "description": "Role of Approver",
+         "type": "string"
+        },
+        "attachments": {
+         "description": "Attachments",
+         "items": {
+          "properties": {
+           "filename": {
+            "description": "Original filename of the attachment. Prefer `name`.",
+            "type": "string"
+           },
+           "id": {
+            "type": "integer"
+           },
+           "name": {
+            "description": "Display name of the attachment file.",
+            "type": "string"
+           },
+           "url": {
+            "description": "Download URL of the attachment.",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "comment": {
+         "nullable": true,
+         "type": "string"
+        },
+        "days_to_respond": {
+         "type": "integer"
+        },
+        "distributed": {
+         "type": "boolean"
+        },
+        "due_date": {
+         "description": "Due Date",
+         "format": "date",
+         "nullable": true,
+         "type": "string"
+        },
+        "email_sent_at": {
+         "description": "The datetime when the notification email was dispatched to the approver, expressed in the project's timezone. Null for historical records or when no email was sent. Note sent_date may be present while this field is null, when the approver was sent the submittal without an email notification.",
+         "format": "date-time",
+         "nullable": true,
+         "type": "string"
+        },
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "response": {
+         "properties": {
+          "considered": {
+           "description": "Mapping of the Submittal Response",
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "type": "integer"
+          },
+          "name": {
+           "description": "Name of Submittal Response",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "response_required": {
+         "type": "boolean"
+        },
+        "returned_date": {
+         "description": "Returned Date",
+         "format": "date",
+         "nullable": true,
+         "type": "string"
+        },
+        "sent_date": {
+         "description": "Sent Date",
+         "format": "date",
+         "nullable": true,
+         "type": "string"
+        },
+        "submittal_associated_attachment_ids": {
+         "description": "Submittal Associated Attachment IDs",
+         "items": {
+          "type": "integer"
+         },
+         "type": "array"
+        },
+        "user": {
+         "properties": {
+          "id": {
+           "type": "integer"
+          },
+          "login": {
+           "description": "Email",
+           "type": "string"
+          },
+          "name": {
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "workflow_group_number": {
+         "description": "The step in the workflow that the approver is on",
+         "type": "integer"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "attachments": {
+      "items": {
+       "properties": {
+        "filename": {
+         "description": "Filename",
+         "type": "string"
+        },
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "url": {
+         "description": "URL",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "attachments_count": {
+      "description": "Number of attachments on the submittal.",
+      "type": "integer"
+     },
+     "ball_in_court": {
+      "items": {
+       "properties": {
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "login": {
+         "description": "Email",
+         "type": "string"
+        },
+        "name": {
+         "description": "Name",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "buffer_time": {
+      "description": "Buffer time, in working days, for Dynamic Submittal Plan scheduling.",
+      "nullable": true,
+      "type": "integer"
+     },
+     "closed_at": {
+      "description": "Timestamp when the submittal was closed.",
+      "format": "date-time",
+      "nullable": true,
+      "type": "string"
+     },
+     "confirmed_delivery_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "cost_code": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "created_at": {
+      "format": "date-time",
+      "type": "string"
+     },
+     "created_by": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "current_revision": {
+      "type": "boolean"
+     },
+     "custom_fields": {
+      "properties": {
+       "custom_field_%{custom_field_boolean_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "boolean"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_decimal_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "number"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entries_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "items": {
+           "properties": {
+            "id": {
+             "description": "The unique identifier of the list of values (LOV) entry.",
+             "type": "integer"
+            },
+            "label": {
+             "description": "The label of the list of values (LOV) entry.",
+             "type": "string"
+            }
+           },
+           "type": "object"
+          },
+          "type": "array"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_lov_entry_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "properties": {
+           "id": {
+            "description": "The unique identifier of the list of values (LOV) entry.",
+            "type": "integer"
+           },
+           "label": {
+            "description": "Label of the list of values (LOV) entry.",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         }
+        },
+        "type": "object"
+       },
+       "custom_field_%{custom_field_string_definition_id}": {
+        "properties": {
+         "data_type": {
+          "description": "The data type of the Custom Field Definition.",
+          "type": "string"
+         },
+         "value": {
+          "description": "The value of the custom field.",
+          "type": "string"
+         }
+        },
+        "type": "object"
+       }
+      },
+      "type": "object"
+     },
+     "custom_textarea_1": {
+      "description": "Value of the project's custom submittal textarea field. Null when unset. The field label is configured in Submittals Settings.",
+      "nullable": true,
+      "type": "string"
+     },
+     "custom_textfield_1": {
+      "description": "Value of the project's custom submittal text field. Null when unset. The field label is configured in Submittals Settings.",
+      "nullable": true,
+      "type": "string"
+     },
+     "deleted_at": {
+      "description": "*This field only displays on deleted items",
+      "format": "date-time",
+      "type": "string"
+     },
+     "description": {
+      "type": "string"
+     },
+     "design_team_review_time": {
+      "nullable": true,
+      "type": "integer"
+     },
+     "distributed_at": {
+      "format": "date-time",
+      "nullable": true,
+      "type": "string"
+     },
+     "distributed_submittals": {
+      "items": {
+       "properties": {
+        "distributed_by": {
+         "properties": {
+          "id": {
+           "type": "integer"
+          },
+          "login": {
+           "description": "Email",
+           "type": "string"
+          },
+          "name": {
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "distributed_to": {
+         "items": {
+          "properties": {
+           "id": {
+            "type": "integer"
+           },
+           "login": {
+            "description": "Email",
+            "type": "string"
+           },
+           "name": {
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "final_attachments": {
+         "items": {
+          "properties": {
+           "filename": {
+            "description": "Filename",
+            "type": "string"
+           },
+           "id": {
+            "description": "ID",
+            "type": "integer"
+           },
+           "url": {
+            "description": "URL",
+            "type": "string"
+           }
+          },
+          "type": "object"
+         },
+         "type": "array"
+        },
+        "id": {
+         "type": "integer"
+        },
+        "message": {
+         "type": "string"
+        },
+        "selected_approver_ids": {
+         "description": "List of Submittal Approver IDs for approvers selected to be distributed",
+         "items": {
+          "type": "integer"
+         },
+         "type": "array"
+        },
+        "sent_at": {
+         "format": "date-time",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "distribution_members": {
+      "items": {
+       "properties": {
+        "id": {
+         "description": "ID",
+         "type": "integer"
+        },
+        "login": {
+         "description": "Email",
+         "type": "string"
+        },
+        "name": {
+         "description": "Name",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "due_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "for_record_only": {
+      "type": "boolean"
+     },
+     "formatted_number": {
+      "type": "string"
+     },
+     "id": {
+      "type": "integer"
+     },
+     "internal_review_time": {
+      "nullable": true,
+      "type": "integer"
+     },
+     "is_rejected": {
+      "description": "Whether the submittal was rejected during its approval workflow.",
+      "type": "boolean"
+     },
+     "issue_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "lead_time": {
+      "nullable": true,
+      "type": "integer"
+     },
+     "location": {
+      "nullable": true,
+      "properties": {
+       "created_at": {
+        "description": "Timestamp of Location creation",
+        "format": "date-time",
+        "type": "string"
+       },
+       "id": {
+        "description": "Location ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Location name",
+        "type": "string"
+       },
+       "node_name": {
+        "description": "Location node name",
+        "type": "string"
+       },
+       "parent_id": {
+        "description": "Location parent id",
+        "type": "integer"
+       },
+       "updated_at": {
+        "description": "Timestamp of last update to Location",
+        "format": "date-time",
+        "type": "string"
+       }
+      },
+      "title": "Location",
+      "type": "object"
+     },
+     "number": {
+      "type": "string"
+     },
+     "open_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "operation_item_errors": {
+      "description": "Errors recorded for this submittal by the most recent bulk/async operation. Empty when the last operation succeeded.",
+      "items": {
+       "properties": {
+        "attribute": {
+         "description": "Name of the attribute that failed validation.",
+         "type": "string"
+        },
+        "message": {
+         "description": "Human-readable error message.",
+         "type": "string"
+        }
+       },
+       "type": "object"
+      },
+      "type": "array"
+     },
+     "prepare_time": {
+      "description": "Prepare time, in working days, for Dynamic Submittal Plan scheduling. Null when not set.",
+      "nullable": true,
+      "type": "integer"
+     },
+     "private": {
+      "type": "boolean"
+     },
+     "received_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "received_from": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "rejected_submittal_log_approver_id": {
+      "description": "ID of the approver whose response rejected the submittal. Null when the submittal has not been rejected.",
+      "nullable": true,
+      "type": "integer"
+     },
+     "required_on_site_date": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "responsible_contractor": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "type": "integer"
+       },
+       "name": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "revision": {
+      "type": "string"
+     },
+     "rich_text_description": {
+      "description": "HTML-formatted (rich text) version of the submittal description. Complements the plain-text `description`.",
+      "type": "string"
+     },
+     "scheduled_task": {
+      "nullable": true,
+      "properties": {
+       "id": {
+        "description": "Task ID",
+        "type": "integer"
+       },
+       "key": {
+        "description": "A deprecated value which was originally used to uniquely identify tasks.\nThis value will be removed in a later version of the API.",
+        "type": "string"
+       },
+       "name": {
+        "description": "Task name",
+        "type": "string"
+       }
+      },
+      "title": "Task",
+      "type": "object"
+     },
+     "source_submittal_log_id": {
+      "type": "integer"
+     },
+     "specification_section": {
+      "properties": {
+       "current_revision_id": {
+        "description": "Current Revision ID",
+        "type": "integer"
+       },
+       "description": {
+        "description": "Description",
+        "type": "string"
+       },
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "label": {
+        "description": "Label",
+        "type": "string"
+       },
+       "number": {
+        "description": "Number",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "status": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       },
+       "status": {
+        "description": "Status",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "sub_job": {
+      "nullable": true,
+      "properties": {
+       "code": {
+        "description": "Unique code in the scope of a Project",
+        "type": "string"
+       },
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "submit_by": {
+      "format": "date",
+      "nullable": true,
+      "type": "string"
+     },
+     "submittal_manager": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "submittal_package": {
+      "properties": {
+       "attachments": {
+        "items": {
+         "properties": {
+          "filename": {
+           "description": "Filename",
+           "type": "string"
+          },
+          "id": {
+           "description": "ID",
+           "type": "integer"
+          },
+          "url": {
+           "description": "URL",
+           "type": "string"
+          }
+         },
+         "type": "object"
+        },
+        "type": "array"
+       },
+       "attachments_count": {
+        "type": "integer"
+       },
+       "created_by": {
+        "properties": {
+         "id": {
+          "type": "integer"
+         },
+         "login": {
+          "description": "Email",
+          "type": "string"
+         },
+         "name": {
+          "type": "string"
+         }
+        },
+        "type": "object"
+       },
+       "description": {
+        "type": "string"
+       },
+       "id": {
+        "type": "integer"
+       },
+       "number": {
+        "type": "string"
+       },
+       "submittal_ids": {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       "title": {
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "submittal_workflow_template": {
+      "description": "Workflow template applied to this submittal, if any. Null when no template has been applied.",
+      "nullable": true,
+      "properties": {
+       "id": {
+        "description": "ID of the applied Submittal Workflow Template.",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name of the applied Submittal Workflow Template.",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "submittal_workflow_template_applied_at": {
+      "description": "Timestamp when a workflow template was applied to this submittal, in ISO 8601 format. Null when no template has been applied.",
+      "format": "date-time",
+      "nullable": true,
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "type": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "updated_at": {
+      "format": "date-time",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.1/projects/{project_id}/submittals/{id} (operationId RestV11ProjectsProjectIdSubmittalsIdGet) 200 response"
+   },
+   "ProcoreTask": {
+    "properties": {
+     "activity_id": {
+      "description": "The external unique identifier for this task. Note that due to an\noversight in the original API, the value returned for this attribute\nwill be the `source_uid` value supplied when creating a task.",
+      "type": "string"
+     },
+     "actual_finish": {
+      "description": "Actual finish timestamp for this task in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "actual_start": {
+      "description": "Actual start timestamp for this task in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "baseline_finish": {
+      "description": "The baseline finish timestamp for this task in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "baseline_start": {
+      "description": "The baseline start timestamp for this task in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "color": {
+      "description": "The RGB color value, expressed in hex digits for the color used when\ndisplaying the task in Procore. The color varies depending on whether\nthe task is on the critical path, complete, unstarted or in progress.",
+      "type": "string"
+     },
+     "created_at": {
+      "description": "Date/time the Task was created in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "created_by": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "critical_path": {
+      "description": "True if this task is on the critical path.",
+      "type": "boolean"
+     },
+     "finish_datetime": {
+      "description": "Task finish timestamp in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "finish_variance": {
+      "description": "The finish variance in days for this task.",
+      "format": "float",
+      "type": "number"
+     },
+     "full_outline_path": {
+      "description": "Task full outline path",
+      "type": "string"
+     },
+     "has_children": {
+      "description": "True if this is a summary task, i.e. this task has child tasks.",
+      "type": "boolean"
+     },
+     "id": {
+      "description": "Unique identifier for this task.",
+      "type": "integer"
+     },
+     "key": {
+      "description": "A deprecated value which was originally used to uniquely identify tasks.\nThis value will be removed in a later version of the API.",
+      "type": "string"
+     },
+     "manually_edited": {
+      "description": "Set to true if the task has been created or modified in Procore, false\nif the task was imported from an external schedule and has not been\nmodified in Procore.",
+      "type": "boolean"
+     },
+     "milestone": {
+      "description": "True if this task is a milestone.",
+      "type": "boolean"
+     },
+     "name": {
+      "description": "Task name as the user sees it in Procore. Depending on the project settings this may include the full outline path",
+      "type": "string"
+     },
+     "notes": {
+      "description": "Arbitrary notes about this task.",
+      "type": "string"
+     },
+     "parent_id": {
+      "description": "ID of the parent task.",
+      "type": "integer"
+     },
+     "pending": {
+      "description": "True if one or more change requests are pending for this task.",
+      "type": "boolean"
+     },
+     "percentage": {
+      "description": "Percent complete value for this task.",
+      "type": "integer"
+     },
+     "resource_ids": {
+      "description": "The resources assigned to this task, represented as an array of\nresource ID values.",
+      "items": {
+       "type": "integer"
+      },
+      "type": "array"
+     },
+     "resource_name": {
+      "description": "Names of any resources assigned to this task.",
+      "type": "string"
+     },
+     "row_number": {
+      "description": "The row number of a task defines the sequence in which tasks are normally\nexpected to be displayed.",
+      "type": "integer"
+     },
+     "schedule_activity_id": {
+      "description": "For tasks imported from external systems which have the concept of\nan \"Activity ID\" (for example Primavera P6), this attribute is\nused to hold the Activity ID value. Note that due to an oversight\nduring the creation of this API, this is the value supplied\nin the `activity_id` attribute. This will be corrected in a later\nversion of the API.",
+      "type": "string"
+     },
+     "schedule_duration": {
+      "description": "The duration of this task in days as defined by the external system\nwhich owns the schedule data.",
+      "format": "float",
+      "type": "number"
+     },
+     "source_uid": {
+      "description": "The unique identifier for this task from the external system which\nowns the schedule data.",
+      "type": "string"
+     },
+     "start_datetime": {
+      "description": "Task start timestamp in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "start_variance": {
+      "description": "The start variance in days for this task.",
+      "format": "float",
+      "type": "number"
+     },
+     "task_name": {
+      "description": "Task name. This will always contain just the task name, and will not include the full outline path.",
+      "type": "string"
+     },
+     "updated_at": {
+      "description": "Date/time the Task was last updated in ISO 8601 UTC format.",
+      "format": "date-time",
+      "type": "string"
+     },
+     "updated_by": {
+      "properties": {
+       "id": {
+        "description": "ID",
+        "type": "integer"
+       },
+       "login": {
+        "description": "Email",
+        "type": "string"
+       },
+       "name": {
+        "description": "Name",
+        "type": "string"
+       }
+      },
+      "type": "object"
+     },
+     "wbs": {
+      "description": "Work Breakdown Structure (WBS) number for this task.",
+      "type": "string"
+     }
+    },
+    "type": "object",
+    "x-source": "GET /rest/v1.0/tasks/{id} (operationId RestV10TasksIdGet) 200 response"
+   }
+  }
+ },
+ "info": {
+  "description": "Extracted by scripts/gen_platform_models.py from https://developers.procore.com/api/v1/resource_groups/full_oas?version=1 (x-created-at 2026-11-13T21:00:38.939Z, sha256 bb8e062a7f8edb06d95f95dc9a26b64a57f59aff1b2b57375f74a586b9e2ef4d, fetched 2026-11-14T15:31). No licence is stated in the document; use is under Procore's developer terms.",
+  "title": "Procore REST API - subset used by the calc-graph mock adapter",
+  "version": "2.0"
+ },
+ "openapi": "3.0.0",
+ "paths": {}
+}

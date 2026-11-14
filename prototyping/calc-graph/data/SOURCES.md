@@ -37,3 +37,16 @@ a given seed). Everything in it - model, calc package, numbers, ground truth - i
 | web-ifc 0.0.66 | IFC geometry in the browser | MPL-2.0 |
 | Vite 6, TypeScript 5.6 | frontend build | MIT / Apache-2.0 |
 | DejaVu Sans (bundled with matplotlib) | font of the rasterised hand calc | Bitstream Vera / DejaVu licence (free) |
+
+## API specifications (codegen inputs for the mock platform adapters)
+
+`backend/calcgraph/platforms/` serves SYNTHETIC data only; these specs give its raw objects their
+field names and types. Regenerate with `uv run python scripts/gen_platform_models.py [--refresh]`
+(openapi-python-client 0.29.1, MIT; optional dependency group `codegen`). The full Procore document
+is cached in `data/store/specs/` (gitignored); only the extracted subset and the generated models are
+in the repo.
+
+| Spec | Source | Licence | Fetched | Used for |
+|---|---|---|---|---|
+| Procore REST API OpenAPI 3.0 ("Procore Rest API Documentation" v2.0, x-created-at 2026-11-13T21:00:38.939Z, 2,305 paths, 63,517,031 bytes, sha256 `bb8e062a7f8edb06d95f95dc9a26b64a57f59aff1b2b57375f74a586b9e2ef4d`) | https://developers.procore.com/api/v1/resource_groups/full_oas?version=1 (the "download OAS" endpoint of developers.procore.com) | No licence stated in the document; governed by Procore's developer terms (developers.procore.com). Only an 8-schema subset (`platforms/generated/procore_subset.openapi.json`, examples stripped) and the models generated from it are committed | 2026-11-14 3:31 PM ET | `platforms/generated/procore_rest/` (models + types only, no HTTP client): Submittal, Rfi, ChangeEvent, ChangeOrderPackage, BudgetLineItem, CostCode, Task, Drawing |
+| Autodesk APS OpenAPI specs | https://github.com/autodesk-platform-services/aps-sdk-openapi | Apache-2.0 | checked 2026-11-14 (not downloaded) | Nothing: the repo has no ACC Submittals, RFIs, Cost Management or Sheets spec, so `autodesk_build.py` keeps hand shapes from the APS reference pages |
