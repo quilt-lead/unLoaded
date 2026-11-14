@@ -129,6 +129,17 @@ export const V2_HELP = {
       "Type the move in feet (dx along the number grids, dy along the letter grids), or tick Remove, then Check impact. Snap sets the drag increment.",
     read: "Positive dx moves toward grid 5, positive dy toward grid D. Drags are limited to 20 ft.",
   },
+  "panel.move-undo": {
+    title: "Undo / Redo",
+    short:
+      "Step back or forward through every edit on this page: column picked, dx/dy typed, a drag (one step per drag), snap, Remove, a scenario, Reset, Check impact, Apply as model revision and Re-run calcs.",
+    what: "Setup edits swap the whole move setup, so the impact results follow the restored setup. Apply and Re-run wrote revisions, and revisions are never deleted: undoing one writes ANOTHER revision that restores the state before it (for example 'Undid revision R3: restored R2 as R4'), and redo writes one restoring it again.",
+    read: "Hover a button to see the step it will undo or redo. Cmd+Z (Ctrl+Z) undoes, Shift+Cmd+Z (Shift+Ctrl+Z) redoes, except while typing in a text or number field, which keeps its own undo. The history lasts for this browser tab, including reloads.",
+    source:
+      "Setup history in the tab's sessionStorage. Revision undo: POST /api/v2/revisions/model/restore (re-ingests the earlier IFC as a new model revision) and POST /api/v2/revisions/calc/restore (a new calc revision carrying the earlier results).",
+    real: "If another tab applied or undid a model revision in between, the model undo is refused rather than guessing; reload to pick up the current history.",
+    terms: ["term.revision"],
+  },
   "panel.move-scenarios": {
     title: "Scenarios",
     short:
@@ -494,13 +505,14 @@ export const V2_HELP = {
     title: "Apply as model revision",
     short:
       "Re-designs the building for this move (minimum change), writes a new IFC, stores it as a new model revision and shows the diff against its parent.",
-    read: "Takes several seconds. Nothing is overwritten; the base design stays revision 1.",
+    read: "Takes several seconds. Nothing is overwritten. Every move is computed from the base design, so the new revision's parent is the base design revision and its diff shows only this move, even when an earlier move is the current head.",
     terms: ["term.revision", "term.minimum-change"],
   },
   "panel.rev-list": {
     title: "Model revisions",
     short:
       "Every stored model revision of the synthetic v2 project. Show loads one into the 3D view (colours still follow the current move).",
+    read: "'from N' is the revision a revision's content was derived from: the base design for an applied move, the restored revision for an undo or redo.",
   },
   "panel.rev-diff": {
     title: "Before / after diff",

@@ -15,7 +15,9 @@ export interface RerunPanelProps {
 }
 
 const changeLabel = (c: CalcRevision["change"]) =>
-  c.removed?.length
+  !c.removed?.length && !Object.keys(c.moved ?? {}).length
+    ? "original calc package (no re-run)"
+    : c.removed?.length
     ? `remove ${c.removed.join(", ")}`
     : Object.entries(c.moved ?? {})
         .map(([k, [x, y]]) => `move ${k} (${x >= 0 ? "+" : ""}${x}, ${y >= 0 ? "+" : ""}${y}) ft`)
@@ -54,16 +56,25 @@ export function RerunPanel({ rev, busy, error, selected, onSelect, onLoadRev }: 
             <b className="mono">{rev.rev_id}</b> <span className="muted">{rev.created_at}</span>
             <span className="muted">- {changeLabel(rev.change)}</span>
           </div>
+          {rev.restore && (
+            <p className="v2-small v2-ok">
+              {rev.restore.verb === "undo" ? "Undo" : "Redo"} of re-run {rev.restore.of}: restored {rev.restore.restored ?? "the original calc package"} as {rev.rev_id}{" "}
+              (superseding {rev.restore.parent}). Nothing was deleted.
+            </p>
+          )}
+          {rev.restore && !rev.restore.restored && <p className="muted">The calcs are back to the original package: this revision re-runs nothing.</p>}
           <StatRow>
             <StatPill label="Records re-run" value={rev.summary.records} info="stat.rerun-records" />
             <StatPill label="Re-sized" value={rev.summary.resized} info="stat.rerun-resized" tone={rev.summary.resized ? "warn" : "good"} />
             <StatPill label="NG to OK" value={rev.summary.ng_to_ok} info="stat.rerun-ng-ok" tone="good" />
             <StatPill label="Still NG" value={rev.summary.still_ng} info="stat.rerun-still-ng" tone={rev.summary.still_ng ? "bad" : "good"} />
           </StatRow>
+          {!(rev.restore && !rev.restore.restored) && (
           <p className="v2-method">
             <span className="v2-label-real">Our re-run</span> {rev.method ?? "calc-graph re-run"}. <span className="muted">{rev.order_rule}</span>
             <InfoTip id="panel.rerun-method" />
           </p>
+          )}
           <label className="v2-check">
             <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Only re-sized or NG records ({results.length})
           </label>
@@ -127,7 +138,8 @@ export function RerunPanel({ rev, busy, error, selected, onSelect, onLoadRev }: 
                 {c.rev_id}
               </button>{" "}
               <span className="muted">
-                {c.created_at} - {changeLabel(c.change)} - {c.summary.records} records, {c.summary.resized} re-sized
+                {c.created_at} - {c.restore ? `${c.restore.verb} of ${c.restore.of}, restores ${c.restore.restored ?? "the original package"} - ` : ""}
+                {changeLabel(c.change)} - {c.summary.records} records, {c.summary.resized} re-sized
               </span>
             </li>
           ))}

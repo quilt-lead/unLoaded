@@ -237,6 +237,15 @@ export interface CalcRevision {
     seconds: number;
   };
   files: Record<string, string>;
+  /** set when this revision is an undo / redo of a re-run (POST /revisions/calc/restore) */
+  restore?: {
+    verb: "undo" | "redo";
+    of: string;
+    /** the calc revision whose content this carries; null = the original calc package */
+    restored: string | null;
+    /** the calc revision it superseded */
+    parent: string;
+  };
 }
 
 export interface ModelRevision {
@@ -265,9 +274,21 @@ export interface ModelDiff {
 export interface ApplyResult {
   project: number;
   revision: number;
+  /** the revision this one was derived from: the base design for an apply (every move is computed
+   * from the base), the restored revision for an undo / redo; diff = parent -> revision for an apply */
   parent: number;
+  /** the head this revision replaced (what undo restores); diff base for an undo / redo */
+  previous_head: number;
   label: string;
+  /** apply: parent -> revision; undo / redo: previous_head -> revision */
   diff: ModelDiff;
+}
+
+/** POST /revisions/model/restore: /apply's shape plus what was restored */
+export interface RestoreResult extends ApplyResult {
+  restored: number;
+  of: number;
+  verb: "undo" | "redo";
 }
 
 export interface ConstructionStatus {
@@ -488,6 +509,24 @@ export function useApply() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["v2", "revisions"] }),
   });
+}
+
+// undo / redo of a store write: a NEW revision restoring the other side (nothing is deleted)
+export function useRestore() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["v2", "revisions"] });
+  return {
+    model: async (b: { target: number; of: number; verb: "undo" | "redo"; expect_head: number }) => {
+      const r = await post<RestoreResult>("/api/v2/revisions/model/restore", b);
+      await done();
+      return r;
+    },
+    calc: async (b: { target: string | null; reverts: string; of: string; verb: "undo" | "redo" }) => {
+      const r = await post<CalcRevision>("/api/v2/revisions/calc/restore", b);
+      await done();
+      return r;
+    },
+  };
 }
 
 export const useEtabsSend = () =>

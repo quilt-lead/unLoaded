@@ -5,7 +5,7 @@ import json
 import os
 
 from . import ENGINE_VERSION, calcdeps, ifc_ingest, impact, loadpath, matcher, pdf_ingest, revstore, segment
-from .store import Store
+from .store import HEAD, Store
 
 # what each IFC-path producer declares about its facts, recorded with every revision / run it
 # builds (revstore.producer adds module@source-hash as engine + version)
@@ -19,12 +19,14 @@ PALETTE = ["#4e79a7", "#f28e2b", "#59a14f", "#b07aa1", "#e15759", "#76b7b2", "#e
            "#2b8c8c", "#8f6ed5", "#d4a017", "#3d9970", "#c2185b", "#5f7d95"]
 
 
-def ingest_model(st: Store, pid: int, path: str, source_name: str | None = None, label: str | None = None) -> int:
+def ingest_model(st: Store, pid: int, path: str, source_name: str | None = None, label: str | None = None,
+                 parent: int | None | object = HEAD) -> int:
+    """New model revision, made the head. parent: see Store.add_revision (default the current head)."""
     data = ifc_ingest.read_ifc(path)
     edges = loadpath.infer(data["elements"])
     rid = st.add_revision(pid, "model", path, source_name or os.path.basename(path), label,
                           {**data["meta"], "elements": len(data["elements"]), "load_path_edges": len(edges)},
-                          producer=revstore.producer(*MODEL_PRODUCER, **MODEL_PRODUCER))
+                          producer=revstore.producer(*MODEL_PRODUCER, **MODEL_PRODUCER), parent=parent)
     st.put_elements(rid, data["elements"], edges)
     st.set_head(pid, "model", rid)
     st.commit()

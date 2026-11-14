@@ -16,14 +16,15 @@ import {
   useHealthHeat,
   useMoveImpact,
   useRerun,
+  useRestore,
   useScenarios,
   type ApplyResult,
   type Band,
   type CalcRevision,
-  type Move,
   type RerunResult,
 } from "./api";
 import { HealthMeter } from "./HealthMeter";
+import { useMoveHistory, type StoreUndo } from "./history";
 import { MoveViewer } from "./MoveViewer";
 import { PlanView, bandOf } from "./PlanView";
 import { StalePanel } from "./StalePanel";
@@ -43,6 +44,9 @@ type Dock =
 const FADED: MemberStyle = { color: UC_COLOR.faded, opacity: 0.22 };
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : e ? String(e) : null);
+const sgn = (v: number) => `${v >= 0 ? "+" : ""}${v}`;
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
+const MOD = isMac ? "Cmd" : "Ctrl";
 
 export default function MovePage() {
   const { idx, isLoading, error } = useDesignIndex();
@@ -51,11 +55,6 @@ export default function MovePage() {
   const [mode, setMode] = useState<"heat" | "move">("move");
   const [bandMode, setBandMode] = useState<"design" | "construction">("design");
   const [view, setView] = useState<"3d" | "plan">("3d");
-  const [selected, setSelected] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ dx: 0, dy: 0 });
-  const [remove, setRemove] = useState(false);
-  const [step, setStep] = useState(1);
-  const [committed, setCommitted] = useState<Move | null>(null);
   const [tab, setTab] = useState<SideTab>("health");
   const [dock, setDock] = useState<Dock>(null);
   const [newStyle, setNewStyle] = useState<"package" | "handcalcs">("package");
@@ -65,6 +64,33 @@ export default function MovePage() {
   const [applied, setApplied] = useState<ApplyResult | null>(null);
   const [viewRev, setViewRev] = useState<number | null>(null);
   const [mock, setMock] = useState<string | null>(null);
+
+  // ONE history for every edit: setup edits swap snapshots; store writes are undone by a NEW
+  // revision restoring the other side (history.ts). The setup below is read from it, never kept
+  // in separate state.
+  const restore = useRestore();
+  const storeUndo: StoreUndo = async (e, dir) => {
+    if (e.kind === "model") {
+      const target = dir === "undo" ? e.parent : e.rev;
+      const r = await restore.model({ target, of: e.rev, verb: dir, expect_head: e.head });
+      setApplied(r);
+      setViewRev((v) => (v === e.head ? r.revision : v));
+      return { head: r.revision, note: `${dir === "undo" ? "Undid" : "Redid"} revision R${e.rev}: restored R${target} as R${r.revision}` };
+    }
+    const target = dir === "undo" ? e.prev : e.rev;
+    const r = await restore.calc({ target, reverts: e.head, of: e.rev, verb: dir });
+    setRerunRev(r);
+    setLoadRev(null);
+    setDock((d) => (d?.kind === "compare" ? null : d));
+    return {
+      head: r.rev_id,
+      note: `${dir === "undo" ? "Undid" : "Redid"} calc revision ${e.rev}: restored ${target ?? "the original calc package"} as ${r.rev_id}`,
+    };
+  };
+  const hist = useMoveHistory(storeUndo);
+  const { setup, record, preview } = hist;
+  const { selected, remove, step, committed } = setup;
+  const draft = { dx: setup.dx, dy: setup.dy };
 
   const impactQ = useMoveImpact(committed);
   const impact = committed && impactQ.data && impactQ.data.column === committed.column ? impactQ.data : undefined;
@@ -79,23 +105,27 @@ export default function MovePage() {
   const pendingDraft = !!selected && (remove !== (committed?.remove ?? false) || draft.dx !== (committed?.dx ?? 0) || draft.dy !== (committed?.dy ?? 0) || committed?.column !== selected);
 
   const select = useCallback(
-    (col: string | null) => {
-      setSelected(col);
-      setDraft({ dx: 0, dy: 0 });
-      setRemove(false);
-      setCommitted(col ? { column: col, dx: 0, dy: 0, remove: false } : null);
+    (col: string | null, label?: string) => {
+      record(label ?? (col ? `Pick ${col}` : "Clear the column"), (s) => ({
+        ...s,
+        selected: col,
+        dx: 0,
+        dy: 0,
+        remove: false,
+        committed: col ? { column: col, dx: 0, dy: 0, remove: false } : null,
+      }));
       setActiveRecord(null);
     },
-    [],
+    [record],
   );
+  /** Check impact for (dx, dy): from the button, or the end of a drag (one step for the whole drag) */
   const commit = useCallback(
-    (dx: number, dy: number, rm = remove) => {
+    (dx: number, dy: number, how: "check" | "drag") => {
       if (!selected) return;
-      setDraft({ dx, dy });
-      setCommitted({ column: selected, dx, dy, remove: rm });
-      if (rm || dx || dy) setTab((t) => (t === "health" || t === "revision" || t === "etabs" ? t : t));
+      const label = how === "drag" ? `Drag ${selected} to (${sgn(dx)}, ${sgn(dy)}) ft` : remove ? `Check impact: remove ${selected}` : `Check impact: ${selected} (${sgn(dx)}, ${sgn(dy)}) ft`;
+      record(label, (s) => ({ ...s, dx, dy, committed: { column: selected, dx, dy, remove: s.remove } }));
     },
-    [selected, remove],
+    [selected, remove, record],
   );
 
   // stale elements = elements of the stale records (coloured "to recheck" when no estimate)
@@ -144,6 +174,7 @@ export default function MovePage() {
         { move: committed, records },
         {
           onSuccess: (rev) => {
+            hist.pushStore({ kind: "calc", label: `Re-run calcs (${rev.rev_id})`, rev: rev.rev_id, prev: hist.calcHead, head: rev.rev_id });
             setRerunRev(rev);
             setLoadRev(null);
             const first = rev.results?.find((r) => r.ng_to_ok || (r.size_new && r.size_new !== r.size_old)) ?? rev.results?.[0];
@@ -152,7 +183,7 @@ export default function MovePage() {
         },
       );
     },
-    [committed, rerun],
+    [committed, rerun, hist],
   );
 
   if (isLoading) return <div className="page muted">Loading the synthetic v2 design...</div>;
@@ -209,6 +240,31 @@ export default function MovePage() {
       </div>
 
       <div className="v2-controls" role="group" aria-label="Move controls">
+        <span className="v2-seg" role="group" aria-label="History">
+          <button
+            type="button"
+            className="btn sm"
+            disabled={!hist.undoLabel || hist.busy}
+            onClick={hist.undo}
+            title={hist.undoLabel ? `Undo: ${hist.undoLabel} (${MOD}+Z)` : "Nothing to undo"}
+            aria-label={hist.undoLabel ? `Undo: ${hist.undoLabel}` : "Undo (nothing to undo)"}
+            data-testid="undo"
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="btn sm"
+            disabled={!hist.redoLabel || hist.busy}
+            onClick={hist.redo}
+            title={hist.redoLabel ? `Redo: ${hist.redoLabel} (Shift+${MOD}+Z)` : "Nothing to redo"}
+            aria-label={hist.redoLabel ? `Redo: ${hist.redoLabel}` : "Redo (nothing to redo)"}
+            data-testid="redo"
+          >
+            Redo
+          </button>
+          <InfoTip id="panel.move-undo" />
+        </span>
         <span className="v2-seg" role="group" aria-label="Mode">
           <button type="button" className={`btn sm${mode === "heat" ? " on" : ""}`} onClick={() => setMode("heat")} aria-pressed={mode === "heat"}>
             Heat view
@@ -247,15 +303,15 @@ export default function MovePage() {
           <>
             <label className="v2-field">
               dx
-              <input type="number" step={step} value={draft.dx} disabled={!selected || remove} onChange={(e) => setDraft((d) => ({ ...d, dx: Number(e.target.value) }))} aria-label="Offset in x, ft" />
+              <input type="number" step={step} value={draft.dx} disabled={!selected || remove} onChange={(e) => record(`Type dx = ${Number(e.target.value)} ft`, { dx: Number(e.target.value) }, "dx")} aria-label="Offset in x, ft" />
             </label>
             <label className="v2-field">
               dy
-              <input type="number" step={step} value={draft.dy} disabled={!selected || remove} onChange={(e) => setDraft((d) => ({ ...d, dy: Number(e.target.value) }))} aria-label="Offset in y, ft" />
+              <input type="number" step={step} value={draft.dy} disabled={!selected || remove} onChange={(e) => record(`Type dy = ${Number(e.target.value)} ft`, { dy: Number(e.target.value) }, "dy")} aria-label="Offset in y, ft" />
             </label>
             <label className="v2-field">
               snap
-              <select value={step} onChange={(e) => setStep(Number(e.target.value))} aria-label="Grid snap, ft">
+              <select value={step} onChange={(e) => record(`Snap ${e.target.value} ft`, { step: Number(e.target.value) })} aria-label="Grid snap, ft">
                 {[0.5, 1, 2, 2.5, 5].map((s) => (
                   <option key={s} value={s}>
                     {s} ft
@@ -264,12 +320,12 @@ export default function MovePage() {
               </select>
             </label>
             <label className="v2-check">
-              <input type="checkbox" checked={remove} disabled={!selected} onChange={(e) => setRemove(e.target.checked)} /> Remove
+              <input type="checkbox" checked={remove} disabled={!selected} onChange={(e) => record(`${e.target.checked ? "Tick" : "Untick"} Remove ${selected}`, { remove: e.target.checked })} /> Remove
             </label>
-            <button type="button" className="btn sm primary" disabled={!selected || !pendingDraft} onClick={() => commit(draft.dx, draft.dy, remove)} data-testid="check-impact">
+            <button type="button" className="btn sm primary" disabled={!selected || !pendingDraft} onClick={() => commit(draft.dx, draft.dy, "check")} data-testid="check-impact">
               Check impact
             </button>
-            <button type="button" className="btn sm" disabled={!selected} onClick={() => select(selected)}>
+            <button type="button" className="btn sm" disabled={!selected} onClick={() => select(selected, `Reset ${selected}`)}>
               Reset
             </button>
             <InfoTip id="panel.move-offsets" />
@@ -282,11 +338,8 @@ export default function MovePage() {
                     const s = scenarios.data!.find((x) => x.id === e.target.value);
                     if (!s) return;
                     const col = s.column.startsWith("COL-") ? s.column : `COL-${s.column}`;
-                    setSelected(col);
                     const rm = s.kind === "remove";
-                    setRemove(rm);
-                    setDraft({ dx: s.dx, dy: s.dy });
-                    setCommitted({ column: col, dx: s.dx, dy: s.dy, remove: rm });
+                    record(`Load scenario: ${s.label}`, (cur) => ({ ...cur, selected: col, remove: rm, dx: s.dx, dy: s.dy, committed: { column: col, dx: s.dx, dy: s.dy, remove: rm } }));
                   }}
                   aria-label="Load a scenario from the answer key"
                 >
@@ -320,6 +373,21 @@ export default function MovePage() {
             <StatPill label="Sheets" value={impact.health.sheets?.length ?? 0} info="stat.move-sheets" />
             {co?.summary && <StatPill label="Cost est." value={fmtUsd(co.summary.total_cost.value)} info="stat.co-cost" tone="warn" />}
           </>
+        )}
+        {hist.busy && (
+          <span className="muted v2-small" role="status">
+            Writing the restoring revision...
+          </span>
+        )}
+        {hist.note && (
+          <span className="v2-ok v2-small" role="status" data-testid="history-note">
+            {hist.note}
+          </span>
+        )}
+        {hist.error && (
+          <span className="v2-error v2-small" role="alert">
+            {hist.error}
+          </span>
         )}
         {impactQ.isFetching && <span className="muted v2-small">Estimating impact...</span>}
         {impactQ.error && <span className="v2-error v2-small">{errMsg(impactQ.error)}</span>}
@@ -370,8 +438,8 @@ export default function MovePage() {
                 remove={remove}
                 step={step}
                 impact={impact}
-                onDrag={(dx, dy) => setDraft({ dx, dy })}
-                onDrop={(dx, dy) => commit(dx, dy)}
+                onDrag={(dx, dy) => preview({ dx, dy })}
+                onDrop={(dx, dy) => commit(dx, dy, "drag")}
               >
                 {showUc ? (
                   <Legend variant="overlay" title="Estimated UC" info="legend.move-uc" items={ucLegend} />
@@ -393,8 +461,8 @@ export default function MovePage() {
                   impact={mode === "move" ? impact : undefined}
                   moveMode={mode === "move"}
                   onSelect={(c) => (c !== selected ? select(c) : undefined)}
-                  onDrag={(dx, dy) => setDraft({ dx, dy })}
-                  onDrop={(dx, dy) => commit(dx, dy)}
+                  onDrag={(dx, dy) => preview({ dx, dy })}
+                  onDrop={(dx, dy) => commit(dx, dy, "drag")}
                 />
                 {showUc ? <Legend title="Estimated UC" info="legend.move-uc" items={ucLegend} /> : <Legend title="How hard to move" info="legend.move-heat" items={heatLegend} />}
               </div>
@@ -504,7 +572,18 @@ export default function MovePage() {
               applying={apply.isPending}
               applyError={errMsg(apply.error)}
               applied={applied}
-              onApply={(label) => committed && apply.mutate({ move: committed, label }, { onSuccess: setApplied })}
+              onApply={(label) =>
+                committed &&
+                apply.mutate(
+                  { move: committed, label },
+                  {
+                    onSuccess: (r) => {
+                      setApplied(r);
+                      hist.pushStore({ kind: "model", label: `Apply revision R${r.revision} (${r.label})`, rev: r.revision, parent: r.previous_head, head: r.revision });
+                    },
+                  },
+                )
+              }
               viewRev={viewRev}
               onViewRev={setViewRev}
             />

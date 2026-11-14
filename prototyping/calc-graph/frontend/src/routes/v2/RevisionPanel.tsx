@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../../help/InfoTip";
 import { StatPill, StatRow } from "../../components/StatPill";
-import type { ApplyResult, ModelDiff, Move } from "./api";
+import type { ApplyResult, ModelDiff, Move, RestoreResult } from "./api";
 import { useCompare, useRevisions } from "./api";
 import { colShort } from "./util";
 
@@ -10,7 +10,8 @@ export interface RevisionPanelProps {
   move: Move | null;
   applying: boolean;
   applyError: string | null;
-  applied: ApplyResult | null;
+  /** the last write: an apply, or an undo / redo of one (a restoring revision) */
+  applied: ApplyResult | RestoreResult | null;
   onApply: (label: string) => void;
   /** which model revision the 3D shows (null = the base design file) */
   viewRev: number | null;
@@ -90,14 +91,17 @@ export function RevisionPanel({ move, applying, applyError, applied, onApply, vi
   const [label, setLabel] = useState("");
   const [a, setA] = useState<number | null>(null);
   const [b, setB] = useState<number | null>(null);
+  // the diff the write returned: apply = parent (base) -> revision; undo / redo = replaced head -> revision
+  const from = applied ? ("verb" in applied ? applied.previous_head : applied.parent) : null;
   useEffect(() => {
     if (applied) {
-      setA(applied.parent);
+      setA("verb" in applied ? applied.previous_head : applied.parent);
       setB(applied.revision);
     }
   }, [applied]);
-  const cmp = useCompare(applied && a === applied.parent && b === applied.revision ? null : a, b);
-  const diff = applied && a === applied.parent && b === applied.revision ? applied.diff : cmp.data;
+  const own = !!applied && a === from && b === applied.revision;
+  const cmp = useCompare(own ? null : a, b);
+  const diff = own ? applied!.diff : cmp.data;
   const canApply = !!move && (move.remove || move.dx !== 0 || move.dy !== 0);
   const def = move ? (move.remove ? `Remove ${move.column}` : `Move ${move.column} (${move.dx >= 0 ? "+" : ""}${move.dx}, ${move.dy >= 0 ? "+" : ""}${move.dy}) ft`) : "";
 
@@ -117,11 +121,18 @@ export function RevisionPanel({ move, applying, applyError, applied, onApply, vi
         </p>
       )}
       {applyError && <p className="v2-error">Apply failed: {applyError}</p>}
-      {applied && (
-        <p className="v2-ok">
-          Revision {applied.revision} saved ({applied.label}), parent {applied.parent}.
-        </p>
-      )}
+      {applied &&
+        ("verb" in applied ? (
+          <p className="v2-ok">
+            {applied.verb === "undo" ? "Undid" : "Redid"} revision R{applied.of}: restored R{applied.restored} as R{applied.revision}. Nothing was deleted; the diff
+            below is R{applied.previous_head} {"->"} R{applied.revision}.
+          </p>
+        ) : (
+          <p className="v2-ok">
+            Revision {applied.revision} saved ({applied.label}). Parent R{applied.parent} = the base design every move is computed from, so the diff below is only this
+            move; it replaced head R{applied.previous_head}.
+          </p>
+        ))}
       <h3 className="v2-h3">
         Model revisions <InfoTip id="panel.rev-list" />
       </h3>

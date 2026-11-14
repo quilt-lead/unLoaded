@@ -1,7 +1,8 @@
 """Synthetic v2 API: move a column, health meter, redo calcs, registry element pages, original
 documents with highlights, construction platforms (mock), ETABS (mock). Mounted from api.py
-with one include line. Every route is read-only on the source data except /apply and /rerun,
-which write NEW revisions (store / data/synthetic_v2/revisions) and never overwrite.
+with one include line. Every route is read-only on the source data except /apply, /rerun and the
+two /revisions/{model,calc}/restore routes (undo / redo), which write NEW revisions (store /
+data/synthetic_v2/revisions) and never overwrite or delete.
 
 All routes are under /api/v2. Route list + response shapes: docs/2026-11-14-move-a-column-notes.md.
 """
@@ -281,10 +282,28 @@ def _new_project(st) -> int:
     return cur.lastrowid
 
 
+def _base_rev(st, pid: int) -> int:
+    """The model revision holding the CURRENT base design (data/synthetic_v2/model.ifc, which every
+    move is computed from), found by content hash; ingested as a new root revision when the store
+    has no copy (first apply, or the generator was re-run)."""
+    from . import pipeline
+    from .store import sha256_file
+    p = os.path.join(V2, "model.ifc")
+    row = st.db.execute("SELECT MIN(id) FROM revision WHERE project_id=? AND kind='model' AND sha256=?",
+                        (pid, sha256_file(p))).fetchone()
+    if row and row[0]:
+        return row[0]
+    return pipeline.ingest_model(st, pid, p, "model.ifc", "Synthetic v2 - base design", parent=None)
+
+
 @router.post("/apply")
 def apply(m: Move):
     """Apply the move as a NEW model revision in the revision store (minimum-change re-design,
-    IFC written and ingested through the production pipeline) and return the element diff."""
+    IFC written and ingested through the production pipeline) and return the element diff.
+
+    Every move is computed from the base design, never from the head, so the new revision's parent
+    is the BASE revision and diff = base -> revision is exactly this move. previous_head = the head
+    it replaces (what undo restores)."""
     from synth.v2 import ifc_v2
     from synth.v2.generate import build
     from . import pipeline
@@ -292,8 +311,7 @@ def apply(m: Move):
     st = _store()
     with _LOCK:
         pid = _v2_project(st)
-        if not st.project(pid)["head_model_rev"]:
-            pipeline.ingest_model(st, pid, os.path.join(V2, "model.ifc"), "model.ifc", "Synthetic v2 - base design")
+        base = _base_rev(st, pid)
         prev = st.project(pid)["head_model_rev"]
         L = recalc.layout_from_change(_change(m))
         dd, exp = build(L, keep={e["id"]: e for e in d["elements"]})
@@ -302,11 +320,11 @@ def apply(m: Move):
         os.close(fd)
         try:
             ifc_v2.write(exp, path, dd, label=label)
-            rid = pipeline.ingest_model(st, pid, path, f"{label}.ifc", label)
+            rid = pipeline.ingest_model(st, pid, path, f"{label}.ifc", label, parent=base)
         finally:
             os.unlink(path)
-        diff = st.compare_models(prev, rid)
-    return _safe({"project": pid, "revision": rid, "parent": prev, "label": label, "diff": diff})
+        diff = st.compare_models(base, rid)
+    return _safe({"project": pid, "revision": rid, "parent": base, "previous_head": prev, "label": label, "diff": diff})
 
 
 @router.get("/compare")
@@ -320,6 +338,67 @@ def compare(a: int, b: int, engine: str = "store"):
     if engine != "store":
         raise HTTPException(400, "engine must be 'store' or 'ifcdiff'")
     return _store().compare_models(a, b)
+
+
+class ModelRestore(BaseModel):
+    target: int                 # model revision whose IFC becomes the new head
+    of: int                     # the applied revision being undone / redone
+    verb: str                   # "undo" | "redo"
+    expect_head: int            # the head the client last saw; refused (409) if it moved since
+
+
+@router.post("/revisions/model/restore")
+def restore_model(r: ModelRestore):
+    """Undo / redo of /apply without deleting history: ingests model revision `target`'s own IFC
+    (the store's content-addressed blob) through the production pipeline as a NEW head revision,
+    labelled with what it undoes or redoes. Same parent rule as /apply - parent = the revision its
+    content was derived from, here `target` itself (so parent -> revision diffs empty: it is a copy).
+    Response: /apply's shape with parent = target, previous_head = the head it superseded and
+    diff = previous_head -> new revision (what the undo / redo changed), plus {restored, of, verb}."""
+    from . import pipeline
+    if r.verb not in ("undo", "redo"):
+        raise HTTPException(400, "verb must be 'undo' or 'redo'")
+    st = _store()
+    with _LOCK:
+        pid = _v2_project(st)
+        head = st.project(pid)["head_model_rev"]
+        if head != r.expect_head:
+            raise HTTPException(409, f"the model head is revision {head}, not {r.expect_head}: another apply or undo "
+                                     "happened since. Reload the page to pick up the current history.")
+        try:
+            t = st.revision(r.target)
+            st.revision(r.of)
+        except KeyError as e:
+            raise HTTPException(404, f"no model revision {e.args[0]}")
+        if t["project_id"] != pid or t["kind"] != "model":
+            raise HTTPException(404, f"revision {r.target} is not a Synthetic v2 model revision")
+        if r.target == head:
+            raise HTTPException(409, f"revision {r.target} is already the head")
+        label = f"{'Undo' if r.verb == 'undo' else 'Redo'} R{r.of}: restore R{r.target}"
+        rid = pipeline.ingest_model(st, pid, st.blob_path(r.target), t["source_name"], label, parent=r.target)
+        diff = st.compare_models(head, rid)
+    return _safe({"project": pid, "revision": rid, "parent": r.target, "previous_head": head, "label": label, "diff": diff,
+                  "restored": r.target, "of": r.of, "verb": r.verb})
+
+
+class CalcRestore(BaseModel):
+    target: str | None          # calc revision whose content is restored; None = the original package
+    reverts: str                # the calc revision this one supersedes (the current one)
+    of: str                     # the re-run being undone / redone
+    verb: str                   # "undo" | "redo"
+
+
+@router.post("/revisions/calc/restore")
+def restore_calc(r: CalcRestore):
+    """Undo / redo of /rerun without deleting history: a NEW calc revision carrying `target`'s
+    results and pages (or none, for the original package) - see recalc.restore."""
+    with _LOCK:
+        try:
+            return JSONResponse(_safe(recalc.restore(r.target, r.reverts, r.of, r.verb)))
+        except KeyError as e:
+            raise HTTPException(404, f"no calc revision {e.args[0]}")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
 
 
 # ------------------------------------------------------------------ documents

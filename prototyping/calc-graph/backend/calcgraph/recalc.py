@@ -11,6 +11,9 @@ implies ETABS / RAM / RISA ran.
 - Writes a NEW calc revision: data/synthetic_v2/revisions/<rev>/calc_revision.pdf (revised sheets
   in the package's own style, if the calc-package writer provides write_revision) plus
   revision.json (old vs new) - and, when asked, ingests it into the revision store.
+- `restore(target, reverts, of, verb)`: undo / redo of a re-run without deleting history - writes
+  ANOTHER new calc revision whose content is `target`'s (or the original package when target is
+  None), recording which revision it supersedes and which re-run it undoes or redoes.
 """
 from __future__ import annotations
 
@@ -171,13 +174,68 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
     return _clean(out)
 
 
+def _rev_dir(rev_id: str) -> str:
+    return os.path.join(V2, "revisions", os.path.basename(rev_id))
+
+
+def _read_rev(rev_id: str) -> dict:
+    p = os.path.join(_rev_dir(rev_id), "revision.json")
+    if not os.path.exists(p):
+        raise KeyError(rev_id)
+    return json.load(open(p))
+
+
+def restore(target: str | None, reverts: str, of: str, verb: str) -> dict:
+    """Undo / redo of a re-run as a NEW calc revision (nothing is deleted or rewritten).
+
+    target  = the calc revision whose content is restored (None = the original calc package, i.e.
+              no re-run); reverts = the calc revision this one supersedes (the current one);
+    of      = the re-run being undone or redone; verb = "undo" | "redo".
+    The new revision copies target's results, summary, change and pages (hard links when the
+    filesystem allows), so it reads exactly like the revision it restores."""
+    import shutil
+    if verb not in ("undo", "redo"):
+        raise ValueError("verb must be 'undo' or 'redo'")
+    _read_rev(reverts)
+    _read_rev(of)
+    src = _read_rev(target) if target else None
+    key = hashlib.sha1(json.dumps({"target": target, "reverts": reverts, "of": of, "verb": verb,
+                                   "t": time.time_ns()}, sort_keys=True).encode()).hexdigest()[:10]
+    rev_id = f"calcrev-{key}"
+    rdir = _rev_dir(rev_id)
+    os.makedirs(rdir, exist_ok=False)
+    files: dict = {}
+    if src:
+        sdir = _rev_dir(target)
+        for name in sorted(os.listdir(sdir)):
+            if name == "revision.json":
+                continue
+            a, b = os.path.join(sdir, name), os.path.join(rdir, name)
+            try:
+                os.link(a, b)
+            except OSError:
+                shutil.copy2(a, b)
+        files = {k: (os.path.join(rdir, os.path.basename(v)) if isinstance(v, str) and v.startswith(sdir) else v)
+                 for k, v in src.get("files", {}).items()}
+    zero = {"records": 0, "resized": 0, "ng_to_ok": 0, "still_ng": 0, "new": 0, "removed": 0, "seconds": 0}
+    out = {"rev_id": rev_id, "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
+           "change": src["change"] if src else {}, "method": (src or {}).get("method", METHOD),
+           "order_rule": (src or {}).get("order_rule", ""), "results": (src or {}).get("results", []),
+           "summary": src["summary"] if src else zero, "files": files,
+           "restore": {"verb": verb, "of": of, "restored": target, "parent": reverts}}
+    with open(os.path.join(rdir, "revision.json"), "w") as fh:
+        json.dump(out, fh, indent=1)
+    return out
+
+
 def list_revisions() -> list[dict]:
+    """Oldest first, by when each revision.json was written (rev ids are content hashes, so their
+    names say nothing about order)."""
     d = os.path.join(V2, "revisions")
+    paths = [os.path.join(d, n, "revision.json") for n in (os.listdir(d) if os.path.isdir(d) else [])]
     out = []
-    for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
-        p = os.path.join(d, name, "revision.json")
-        if os.path.exists(p):
-            r = json.load(open(p))
-            out.append({"rev_id": r["rev_id"], "created_at": r["created_at"], "change": r["change"], "summary": r["summary"],
-                        "files": r["files"]})
+    for p in sorted((p for p in paths if os.path.exists(p)), key=os.path.getmtime):
+        r = json.load(open(p))
+        out.append({"rev_id": r["rev_id"], "created_at": r["created_at"], "change": r["change"], "summary": r["summary"],
+                    "files": r["files"], **({"restore": r["restore"]} if r.get("restore") else {})})
     return out

@@ -122,6 +122,9 @@ CREATE TABLE IF NOT EXISTS calibration(
 MEDIA = {".json": "application/json", ".ifc": "application/x-step", ".pdf": "application/pdf"}
 
 
+HEAD = object()   # add_revision(parent=HEAD): the parent is the current head of that kind
+
+
 def now_et() -> str:
     return datetime.now(ET).isoformat(timespec="seconds")
 
@@ -292,12 +295,23 @@ class Store:
         return head, seq
 
     def add_revision(self, pid: int, kind: str, src_path: str, source_name: str, label: str | None, meta: dict,
-                     producer: dict | None = None) -> int:
-        """IFC path: one document per revision (the IFC or the calc PDF)."""
+                     producer: dict | None = None, parent: int | None | object = HEAD) -> int:
+        """IFC path: one document per revision (the IFC or the calc PDF).
+
+        parent = the revision this one's content was DERIVED FROM. Default HEAD (the current head of
+        that kind - right for a sequence of uploads). A producer that computes a revision from some
+        other revision (the v2 move API builds every move from the base design) passes that one, or
+        None for a new root, so the parent -> revision diff is exactly the change it made."""
         sha = self.put_document(src_path, "ifc" if kind == "model" else "calc", source_name,
                                 meta.get("page_count"))
         blob = self.document(sha)["blob"]
         head, seq = self._next(pid, kind)
+        if parent is not HEAD:
+            if parent is not None:
+                pr = self.db.execute("SELECT project_id, kind FROM revision WHERE id=?", (parent,)).fetchone()
+                if not pr or pr["project_id"] != pid or pr["kind"] != kind:
+                    raise ValueError(f"parent {parent} is not a {kind} revision of project {pid}")
+            head = parent
         cur = self.db.execute(
             "INSERT INTO revision(project_id, kind, parent_id, seq, label, source_name, sha256, blob, created_at,"
             " meta_json, producer_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
