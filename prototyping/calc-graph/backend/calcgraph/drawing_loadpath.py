@@ -297,6 +297,9 @@ def infer(doc_path: str, sheets: list[dict], elements: list[dict]) -> tuple[list
                     continue
                 used_f.add(f["id"])
                 used_c.add(c["id"])
+                # the mark sits outside its pad; the footing is where its column is
+                f["grid"], f["grid_node"] = c["grid"], c["grid_node"]
+                f["params"]["position"] = f"under column {c['text']} at {c['grid']} (mark placed at the pad corner)"
                 add(c, f, "column->footing", [
                     _ev(c, "column position (leader end)"),
                     _ev(f, f"footing mark {d:.0f} pt from the column (corner of a {width / PT_PER_FT:.1f} ft pad "

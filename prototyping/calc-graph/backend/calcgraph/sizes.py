@@ -21,7 +21,7 @@ _STEEL = re.compile(
     r"^(?P<fam>W|HSS|MC|C|L|WT|S|HP)(?P<a>\d+(?:\.\d+)?)[xX×](?P<b>\d+(?:\.\d+)?)(?:[xX×](?P<c>\d+(?:\.\d+)?(?:/\d+)?|\.\d+))?$")
 _CFS = re.compile(r"^(?P<d>\d{3})(?P<k>[STUF])(?P<w>\d{3})-(?P<t>\d{2,3})(?:\(\d+\)?)?,?$")
 _TIMBER = re.compile(r"^(?P<a>2|3|4|6|8|10|12|14)[xX](?P<b>2|3|4|6|8|10|12|14|16|18|20|24)$")
-_STRIP = re.compile(r"^[\(\[\"']+|[\)\]\"',;:.]+$")
+_STRIP = re.compile(r"^[\(\[\"'*]+|[\)\]\"',;:.]+$")  # leading * = SFRS member mark on the sheets
 
 
 def _frac(s: str) -> Fraction:

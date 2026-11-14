@@ -119,7 +119,7 @@ def _title(lines: list[dict], words) -> tuple[str, list, list[dict]]:
 
 
 def _level(title: str, text: str) -> str:
-    m = re.search(r"\b(Level\s*\d|Roof)\b", title, re.I)
+    m = re.search(r"\b(Level\s*\d|Roof)(?![A-Za-z0-9])", title, re.I)  # "Level 2_Design Results" too
     if m:
         v = m.group(1)
         return "Roof" if v.lower() == "roof" else "Level " + v.split()[-1][-1]

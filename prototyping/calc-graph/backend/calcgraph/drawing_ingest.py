@@ -261,7 +261,8 @@ def read_plans(path: str) -> dict:
                     "size_norm": snorm, "family": fam, "level": level, "grid": g["ref"], "grid_node": g["node"],
                     "grid_node_dist": g["node_dist"], "bbox": _rect(w), "rects": rects,
                     "text": (t + (" " + role if role else "")).strip(), "vertical_text": is_vert,
-                    "params": {"role": role} if role else {},
+                    "params": ({"role": role} if role else {}) | ({"sfrs": "yes (* = part of the seismic force-resisting system)"}
+                                                                  if t.startswith("*") and not mark else {}),
                 }
                 if mark and mark in schedule:
                     el["params"]["schedule"] = schedule[mark]["text"]
