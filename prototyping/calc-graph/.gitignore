@@ -9,3 +9,4 @@ data/store/
 data/eval/
 *.sqlite
 .DS_Store
+data/sets/
