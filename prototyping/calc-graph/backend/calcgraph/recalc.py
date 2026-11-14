@@ -8,7 +8,8 @@ implies ETABS / RAM / RISA ran.
   element's size/detail unless it now fails (how an engineer re-designs after a move), then
   returns old vs new per requested record (values, UC, size/detail change, NG -> OK) in
   load-path order (beams -> girders -> columns -> footings -> connections; lateral as one job).
-- Writes a NEW calc revision: data/synthetic_v2/revisions/<rev>/calc_revision.pdf (revised sheets
+- Writes a NEW calc revision (id from new_revision(): never reused, so a revision folder is
+  written once and never overwritten): data/synthetic_v2/revisions/<rev>/calc_revision.pdf (revised sheets
   in the package's own style, if the calc-package writer provides write_revision) plus
   revision.json (old vs new) - and, when asked, ingests it into the revision store.
 - `restore(target, reverts, of, verb)`: undo / redo of a re-run without deleting history - writes
@@ -121,10 +122,8 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
             row["ok_current_size_new_layout"] = cur[el]["uc"] <= 1.0 + 1e-9
             row["ng_to_ok"] = (not row["ok_current_size_new_layout"]) and row["ok_new"] is True
         results.append(row)
-    key = hashlib.sha1(json.dumps({"change": change, "records": order}, sort_keys=True).encode()).hexdigest()[:10]
-    rev_id = f"calcrev-{key}"
-    rdir = os.path.join(V2, "revisions", rev_id)
-    os.makedirs(rdir, exist_ok=True)
+    content_key = hashlib.sha1(json.dumps({"change": change, "records": order}, sort_keys=True).encode()).hexdigest()[:10]
+    key, rev_id, rdir = new_revision({"change": change, "records": order})
     files = {}
     pages = {}
     if write_pages:
@@ -139,7 +138,8 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
                 files["note"] = "calc package writer has no write_revision yet - values only"
         except Exception as e:   # pages are a convenience; the values are the result
             files["page_error"] = f"{type(e).__name__}: {e}"
-    out = {"rev_id": rev_id, "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
+    out = {"rev_id": rev_id, "content_key": content_key,
+           "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
            "change": change, "method": METHOD, "order_rule": "gravity in load-path order (inputs first: beams -> girders -> "
            "columns -> footings -> connections), then the lateral system as one job",
            "results": results, "summary": {
@@ -166,20 +166,42 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
     for r in results:
         if r["record"] in pages:
             r["new_page"] = pages[r["record"]]
-    with open(os.path.join(rdir, "revision.json"), "w") as fh:
+    with open(os.path.join(rdir, "revision.json"), "x") as fh:
         json.dump(_clean(out), fh, indent=1)
-    with open(os.path.join(rdir, "design.json"), "w") as fh:
+    with open(os.path.join(rdir, "design.json"), "x") as fh:
         json.dump(exp, fh, sort_keys=True)
     out["design_path"] = os.path.join(rdir, "design.json")
     return _clean(out)
 
 
-def _rev_dir(rev_id: str) -> str:
+def revision_dir(rev_id: str) -> str:
+    """The folder of calc revision `rev_id` (basename only: an id can never point outside revisions/)."""
     return os.path.join(V2, "revisions", os.path.basename(rev_id))
 
 
+def new_revision(seed: dict) -> tuple[str, str, str]:
+    """Allocate a NEW calc revision: (key, rev_id, folder). The ONLY way a calc revision id is made.
+
+    Revisions are immutable, so an id names one write, never one piece of content: the id hashes
+    the seed (what was asked) together with the creation instant, and the folder is created with
+    exist_ok=False, so a re-run of the exact same move gets its own revision instead of landing in
+    (and overwriting) an earlier one. A collision on the 10-hex key retries with a new instant.
+    Identical content is still recognisable through the revision's `content_key`."""
+    os.makedirs(os.path.join(V2, "revisions"), exist_ok=True)
+    while True:
+        key = hashlib.sha1(json.dumps({"seed": seed, "t": time.time_ns()}, sort_keys=True,
+                                      default=str).encode()).hexdigest()[:10]
+        rev_id = f"calcrev-{key}"
+        rdir = revision_dir(rev_id)
+        try:
+            os.makedirs(rdir)
+        except FileExistsError:
+            continue
+        return key, rev_id, rdir
+
+
 def _read_rev(rev_id: str) -> dict:
-    p = os.path.join(_rev_dir(rev_id), "revision.json")
+    p = os.path.join(revision_dir(rev_id), "revision.json")
     if not os.path.exists(p):
         raise KeyError(rev_id)
     return json.load(open(p))
@@ -199,14 +221,10 @@ def restore(target: str | None, reverts: str, of: str, verb: str) -> dict:
     _read_rev(reverts)
     _read_rev(of)
     src = _read_rev(target) if target else None
-    key = hashlib.sha1(json.dumps({"target": target, "reverts": reverts, "of": of, "verb": verb,
-                                   "t": time.time_ns()}, sort_keys=True).encode()).hexdigest()[:10]
-    rev_id = f"calcrev-{key}"
-    rdir = _rev_dir(rev_id)
-    os.makedirs(rdir, exist_ok=False)
+    _, rev_id, rdir = new_revision({"target": target, "reverts": reverts, "of": of, "verb": verb})
     files: dict = {}
     if src:
-        sdir = _rev_dir(target)
+        sdir = revision_dir(target)
         for name in sorted(os.listdir(sdir)):
             if name == "revision.json":
                 continue
@@ -218,12 +236,13 @@ def restore(target: str | None, reverts: str, of: str, verb: str) -> dict:
         files = {k: (os.path.join(rdir, os.path.basename(v)) if isinstance(v, str) and v.startswith(sdir) else v)
                  for k, v in src.get("files", {}).items()}
     zero = {"records": 0, "resized": 0, "ng_to_ok": 0, "still_ng": 0, "new": 0, "removed": 0, "seconds": 0}
-    out = {"rev_id": rev_id, "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
+    out = {"rev_id": rev_id, "content_key": (src or {}).get("content_key"),
+           "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
            "change": src["change"] if src else {}, "method": (src or {}).get("method", METHOD),
            "order_rule": (src or {}).get("order_rule", ""), "results": (src or {}).get("results", []),
            "summary": src["summary"] if src else zero, "files": files,
            "restore": {"verb": verb, "of": of, "restored": target, "parent": reverts}}
-    with open(os.path.join(rdir, "revision.json"), "w") as fh:
+    with open(os.path.join(rdir, "revision.json"), "x") as fh:
         json.dump(out, fh, indent=1)
     return out
 
@@ -236,6 +255,6 @@ def list_revisions() -> list[dict]:
     out = []
     for p in sorted((p for p in paths if os.path.exists(p)), key=os.path.getmtime):
         r = json.load(open(p))
-        out.append({"rev_id": r["rev_id"], "created_at": r["created_at"], "change": r["change"], "summary": r["summary"],
+        out.append({"rev_id": r["rev_id"], "content_key": r.get("content_key"), "created_at": r["created_at"], "change": r["change"], "summary": r["summary"],
                     "files": r["files"], **({"restore": r["restore"]} if r.get("restore") else {})})
     return out

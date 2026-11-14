@@ -301,7 +301,7 @@ export const V2_HELP = {
     title: "Construction status reasons",
     short:
       "Reasons from the construction platforms: stage of the steel, submittals that would need resubmitting.",
-    real: "From mock Procore / Autodesk Build records.",
+    real: "From the construction platforms: synthetic (mock) records unless a platform is set to live and signed in - the badge says which.",
   },
   "panel.move-construction": {
     title: "Construction status",
@@ -414,9 +414,9 @@ export const V2_HELP = {
 
   // ---------------------------------------------------------------- change order
   "panel.co-mock": {
-    title: "Mock platform data",
+    title: "Platform data: live or mock",
     short:
-      "Submittals, RFIs, sheets, budget lines and schedule come from synthetic Procore and Autodesk Build records. Nothing was read from a real project.",
+      "Submittals, RFIs, sheets, budget lines and schedule come from the construction platforms. The badge says whether each is read live (CALCGRAPH_PLATFORM_<NAME>=live and signed in) or is synthetic mock data; hover it for the reason a platform is on mock.",
     terms: ["term.mock", "term.change-order"],
   },
   "stat.co-cost": {
@@ -493,10 +493,10 @@ export const V2_HELP = {
       "The unit rates and schedule rules used for every estimate. Synthetic, stated so you can challenge them.",
   },
   "panel.platform-record": {
-    title: "Mock platform record",
+    title: "Platform record",
     short:
-      "One synthetic record shaped like the platform's API object. The JSON view shows the platform-shaped fields.",
-    real: "Mock. No network call, no real project.",
+      "One platform record: its normalised fields and the platform-shaped API object. The badge says LIVE (read from the platform API) or MOCK (synthetic, no network call).",
+    real: "Live or mock, as the badge says.",
     terms: ["term.mock"],
   },
 
@@ -637,8 +637,8 @@ export const V2_HELP = {
   "panel.reg-platforms": {
     title: "Construction platforms",
     short:
-      "Submittals and open RFIs that name this element, and its construction stage.",
-    real: "Mock Procore / Autodesk Build records.",
+      "Every platform record that names this element (submittals, RFIs, budget lines, schedule activities, ...), each with live / mock, and its construction stage.",
+    real: "Live or mock per platform, as the badges say.",
     terms: ["term.mock", "term.construction-stage"],
   },
   "panel.reg-designed-by": {
@@ -680,7 +680,7 @@ export const V2_HELP = {
   "stat.reg-platforms": {
     title: "Platforms",
     short:
-      "Mock construction-platform records (submittals, open RFIs) that name this element.",
+      "Construction-platform records (live or mock) that name this element.",
     terms: ["term.mock"],
   },
   "graph.reg-relations": {

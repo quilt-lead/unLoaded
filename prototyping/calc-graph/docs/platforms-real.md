@@ -70,26 +70,24 @@ change_order.py take their "live adapter" branches. Deep links on live records a
 resource URLs (plus Procore's own `link` field on RFIs): no web-UI URL pattern is documented in either
 API reference, so none is guessed.
 
-### Registration edit needed (move-a-column builder owns these files)
+### Registration (DONE 2026-11-14)
 
-1. `backend/calcgraph/platforms/__init__.py`, `get_adapters()`:
-   ```python
-   def get_adapters(design, names=None):
-       from .live import wrap_selected
-       state = get_state(design)
-       return [wrap_selected(REGISTRY[n](state), state) for n in (names or list(REGISTRY))]
-   ```
-   With no env set this returns the same mocks, labelled `source=mock` - behaviour unchanged.
-2. `backend/calcgraph/move_api.py` `GET /platforms`: replace `"mock": True` with
-   `"mock": a.describe().get("synthetic", True), "source": getattr(a, "source", "mock"),
-   "fallback_reason": getattr(a, "fallback_reason", None)` so the UI can show "live" vs "mock".
-   `_adapters()` caches forever; a "refresh" (drop `_CACHE["adapters"]`) is needed to pick up a login
-   made after the server started.
+1. `platforms/__init__.py` `get_adapters()` wraps every mock with `wrap_selected` (the one place adapters are
+   built); `get_mock_adapters()` returns the bare mocks for code that builds its own `SourcedAdapter` (the
+   contract checks). Contract check C6 pins it.
+2. `GET /api/v2/platforms` reports `mock`, `source` (live | mock), `selected` and `fallback_reason`; the UI's
+   live / mock badge (where MOCK used to be hard-coded) reads them.
+   Refresh after a login: `move_api._adapters()` caches the adapters only while `adapters_fingerprint()`
+   (env selection + the files in data/secrets/ when any platform is live) is unchanged, so a login made
+   after the server started is picked up on the next call; `POST /api/v2/platforms/refresh` forces a rebuild.
+   One record: `GET /api/v2/platforms/{name}/{record_type}/{id}`, or `GET /api/v2/platform-record?url=<link>`.
 3. Optional, `base.py`: a `source` field on `NormalizedRecord` instead of `fields["source"]`, and a
    `COMMITMENTS` record type (Procore commitments are read into `ProcoreLiveAdapter.extras` today).
-4. Robustness gap to know about: status.py line 124 `min(r.fields["total_float_days"] ...)` and
-   change_order.py lines 316/330 assume float is a number. Procore tasks carry no float, so live tasks set
-   `total_float_days=None`; this only bites if a live task is linked to an element (none are, today).
+4. Unknown schedule float (DONE): every adapter's records pass `base.normalize_records()` (in
+   `PlatformAdapter._records`), which types `total_float_days` as a number or None plus `float_known`; consumers
+   read `NormalizedRecord.total_float`. status.py reports the least REPORTED float and says which activities
+   report none; change_order.py assumes 0 float there (an upper bound on delay) and warns. Contract checks
+   D3-D5 cover it; D6 fails on any direct `fields["total_float_days"]` read.
 
 ## 4. Generated typed clients
 

@@ -8,8 +8,10 @@
     estimate(impact, adapters, design)          # potential change order (change_order.py)
     construction_status("COL-2B", adapters)     # health-meter input (status.py)
 
-No network, no credentials: every adapter reshapes the same deterministic synthetic state
-(synthetic.py). A live connector would subclass PlatformAdapter and register here.
+By default no network, no credentials: every adapter reshapes the same deterministic synthetic
+state (synthetic.py). get_adapters() wraps each in live.SourcedAdapter, which serves the live
+connector (live/) when CALCGRAPH_PLATFORM_<PROCORE|ACC|FORMA>=live and it builds, else the mock
+with the reason; every record carries fields["source"] / ["source_label"] (docs/platforms-real.md).
 """
 from __future__ import annotations
 
@@ -46,9 +48,36 @@ def get_state(design: dict) -> ConstructionState:
     return hit[1]
 
 
-def get_adapters(design: dict, names: list[str] | None = None) -> list[PlatformAdapter]:
+def get_mock_adapters(design: dict, names: list[str] | None = None) -> list[PlatformAdapter]:
+    """The bare synthetic adapters (no live selection, no source labels) - what get_adapters wraps.
+    For code that builds its own live.SourcedAdapter (the contract checks)."""
     state = get_state(design)
     return [REGISTRY[n](state) for n in (names or list(REGISTRY))]
+
+
+def get_adapters(design: dict, names: list[str] | None = None) -> list[PlatformAdapter]:
+    """Every platform, each wrapped so config (CALCGRAPH_PLATFORM_<NAME>=live) can swap in its live
+    connector; with no env set these are the synthetic mocks, labelled source=mock. The ONLY place
+    adapters are built, so every consumer (routes, health meter, change order) sees the same source."""
+    from .live import wrap_selected
+    state = get_state(design)
+    return [wrap_selected(m, state) for m in get_mock_adapters(design, names)]
+
+
+def adapters_fingerprint() -> tuple:
+    """What decides which adapters get_adapters() builds, besides the design: the per-platform mode
+    selected by env and, when any platform is live, the stored app credentials / tokens. A cached
+    adapter list is valid only while this is unchanged, so a login made after the server started
+    (scripts/platform_auth.py writes data/secrets/) is picked up without a restart."""
+    from .live import MODE_ENV, selected_mode
+    modes = tuple((n, selected_mode(n)) for n in sorted(MODE_ENV))
+    secrets: tuple = ()
+    if any(m == "live" for _, m in modes):
+        from .live.secrets import secrets_dir
+        d = secrets_dir()
+        if os.path.isdir(d):
+            secrets = tuple(sorted((f, os.stat(os.path.join(d, f)).st_mtime_ns) for f in os.listdir(d)))
+    return modes + secrets
 
 
 def get_adapter(name: str, design: dict) -> PlatformAdapter:
@@ -60,4 +89,4 @@ from .status import construction_status  # noqa: E402
 
 __all__ = ["REGISTRY", "RECORD_TYPES", "STAGES", "NormalizedRecord", "PlatformAdapter", "ProcoreAdapter",
            "AutodeskBuildAdapter", "FormaAdapter", "ConstructionState", "build_state", "get_state", "get_adapters",
-           "get_adapter", "load_design", "estimate", "construction_status", "stage_rank"]
+           "get_adapter", "get_mock_adapters", "adapters_fingerprint", "load_design", "estimate", "construction_status", "stage_rank"]

@@ -204,10 +204,20 @@ def moved_geometry(g: Graph, col: str, dx: float, dy: float) -> dict[str, dict]:
     return geo
 
 
+FRAMING = ("beam", "girder")
+
+
+class UnknownColumn(KeyError):
+    """impact() was asked about a column the registry does not have (the only "not found" it raises)."""
+
+
 def removal_geometry(g: Graph, col: str) -> dict:
     """Members framing into a removed column: the collinear pair with the shortest combined span
     becomes one transfer member (far end to far end); the others frame into it at the column."""
-    into = [(m, e) for m, e in g.carried.get(col, []) if "p1" in g.el[m]]
+    # only the horizontal framing (beams / girders) can merge into a transfer member; a brace landing at the
+    # column (SCBF) also has p1/p2 and can be collinear in plan, but it is not a span and has no span_ft -
+    # the removal flags the lateral system through the column's frame membership instead
+    into = [(m, e) for m, e in g.carried.get(col, []) if g.el[m].get("type") in FRAMING]
     by_level = defaultdict(list)
     for m, e in into:
         by_level[g.el[m].get("level")].append((m, e))
@@ -301,8 +311,8 @@ def _ru(v) -> float:
 def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: bool = False,
            platform_status=None) -> dict:
     g = Graph(exp)
-    if column not in g.el:
-        raise KeyError(column)
+    if g.el.get(column, {}).get("type") != "column":
+        raise UnknownColumn(column)
     col = g.el[column]
     stale: dict[str, dict] = {}
     est: dict[str, dict] = {}

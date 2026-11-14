@@ -62,8 +62,9 @@ class NormalizedRecord:
     element_ids registry element ids (design.json `elements[].id`) the record concerns
     dates       ISO dates, keys per kind (due, submitted, approved, start, finish, ...)
     links       {"self": mock deep link, ...}
-    fields      kind-specific normalized values (stage, spec_section, amount_usd, float_days,
-                predecessors, package_ref, ...) - documented per kind in synthetic.py
+    fields      kind-specific normalized values (stage, spec_section, amount_usd, total_float_days,
+                predecessors, package_ref, ...) - documented per kind in synthetic.py. A schedule
+                activity's float may be None (not reported): read it via .total_float
     raw         the platform-shaped object exactly as list_raw() returns it
     """
     kind: str
@@ -79,11 +80,42 @@ class NormalizedRecord:
     fields: dict[str, Any] = field(default_factory=dict)
     raw: dict = field(default_factory=dict)
 
+    @property
+    def total_float(self) -> float | None:
+        """Total float (working days) of a schedule activity, or None when the platform does not report
+        it (Procore tasks carry none; fields["float_known"] is then False). Guaranteed by
+        PlatformAdapter._records(): read float through this, never fields["total_float_days"]."""
+        return self.fields.get("total_float_days") if self.kind == "schedule_activity" else None
+
     def to_dict(self, include_raw: bool = True) -> dict:
         d = asdict(self)
         if not include_raw:
             d.pop("raw")
         return d
+
+
+def _num(v) -> float | None:
+    if v is None or isinstance(v, bool):
+        return None
+    try:
+        return float(v) if not isinstance(v, int) else v
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_records(recs: dict[str, list[NormalizedRecord]]) -> dict[str, list[NormalizedRecord]]:
+    """The one gate every adapter's records pass through (PlatformAdapter._records), mock or live.
+
+    Schedule activities: `total_float_days` is a number or None (None = the platform does not report
+    float - a live Procore task, say), `float_known` says which, `critical` is a bool. Consumers read
+    NormalizedRecord.total_float and must treat None as "unknown", never as a number."""
+    for r in recs.get(SCHEDULE_ACTIVITIES, []):
+        f = r.fields
+        v = _num(f.get("total_float_days"))
+        f["total_float_days"] = v
+        f["float_known"] = v is not None
+        f["critical"] = bool(f.get("critical"))
+    return recs
 
 
 class PlatformAdapter(ABC):
@@ -113,7 +145,7 @@ class PlatformAdapter(ABC):
     # ------------------------------------------------------------------ public surface
     def _records(self) -> dict[str, list[NormalizedRecord]]:
         if self._cache is None:
-            self._cache = self._build()
+            self._cache = normalize_records(self._build())
         return self._cache
 
     def supports(self, record_type: str) -> bool:

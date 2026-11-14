@@ -45,17 +45,11 @@ from ..schema.structural import (AnalyticalBar, AnalyticalNode, BarForceResult, 
                                  StructuralUsage, Support, UtilisationResult)
 from ..schema.units import Quantity
 from . import etabs as mock_etabs
-from .base import DESIGN_PATH, AnalysisAdapter, AnalysisObject
+from .base import DESIGN_PATH, SOURCE_DETAIL, AnalysisAdapter, AnalysisObject, tag_source
 
 DEFAULT_URL = "http://127.0.0.1:8765"
 ENGINE = "calcgraph.analysis.bhom_etabs/1.0"
 BUILDING = "synthetic-v2"
-SOURCE_DETAIL = {
-    ResultSource.csi_oapi: "real ETABS, read through CSI's OAPI on the Windows bridge",
-    ResultSource.etabs_via_bhom: "real ETABS, read through BHoM's ETABS_Toolkit on the Windows bridge",
-    ResultSource.calcgraph_pynite: "calc-graph's own design re-run (PyNite); ETABS did not run",
-    ResultSource.mock: "design.json mapped to ETABS-style objects; ETABS did not run",
-}
 # CSI eUnits (ETABS OAPI enum, from memory of the API reference - unverified against a desk)
 CSI_UNITS = {1: ("lbf", "in"), 2: ("lbf", "ft"), 3: ("kip", "in"), 4: ("kip", "ft"), 5: ("kN", "mm"), 6: ("kN", "m"),
              9: ("N", "mm"), 10: ("N", "m")}
@@ -117,8 +111,7 @@ def _sha_of_design(design) -> str:
     return h.hexdigest()
 
 
-def _tag(row: dict, source: ResultSource) -> dict:
-    return {**row, "source": source.value, "source_detail": SOURCE_DETAIL[source]}
+_tag = tag_source
 
 
 # ======================================================================== design -> structural schema
@@ -241,15 +234,9 @@ class BhomEtabsAdapter(AnalysisAdapter):
 
     # ---- model
     def model_objects(self) -> list[AnalysisObject]:
-        """The design's objects as ETABS would hold them. Built locally from design.json (source
-        `mock`) - reading the model back out of a live ETABS is pull_results' job, not this."""
-        out = []
-        for o in self.mock.model_objects():
-            d = AnalysisObject(o.kind, o.label, o.element_id, list(o.record_ids),
-                               {**o.props, "source": ResultSource.mock.value,
-                                "source_detail": SOURCE_DETAIL[ResultSource.mock]}, o.raw, o.story)
-            out.append(d)
-        return out
+        """The design's objects as ETABS would hold them: the mock's, already source `mock` (the
+        AnalysisAdapter contract) - reading the model back out of a live ETABS is pull_results' job."""
+        return self.mock.model_objects()
 
     def occurrences(self) -> list[dict]:
         return mock_etabs.occurrences_of(self.mock.model_objects(), self.doc)
@@ -330,12 +317,8 @@ class BhomEtabsAdapter(AnalysisAdapter):
         return self._pull_fallback(job, why, force)
 
     def _pull_fallback(self, job: dict, why: str, force: bool) -> dict:
-        res = self.mock.pull_results(job["job_id"], force=force)
-        s = ResultSource.calcgraph_pynite
-        for k in ("story_drifts", "frame_design", "base_reactions"):
-            res[k] = [_tag(r, s) for r in res.get(k, [])]
-        res["summary"] = _tag(res["summary"], s)
-        res.update(source=s.value, source_detail=SOURCE_DETAIL[s], bridge=self._down(why), adapter="bhom_etabs")
+        res = self.mock.pull_results(job["job_id"], force=force)   # rows already tagged calcgraph-pynite
+        res.update(bridge=self._down(why), adapter="bhom_etabs")
         return res
 
     # ---- real routes

@@ -18,8 +18,9 @@ export function answeredLabel(a: AnsweredBy | undefined, source?: string): { tex
   return { text: "Mock ETABS - our design mapped to ETABS objects; ETABS did not run", kind: "mock" };
 }
 
-export function AnsweredBadge({ a, source, method }: { a: AnsweredBy | undefined; source?: string; method?: string }) {
-  const l = answeredLabel(a, source ?? (method?.includes("PyNite") ? "calcgraph-pynite" : undefined));
+/** `source` = the ResultSource code every analysis response carries (mock included: AnalysisAdapter contract). */
+export function AnsweredBadge({ a, source }: { a: AnsweredBy | undefined; source?: string }) {
+  const l = answeredLabel(a, source);
   return (
     <span className={`v2-answered ${l.kind}`}>
       <b>Answered by:</b> {l.text}
@@ -98,7 +99,7 @@ function JobCard({ job }: { job: EtabsJob }) {
       <div>
         <b className="mono">{job.job_id}</b> <span className="v2-chip">{job.status}</span>
       </div>
-      <AnsweredBadge a={job.answered_by} source={job.source} method={job.method} />
+      <AnsweredBadge a={job.answered_by} source={job.source} />
       {job.note && <p className="v2-small v2-warnline">{job.note}</p>}
       {job.diff_summary && (
         <p className="v2-small">
@@ -160,7 +161,7 @@ export function EtabsPanel({ move }: { move: Move | null }) {
 
   return (
     <div className="v2-etabs">
-      <AnsweredBadge a={objs.data?.answered_by} />
+      <AnsweredBadge a={objs.data?.answered_by} source={objs.data?.items[0]?.props.source as string | undefined} />
       <div className="v2-toolbar">
         <a className="btn sm" href={e2kUrl()} download>
           Download .e2k (base)

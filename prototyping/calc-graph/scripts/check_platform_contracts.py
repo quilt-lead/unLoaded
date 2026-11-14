@@ -42,7 +42,7 @@ for k in ("PROCORE_CLIENT_ID", "PROCORE_CLIENT_SECRET", "APS_CLIENT_ID", "APS_CL
           "PROCORE_PROJECT_ID", "ACC_HUB_ID", "ACC_PROJECT_ID", "FORMA_PROJECT_ID", "PROCORE_ENV"):
     os.environ.pop(k, None)
 
-from calcgraph.platforms import get_adapters, get_state, load_design  # noqa: E402
+from calcgraph.platforms import get_mock_adapters, get_state, load_design  # noqa: E402
 from calcgraph.platforms._spec import SpecMismatch, check  # noqa: E402
 from calcgraph.platforms.base import CHANGE_EVENTS, RFIS, SUBMITTALS  # noqa: E402
 from calcgraph.platforms.live import SourcedAdapter, links, oauth  # noqa: E402
@@ -178,19 +178,19 @@ def b_forma():
 # ------------------------------------------------------------------ C. selection + fallback + labels
 def c_sourced():
     design = load_design()
-    mocks = {m.name: m for m in get_adapters(design)}
+    mocks = {m.name: m for m in get_mock_adapters(design)}
     st = get_state(design)
     d = SourcedAdapter(mocks["procore"], st)
     recs = d.list(SUBMITTALS)
     ok("C1 default selection is the mock, every record labelled source=mock",
        d.source == "mock" and recs and all(x.fields.get("source") == "mock" for x in recs), d.fallback_reason or "")
     r, cfg = rec("procore_sandbox.json")
-    live = SourcedAdapter(get_adapters(design, ["procore"])[0], st, mode="live", recorded=r, live_config=cfg)
+    live = SourcedAdapter(get_mock_adapters(design, ["procore"])[0], st, mode="live", recorded=r, live_config=cfg)
     recs = live.list(RFIS)
     ok("C2 live selected + reachable -> source=live labels, describe() not synthetic, no synthetic state",
        live.source == "live" and all(x.fields["source"] == "live" for x in recs) and live.describe()["synthetic"] is False
        and live.state is None, live.label)
-    bad = SourcedAdapter(get_adapters(design, ["autodesk_build"])[0], st, mode="live", live_config={})
+    bad = SourcedAdapter(get_mock_adapters(design, ["autodesk_build"])[0], st, mode="live", live_config={})
     recs = bad.list(SUBMITTALS)
     ok("C3 live selected but unconfigured -> falls back to the mock with the reason on every record",
        bad.source == "mock" and "not configured" in (bad.fallback_reason or "") and recs
@@ -198,7 +198,12 @@ def c_sourced():
     ok("C4 fallback keeps the synthetic state for the impact engine", bad.state is not None, "")
     os.environ["CALCGRAPH_PLATFORM_FORMA"] = "live"
     try:
-        f = SourcedAdapter(get_adapters(design, ["forma"])[0], st)
+    from calcgraph.platforms import get_adapters
+    reg = get_adapters(design)
+    ok("C6 get_adapters() is the registration point: every adapter is a SourcedAdapter reporting source/fallback_reason",
+       all(isinstance(a, SourcedAdapter) and a.describe()["source"] == "mock" and a.fallback_reason for a in reg),
+       ", ".join(f"{a.name}={a.describe()['source']}" for a in reg))
+        f = SourcedAdapter(get_mock_adapters(design, ["forma"])[0], st)
         f.list("elements")
         ok("C5 env CALCGRAPH_PLATFORM_FORMA=live selects live; no token -> mock + reason", f.selected == "live"
            and f.source == "mock", f.fallback_reason or "")
@@ -212,8 +217,8 @@ def d_change_order():
     design = load_design()
     st = get_state(design)
     r, cfg = rec("procore_sandbox.json")
-    ads = [SourcedAdapter(get_adapters(design, ["procore"])[0], st, mode="live", recorded=r, live_config=cfg)] + \
-          [SourcedAdapter(m, st) for m in get_adapters(design, ["autodesk_build", "forma"])]
+    ads = [SourcedAdapter(get_mock_adapters(design, ["procore"])[0], st, mode="live", recorded=r, live_config=cfg)] + \
+          [SourcedAdapter(m, st) for m in get_mock_adapters(design, ["autodesk_build", "forma"])]
     touched = sorted(set(next(x for x in st.rfis if x["ref"] == "RFI-001")["element_ids"]))
     co = estimate({"elements": touched}, ads, design)
     rf = [x for x in co.get("rfis", []) if x["ref"] == "RFI-001"]
@@ -224,6 +229,54 @@ def d_change_order():
     ok("D2 construction_status runs with a live adapter in the set", isinstance(cs, dict), f"keys {sorted(cs)[:6]}")
 
 
+    _d_unknown_float(design)
+
+
+def _d_unknown_float(design):
+    from calcgraph.platforms import estimate
+    from calcgraph.platforms.base import SCHEDULE_ACTIVITIES, NormalizedRecord, PlatformAdapter
+    from calcgraph.platforms.status import construction_status
+    beam = next(e for e in design["elements"] if e["type"] == "beam")
+
+    class NoFloat(PlatformAdapter):
+        name, label = "nofloat", "live-shaped, float not reported"
+        capabilities = frozenset({SUBMITTALS, SCHEDULE_ACTIVITIES})
+
+        def _build(self):
+            sub = NormalizedRecord("submittal", "1", "SUB-X", self.name, "05 12 00-001", "steel shop drawings", "submitted",
+                                   [beam["id"]], fields={"stage": "submitted", "package_kind": "shop_drawings",
+                                           "spec_section": "05 12 00", "spec_title": "Structural Steel Framing"})
+            act = NormalizedRecord("schedule_activity", "2", "ACT-X", self.name, "A1000", "erect steel", "not_started",
+                                   [beam["id"]], fields={"total_float_days": None, "critical": False})
+            return {SUBMITTALS: [sub], SCHEDULE_ACTIVITIES: [act]}
+
+        def deep_link(self, record_type, id):
+            return f"https://example.invalid/{record_type}/{id}"
+
+    ads = [NoFloat()]
+    act = ads[0].list(SCHEDULE_ACTIVITIES)[0]
+    ok("D3 the record gate types schedule float: None stays None (unknown), float_known False",
+       act.total_float is None and act.fields["float_known"] is False, str(act.fields))
+    cs = construction_status(beam["id"], ads, design)
+    ok("D4 construction_status with a linked activity whose float is unknown: float_days None, said so in reasons",
+       cs["float_days"] is None and any("float not reported" in r for r in cs["reasons"]), str(cs["reasons"][-1:]))
+    co = estimate({"elements": [beam["id"]], "resized": [{"id": beam["id"], "old_size": beam["size"], "new_size": beam["size"],
+                                                          "length_ft": beam.get("span_ft")}]}, ads, design)
+    acts = co["schedule"]["activities"]
+    ok("D5 change-order float arithmetic with unknown float: delay assumes no float there, warned, no crash",
+       acts and acts[0]["float_known"] is False and acts[0]["float_before"] is None
+       and any("float unknown" in w for w in co["warnings"]), f"{acts[:1]} {co['warnings'][-1:]}")
+    raw_reads = []
+    pkg = os.path.join(ROOT, "backend", "calcgraph")
+    for dp, _, fs in os.walk(pkg):
+        for f in fs:
+            if f.endswith(".py") and not dp.endswith(os.path.join("platforms", "live", "generated")):
+                path = os.path.join(dp, f)
+                for i, line in enumerate(open(path), 1):
+                    if re.search(r"""fields\[["']total_float_days["']\](?!\s*=)""", line) and not path.endswith(os.path.join("platforms", "base.py")):
+                        raw_reads.append(f"{os.path.relpath(path, ROOT)}:{i}")
+    ok("D6 ratchet: nothing reads fields['total_float_days'] directly (read NormalizedRecord.total_float, which may be None)",
+       not raw_reads, ", ".join(raw_reads))
 # ------------------------------------------------------------------ E. seeding script
 def _seed(argv):
     import seed_platform_sandbox as seed

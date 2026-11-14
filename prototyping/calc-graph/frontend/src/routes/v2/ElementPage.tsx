@@ -10,8 +10,8 @@ import { Legend } from "../../components/Legend";
 import { useV2Element } from "../../api/hooks";
 import { urls } from "../../api/client";
 import type { V2Occurrence } from "../../api/types";
-import { useConstructionStatus, type CoItem } from "./api";
-import { MockLink, PlatformRecordDialog } from "./PlatformRecord";
+import { useConstructionStatus } from "./api";
+import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
 import { howLabel, occSource, recordSource, useDesignIndex, type DesignIndex } from "./util";
 
 type Group = "ifc" | "drawings" | "specs" | "calcs" | "etabs" | "platforms";
@@ -72,7 +72,7 @@ export default function ElementPage() {
     for (const o of q.data?.occurrences ?? []) (g[o.doc as Group] ?? (g[o.doc as Group] = [])).push(o);
     return g;
   }, [q.data]);
-  const platformItems: CoItem[] = useMemo(() => [...(cs.data?.submittals ?? []), ...(cs.data?.open_rfis ?? [])], [cs.data]);
+  const platformItems = grouped.platforms;
 
   // relations graph: incoming on the left, the element in the middle, outgoing on the right
   const graph = useMemo(() => {
@@ -141,9 +141,11 @@ export default function ElementPage() {
       if (s) setView({ kind: "pdf", src: s, key });
     }
   };
-  const elType = el?.type ?? (recSelf ? "calc record" : "");
-  const facts = el
-    ? Object.entries(el).filter(([k, v]) => !["id", "global_id", "type", "p1", "p2"].includes(k) && v !== "" && v != null && !(Array.isArray(v) && !v.length))
+  const KIND_LABEL: Record<string, string> = { spec_article: "spec article", detail: "drawing detail", record: "calc record", type: "type" };
+  const elType = el?.type ?? KIND_LABEL[q.data.kind] ?? q.data.kind ?? "";
+  const own = el ?? (q.data.kind === "spec_article" || q.data.kind === "detail" ? q.data.entity : null);
+  const facts = own
+    ? Object.entries(own).filter(([k, v]) => !["id", "global_id", "type", "p1", "p2", "bbox"].includes(k) && v !== "" && v != null && !(Array.isArray(v) && !v.length))
     : [];
 
   return (
@@ -187,7 +189,8 @@ export default function ElementPage() {
               return (
                 <section key={g.id} className="v2-occ-group">
                   <h3 className="v2-h3">
-                    Construction platforms <span className="v2-mock">mock</span> <InfoTip id="panel.reg-platforms" />
+                    Construction platforms <span className="cg-tab-badge">{platformItems.length}</span> <PlatformSourceBadge />{" "}
+                    <InfoTip id="panel.reg-platforms" />
                   </h3>
                   {cs.data && (
                     <p className="v2-small">
@@ -195,14 +198,13 @@ export default function ElementPage() {
                       {cs.data.float_days != null ? `, float ${cs.data.float_days} d` : ""}
                     </p>
                   )}
-                  {!platformItems.length && <p className="muted v2-small">{cs.isLoading ? "Loading..." : "No submittals or open RFIs name this element."}</p>}
+                  {!platformItems.length && <p className="muted v2-small">No platform record names this element.</p>}
                   <ul className="v2-occ-list">
-                    {platformItems.map((it) => (
-                      <li key={it.ref}>
-                        <span className="mono">{it.number ?? it.ref}</span> {it.title} <span className="v2-chip">{it.status}</span>{" "}
-                        {(it.sources ?? []).map((s) => (
-                          <MockLink key={s.url} url={s.url} onOpen={setMock} />
-                        ))}
+                    {platformItems.map((o, i) => (
+                      <li key={`${o.platform}-${o.record_type}-${o.id}-${i}`}>
+                        <span className="v2-chip">{(o.record_type ?? "").replace(/_/g, " ")}</span> <span className="mono">{o.number || o.record_ref}</span> {o.title}{" "}
+                        <span className="v2-chip">{o.status}</span> <PlatformSourceBadge source={o.source} />{" "}
+                        <MockLink url={o.link} onOpen={setMock} label={o.platform_label ? `${o.platform_label} record` : undefined} />
                       </li>
                     ))}
                   </ul>

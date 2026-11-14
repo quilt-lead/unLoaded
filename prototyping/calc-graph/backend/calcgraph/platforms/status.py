@@ -4,8 +4,9 @@ construction_status(element_id, adapters=None, design=None) -> {
     element_id, stage: design|submitted|approved|fabricated|delivered|erected, stage_rank 0..5,
     submittals: [{ref, number, title, status, stage, platform, link, sources}],
     open_rfis:  [{ref, number, title, status, platform, link, sources}],
-    float_days: int|None (least total float of the element's next open activities),
-    next_activities: [{ref, title, status, early_start, early_finish, total_float_days, critical}],
+    float_days: int|None (least REPORTED total float of the element's next open activities; None when
+                no next activity reports float - live platforms may not),
+    next_activities: [{ref, title, status, early_start, early_finish, total_float_days|None, float_known, critical}],
     reasons: [str], move_difficulty: {value 0..1, unit, estimate, basis}}
 
 Group ids (LEVEL:L2, GRID:2, FRAME:SMF-A) report their most advanced member. Ids with no
@@ -121,7 +122,9 @@ def construction_status(element_id: str, adapters: list[PlatformAdapter] | None 
             rfis += [r for r in a.list(RFIS) if idset & set(r.element_ids) and r.status in ("draft", "open", "answered")]
     subs_d, rfis_d = _dedupe(subs), _dedupe(rfis)
     nxt = next_activities(element_id, adapters)
-    float_days = min((r.fields["total_float_days"] for r in nxt), default=None)
+    known = [r.total_float for r in nxt if r.total_float is not None]
+    unknown = [r for r in nxt if r.total_float is None]
+    float_days = min(known, default=None)
     reasons = [f"{element_id} is {stage}: {STAGE_TEXT[stage]}"] + notes
     hard = [s for s in subs_d if s["status"] in ("approved", "fabricated", "delivered", "erected")]
     if hard:
@@ -133,6 +136,9 @@ def construction_status(element_id: str, adapters: list[PlatformAdapter] | None 
         crit = [r for r in nxt if r.fields.get("critical")]
         reasons.append(f"least total float on its next activities: {float_days} working days"
                        + (f" ({', '.join(r.ref for r in crit)} on the critical path)" if crit else ""))
+    if unknown:
+        reasons.append(f"total float not reported by the platform for {', '.join(f'{r.ref} ({r.platform})' for r in unknown)}"
+                       " - not counted in the float penalty")
     w = STAGE_WEIGHT[stage]
     rfi_pen = min(0.1, 0.05 * len(rfis_d))
     float_pen = 0.0 if float_days is None else (0.1 if float_days < 5 else (0.05 if float_days <= 12 else 0.0))
@@ -143,8 +149,8 @@ def construction_status(element_id: str, adapters: list[PlatformAdapter] | None 
         "submittals": subs_d, "open_rfis": rfis_d, "float_days": float_days,
         "next_activities": [{"ref": r.ref, "title": r.title, "status": r.status, "platform": r.platform,
                              "link": r.links.get("self"), "early_start": r.dates.get("early_start"),
-                             "early_finish": r.dates.get("early_finish"), "total_float_days": r.fields["total_float_days"],
-                             "critical": r.fields["critical"]} for r in nxt],
+                             "early_finish": r.dates.get("early_finish"), "total_float_days": r.total_float,
+                             "float_known": r.total_float is not None, "critical": r.fields["critical"]} for r in nxt],
         "reasons": reasons,
         "move_difficulty": {"value": val, "unit": "0-1", "estimate": True,
                             "basis": f"stage weight {w} ({stage}) + open RFIs {rfi_pen} + low float {float_pen} "

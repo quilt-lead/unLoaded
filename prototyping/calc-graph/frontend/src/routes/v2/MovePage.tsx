@@ -32,7 +32,7 @@ import { RerunPanel } from "./RerunPanel";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { RevisionPanel } from "./RevisionPanel";
 import { EtabsPanel } from "./EtabsPanel";
-import { MockLink, PlatformRecordDialog } from "./PlatformRecord";
+import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
 import { BAND_COLOR, BAND_LABEL, BAND_TONE, UC_COLOR, colShort, fmtUc, fmtUsd, recordSource, ucTone, useDesignIndex } from "./util";
 
 type SideTab = "health" | "calcs" | "rerun" | "co" | "revision" | "etabs";
@@ -520,7 +520,7 @@ export default function MovePage() {
                   {cstat.data && (
                     <div className="v2-cstat">
                       <h3 className="v2-h3">
-                        Construction status <span className="v2-mock">mock</span> <InfoTip id="panel.move-construction" />
+                        Construction status <PlatformSourceBadge /> <InfoTip id="panel.move-construction" />
                       </h3>
                       <p className="v2-small">
                         Stage <b>{cstat.data.stage}</b>
@@ -547,7 +547,7 @@ export default function MovePage() {
               <h3 className="v2-h3">
                 Every column <InfoTip id="panel.move-heat-list" />
               </h3>
-              <HeatList heat={heat.data} bandMode={bandMode} selected={selected} onSelect={select} />
+              <HeatList heat={heat.data} fromBrowser={heat.isPlaceholderData} error={heat.error as Error | null} bandMode={bandMode} selected={selected} onSelect={select} />
             </div>
           )}
           {tab === "calcs" && impact && (
@@ -609,7 +609,14 @@ function HeatList({
   selected: string | null;
   onSelect: (c: string) => void;
 }) {
-  if (!heat) return <p className="muted">Computing the heat view: a 2 ft probe move for every column. This takes a minute or two right after the server starts, then it is cached.</p>;
+  if (error && !heat) return <p className="v2-error">Heat view failed: {error.message}</p>;
+  if (!heat)
+    return (
+      <p className="muted">
+        Computing the heat view: a 2 ft probe move for every column. The server stores the result by its inputs, so this only happens when the design (or the
+        engine, or the platform status) changed.
+      </p>
+    );
   const rows = Object.entries(heat).sort((a, b) => {
     const sa = bandMode === "construction" ? a[1].score_construction ?? a[1].score : a[1].score;
     const sb = bandMode === "construction" ? b[1].score_construction ?? b[1].score : b[1].score;
@@ -617,11 +624,15 @@ function HeatList({
   });
   return (
     <ul className="v2-heat">
+  fromBrowser,
+  error,
       {rows.map(([c, hh]) => {
         const band = bandOf(hh, bandMode)!;
         const top = hh.reasons.find((r) => (bandMode === "design" ? r.factor !== "construction status" : true));
         return (
           <li key={c}>
+  fromBrowser: boolean;
+  error: Error | null;
             <button type="button" className={`v2-heat-row${selected === c ? " on" : ""}`} onClick={() => onSelect(c)}>
               <i className="v2-dot" style={{ background: BAND_COLOR[band] }} />
               <span className="mono">{colShort(c)}</span>
@@ -633,6 +644,8 @@ function HeatList({
             </button>
           </li>
         );
+    <>
+    {fromBrowser && <p className="v2-small muted">Showing the last heat view this browser saw while the server answers (it is recomputing if the inputs changed).</p>}
       })}
     </ul>
   );
@@ -652,6 +665,7 @@ function CompareDock({ result, rev, style, idx }: { result: RerunResult; rev: Ca
           label: `${result.record} - re-run sheet ${np.rerun_sheet!.sheet ?? ""}`,
           sub: `rerun_sheets.pdf p.${np.rerun_sheet!.page}${np.rerun_sheet!.recomputed ? ` - math recomputed, ${np.rerun_sheet!.asserts ?? 0} values asserted against the re-run` : ""}`,
         }
+    </>
       : {
           url: urls.v2RevisionPdf(rev.rev_id, "calc_revision"),
           page: np.page,

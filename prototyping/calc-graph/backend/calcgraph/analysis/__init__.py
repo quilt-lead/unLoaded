@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from .base import AnalysisAdapter, AnalysisObject, OBJECT_KINDS
+from .base import OBJECT_KINDS, SOURCE_DETAIL, AnalysisAdapter, AnalysisObject, ResultSource, tag_source
 
 ADAPTERS = ("etabs", "bhom_etabs", "risa", "ram")
 # which adapter answers "etabs": the mock (default) or the real one through the Windows bridge
@@ -47,4 +47,5 @@ def get_adapter(name: str, design=None) -> AnalysisAdapter:
     raise ValueError(f"unknown analysis adapter {name!r} (known: {', '.join(ADAPTERS)})")
 
 
-__all__ = ["get_adapter", "etabs_adapter_name", "AnalysisAdapter", "AnalysisObject", "OBJECT_KINDS", "ADAPTERS"]
+__all__ = ["get_adapter", "etabs_adapter_name", "AnalysisAdapter", "AnalysisObject", "OBJECT_KINDS", "ADAPTERS",
+           "ResultSource", "SOURCE_DETAIL", "tag_source"]

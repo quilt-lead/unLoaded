@@ -1,5 +1,5 @@
 """Synthetic v2 API: move a column, health meter, redo calcs, registry element pages, original
-documents with highlights, construction platforms (mock), ETABS (mock). Mounted from api.py
+documents with highlights, construction platforms (live when configured, else mock), ETABS (mock). Mounted from api.py
 with one include line. Every route is read-only on the source data except /apply, /rerun and the
 two /revisions/{model,calc}/restore routes (undo / redo), which write NEW revisions (store /
 data/synthetic_v2/revisions) and never overwrite or delete.
@@ -8,7 +8,9 @@ All routes are under /api/v2. Route list + response shapes: docs/2026-11-14-move
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import os
 import tempfile
 import threading
@@ -38,19 +40,45 @@ def _design() -> dict:
     p = os.path.join(V2, "design.json")
     if not os.path.exists(p):
         raise HTTPException(404, "no synthetic v2 design yet - run: uv run python -m synth.v2.generate")
-    m = os.path.getmtime(p)
+    m = os.stat(p).st_mtime_ns
     if _CACHE.get("design_mtime") != m:
+        raw = open(p, "rb").read()
         _CACHE.clear()
-        _CACHE["design"] = json.load(open(p))
+        _CACHE["design"] = json.loads(raw)
+        _CACHE["design_sha"] = hashlib.sha256(raw).hexdigest()   # of the exact bytes parsed (heat cache key)
         _CACHE["design_mtime"] = m
     return _CACHE["design"]
 
 
 def _adapters():
-    if "adapters" not in _CACHE:
-        from .platforms import get_adapters
-        _CACHE["adapters"] = get_adapters(_design())
-    return _CACHE["adapters"]
+    """The platform adapters (platforms.get_adapters: live when selected and signed in, else mock),
+    cached while the design AND platforms.adapters_fingerprint() (env selection + stored credentials /
+    tokens) are unchanged - so a login made after the server started is picked up on the next call.
+    Everything derived from the adapters is cached under the same entry and goes with it."""
+    from .platforms import adapters_fingerprint, get_adapters
+    d = _design()
+    fp = adapters_fingerprint()
+    hit = _CACHE.get("adapters")
+    if hit is None or hit["fp"] != fp:
+        hit = _CACHE["adapters"] = {"fp": fp, "list": get_adapters(d), "derived": {}}
+    return hit["list"]
+
+
+def _adapters_derived(name: str, build):
+    """A value computed from the current adapter list, dropped whenever the list is rebuilt."""
+    _adapters()
+    der = _CACHE["adapters"]["derived"]
+    if name not in der:
+        der[name] = build(_CACHE["adapters"]["list"])
+    return der[name]
+
+
+def _registry():
+    from .registry_view import RegistryView
+    d = _design()
+    if "registry_view" not in _CACHE:
+        _CACHE["registry_view"] = RegistryView(d)
+    return _CACHE["registry_view"]
 
 
 def _status_fn():
@@ -107,34 +135,34 @@ def model_ifc():
     return FileResponse(p, media_type="application/x-step", filename="synthetic-v2-model.ifc", headers={"Cache-Control": "no-store"})
 
 
-@router.get("/elements/{eid}")
+@router.get("/elements/{eid:path}")   # :path - registry ids contain "/" (SPEC:05 12 00/1.3.B, DET:4/S-502)
 def element(eid: str):
-    """Registry element page: the element, its type/material, every relation in and out, the
-    calc records that design it, and every occurrence (IFC GlobalId, drawings, specs, calcs, ETABS)."""
-    d = _design()
-    el = next((e for e in d["elements"] if e["id"] == eid), None) or next((t for t in d.get("types", []) if t["id"] == eid), None)
-    rec = next((r for r in d["records"] if r["id"] == eid), None)
-    if not el and not rec:
-        raise HTTPException(404, f"no element, type or record {eid!r}")
-    rels_out = [r for r in d["relations"] if r["src"] == eid]
-    rels_in = [r for r in d["relations"] if r["dst"] == eid]
-    designed = [r for r in d["records"] if eid in r.get("elements", [])]
-    occ = [o for o in d.get("occurrences", []) if o["ref"] == eid]
-    if el and el.get("global_id"):
-        occ.insert(0, {"ref": eid, "doc": "ifc", "global_id": el["global_id"], "how": "ifc-element"})
+    """Registry element page for ANY registry id (element, type, calc record, spec article SPEC:...,
+    drawing detail DET:...): the entity, every relation in and out, the calc records that design it,
+    and every occurrence - IFC GlobalId, drawings, specs, calcs, ETABS objects and construction-platform
+    records (registry_view.RegistryView)."""
+    v = _registry()
+    if not v.resolve(eid):
+        raise HTTPException(404, f"no element, type, record, spec article or detail {eid!r}")
+    analysis, plat, errors = [], {}, []
     try:
         from .analysis import get_adapter
         if "etabs_occ" not in _CACHE:
-            _CACHE["etabs_occ"] = get_adapter("etabs", d).occurrences()
-        occ += [o for o in _CACHE["etabs_occ"] if o["ref"] == eid]
+            _CACHE["etabs_occ"] = get_adapter("etabs", _design()).occurrences()
+        analysis = _CACHE["etabs_occ"]
+    except Exception as e:   # surface, never hide
+        errors.append({"ref": eid, "doc": "etabs", "how": "error", "error": f"{type(e).__name__}: {e}"})
+    try:
+        from .registry_view import platform_occurrences
+        plat = _adapters_derived("platform_occurrences", platform_occurrences)
     except Exception as e:
-        occ.append({"ref": eid, "doc": "etabs", "error": str(e)})
-    return {"element": el, "record": rec, "relations_out": rels_out, "relations_in": rels_in,
-            "designed_by": designed, "occurrences": occ,
-            "occurrence_kinds_reserved": ["discussed-in (meeting id, time range, speaker, transcript span) - not built yet"]}
+        errors.append({"ref": eid, "doc": "platforms", "how": "error", "error": f"{type(e).__name__}: {e}"})
+    out = v.view(eid, analysis, plat)
+    out["occurrences"] += errors
+    return JSONResponse(_safe(out))
 
 
-@router.get("/records/{rid}")
+@router.get("/records/{rid:path}")
 def record(rid: str):
     d = _design()
     r = next((x for x in d["records"] if x["id"] == rid), None)
@@ -167,12 +195,18 @@ def impact(m: Move):
     """Stale calc records with reason chains, screened estimates (labelled), health meter,
     affected occurrences, construction status and the potential change order."""
     d = _design()
-    try:
-        res = move_impact.impact(d, _col(m.column), m.dx, m.dy, m.remove, platform_status=_status_fn())
-    except KeyError:
-        raise HTTPException(404, f"no column {m.column!r}")
+    res = _impact(d, m, platform_status=_status_fn())
     res["change_order"] = _change_order(d, res)
     return JSONResponse(_safe(res))
+
+
+def _impact(d: dict, m: Move, platform_status=None) -> dict:
+    """move_impact.impact for a request: 404 only when the column does not exist; any other failure
+    propagates as itself (a 500 with its real error), never disguised as "not found"."""
+    try:
+        return move_impact.impact(d, _col(m.column), m.dx, m.dy, m.remove, platform_status=platform_status)
+    except move_impact.UnknownColumn:
+        raise HTTPException(404, f"no column {m.column!r}") from None
 
 
 def _change_order(d: dict, res: dict) -> dict:
@@ -213,11 +247,49 @@ def d_rec(d: dict, rid: str) -> dict:
 
 @router.get("/health")
 def health(probe: float = 2.0):
-    """Health meter of every column for a +/- probe move (heat view of 'how hard to move')."""
-    key = f"heat:{probe}"
-    if key not in _CACHE:
-        _CACHE[key] = _safe(move_impact.heat(_design(), probe, platform_status=_status_fn()))
-    return _CACHE[key]
+    """Health meter of every column for a +/- probe move (heat view of 'how hard to move').
+    Persisted to data/cache/heat/ keyed by a hash of every input heat() reads (heat_cache), so a
+    restart serves it instantly and only a real input change recomputes. Headers say which:
+    X-Heat-Cache (hit | computed), X-Heat-Key, X-Heat-Computed-At (ET), X-Heat-Seconds."""
+    heat, how, meta = _heat(probe)
+    return JSONResponse(heat, headers={"X-Heat-Cache": how, "X-Heat-Key": meta["key"],
+                                       "X-Heat-Computed-At": meta["computed_at"], "X-Heat-Seconds": str(meta["seconds"]),
+                                       "Cache-Control": "no-store"})
+
+
+def _heat(probe: float):
+    from . import heat_cache
+    d = _design()
+    sha = _CACHE["design_sha"]
+    status = _status_fn()
+    inp = heat_cache.inputs(sha, d, probe, status)
+    return heat_cache.get_or_compute(inp, lambda: _safe(move_impact.heat(d, probe, platform_status=status)))
+
+
+def _warm_heat() -> None:
+    """At server start, make sure the default heat view (probe 2 ft) is on disk: a no-op when the inputs
+    are unchanged, else the recompute starts now instead of when someone opens the page."""
+    log = logging.getLogger("calcgraph.move_api")
+    try:
+        _, how, meta = _heat(2.0)
+        log.warning("heat view probe=2: %s (key %s, computed %s in %s s)", how, meta["key"], meta["computed_at"], meta["seconds"])
+    except HTTPException:
+        pass                       # no design yet
+    except Exception:              # noqa: BLE001 - a warm-up failure must not stop the server; the route will raise it
+        log.exception("heat view warm-up failed")
+
+
+_WARM_STARTED = threading.Event()
+
+
+def _warm_heat_bg() -> None:
+    if _WARM_STARTED.is_set():      # the startup hook can fire more than once (router + app); warm once
+        return
+    _WARM_STARTED.set()
+    threading.Thread(target=_warm_heat, name="heat-warm", daemon=True).start()
+
+
+router.add_event_handler("startup", _warm_heat_bg)
 
 
 @router.post("/rerun")
@@ -227,7 +299,7 @@ def rerun(m: Move):
     d = _design()
     recs = m.records
     if recs is None:
-        res = move_impact.impact(d, _col(m.column), m.dx, m.dy, m.remove)
+        res = _impact(d, m)
         recs = [s["record"] for s in res["stale"]]
     with _LOCK:
         return JSONResponse(_safe(recalc.rerun(d, _change(m), recs)))
@@ -240,7 +312,7 @@ def revisions():
 
 @router.get("/revisions/{rev_id}")
 def revision(rev_id: str):
-    p = os.path.join(V2, "revisions", os.path.basename(rev_id), "revision.json")
+    p = os.path.join(recalc.revision_dir(rev_id), "revision.json")
     if not os.path.exists(p):
         raise HTTPException(404)
     return FileResponse(p, media_type="application/json")
@@ -251,7 +323,7 @@ def revision_pdf(rev_id: str, name: str):
     """calc_revision.pdf (revised sheets in the package style) or rerun_sheets.pdf (handcalcs)."""
     if name not in ("calc_revision", "rerun_sheets"):
         raise HTTPException(404)
-    p = os.path.join(V2, "revisions", os.path.basename(rev_id), f"{name}.pdf")
+    p = os.path.join(recalc.revision_dir(rev_id), f"{name}.pdf")
     if not os.path.exists(p):
         raise HTTPException(404, f"no {name}.pdf for this revision")
     return FileResponse(p, media_type="application/pdf")
@@ -422,7 +494,7 @@ def doc_file(doc: str):
 def revision_page(rev_id: str, name: str, n: int, hl: str = "", w: int = 1400):
     if name not in ("calc_revision", "rerun_sheets"):
         raise HTTPException(404)
-    p = os.path.join(V2, "revisions", os.path.basename(rev_id), f"{name}.pdf")
+    p = os.path.join(recalc.revision_dir(rev_id), f"{name}.pdf")
     if not os.path.exists(p):
         raise HTTPException(404, f"no {name}.pdf for this revision")
     return _render(p, n, hl, w)
@@ -456,24 +528,73 @@ def _render(p: str, n: int, hl: str, w: int) -> Response:
     return Response(png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
-# ------------------------------------------------------------------ construction platforms (mock)
+# ------------------------------------------------------------------ construction platforms (live or mock)
 @router.get("/platforms")
 def platforms():
-    return [{"name": a.name, "label": a.label, "capabilities": sorted(a.capabilities), "counts": a.counts(),
-             "doc_urls": a.doc_urls, "mock": True} for a in _adapters()]
+    """Each platform with where its records come from: source live | mock, the selected mode and, when
+    live was selected but could not be used, fallback_reason."""
+    out = []
+    for a in _adapters():
+        dsc = a.describe()
+        out.append({"name": a.name, "label": a.label, "capabilities": sorted(a.capabilities), "counts": a.counts(),
+                    "doc_urls": a.doc_urls, "mock": dsc.get("synthetic", True), "source": dsc.get("source", "mock"),
+                    "selected": dsc.get("selected", "mock"), "fallback_reason": dsc.get("fallback_reason")})
+    return out
+
+
+@router.post("/platforms/refresh")
+def platforms_refresh():
+    """Drop the cached adapters (and everything derived from them) so the next call rebuilds them:
+    re-reads env selection, credentials and tokens, and re-fetches live records."""
+    _CACHE.pop("adapters", None)
+    return platforms()
+
+
+def _platform(name: str):
+    a = next((x for x in _adapters() if x.name == name), None)
+    if not a:
+        raise HTTPException(404, f"no platform {name!r}")
+    return a
 
 
 @router.get("/platforms/{name}/{record_type}")
 def platform_records(name: str, record_type: str, raw: bool = False):
-    a = next((x for x in _adapters() if x.name == name), None)
-    if not a:
-        raise HTTPException(404, f"no platform {name!r}")
+    a = _platform(name)
     if record_type not in a.capabilities:
         raise HTTPException(404, f"{name} has no {record_type}")
     return a.list_raw(record_type) if raw else [r.to_dict(include_raw=False) for r in a.list(record_type)]
 
 
-@router.get("/construction-status/{eid}")
+def _record_out(a, record_type: str, r) -> dict:
+    return {**r.to_dict(include_raw=True), "record_type": record_type, "platform_label": a.label,
+            "source": r.fields.get("source", "mock"), "source_label": r.fields.get("source_label")}
+
+
+@router.get("/platforms/{name}/{record_type}/{rid:path}")
+def platform_record(name: str, record_type: str, rid: str):
+    """One platform record by the platform's id or the canonical ref: normalized fields + the
+    platform-shaped raw object + where it came from (source live | mock)."""
+    a = _platform(name)
+    if record_type not in a.capabilities:
+        raise HTTPException(404, f"{name} has no {record_type}")
+    r = a.get_normalized(record_type, rid)
+    if r is None:
+        raise HTTPException(404, f"no {record_type} {rid!r} in {name}")
+    return _safe(_record_out(a, record_type, r))
+
+
+@router.get("/platform-record")
+def platform_record_by_link(url: str):
+    """The platform record a link points at (any record's links.self, mock:// or a live API URL)."""
+    for a in _adapters():
+        for rt in sorted(a.capabilities):
+            for r in a.list(rt):
+                if r.links.get("self") == url:
+                    return _safe(_record_out(a, rt, r))
+    raise HTTPException(404, f"no platform record has the link {url!r}")
+
+
+@router.get("/construction-status/{eid:path}")
 def construction_status(eid: str):
     fn = _status_fn()
     if not fn:
@@ -484,7 +605,7 @@ def construction_status(eid: str):
 @router.post("/change-order")
 def change_order(m: Move):
     d = _design()
-    res = move_impact.impact(d, _col(m.column), m.dx, m.dy, m.remove)
+    res = _impact(d, m)
     return _safe(_change_order(d, res))
 
 

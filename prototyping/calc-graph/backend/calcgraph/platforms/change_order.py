@@ -313,7 +313,7 @@ def estimate(impact: dict, adapters: list[PlatformAdapter], design: dict) -> dic
         for ref, n in sorted(added.items()):
             a = acts.get(ref)
             r = res["activities"].get(ref, {})
-            fb, fa = r.get("float_before", a.fields["total_float_days"] if a else 0), r.get("float_after")
+            fb, fa = r.get("float_before", a.total_float if a else None), r.get("float_after")
             sched_acts.append({"ref": ref, "title": a.title if a else ref, "added_days": n, "reasons": extra[ref]["reasons"],
                                "early_finish_before": r.get("early_finish_before"), "early_finish_after": r.get("early_finish_after"),
                                "slip_days": r.get("slip_days"), "float_before": fb, "float_after": fa,
@@ -325,14 +325,24 @@ def estimate(impact: dict, adapters: list[PlatformAdapter], design: dict) -> dic
         method = "float arithmetic (no CPM available): delay = max(0, added days - total float)"
         float_basis = "largest single draw on an activity's total float: min(added days, float before)"
         project_slip = 0
+        unknown = []
         for ref, n in sorted(added.items()):
             a = acts.get(ref)
-            fl = a.fields["total_float_days"] if a else 0
-            float_used = max(float_used, min(n, fl))
-            project_slip = max(project_slip, n - fl)
+            fl = a.total_float if a else None
+            if fl is None:   # float not reported: nothing is known to absorb the delay, so assume none
+                unknown.append(ref)
+            fl0 = fl if fl is not None else 0
+            float_used = max(float_used, min(n, fl0))
+            project_slip = max(project_slip, n - fl0)
             sched_acts.append({"ref": ref, "title": a.title if a else ref, "added_days": n, "reasons": extra[ref]["reasons"],
-                               "float_before": fl, "float_after": fl - n, "platform": a.platform if a else None,
+                               "float_before": fl, "float_after": fl - n if fl is not None else None,
+                               "float_known": fl is not None, "platform": a.platform if a else None,
                                "link": a.links.get("self") if a else None})
+        if unknown:
+            float_basis += (f"; total float not reported for {', '.join(unknown)}: assumed 0 there (every added day "
+                            "counts as delay), an upper bound")
+            warnings.append(f"schedule float unknown for {len(unknown)} activit{'y' if len(unknown) == 1 else 'ies'} "
+                            f"({', '.join(unknown)}): delay assumes no float there")
         finish_delay = max(0, project_slip)
         knock = []
     else:

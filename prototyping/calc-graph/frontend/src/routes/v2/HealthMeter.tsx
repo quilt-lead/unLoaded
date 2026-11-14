@@ -1,5 +1,6 @@
 import { InfoTip } from "../../help/InfoTip";
 import type { Band, Health, HealthReason } from "./api";
+import { PlatformSourceBadge } from "./PlatformRecord";
 import { BAND_COLOR, BAND_LABEL, BANDS } from "./util";
 
 /** construction-status reasons come from the (mock) platforms; everything else is the design screen */
@@ -64,7 +65,7 @@ export function HealthMeter({ health, title }: { health: Health; title?: string 
       <Reasons items={design} empty="No design reasons: the screen found nothing that makes this hard." />
       <h3 className="v2-h3">
         Construction status reasons <InfoTip id="panel.move-reasons-construction" />
-        <span className="v2-mock">mock platforms</span>
+        <PlatformSourceBadge />
       </h3>
       <Reasons items={cons} empty="Nothing built or approved yet that this would affect." />
     </div>

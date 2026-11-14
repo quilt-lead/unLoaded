@@ -169,6 +169,30 @@
   padding: 1px 6px;
   margin: 0 4px 0 0;
 }
+/* live construction-platform data (the same badge slot as .v2-mock) */
+.v2-live {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--good);
+  border: 1px solid var(--good);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+.v2-live.big {
+  font-size: 11px;
+  padding: 1px 6px;
+  margin: 0 4px 0 0;
+}
+.v2-mocklink.v2-livelink {
+  color: var(--good);
+  border: 1px solid var(--good);
+}
+.v2-mocklink.v2-livelink:hover {
+  background: var(--good-soft);
+}
 .v2-mock-banner {
   font-size: 12px;
   background: var(--warn-soft);

@@ -27,6 +27,18 @@ export interface V2Occurrence {
   story?: string;
   object_type?: string;
   error?: string;
+  // doc "platforms": a construction-platform record naming this element
+  platform?: string;
+  platform_label?: string;
+  record_type?: string;
+  id?: string;
+  record_ref?: string;
+  number?: string;
+  title?: string;
+  status?: string;
+  link?: string | null;
+  source?: "live" | "mock" | string;
+  source_label?: string | null;
 }
 
 export interface V2DesignElement {
@@ -67,6 +79,11 @@ export interface V2Relation {
 }
 
 export interface V2ElementPage {
+  id: string;
+  /** which registry collection the id is in */
+  kind: "element" | "type" | "record" | "spec_article" | "detail";
+  /** the entity itself, whatever its kind */
+  entity: Record<string, unknown>;
   element: V2DesignElement | null;
   record: V2Record | null;
   relations_out: V2Relation[];

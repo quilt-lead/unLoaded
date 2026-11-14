@@ -116,8 +116,9 @@ export interface ScheduleActivity {
   early_finish_before?: string;
   early_finish_after?: string;
   slip_days?: number;
-  float_before?: number;
-  float_after?: number;
+  float_before?: number | null; // null = the platform does not report float (assumed 0 for the delay)
+  float_after?: number | null;
+  float_known?: boolean;
   platform?: string;
   link?: string;
 }
@@ -354,6 +355,12 @@ export interface PlatformInfo {
   counts: Record<string, Record<string, number>>;
   doc_urls: Record<string, string>;
   mock: boolean;
+  /** where the records come from now: "live" (signed in, live selected) or "mock" */
+  source: "live" | "mock";
+  /** the mode chosen by env (CALCGRAPH_PLATFORM_<NAME>) */
+  selected: "live" | "mock";
+  /** why the mock is served (default selection, or why live failed) */
+  fallback_reason?: string | null;
 }
 
 export interface PlatformRecord {
@@ -368,6 +375,15 @@ export interface PlatformRecord {
   dates?: Record<string, string>;
   links?: { self?: string };
   fields?: Record<string, unknown>;
+}
+
+/** GET /platforms/{name}/{type}/{id} or /platform-record?url=: one record + where it came from. */
+export interface PlatformRecordFull extends PlatformRecord {
+  record_type: string;
+  platform_label: string;
+  source: "live" | "mock";
+  source_label?: string | null;
+  raw?: Record<string, unknown>;
 }
 
 export interface Scenario {
@@ -391,12 +407,32 @@ const moveBody = (m: Move) => ({
 });
 
 // ---- reads
+// The heat view: the server keeps it on disk keyed by its inputs, so after a restart it answers at once.
+// The browser also keeps the last answer it saw, shown immediately (as placeholder data, labelled) while
+// the request is in flight - e.g. while the server recomputes after the design changed.
+const heatKey = (probe: number) => `cg.v2.heat.${probe}`;
+function readHeat(probe: number): Record<string, Health> | undefined {
+  try {
+    const s = localStorage.getItem(heatKey(probe));
+    return s ? (JSON.parse(s) as Record<string, Health>) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 export const useHealthHeat = (probe = 2) =>
-  useQuery({
+  useQuery<Record<string, Health>>({
     queryKey: ["v2", "health", probe],
     staleTime: 5 * 60_000,
-    queryFn: ({ signal }) =>
-      get<Record<string, Health>>(`/api/v2/health?probe=${probe}`, signal),
+    placeholderData: () => readHeat(probe),
+    queryFn: async ({ signal }) => {
+      const h = await get<Record<string, Health>>(`/api/v2/health?probe=${probe}`, signal);
+      try {
+        localStorage.setItem(heatKey(probe), JSON.stringify(h));
+      } catch {
+        /* storage full or blocked: the server cache still serves it */
+      }
+      return h;
+    },
   });
 
 /** POST /impact as a query keyed by the move (the call is read-only on the server). */
@@ -464,6 +500,27 @@ export const usePlatforms = () =>
   });
 
 export const usePlatformRecords = (
+/** One platform record by its link (links.self of any record, mock:// or a live API URL). */
+export const usePlatformRecordByLink = (url: string | null) =>
+  useQuery({
+    queryKey: ["v2", "platform-record", url],
+    enabled: !!url,
+    staleTime: 5 * 60_000,
+    queryFn: ({ signal }) => get<PlatformRecordFull>(`/api/v2/platform-record?url=${enc(url!)}`, signal),
+  });
+
+/** Rebuild the platform adapters on the server (after a login, or to re-fetch live records). */
+export function usePlatformsRefresh() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => post<PlatformInfo[]>("/api/v2/platforms/refresh"),
+    onSuccess: (d) => {
+      qc.setQueryData(["v2", "platforms"], d);
+      return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === "v2" && q.queryKey[1] !== "platforms" });
+    },
+  });
+}
+
   name: string | null,
   type: string | null,
   raw = false,

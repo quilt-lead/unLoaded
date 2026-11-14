@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { InfoTip } from "../../help/InfoTip";
-import { usePlatformRecords, type PlatformRecord } from "./api";
+import { usePlatformRecordByLink, usePlatforms } from "./api";
 import { PLATFORM_LABEL } from "./util";
 
 /** mock://<platform>/projects/<id>/<path...>/<record id> -> adapter name + record type */
@@ -31,26 +31,62 @@ export function parseMockLink(url: string): { platform: string; type: string | n
   return { platform, type, id };
 }
 
-/** Small "Mock Procore" style badge + button that opens the mock record. */
-export function MockLink({ url, onOpen, label }: { url?: string; onOpen: (url: string) => void; label?: string }) {
-  if (!url) return null;
-  const p = parseMockLink(url);
+/** live / mock badge for construction-platform data. `source` when the caller has it (a record, an
+ * occurrence); else looked up per platform from GET /platforms; with neither, a summary of all platforms. */
+export function PlatformSourceBadge({ source, platform, big }: { source?: string | null; platform?: string | null; big?: boolean }) {
+  const ps = usePlatforms();
+  const list = ps.data ?? [];
+  let src = source ?? (platform ? list.find((p) => p.name === platform)?.source : undefined);
+  let title = platform ? list.find((p) => p.name === platform)?.fallback_reason ?? undefined : undefined;
+  if (!source && !platform && list.length) {
+    const live = list.filter((p) => p.source === "live");
+    src = live.length === list.length ? "live" : live.length ? "mixed" : "mock";
+    title = list.map((p) => `${PLATFORM_LABEL[p.name] ?? p.label}: ${p.source}${p.fallback_reason ? ` (${p.fallback_reason})` : ""}`).join("; ");
+  }
+  if (!src) return null;
+  const cls = `${src === "live" ? "v2-live" : "v2-mock"}${big ? " big" : ""}`;
+  if (src === "mixed") {
+    const live = list.filter((p) => p.source === "live").map((p) => PLATFORM_LABEL[p.name] ?? p.label);
+    return (
+      <span className={cls} title={title}>
+        live: {live.join(", ")}; rest mock
+      </span>
+    );
+  }
   return (
-    <button type="button" className="v2-mocklink" onClick={() => onOpen(url)} title={url}>
-      {label ?? `Mock ${PLATFORM_LABEL[p?.platform ?? ""] ?? p?.platform ?? "platform"} record`}
+    <span className={cls} title={title}>
+      {src === "live" ? "live" : "mock"}
+    </span>
+  );
+}
+
+const platformOfLink = (url: string): string | null => {
+  const p = parseMockLink(url);
+  if (p) return p.platform;
+  if (/procore\.com\//.test(url)) return "procore";
+  return null;
+};
+
+/** Small button that opens a platform record (mock or live) by its link. */
+export function MockLink({ url, onOpen, label }: { url?: string | null; onOpen: (url: string) => void; label?: string }) {
+  const ps = usePlatforms();
+  if (!url) return null;
+  const plat = platformOfLink(url);
+  const src = plat ? ps.data?.find((p) => p.name === plat)?.source : undefined;
+  const name = PLATFORM_LABEL[plat ?? ""] ?? plat ?? "platform";
+  return (
+    <button type="button" className={src === "live" ? "v2-mocklink v2-livelink" : "v2-mocklink"} onClick={() => onOpen(url)} title={url}>
+      {label ?? `${src === "live" ? "Live" : "Mock"} ${name} record`}
     </button>
   );
 }
 
-/** Dialog showing one mock platform record: the normalised fields and the platform-shaped JSON. */
+/** Dialog showing one platform record (live or mock): the normalised fields and the platform-shaped JSON. */
 export function PlatformRecordDialog({ url, onClose }: { url: string; onClose: () => void }) {
-  const p = parseMockLink(url);
-  const list = usePlatformRecords(p?.platform ?? null, p?.type ?? null);
-  const raw = usePlatformRecords(p?.platform ?? null, p?.type ?? null, true);
+  const q = usePlatformRecordByLink(url);
   const [showRaw, setShowRaw] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const rec = (list.data as PlatformRecord[] | undefined)?.find((r) => r.links?.self === url || r.id === p?.id);
-  const rawRec = (raw.data as Record<string, unknown>[] | undefined)?.find((r) => String(r.id) === String(rec?.id ?? p?.id));
+  const rec = q.data;
 
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -59,14 +95,17 @@ export function PlatformRecordDialog({ url, onClose }: { url: string; onClose: (
     return () => document.removeEventListener("keydown", k);
   }, [onClose]);
 
-  const plat = PLATFORM_LABEL[p?.platform ?? ""] ?? p?.platform;
+  const pname = rec?.platform ?? platformOfLink(url) ?? "";
+  const plat = PLATFORM_LABEL[pname] ?? rec?.platform_label ?? pname;
+  const live = rec?.source === "live";
+  const type = rec?.record_type ?? parseMockLink(url)?.type ?? "record";
   return (
     <div className="v2-modal-back" onClick={onClose}>
-      <div className="v2-modal" role="dialog" aria-modal="true" aria-label={`Mock ${plat} record`} ref={box} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
+      <div className="v2-modal" role="dialog" aria-modal="true" aria-label={`${live ? "Live" : "Mock"} ${plat} record`} ref={box} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <header className="v2-modal-head">
-          <span className="v2-mock big">MOCK</span>
+          <span className={live ? "v2-live big" : "v2-mock big"}>{live ? "LIVE" : "MOCK"}</span>
           <b>
-            {plat} {p?.type?.replace(/_/g, " ")}
+            {plat} {type.replace(/_/g, " ")}
           </b>
           <InfoTip id="panel.platform-record" />
           <span className="spacer" />
@@ -75,11 +114,13 @@ export function PlatformRecordDialog({ url, onClose }: { url: string; onClose: (
           </button>
         </header>
         <p className="v2-small muted">
-          Synthetic record shaped like the {plat} API. No network call was made and no real project exists. <span className="mono">{url}</span>
+          {live
+            ? `Read from the ${plat} API (${rec?.source_label ?? "live"}).`
+            : `Synthetic record shaped like the ${plat} API. No network call was made and no real project exists${rec?.source_label ? ` - ${rec.source_label}` : ""}.`}{" "}
+          <span className="mono">{url}</span>
         </p>
-        {list.isLoading && <p className="muted">Loading...</p>}
-        {list.error && <p className="v2-error">{String((list.error as Error).message)}</p>}
-        {!list.isLoading && !rec && <p className="muted">This record is not in the mock {plat} data.</p>}
+        {q.isLoading && <p className="muted">Loading...</p>}
+        {q.error && <p className="v2-error">{String((q.error as Error).message)}</p>}
         {rec && (
           <>
             <h3 className="v2-modal-title">
@@ -112,7 +153,7 @@ export function PlatformRecordDialog({ url, onClose }: { url: string; onClose: (
             <button type="button" className="btn sm" onClick={() => setShowRaw((v) => !v)} aria-expanded={showRaw}>
               {showRaw ? "Hide" : "Show"} the {plat}-shaped JSON
             </button>
-            {showRaw && <pre className="v2-pre">{rawRec ? JSON.stringify(rawRec, null, 2) : raw.isLoading ? "Loading..." : "Not found in the raw list."}</pre>}
+            {showRaw && <pre className="v2-pre">{rec.raw ? JSON.stringify(rec.raw, null, 2) : "No raw object."}</pre>}
           </>
         )}
       </div>

@@ -5,7 +5,8 @@ import { StatPill, StatRow } from "../../components/StatPill";
 import { urls } from "../../api/client";
 import type { PdfSource } from "../../components/PdfPage";
 import type { ChangeOrder, CoItem, Figure } from "./api";
-import { MockLink } from "./PlatformRecord";
+import { usePlatforms } from "./api";
+import { MockLink, PlatformSourceBadge } from "./PlatformRecord";
 import { fmtUsd, type DesignIndex } from "./util";
 
 export interface ChangeOrderPanelProps {
@@ -57,14 +58,22 @@ function ItemRow({ it, openMock }: { it: CoItem; openMock: (u: string) => void }
 /** Potential change order: what a move would reopen on site and in the office, with cost and schedule estimates. */
 export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: ChangeOrderPanelProps) {
   const [showRates, setShowRates] = useState(false);
+  const ps = usePlatforms();
+  const anyLive = !!ps.data?.some((p) => p.source === "live");
+  const allLive = !!ps.data?.length && ps.data.every((p) => p.source === "live");
   if (co.error) return <p className="v2-error">Change order unavailable: {co.error}</p>;
   const s = co.summary;
   const sheetPage = (n?: string) => idx.sheets.find((x) => x.sheet === n);
   return (
     <div className="v2-co">
       <p className="v2-mock-banner">
-        <span className="v2-mock big">MOCK</span> Construction-platform data (Procore, Autodesk Build) is synthetic; every cost and schedule figure is an
-        estimate with its basis shown. <InfoTip id="panel.co-mock" />
+        <PlatformSourceBadge big />{" "}
+        {allLive
+          ? "Construction-platform records are read live from the platforms;"
+          : anyLive
+            ? "Some construction-platform records are live (hover the badge), the rest synthetic;"
+            : "Construction-platform data (Procore, Autodesk Build) is synthetic;"}{" "}
+        every cost and schedule figure is an estimate with its basis shown. <InfoTip id="panel.co-mock" />
       </p>
       {s && (
         <>
@@ -224,7 +233,7 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
                 <span className="mono">{a.ref}</span> {a.title} <span className="v2-chip tone-warn">+{a.added_days} d est.</span>
               </div>
               <div className="v2-small">
-                Finish {a.early_finish_before} {"->"} {a.early_finish_after}; float {a.float_before} {"->"} {a.float_after} d
+                Finish {a.early_finish_before} {"->"} {a.early_finish_after}; {a.float_known === false ? "float not reported (assumed 0)" : <>float {a.float_before} {"->"} {a.float_after} d</>}
               </div>
               <details className="v2-small">
                 <summary>{a.reasons.length} reasons</summary>
