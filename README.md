@@ -7,10 +7,26 @@ Visualizes **structural engineering calculations (PDFs)** and maps them bidirect
 2. **Calculation Graph (`calculation-graph`):** Graph of structural calculation types (`Beam Sizing Calcs`, `Column Sizing Calcs`, `Connection & Fastener Calcs`, `Slab & Punching Shear Calcs`, `Foundation & Geotech Calcs`) and PDF calculation packages—clicking any calculation node highlights its mapped structural elements in the 3D viewport and inspector.
 3. **3D Structural Model (`3d` + Floating/Dockable HUD):** Synchronized Three.js WebGL building viewer with demand/capacity utilization heatmap and zoom-to-selection.
 4. **PDF Calculation & Version Browser (`docs`):** Supports 1:1 calculation PDFs, multi-element PDF packages, and revision switching (`Rev A`, `Rev B`, `Rev C`, `Rev D`).
-5. **Pluggable IFC & BIM Converters (`src/utils/ifcParser.ts`):** Supports direct `.ifc` (`ISO-10303-21`) STEP imports across all IFC element classes as well as `.json` BIM graphs.
+5. **Pluggable IFC & BIM Converters (`src/loaders/parsers.ts`):** `.ifc` via web-ifc, plus `.json` ModelInput, serialized element graphs and legacy BIM graphs (see below).
+
+## Data pipeline
+
+```
+.ifc ──> @unloaded/ifc-parser ──> ModelInput ──> @unloaded/element-graph ──> ElementGraph ──> elementGraphToBim ──> BimNode/BimLink ──> UI
+             (web-ifc)          (parser contract)   buildGraph + inference     (domain model)   (src/loaders)          (view model)
+```
+
+- `packages/ifc-parser` reads what the IFC states: elements, marks, profiles, materials, levels, bbox/axis geometry and explicit relations.
+- `packages/element-graph` is the topology source of truth. Elements and connections are nodes. Edges are `connects` (physical), `supports` (directed load path: `a` is supported by `b`) and `part_of`. Missing connectivity is inferred from geometry and recorded as evidence.
+- `src/loaders/elementGraphToBim.ts` maps it onto the UI view model: kinds become categories, column-on-column chains become column stacks, bboxes become 3D boxes (feet, Y-up), `supports` edges become directed `load-path` links that the load-path trace follows exactly, and node `links` of kind `calc` become documents.
+- `public/data/bim-database.json` (the demo tower) is a legacy hand-authored view-model graph and is loaded directly.
+
+A new format (Revit, Tekla, ETABS, ...) only needs to emit a `ModelInput`. See `packages/*/README.md`.
 
 ## Quick Start
 ```bash
-npm install
+npm install      # npm workspaces; postinstall copies web-ifc.wasm + samples into public/
 npm run dev
+npm test         # app adapter tests + package tests
+npm run smoke    # IFC -> element graph summary in Node
 ```

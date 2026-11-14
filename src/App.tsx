@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, RotateCcw, CheckCircle2, AlertTriangle, Columns } from 'lucide-react';
 import {
   BimGraphData,
@@ -18,7 +18,7 @@ import {
   isInstanceNode,
   normalizeGraphData,
 } from './utils/graphEngine';
-import { BIM_PARSERS } from './utils/ifcParser';
+import { importModel } from './loaders/parsers';
 import { HeaderBar } from './components/HeaderBar';
 import { FilterBar } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
@@ -69,9 +69,12 @@ export const App: React.FC = () => {
     visible: false,
   });
 
+  const toastTimer = useRef<number | undefined>(undefined);
   const showToast = useCallback((message: string, isError = false) => {
     setToast({ message, isError, visible: true });
-    window.setTimeout(() => {
+    // One timer: a newer toast (e.g. import progress -> result) restarts the countdown.
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => {
       setToast((prev) => ({ ...prev, visible: false }));
     }, 3400);
   }, []);
@@ -95,43 +98,35 @@ export const App: React.FC = () => {
   }, [showToast]);
 
   const handleUploadFile = useCallback(
-    (file: File) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        try {
-          const cleanText = String(ev.target?.result || '')
-            .replace(/^\uFEFF/, '')
-            .trim();
-          const parser = BIM_PARSERS.find((p) => p.canParse(cleanText, file.name));
-          if (!parser) {
-            showToast('Unsupported file type. Upload an .ifc STEP file or .json BIM graph.', true);
-            return;
-          }
-          const { graph, rawLinks: parsedLinks } = parser.parse(cleanText, file.name);
-          if (graph.nodes.length <= 1) {
-            showToast('No physical structural elements found in file.', true);
-            return;
-          }
-
-          setProjectName(graph.projectName || file.name);
-          setElementNodes(graph.nodes);
-          setRawLinks(parsedLinks);
-          setGroups([]);
-          setSelectedNodeId(null);
-          setSelectedNodeIds(new Set());
-          setSelectedCalcNodeId(null);
-          setSelectedCalcNodeIds(new Set());
-          setResetTrigger((c) => c + 1);
-
-          const catCount = graph.nodes.filter(isElementTypeNode).length;
-          const instCount = graph.nodes.filter(isInstanceNode).length;
-          showToast(`Imported via ${parser.name}: ${instCount} elements across ${catCount} IFC types`);
-        } catch (err: any) {
-          showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
+    async (file: File) => {
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const { graph, rawLinks: parsedLinks, warnings, parser } = await importModel(file.name, bytes, (msg) =>
+          showToast(`${msg}\u2026`)
+        );
+        if (!graph.nodes.some(isInstanceNode)) {
+          showToast('No physical structural elements found in file.', true);
+          return;
         }
-      };
-      reader.onerror = () => showToast('Failed to read file from disk.', true);
-      reader.readAsText(file);
+
+        setProjectName(graph.projectName || file.name);
+        setElementNodes(graph.nodes);
+        setRawLinks(parsedLinks);
+        setGroups([]);
+        setSelectedNodeId(null);
+        setSelectedNodeIds(new Set());
+        setSelectedCalcNodeId(null);
+        setSelectedCalcNodeIds(new Set());
+        setResetTrigger((c) => c + 1);
+
+        if (warnings.length > 0) console.warn(`[import] ${file.name}: ${warnings.length} warning(s)`, warnings);
+        const catCount = graph.nodes.filter(isElementTypeNode).length;
+        const instCount = graph.nodes.filter(isInstanceNode).length;
+        const warnText = warnings.length > 0 ? ` \u2022 ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (see console)` : '';
+        showToast(`Imported via ${parser.name}: ${instCount} elements across ${catCount} types${warnText}`);
+      } catch (err: any) {
+        showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
+      }
     },
     [showToast]
   );

@@ -120,7 +120,7 @@ export function getStructuralGravityRank(node?: BimNode | null): number {
   const desc = (node.desc || '').toLowerCase();
 
   if (parent === 'cat-pile' || id.startsWith('pile-')) return 7;
-  if (parent === 'cat-mat' || parent === 'cat-pcap' || id.startsWith('mat-') || id.startsWith('pcap-')) return 6;
+  if (parent === 'cat-mat' || parent === 'cat-pcap' || parent === 'cat-footing' || id.startsWith('mat-') || id.startsWith('pcap-')) return 6;
   if (parent === 'cat-conn' || id.startsWith('conn-')) {
     return label.includes('bp') || desc.includes('base plate') ? 5 : 3;
   }
@@ -172,12 +172,18 @@ export function computeLoadPathTrace(
   const downstreamAdj = new Map<string, string[]>();
   const upstreamAdj = new Map<string, string[]>();
 
+  // Graphs built by @unloaded/element-graph carry explicit, directed load-path links
+  // (source is supported by target). Use those as-is. Older hand-authored graphs only
+  // have undirected connectivity, so their direction is inferred by orientLoadLink.
+  const hasDirectedLoadPath = rawLinks.some((l) => l.relation === 'load-path');
+
   rawLinks.forEach((l) => {
+    if (hasDirectedLoadPath && l.relation !== 'load-path') return;
     const s = nodeMap.get(l.source);
     const t = nodeMap.get(l.target);
     if (!s || !t || !isInstanceNode(s) || !isInstanceNode(t)) return;
 
-    const oriented = orientLoadLink(s, t, l);
+    const oriented = hasDirectedLoadPath ? l : orientLoadLink(s, t, l);
     if (!downstreamAdj.has(oriented.source)) downstreamAdj.set(oriented.source, []);
     downstreamAdj.get(oriented.source)!.push(oriented.target);
 

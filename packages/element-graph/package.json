@@ -1,0 +1,15 @@
+{
+  "name": "@unloaded/element-graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic structural element graph (elements + connections as nodes, connectivity and load-path edges).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./input": "./src/model/input.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  }
+}
