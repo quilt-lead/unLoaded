@@ -102,12 +102,22 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
     grav = [r for r in records if (old.get(r) or new.get(r) or {}).get("kind") not in LATERAL]
     lat = [r for r in records if (old.get(r) or new.get(r) or {}).get("kind") in LATERAL]
     order = load_order(base, grav) + [r for r in grav if r not in old] + lat
+    # the current sizes checked under the NEW layout (what the old calc would say now) - this is
+    # what makes "NG -> OK" meaningful
+    from synth.v2.scenarios import at_current_sizes
+    cur = at_current_sizes(L, base)
     results = []
     for n, rid in enumerate(order, 1):
         o, nw = old.get(rid), new.get(rid)
-        results.append({"step": n, "record": rid, "calc": (o or nw)["calc"], "kind": (o or nw)["kind"],
-                        "elements": (o or nw)["elements"], "job": "lateral" if rid in lat else "gravity",
-                        "method": METHOD, **_cmp(o, nw)})
+        row = {"step": n, "record": rid, "calc": (o or nw)["calc"], "kind": (o or nw)["kind"],
+               "elements": (o or nw)["elements"], "job": "lateral" if rid in lat else "gravity",
+               "method": METHOD, **_cmp(o, nw)}
+        el = row["elements"][0] if row["elements"] else None
+        if el in cur:
+            row["uc_current_size_new_layout"] = round(cur[el]["uc"], 4)
+            row["ok_current_size_new_layout"] = cur[el]["uc"] <= 1.0 + 1e-9
+            row["ng_to_ok"] = (not row["ok_current_size_new_layout"]) and row["ok_new"] is True
+        results.append(row)
     key = hashlib.sha1(json.dumps({"change": change, "records": order}, sort_keys=True).encode()).hexdigest()[:10]
     rev_id = f"calcrev-{key}"
     rdir = os.path.join(V2, "revisions", rev_id)
