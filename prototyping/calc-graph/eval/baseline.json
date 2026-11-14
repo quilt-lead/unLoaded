@@ -1,0 +1,97 @@
+{
+ "about": "calc-graph evaluation baseline - numbers only, no drawing text. Written by scripts/evaluate_all.py --update-baseline.",
+ "stages": {
+  "ai_step": {
+   "checks": {
+    "ai_step_replay": true,
+    "llm_imports_outside_ai": true
+   }
+  },
+  "calc_spot": {
+   "metrics": {
+    "spot_checks": 39,
+    "spot_pass_rate": 0.8205128205128205
+   }
+  },
+  "copyright": {
+   "checks": {
+    "no_copyrighted_in_head": true
+   }
+  },
+  "set_coverage": {
+   "metrics": {
+    "calc_edges": 303,
+    "calc_pages_linked_frac": 0.09689922480620156,
+    "elements": 638,
+    "elements_linked_frac": 0.3777429467084639,
+    "elements_linked_strong_frac": 0.28213166144200624,
+    "findings": 633,
+    "links": 960,
+    "load_path_edges": 171
+   }
+  },
+  "slice_links": {
+   "metrics": {
+    "correct_links_retained": 1.0,
+    "incorrect_links_present": 8,
+    "judged": 57,
+    "judged_present": 57,
+    "link_precision": 0.8596491228070176
+   }
+  },
+  "slice_tags": {
+   "metrics": {
+    "S2_0_2_grid_compatible": 1.0,
+    "S2_0_2_grid_exact": 0.9743589743589743,
+    "S2_0_2_labelled": 180,
+    "S2_0_2_predicted": 180,
+    "S2_0_2_size_accuracy": 1.0,
+    "S2_0_2_tag_precision": 1.0,
+    "S2_0_2_tag_recall": 1.0,
+    "S2_0_2_type_accuracy": 0.9833333333333333
+   }
+  },
+  "synthetic_v1": {
+   "metrics": {
+    "calc_edges_precision": 0.8461538461538461,
+    "calc_edges_recall": 0.9166666666666666,
+    "decisions_carried": 1.0,
+    "design_f1": 0.962962962962963,
+    "design_precision": 0.9323770491803278,
+    "design_recall": 0.9956236323851203,
+    "load_path_precision": 1.0,
+    "load_path_recall": 1.0,
+    "rev2_load_path_recall": 1.0,
+    "rev_diff_exact": 1.0,
+    "segmentation_exact": 1.0,
+    "xref_precision": 1.0
+   }
+  },
+  "v2_design": {
+   "checks": {
+    "aisc_table_verified": true,
+    "no_clashes": true,
+    "no_infeasible_members": true
+   },
+   "metrics": {
+    "calc_records": 676,
+    "elements": 647,
+    "members_with_design_record": 0.9883268482490273,
+    "relations": 4363
+   }
+  },
+  "v2_ifc": {
+   "metrics": {
+    "element_precision": 1.0,
+    "element_recall": 1.0,
+    "load_path_precision": 0.2694300518134715,
+    "load_path_recall": 0.33931484502446985,
+    "load_path_undirected_precision": 0.2694300518134715,
+    "load_path_undirected_recall": 0.33931484502446985,
+    "profile_accuracy": 0.9390862944162437,
+    "storey_accuracy": 1.0
+   }
+  }
+ },
+ "updated": "2026-11-14 15:13 EST"
+}
