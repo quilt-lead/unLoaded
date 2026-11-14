@@ -1,0 +1,49 @@
+/* One token-based theme. Light by default, dark from prefers-color-scheme, and an explicit
+   override via <html data-theme="light|dark"> (ThemeProvider + the header toggle). Components use
+   only these tokens. */
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7; --panel: #ffffff; --ink: #14171c; --muted: #5f6773; --line: #dfe3e8; --soft: #eef1f4;
+  --accent: #2f6fed; --accent-soft: #e3ecfd; --on-accent: #ffffff;
+  --warn: #b5650f; --warn-soft: #fdf0e1; --bad: #d23c3c; --bad-soft: #fbe6e6;
+  --good: #1a8f59; --good-soft: #e2f5ec; --viewer: #e9ecf0; --hl: rgba(255, 196, 0, .30); --hl-line: #e08a00;
+  --calc: #7c4dde; --calc-soft: #efe8fc; --edge: #9aa4b0; --shadow: 0 8px 28px rgba(16, 24, 40, .14);
+  --radius: 10px; --radius-sm: 7px;
+  --font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1216; --panel: #171b21; --ink: #e7eaee; --muted: #98a1ad; --line: #2a3039; --soft: #1f242b;
+    --accent: #6b9bff; --accent-soft: #1d2b47; --on-accent: #0b1020;
+    --warn: #f0a050; --warn-soft: #3a2a17; --bad: #ff6b6b; --bad-soft: #3d1f22;
+    --good: #3ecf8e; --good-soft: #163327; --viewer: #14181d; --hl: rgba(255, 196, 0, .26); --hl-line: #ffb020;
+    --calc: #a98bf5; --calc-soft: #2a2342; --edge: #5d6774; --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1216; --panel: #171b21; --ink: #e7eaee; --muted: #98a1ad; --line: #2a3039; --soft: #1f242b;
+  --accent: #6b9bff; --accent-soft: #1d2b47; --on-accent: #0b1020;
+  --warn: #f0a050; --warn-soft: #3a2a17; --bad: #ff6b6b; --bad-soft: #3d1f22;
+  --good: #3ecf8e; --good-soft: #163327; --viewer: #14181d; --hl: rgba(255, 196, 0, .26); --hl-line: #ffb020;
+  --calc: #a98bf5; --calc-soft: #2a2342; --edge: #5d6774; --shadow: 0 10px 30px rgba(0, 0, 0, .5);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+.mono { font-family: var(--mono); }
+.muted { color: var(--muted); }
+button, select, input { font: inherit; color: inherit; }
+.btn { font-size: 13px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+  padding: 6px 11px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.btn.sm { padding: 3px 8px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

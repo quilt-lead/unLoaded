@@ -35,14 +35,32 @@ export class Viewer {
     this.scene.add(sun);
     this.scene.add(this.group);
     this.scene.add(this.extra);
-    new ResizeObserver(() => this.resize()).observe(el);
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(el);
     this.resize();
     const loop = () => {
-      requestAnimationFrame(loop);
+      if (this.disposed) return;
+      this.raf = requestAnimationFrame(loop);
       this.controls.update();
       this.renderer.render(this.scene, this.camera);
     };
     loop();
+  }
+
+  private ro: ResizeObserver;
+  private raf = 0;
+  private disposed = false;
+
+  /** Stop the render loop and free GPU resources (the React wrapper calls this on unmount). */
+  dispose() {
+    this.disposed = true;
+    cancelAnimationFrame(this.raf);
+    this.ro.disconnect();
+    this.clear();
+    this.controls.dispose();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
   }
 
   resize() {

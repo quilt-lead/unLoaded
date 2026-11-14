@@ -8,7 +8,7 @@ import {
   type State,
 } from "./api";
 import { renderGraph } from "./graph";
-import { Viewer } from "./viewer";
+import { Viewer } from "../viewer";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id) as T;

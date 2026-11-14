@@ -14,7 +14,8 @@
   <b id="setName" class="setname"></b>
   <span class="spacer"></span>
   <button id="overviewBtn" title="Back to the overview of all links">Overview</button>
-  <nav class="viewswitch" aria-label="Switch viewer" style="display:inline-flex;border:1px solid var(--line,#d0d5dc);border-radius:8px;overflow:hidden"><a href="/" style="padding:6px 12px;text-decoration:none;font-size:13px;color:inherit" title="Synthetic BIM model + synthetic calc package (3D IFC viewer)">Synthetic IFC sample</a><a href="/set.html" aria-current="page" style="padding:6px 12px;text-decoration:none;font-size:13px;background:var(--accent,#2f6fdf);color:#fff;font-weight:600" title="Real permit set: S-sheets + KPFF calcs, every node opens the original PDF">Dana Point drawing set</a></nav>
+  <nav class="viewswitch" aria-label="Switch viewer" style="display:inline-flex;border:1px solid var(--line,#d0d5dc);border-radius:8px;overflow:hidden"><a href="/legacy/" style="padding:6px 12px;text-decoration:none;font-size:13px;color:inherit" title="Synthetic BIM model + synthetic calc package (3D IFC viewer)">Synthetic IFC sample</a><a href="/legacy/set.html" aria-current="page" style="padding:6px 12px;text-decoration:none;font-size:13px;background:var(--accent,#2f6fdf);color:#fff;font-weight:600" title="Real permit set: S-sheets + KPFF calcs, every node opens the original PDF">Dana Point drawing set</a></nav>
+  <a href="/" style="font-size:13px" title="The new React app">New app</a>
   <button id="themeBtn" title="Toggle theme">◐</button>
 </header>
 <div class="pills" id="pills"></div>
@@ -46,6 +47,6 @@
   </section>
 </main>
 <div class="foot">Elements are tags read off the structural S-sheets; calc records are the rows of the KPFF package tables (RISA, Enercalc, CFS, hand calcs), with pages kept as evidence; connections are the S8 details and where they are called out. Every link and edge is a deterministic rule and keeps the words it came from on both documents. Source PDFs stay on this machine and are rendered on demand.</div>
-<script type="module" src="/src/set/main.ts"></script>
+<script type="module" src="/src/legacy/set/main.ts"></script>
 </body>
 </html>

@@ -17,8 +17,9 @@
   <button id="sampleBtn" class="primary">Load sample</button>
   <button id="rev2Btn" title="Ingest the synthetic model revision 2 (column C8 removed)" disabled>Ingest sample rev 2</button>
   <span class="spacer"></span>
-  <nav class="viewswitch" aria-label="Switch viewer" style="display:inline-flex;border:1px solid var(--line,#d0d5dc);border-radius:8px;overflow:hidden"><a href="/" aria-current="page" style="padding:6px 12px;text-decoration:none;font-size:13px;background:var(--accent,#2f6fdf);color:#fff;font-weight:600" title="Synthetic BIM model + synthetic calc package (3D IFC viewer)">Synthetic IFC sample</a><a href="/set.html" style="padding:6px 12px;text-decoration:none;font-size:13px;color:inherit" title="Real permit set: S-sheets + KPFF calcs, every node opens the original PDF">Dana Point drawing set</a></nav>
+  <nav class="viewswitch" aria-label="Switch viewer" style="display:inline-flex;border:1px solid var(--line,#d0d5dc);border-radius:8px;overflow:hidden"><a href="/legacy/" aria-current="page" style="padding:6px 12px;text-decoration:none;font-size:13px;background:var(--accent,#2f6fdf);color:#fff;font-weight:600" title="Synthetic BIM model + synthetic calc package (3D IFC viewer)">Synthetic IFC sample</a><a href="/legacy/set.html" style="padding:6px 12px;text-decoration:none;font-size:13px;color:inherit" title="Real permit set: S-sheets + KPFF calcs, every node opens the original PDF">Dana Point drawing set</a></nav>
   <button id="exportBtn" disabled>Export mapping JSON</button>
+  <a href="/" style="font-size:13px" title="The new React app">New app</a>
   <button id="themeBtn" title="Toggle theme">◐</button>
 </header>
 <div class="pills" id="pills"></div>
@@ -58,6 +59,6 @@
 <div class="foot">Hackathon v1. Mapping is deterministic (marks, mark ranges, mark families, section sizes, element type) and every link shows the text it came from. Every upload is stored as a revision. Sample building and calc package are synthetic.</div>
 <dialog id="pageDlg"><div class="dh"><b id="dlgTitle">Page</b><span class="spacer"></span><button id="dlgPrev">‹</button><button id="dlgNext">›</button><button id="dlgClose">Close</button></div><div class="dbody" id="dlgBody"></div></dialog>
 <div class="err" id="err"></div>
-<script type="module" src="/src/main.ts"></script>
+<script type="module" src="/src/legacy/main.ts"></script>
 </body>
 </html>

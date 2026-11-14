@@ -12,6 +12,7 @@ import threading
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
 
 from . import pipeline, revstore, set_pipeline
@@ -311,5 +312,19 @@ from .move_api import router as _v2_router; app.include_router(_v2_router)  # sy
 
 from .store_api import router as _store_router; app.include_router(_store_router)  # schema-shaped store endpoints (store_api.py)
 
+class _SpaStatic(StaticFiles):
+    """Built UI (frontend/dist). Real files are served as-is (the legacy pages at /legacy/ included);
+    any other non-API path that is not a file returns index.html, so React Router deep links such as
+    /dev/components or /set/... load the app instead of a 404."""
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as e:  # StaticFiles raises starlette's (the base of FastAPI's) for misses
+            if e.status_code != 404 or path.startswith("api/") or path == "api" or os.path.splitext(path)[1]:
+                raise
+            return await super().get_response("index.html", scope)
+
+
 if os.path.isdir(DIST):
-    app.mount("/", StaticFiles(directory=DIST, html=True), name="ui")
+    app.mount("/", _SpaStatic(directory=DIST, html=True), name="ui")

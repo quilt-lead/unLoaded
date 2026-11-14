@@ -1,0 +1,17 @@
+.dev h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 8px; }
+.dev-sec { margin-bottom: 26px; }
+.dev-grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .dev-grid2 { grid-template-columns: minmax(0, 1fr); } }
+.dev-panel { max-height: 340px; }
+.dev-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
+.dev-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.dev-table td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.dev-table .num { text-align: right; }
+.dev-note { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.dev-status { font-size: 13px; color: var(--ink); }
+.dev-err { color: var(--bad); }
+.dev-pdf { height: 560px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.dev-pdf.small { height: 220px; }
+.dev-compare { height: 480px; }
+.dev-3d { height: 460px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+@media (max-width: 760px) { .dev-compare { height: auto; } .dev-pdf { height: 460px; } }

@@ -4,7 +4,7 @@
 import "../style.css";
 import "./set.css";
 import { PdfView, type Shown } from "./pdfview";
-import { Viewer } from "../viewer";
+import { Viewer } from "../../viewer";
 import * as THREE from "three";
 
 interface Ev {

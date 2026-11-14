@@ -1,0 +1,37 @@
+.shell { display: flex; flex-direction: column; min-height: 100%; }
+.shell-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+  position: sticky; top: 0; z-index: 20; }
+.shell-brand { font-weight: 700; font-size: 15px; letter-spacing: -.01em; color: var(--ink); text-decoration: none; margin-right: 6px; }
+.viewswitch { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.viewswitch a { padding: 5px 11px; text-decoration: none; font-size: 13px; color: var(--ink); white-space: nowrap; border-right: 1px solid var(--line); }
+.viewswitch a:last-child { border-right: 0; }
+.viewswitch a:hover { background: var(--soft); }
+.viewswitch a.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.shell-tool { display: inline-flex; align-items: center; }
+.shell-tool .btn { text-decoration: none; }
+.shell-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.page { padding: 16px; max-width: 1280px; width: 100%; margin: 0 auto; }
+.page h1 { font-size: 20px; margin: 4px 0 6px; display: flex; align-items: center; }
+.page-lede { color: var(--muted); margin: 0 0 16px; max-width: 70ch; }
+@media (max-width: 600px) { .shell-head { padding: 8px 12px; } .page { padding: 12px 16px; } }
+
+/* home */
+.home-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.home-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 6px; }
+.home-card h2 { margin: 0; font-size: 15px; display: flex; align-items: center; }
+.home-card p { margin: 0; color: var(--muted); font-size: 13px; flex: 1; }
+.home-card a.btn { align-self: flex-start; text-decoration: none; }
+
+/* glossary */
+.glossary { padding: 16px; max-width: 880px; margin: 0 auto; width: 100%; }
+.glossary-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+.glossary-head h1 { font-size: 20px; margin: 4px 0; display: flex; align-items: center; }
+.glossary-q { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 0; flex: 1; max-width: 340px; }
+.glossary h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 22px 0 6px; }
+.glossary dl { margin: 0; }
+.glossary-entry { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 6px; scroll-margin-top: 80px; transition: box-shadow .3s; }
+.glossary-entry.flash { box-shadow: 0 0 0 3px var(--accent); }
+.glossary-entry dt { font-weight: 600; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.glossary-entry dt code { font-size: 11px; color: var(--muted); font-weight: 400; }
+.glossary-entry dd { margin: 3px 0 0; font-size: 13px; }
+.glossary-entry dd p { margin: 0 0 3px; }

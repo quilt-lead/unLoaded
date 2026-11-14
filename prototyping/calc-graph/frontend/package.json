@@ -6,15 +6,26 @@
   "scripts": {
     "wasm": "node scripts/copy-wasm.mjs",
     "dev": "npm run wasm && vite",
-    "build": "npm run wasm && vite build",
-    "preview": "vite preview"
+    "build": "npm run wasm && node scripts/check-help.mjs && node scripts/ci-typecheck.mjs && vite build",
+    "preview": "vite preview",
+    "help:check": "node scripts/check-help.mjs"
   },
   "dependencies": {
+    "@dagrejs/dagre": "1.1.8",
+    "@tanstack/react-query": "5.105.0",
+    "@xyflow/react": "12.12.0",
+    "pdfjs-dist": "4.10.38",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.30.6",
     "three": "0.170.0",
     "web-ifc": "0.0.66"
   },
   "devDependencies": {
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
     "@types/three": "0.170.0",
+    "@vitejs/plugin-react": "4.7.0",
     "typescript": "5.6.3",
     "vite": "6.3.5"
   }
