@@ -126,9 +126,6 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
                 files["note"] = "calc package writer has no write_revision yet - values only"
         except Exception as e:   # pages are a convenience; the values are the result
             files["page_error"] = f"{type(e).__name__}: {e}"
-    for r in results:
-        if r["record"] in pages:
-            r["new_page"] = pages[r["record"]]
     out = {"rev_id": rev_id, "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
            "change": change, "method": METHOD, "order_rule": "gravity in load-path order (inputs first: beams -> girders -> "
            "columns -> footings -> connections), then the lateral system as one job",
@@ -140,6 +137,22 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
                "removed": sum(1 for r in results if r["status"].startswith("record removed")),
                "seconds": round(time.time() - t, 1)},
            "files": files}
+    # handcalcs re-run sheets (math rendered from the code that recomputes each check), when present
+    if write_pages:
+        try:
+            from . import recalc_pages
+            hpdf = os.path.join(rdir, "rerun_sheets.pdf")
+            hp = recalc_pages.render(out, base, exp, hpdf) or {}
+            files["rerun_sheets_pdf"] = hpdf
+            for rid_, v in hp.items():
+                pages.setdefault(rid_, {})["rerun_sheet"] = v
+        except ImportError:
+            files.setdefault("note", "handcalcs re-run sheets not available yet")
+        except Exception as e:
+            files["rerun_sheets_error"] = f"{type(e).__name__}: {e}"
+    for r in results:
+        if r["record"] in pages:
+            r["new_page"] = pages[r["record"]]
     with open(os.path.join(rdir, "revision.json"), "w") as fh:
         json.dump(_clean(out), fh, indent=1)
     with open(os.path.join(rdir, "design.json"), "w") as fh:

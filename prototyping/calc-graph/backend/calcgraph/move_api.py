@@ -245,11 +245,14 @@ def revision(rev_id: str):
     return FileResponse(p, media_type="application/json")
 
 
-@router.get("/revisions/{rev_id}/calc_revision.pdf")
-def revision_pdf(rev_id: str):
-    p = os.path.join(V2, "revisions", os.path.basename(rev_id), "calc_revision.pdf")
+@router.get("/revisions/{rev_id}/{name}.pdf")
+def revision_pdf(rev_id: str, name: str):
+    """calc_revision.pdf (revised sheets in the package style) or rerun_sheets.pdf (handcalcs)."""
+    if name not in ("calc_revision", "rerun_sheets"):
+        raise HTTPException(404)
+    p = os.path.join(V2, "revisions", os.path.basename(rev_id), f"{name}.pdf")
     if not os.path.exists(p):
-        raise HTTPException(404, "no regenerated pages for this revision")
+        raise HTTPException(404, f"no {name}.pdf for this revision")
     return FileResponse(p, media_type="application/pdf")
 
 
