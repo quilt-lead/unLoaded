@@ -1,0 +1,342 @@
+{
+ "_note": "SYNTHETIC recording shaped by the Procore OAS (generated/procore_client.openapi.json); not real data",
+ "config": {
+  "company_id": 4900001,
+  "env": "sandbox",
+  "project_id": 5800002
+ },
+ "routes": [
+  {
+   "body": [
+    {
+     "id": 4900001,
+     "is_active": true,
+     "my_company": true,
+     "name": "Calc-Graph Sandbox Co (synthetic)"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/companies",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "active": true,
+     "id": 5800002,
+     "name": "Harbor View Office (sandbox)",
+     "project_number": "HVO-SBX"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/projects",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [],
+   "method": "GET",
+   "path": "/rest/v1.1/projects/5800002/submittals",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "full_number": "900",
+     "id": 81999999,
+     "number": "900",
+     "private": false,
+     "questions": [
+      {
+       "body": "Seed data question.",
+       "id": 1
+      }
+     ],
+     "status": "open",
+     "subject": "Unrelated sandbox seed RFI (no marker)"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/projects/5800002/rfis",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [],
+   "method": "GET",
+   "path": "/rest/v1.1/change_events",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [],
+   "method": "GET",
+   "path": "/rest/v1.0/change_order_packages",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "executed": true,
+     "id": 44001,
+     "number": "SC-05",
+     "private": false,
+     "status": "Approved",
+     "title": "Structural steel - Keelson Steel Fabricators (fictional)",
+     "vendor": {
+      "id": 900101,
+      "name": "Keelson Steel Fabricators (fictional)"
+     }
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/commitments",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "critical_path": true,
+     "finish_datetime": "2026-11-20T15:00:00Z",
+     "id": 55001,
+     "milestone": false,
+     "name": "Erect steel L3 Seq 1",
+     "notes": "[calc-graph ERECT-L3-S1]",
+     "percentage": 40,
+     "start_datetime": "2026-11-09T07:00:00Z",
+     "wbs": "05.3.1"
+    },
+    {
+     "critical_path": true,
+     "finish_datetime": "2027-01-15T07:00:00Z",
+     "id": 55002,
+     "milestone": true,
+     "name": "Topping-out milestone",
+     "percentage": 0,
+     "start_datetime": "2027-01-15T07:00:00Z"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/tasks",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "drawings_count": 2,
+     "id": 7700003,
+     "name": "Structural"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/projects/5800002/drawing_areas",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "current_revision": {
+      "id": 1,
+      "revision_number": "2",
+      "updated_at": "2026-10-01T12:00:00Z"
+     },
+     "discipline": "Structural",
+     "id": 77101,
+     "number": "S-201",
+     "obsolete": false,
+     "title": "Level 2 framing plan"
+    },
+    {
+     "current_revision": {
+      "id": 2,
+      "revision_number": "1",
+      "updated_at": "2026-07-17T12:00:00Z"
+     },
+     "discipline": "Structural",
+     "id": 77102,
+     "number": "S-501",
+     "obsolete": false,
+     "title": "Foundation details"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/drawing_areas/7700003/drawings",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "code": "05 12 00",
+     "full_code": "05-12-00",
+     "id": 88001,
+     "name": "Structural Steel Framing"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/cost_codes",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "id": 7100001,
+     "login": "pm@tidewater.example",
+     "name": "Marisol Okafor"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/projects/5800002/rfis/potential_rfi_managers",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "description": "Concrete Reinforcing",
+     "id": 12075,
+     "number": "03 20 00"
+    },
+    {
+     "description": "Cast-in-Place Concrete",
+     "id": 12573,
+     "number": "03 30 00"
+    },
+    {
+     "description": "Structural Steel Framing",
+     "id": 12225,
+     "number": "05 12 00"
+    },
+    {
+     "description": "Steel Decking",
+     "id": 12716,
+     "number": "05 31 00"
+    },
+    {
+     "description": "Applied Fireproofing",
+     "id": 12886,
+     "number": "07 81 00"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/specification_sections",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "id": 183100,
+     "is_default": true,
+     "name": "Draft",
+     "status": "Draft"
+    },
+    {
+     "id": 183101,
+     "is_default": true,
+     "name": "Open",
+     "status": "Open"
+    },
+    {
+     "id": 183102,
+     "is_default": false,
+     "name": "Approved",
+     "status": "Closed"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/companies/4900001/submittal_statuses",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "data": [
+     {
+      "default": true,
+      "default_status": true,
+      "deletable": false,
+      "id": "301",
+      "name": "Open"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/rest/v2.0/companies/4900001/change_events/statuses",
+   "status": 200
+  },
+  {
+   "body": {
+    "id": 81500001,
+    "number": "1",
+    "status": "open",
+    "subject": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.0/projects/5800002/rfis",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": 61500001,
+    "number": "001",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.1/projects/5800002/submittals",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": 91500001,
+    "number": "001",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.1/change_events",
+   "status": 201
+  }
+ ]
+}

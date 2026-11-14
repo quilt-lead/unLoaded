@@ -1,0 +1,111 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, Self, TypeVar, cast
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+T = TypeVar("T", bound="ListSpecificationSectionsResponse200Item")
+
+
+@_attrs_define
+class ListSpecificationSectionsResponse200Item:
+    """
+    Attributes:
+        current_revision_id (int | None | Unset): ID of the section's current revision. Null if no revision exists.
+        description (str | Unset): Descriptive title of the specification section.
+        id (int | Unset): Unique identifier for the specification section.
+        label (str | Unset): Combined label of the section, formatted as "number description".
+        number (str | Unset): Identifying number of the specification section.
+    """
+
+    current_revision_id: int | None | Unset = UNSET
+    description: str | Unset = UNSET
+    id: int | Unset = UNSET
+    label: str | Unset = UNSET
+    number: str | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        current_revision_id: int | None | Unset
+        if isinstance(self.current_revision_id, Unset):
+            current_revision_id = UNSET
+        else:
+            current_revision_id = self.current_revision_id
+
+        description = self.description
+
+        id = self.id
+
+        label = self.label
+
+        number = self.number
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({})
+        if current_revision_id is not UNSET:
+            field_dict["current_revision_id"] = current_revision_id
+        if description is not UNSET:
+            field_dict["description"] = description
+        if id is not UNSET:
+            field_dict["id"] = id
+        if label is not UNSET:
+            field_dict["label"] = label
+        if number is not UNSET:
+            field_dict["number"] = number
+
+        return field_dict
+
+    @classmethod
+    def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
+        d = dict(src_dict)
+
+        def _parse_current_revision_id(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        current_revision_id = _parse_current_revision_id(
+            d.pop("current_revision_id", UNSET)
+        )
+
+        description = d.pop("description", UNSET)
+
+        id = d.pop("id", UNSET)
+
+        label = d.pop("label", UNSET)
+
+        number = d.pop("number", UNSET)
+
+        list_specification_sections_response_200_item = cls(
+            current_revision_id=current_revision_id,
+            description=description,
+            id=id,
+            label=label,
+            number=number,
+        )
+
+        list_specification_sections_response_200_item.additional_properties = d
+        return list_specification_sections_response_200_item
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

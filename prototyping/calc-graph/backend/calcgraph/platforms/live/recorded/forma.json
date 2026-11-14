@@ -1,0 +1,313 @@
+{
+ "_note": "SYNTHETIC recording shaped by the Forma proposal-listproposals-GET / element-getelement-GET reference pages",
+ "config": {
+  "forma_project_id": "pro_recsynthetic1"
+ },
+ "routes": [
+  {
+   "body": {
+    "pagination": {
+     "limit": 100
+    },
+    "results": [
+     {
+      "children": [
+       {
+        "key": "COL-2B",
+        "name": "COL-2B",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:c6ed594e-629:1"
+       },
+       {
+        "key": "COL-3B",
+        "name": "COL-3B",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:bd5007e7-f9e:1"
+       },
+       {
+        "key": "terrain",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:terrain:pro_recsynthetic1:t1:1"
+       }
+      ],
+      "metadata": {
+       "createdAt": "2026-10-03T13:37:00.000Z"
+      },
+      "properties": {
+       "category": "proposal",
+       "name": "Scheme B (structural grid v2)"
+      },
+      "urn": "urn:adsk-forma-elements:proposal:pro_recsynthetic1:p1:1731500000000"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/forma/proposal/v1alpha/proposals",
+   "query": {
+    "authcontext": "pro_recsynthetic1"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "element": {
+     "children": [
+      {
+       "key": "COL-2B",
+       "name": "COL-2B",
+       "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+       ],
+       "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:c6ed594e-629:1"
+      },
+      {
+       "key": "COL-3B",
+       "name": "COL-3B",
+       "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+       ],
+       "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:bd5007e7-f9e:1"
+      },
+      {
+       "key": "terrain",
+       "transform": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+       ],
+       "urn": "urn:adsk-forma-elements:terrain:pro_recsynthetic1:t1:1"
+      }
+     ],
+     "metadata": {
+      "createdAt": "2026-10-03T13:37:00.000Z"
+     },
+     "properties": {
+      "category": "proposal",
+      "name": "Scheme B (structural grid v2)"
+     },
+     "urn": "urn:adsk-forma-elements:proposal:pro_recsynthetic1:p1:1731500000000"
+    },
+    "elements": {
+     "urn:adsk-forma-elements:integrate:pro_recsynthetic1:bd5007e7-f9e:1": {
+      "children": [],
+      "properties": {
+       "category": "generic",
+       "name": "COL-3B"
+      },
+      "representations": {
+       "volumeMesh": {
+        "blobId": "56c792f9-2e3e-5930-a4db-b7064d0d7fcc",
+        "type": "linked"
+       }
+      },
+      "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:bd5007e7-f9e:1"
+     },
+     "urn:adsk-forma-elements:integrate:pro_recsynthetic1:c6ed594e-629:1": {
+      "children": [],
+      "properties": {
+       "category": "generic",
+       "name": "COL-2B"
+      },
+      "representations": {
+       "volumeMesh": {
+        "blobId": "508d99db-4497-55cd-aa6f-b243076e6962",
+        "type": "linked"
+       }
+      },
+      "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:c6ed594e-629:1"
+     },
+     "urn:adsk-forma-elements:proposal:pro_recsynthetic1:p1:1731500000000": {
+      "children": [
+       {
+        "key": "COL-2B",
+        "name": "COL-2B",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:c6ed594e-629:1"
+       },
+       {
+        "key": "COL-3B",
+        "name": "COL-3B",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:integrate:pro_recsynthetic1:bd5007e7-f9e:1"
+       },
+       {
+        "key": "terrain",
+        "transform": [
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1,
+         0,
+         0,
+         0,
+         0,
+         1
+        ],
+        "urn": "urn:adsk-forma-elements:terrain:pro_recsynthetic1:t1:1"
+       }
+      ],
+      "metadata": {
+       "createdAt": "2026-10-03T13:37:00.000Z"
+      },
+      "properties": {
+       "category": "proposal",
+       "name": "Scheme B (structural grid v2)"
+      },
+      "urn": "urn:adsk-forma-elements:proposal:pro_recsynthetic1:p1:1731500000000"
+     },
+     "urn:adsk-forma-elements:terrain:pro_recsynthetic1:t1:1": {
+      "children": [],
+      "properties": {
+       "category": "terrain",
+       "name": "Terrain"
+      },
+      "representations": {},
+      "urn": "urn:adsk-forma-elements:terrain:pro_recsynthetic1:t1:1"
+     }
+    }
+   },
+   "method": "GET",
+   "path": "/forma/element-service/v1alpha/elements/urn:adsk-forma-elements:proposal:pro_recsynthetic1:p1:1731500000000",
+   "query": {
+    "authcontext": "pro_recsynthetic1",
+    "recursive": "true"
+   },
+   "status": 200
+  }
+ ]
+}

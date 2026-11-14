@@ -13,3 +13,6 @@ data/sets/
 data/labels/
 data/synthetic_v2/
 data/profiles/
+
+# live platform OAuth: app credentials + tokens (mode 600), never committed
+data/secrets/

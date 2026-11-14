@@ -1,0 +1,631 @@
+{
+ "_note": "SYNTHETIC recording; DM/Issues shaped by aps-sdk-openapi specs, RFIs/Submittals/Cost/Sheets by the APS reference pages",
+ "config": {
+  "hub_id": "b.f9abaa89-48b2-5fb0-a660-782989974c4f",
+  "project_id": "b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d"
+ },
+ "routes": [
+  {
+   "body": {
+    "data": {
+     "attributes": {
+      "name": "Harbor View Office (ACC trial)"
+     },
+     "id": "b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d",
+     "links": {
+      "self": {
+       "href": "https://developer.api.autodesk.com/project/v1/hubs/x/projects/y"
+      },
+      "webView": {
+       "href": "https://acc.autodesk.com/build/projects/example"
+      }
+     },
+     "type": "projects"
+    },
+    "jsonapi": {
+     "version": "1.0"
+    },
+    "links": {
+     "self": {
+      "href": "https://developer.api.autodesk.com/project/v1/hubs/x/projects/y"
+     }
+    }
+   },
+   "method": "GET",
+   "path": "/project/v1/hubs/b.f9abaa89-48b2-5fb0-a660-782989974c4f/projects/b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d",
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 200,
+     "offset": 0,
+     "totalResults": 7
+    },
+    "results": [
+     {
+      "createdAt": "2026-07-06T15:00:00Z",
+      "customIdentifier": "001",
+      "id": "9912ad11-9400-59ab-a367-18121b6b88c1",
+      "officialResponse": "Ties may be relocated as proposed; keep (2) #4 ties within top 5 in. See SK-S-01.",
+      "question": "Pier P-3B top ties conflict with the anchor rod template at BP-3B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-3B,P-3B,COL-3B]",
+      "reference": "CG:RFI-001",
+      "status": "closed",
+      "title": "Anchor rod projection at base plate BP-3B vs pier P-3B ties",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-06T15:00:00Z",
+      "customIdentifier": "002",
+      "id": "5947bf84-85da-5d24-ad15-32df5ec87532",
+      "officialResponse": null,
+      "question": "Detailer reports the ST-5 tab for girder G-L3-2-BC at COL-2B lands on the stiffener of the SMF-adjacent column detail. Request alternate tab location or extended tab.\n\n[calc-graph RFI-002 el=CX-G-L3-2-BC-i,G-L3-2-BC,COL-2B]",
+      "reference": "CG:RFI-002",
+      "status": "open",
+      "title": "Shear tab ST-5 at G-L3-2-BC to COL-2B: tab clashes with column flange stiffener",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-10-05T15:00:00Z",
+      "customIdentifier": "003",
+      "id": "54002130-9180-5ac7-afb8-d600f89a3cfa",
+      "officialResponse": "Notch deck and provide pour stop closure per detail 7/S-402; gusset geometry unchanged.",
+      "question": "Gusset plate BG-3 at the top of BR-L2-3-AB-N projects 2 in. above top of steel into the deck flute at G-L3-3-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-3-AB-N-j,BR-L2-3-AB-N,G-L3-3-AB]",
+      "reference": "CG:RFI-003",
+      "status": "answered",
+      "title": "SCBF gusset BG-3 at BR-L2-3-AB-N: gusset vs deck rib at Level 3",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-06-15T15:00:00Z",
+      "customIdentifier": "004",
+      "id": "94f54374-f740-5230-ac87-06b8920d2369",
+      "officialResponse": "Lower F-2B 1'-0\"; extend pier P-2B; footing size unchanged. Cost via change event CE-002.",
+      "question": "Civil storm line crosses under F-2B at el. -3.5 ft. Request lowering F-2B by 1'-0\".\n\n[calc-graph RFI-004 el=F-2B,P-2B]",
+      "reference": "CG:RFI-004",
+      "status": "closed",
+      "title": "Footing F-2B top of footing vs storm line crossing",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-10-15T15:00:00Z",
+      "customIdentifier": "005",
+      "id": "5cae8500-05d2-5f89-a9dd-1a0cf2044272",
+      "officialResponse": "Use a = 5 in., b = 18 in., c = 1.75 in. per AISC 358 Ch. 5 calc E3.",
+      "question": "Confirm RBS cut dimensions a, b, c for MC-1 at beam B-L3-A-23; shop drawing shows c = 2.0 in.\n\n[calc-graph RFI-005 el=B-L3-A-23,CX-B-L3-A-23-i,CX-B-L3-A-23-j]",
+      "reference": "CG:RFI-005",
+      "status": "answered",
+      "title": "RBS cut geometry at B-L3-A-23 (MC-1)",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-10T15:00:00Z",
+      "customIdentifier": "006",
+      "id": "b73eb11d-58ca-5fd0-a9ec-17c5bbac0032",
+      "officialResponse": null,
+      "question": "Mechanical RTU-2 curb is 14 ft x 8 ft; infill beams B-RF-34-AB1/AB2 at 10 ft spacing do not catch the curb. Provide curb support framing.\n\n[calc-graph RFI-006 el=B-RF-34-AB1,B-RF-34-AB2,G-RF-3-AB,G-RF-4-AB]",
+      "reference": "CG:RFI-006",
+      "status": "open",
+      "title": "RTU curb support framing at roof bay 3-4 / A-B",
+      "workflowType": "US"
+     },
+     {
+      "createdAt": "2026-11-13T15:00:00Z",
+      "customIdentifier": "007",
+      "id": "8d85a283-1b04-5745-a775-ad19b2caf7a8",
+      "officialResponse": null,
+      "question": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-3-BC-i,CX-G-L2-3-BC-j,G-L2-3-BC]",
+      "reference": "CG:RFI-007",
+      "status": "draft",
+      "title": "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+      "workflowType": "US"
+     }
+    ]
+   },
+   "method": "POST",
+   "path": "/construction/rfis/v3/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/search:rfis",
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 17
+    },
+    "results": [
+     {
+      "customIdentifier": "03 20 00-001",
+      "description": "target status: erected\n[calc-graph SUB-RB-S1]",
+      "dueDate": "2026-09-09",
+      "id": "05f75c64-0e18-5f3c-a99a-bd4428c85c7a",
+      "identifier": 1,
+      "revision": 0,
+      "specIdentifier": "032000",
+      "specTitle": "Concrete Reinforcing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Foundation reinforcing shop drawings - Seq 1 (grid 1-3)"
+     },
+     {
+      "customIdentifier": "03 20 00-002",
+      "description": "target status: erected\n[calc-graph SUB-RB-S2]",
+      "dueDate": "2026-09-21",
+      "id": "320f84f5-3327-5c9f-a922-16ae3a7ce401",
+      "identifier": 2,
+      "revision": 0,
+      "specIdentifier": "032000",
+      "specTitle": "Concrete Reinforcing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Foundation reinforcing shop drawings - Seq 2 (grid 3-5)"
+     },
+     {
+      "customIdentifier": "03 30 00-001",
+      "description": "target status: erected\n[calc-graph SUB-MIX]",
+      "dueDate": "2026-08-31",
+      "id": "6aaf66c2-e4d1-5d67-a84e-08a52f9557db",
+      "identifier": 1,
+      "revision": 0,
+      "specIdentifier": "033000",
+      "specTitle": "Cast-in-Place Concrete",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Foundation concrete mix design (4,000 psi NW)"
+     },
+     {
+      "customIdentifier": "05 12 00-001",
+      "description": "target status: erected\n[calc-graph SUB-AR]",
+      "dueDate": "2026-09-07",
+      "id": "32cf75d5-a3fb-5cd2-a85b-f771e752c4fb",
+      "identifier": 1,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Anchor rods and base plates - setting plan and details"
+     },
+     {
+      "customIdentifier": "05 12 00-002",
+      "description": "target status: approved\n[calc-graph SUB-SMF-A]",
+      "dueDate": "2026-09-11",
+      "id": "4c1eb430-48f0-5309-a98b-c8e6a011078a",
+      "identifier": 2,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Special moment frame line A - RBS moment connections (MC-1)"
+     },
+     {
+      "customIdentifier": "05 12 00-003",
+      "description": "target status: approved\n[calc-graph SUB-SMF-D]",
+      "dueDate": "2026-09-11",
+      "id": "1103f75c-5f74-54bf-a5e7-efd62ce754aa",
+      "identifier": 3,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Special moment frame line D - RBS moment connections (MC-1)"
+     },
+     {
+      "customIdentifier": "05 12 00-004",
+      "description": "target status: approved\n[calc-graph SUB-SCBF-3]",
+      "dueDate": "2026-09-25",
+      "id": "4893967e-d2f5-5c72-a5fb-582ab63c35e8",
+      "identifier": 4,
+      "revision": 1,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Special concentrically braced frame line 3 - brace gusset connections"
+     },
+     {
+      "customIdentifier": "05 12 00-005",
+      "description": "target status: erected\n[calc-graph SUB-ST-L2-S1]",
+      "dueDate": "2026-09-17",
+      "id": "99518df6-1ed7-5b53-a216-904acb1205b4",
+      "identifier": 5,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Structural steel shop drawings - Level 2 framing, Seq 1 (grid 1-3)"
+     },
+     {
+      "customIdentifier": "05 12 00-006",
+      "description": "target status: erected\n[calc-graph SUB-ST-L2-S2]",
+      "dueDate": "2026-09-30",
+      "id": "71dda4e9-e1ba-547c-a439-3daeba9d2d6a",
+      "identifier": 6,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Structural steel shop drawings - Level 2 framing, Seq 2 (grid 3-5)"
+     },
+     {
+      "customIdentifier": "05 12 00-007",
+      "description": "target status: delivered\n[calc-graph SUB-ST-L3-S1]",
+      "dueDate": "2026-10-13",
+      "id": "3b04ef49-36e8-5637-a3a9-08250d133a65",
+      "identifier": 7,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Structural steel shop drawings - Level 3 framing, Seq 1 (grid 1-3)"
+     },
+     {
+      "customIdentifier": "05 12 00-008",
+      "description": "target status: fabricated\n[calc-graph SUB-ST-L3-S2]",
+      "dueDate": "2026-10-26",
+      "id": "fd0e4055-de37-5876-ae1d-2b6e6ac34bad",
+      "identifier": 8,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Structural steel shop drawings - Level 3 framing, Seq 2 (grid 3-5)"
+     },
+     {
+      "customIdentifier": "05 12 00-009",
+      "description": "target status: approved\n[calc-graph SUB-ST-RF-S1]",
+      "dueDate": "2026-11-06",
+      "id": "afe0b976-1584-5038-a960-8ece645759a2",
+      "identifier": 9,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Structural steel shop drawings - Roof framing, Seq 1 (grid 1-3)"
+     },
+     {
+      "customIdentifier": "05 12 00-010",
+      "description": "target status: submitted\n[calc-graph SUB-ST-RF-S2]",
+      "dueDate": "2026-11-19",
+      "id": "34783aba-6a59-5497-a03e-dd1fc2046f62",
+      "identifier": 10,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-1",
+      "statusId": 2,
+      "title": "Structural steel shop drawings - Roof framing, Seq 2 (grid 3-5)"
+     },
+     {
+      "customIdentifier": "05 31 00-001",
+      "description": "target status: delivered\n[calc-graph SUB-DK-FL el=DK-L2,DK-L3]",
+      "dueDate": "2026-10-13",
+      "id": "3391d079-a572-52ba-aab0-65f4f6dbecd6",
+      "identifier": 1,
+      "revision": 0,
+      "specIdentifier": "053100",
+      "specTitle": "Steel Decking",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Composite floor deck - Levels 2 and 3 (3\" 20 ga)"
+     },
+     {
+      "customIdentifier": "05 31 00-002",
+      "description": "target status: submitted\n[calc-graph SUB-DK-RF el=DK-RF]",
+      "dueDate": "2026-11-18",
+      "id": "c4b948f0-5a5e-5422-a542-6ec1a828dad8",
+      "identifier": 2,
+      "revision": 0,
+      "specIdentifier": "053100",
+      "specTitle": "Steel Decking",
+      "stateId": "mgr-1",
+      "statusId": 2,
+      "title": "Roof deck (1-1/2\" 20 ga type B)"
+     },
+     {
+      "customIdentifier": "07 81 00-001",
+      "description": "target status: draft\n[calc-graph SUB-SFRM]",
+      "dueDate": "2026-12-02",
+      "id": "79208898-dfbd-51f7-a2dd-d93f96ea53ef",
+      "identifier": 1,
+      "revision": 0,
+      "specIdentifier": "078100",
+      "specTitle": "Applied Fireproofing",
+      "stateId": "draft",
+      "statusId": 6,
+      "title": "Spray-applied fireproofing - product data and thickness schedule"
+     },
+     {
+      "id": "a419e4eb-7ee5-5d23-af68-5b172ab543d0",
+      "stateId": "void",
+      "statusId": 4,
+      "title": "voided seed item"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/items",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 5
+    },
+    "results": [
+     {
+      "id": "f4c292b8-4c47-5bb4-ad39-6e80c92df120",
+      "identifier": "032000",
+      "title": "Concrete Reinforcing"
+     },
+     {
+      "id": "18c86e1b-d677-59ea-a171-93fa021cef5a",
+      "identifier": "033000",
+      "title": "Cast-in-Place Concrete"
+     },
+     {
+      "id": "bebe3c76-e7a9-5897-a0a0-da3d11e1af5e",
+      "identifier": "051200",
+      "title": "Structural Steel Framing"
+     },
+     {
+      "id": "3f717481-6fa6-5ea5-ab31-de0e923e2105",
+      "identifier": "053100",
+      "title": "Steel Decking"
+     },
+     {
+      "id": "45853375-1b3f-5459-a213-2ac4bccaa6fe",
+      "identifier": "078100",
+      "title": "Applied Fireproofing"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/specs",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "id": "f23fe3b6-80d5-527c-abef-ed0950010488",
+      "value": "Shop Drawings"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/item-types",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 4
+    },
+    "results": [
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Owner-directed mechanical change raised RTU-2 operating weight; roof infill and girders in bay 3-4 / A-B redesigned (calc B4).\n[calc-graph CE-001 el=B-RF-34-AB1,B-RF-34-AB2,G-RF-3-AB,G-RF-4-AB]",
+      "estimated": 4190.4,
+      "externalId": "calc-graph:CE-001",
+      "externalSystem": "calc-graph",
+      "id": "2a673d18-e6be-5d8b-ab2b-a9bcdff106fa",
+      "name": "RTU-2 weight increase: roof framing bay 3-4 / A-B upsized",
+      "number": "001",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Additional excavation, lean fill and pier extension at F-2B.\n[calc-graph CE-002 el=F-2B,P-2B]",
+      "estimated": 1925.93,
+      "externalId": "calc-graph:CE-002",
+      "externalSystem": "calc-graph",
+      "id": "86608119-3d1e-5d6b-ac50-7f847e5871b7",
+      "name": "Lower footing F-2B 1'-0\" for storm line crossing (RFI-004)",
+      "number": "002",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Architect bulletin ASI-04 adds curtain wall anchor embeds on grid line A spandrel beams.\n[calc-graph CE-003 el=B-L2-A-12,B-L2-A-23,B-L2-A-34,B-L2-A-45,B-L3-A-12,B-L3-A-23,B-L3-A-34,B-L3-A-45]",
+      "estimated": 7600.0,
+      "externalId": "calc-graph:CE-003",
+      "externalSystem": "calc-graph",
+      "id": "6766b0fc-8573-5f1b-a710-f2d083a55f8a",
+      "name": "Curtain wall embed plates at slab edge, line A, Levels 2-3",
+      "number": "003",
+      "scope": "tbd"
+     },
+     {
+      "budgetStatus": "open",
+      "costStatus": "pricing",
+      "description": "Potential cost if RFI-002 answer requires an extended tab.\n[calc-graph CE-004 el=CX-G-L3-2-BC-i,G-L3-2-BC,COL-2B]",
+      "estimated": 450.0,
+      "externalId": "calc-graph:CE-004",
+      "externalSystem": "calc-graph",
+      "id": "d03f5032-2f12-525b-abcb-b35c4b408488",
+      "name": "Field-modify shear tab at G-L3-2-BC / COL-2B (RFI-002)",
+      "number": "004",
+      "scope": "tbd"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/pco",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "approved": 4190.4,
+      "budgetStatus": "approved",
+      "externalId": "calc-graph:CO-001",
+      "id": "c38c6a15-80d0-5d00-a0ae-460ac8e5f687",
+      "name": "OCO-001 RTU-2",
+      "number": "1"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/oco",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "code": "05 12 00",
+      "id": "f01d6393-054d-5723-ab30-577b0db9ade6",
+      "name": "Structural steel",
+      "originalAmount": 1017600.0,
+      "quantity": 212.0,
+      "revised": 1021790.4,
+      "unit": "ton",
+      "unitPrice": 4800
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/budgets",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "id": "d71f294e-cde9-576c-a94a-7bd7855dc005",
+      "isCurrent": true,
+      "number": "S-201",
+      "title": "Level 2 framing plan",
+      "versionSet": {
+       "id": "0e8d38b1-7bc8-5452-a1e2-b37da204e35b",
+       "issuanceDate": "2026-06-01",
+       "name": "IFC set"
+      }
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/sheets/v1/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/sheets",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "createdAt": "2026-11-10T14:00:00.000Z",
+      "description": "Found during erection.\n[calc-graph ISSUE-001 el=CX-L2-3B-N]",
+      "displayId": 1,
+      "id": "4d09d150-4def-50b4-a3c7-167cd64bd0a7",
+      "status": "open",
+      "title": "Field: bolt holes misaligned at CX-L2-3B-N"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/issues/v1/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/issues",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "id": "05b3ff23-99c9-5841-a512-1129c3e9890f",
+    "status": "draft",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/construction/rfis/v3/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/rfis",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": "0b5a3f68-777f-5c3e-ad80-ceca2c1f6b7b",
+    "stateId": "draft",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/items",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": "24a1e85b-875f-5598-a62f-c5a87aa14ee0",
+    "name": "created"
+   },
+   "method": "POST",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/pco",
+   "status": 201
+  }
+ ]
+}

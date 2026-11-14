@@ -1,0 +1,462 @@
+{
+ "components": {
+  "schemas": {
+   "Project": {
+    "properties": {
+     "accountId": {
+      "description": "The ID of the account the project is associated with.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "ngfv3tuq4xk65"
+      }
+     },
+     "addressLine1": {
+      "description": "Address line 1 for the project.\nMax length: 255",
+      "type": "string"
+     },
+     "addressLine2": {
+      "description": "Address line 2 for the project.\nMax length: 255",
+      "type": "string",
+      "x-stoplight": {
+       "id": "1upgay7epgz9b"
+      }
+     },
+     "adminGroupId": {
+      "description": "Not relevant",
+      "type": "string",
+      "x-stoplight": {
+       "id": "mc5b6njjbon60"
+      }
+     },
+     "businessUnitId": {
+      "description": "The ID of the business unit that the project is associated with.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "ww05qb8kr01ru"
+      }
+     },
+     "city": {
+      "description": "The city in which the project is located.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "0oc4qp1v0ftdm"
+      }
+     },
+     "classification": {
+      "description": "The project\u2019s purpose. Possible values: production, template, component, sample",
+      "type": "string",
+      "x-stoplight": {
+       "id": "la722kcrq302p"
+      }
+     },
+     "companyCount": {
+      "description": "The total number of companies associated with the project.",
+      "type": "integer",
+      "x-stoplight": {
+       "id": "hurzujkff3e2j"
+      }
+     },
+     "constructionType": {
+      "description": "The construction type of the project. Following is a list of recommended values; however, any value is accepted.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "f8bnng42rt1bj"
+      }
+     },
+     "contractType": {
+      "description": "The contract type of the project. Following is a list of recommended values; however, any value is accepted.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "m9xai1gdvbprg"
+      }
+     },
+     "country": {
+      "description": "The country in which the project is located. Only valid country names and ISO 3166-1 alpha-2 codes is accepted.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "xg4z9ewblj1w5"
+      }
+     },
+     "createdAt": {
+      "description": "The timestamp when the project was created, in ISO 8601 format.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "h4j1z55w3l122"
+      }
+     },
+     "currentPhase": {
+      "description": "The current phase of the project. Following is a list of recommended values; however, any value is accepted.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "5k6oorhq27hxk"
+      }
+     },
+     "deliveryMethod": {
+      "description": "The delivery method of the project. Following is a list of recommended values; however, any value is accepted.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "6bswlp8p3pzsa"
+      }
+     },
+     "endDate": {
+      "description": "The estimated end date for the project, in ISO 8601 format.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "0wy8z5fu7edd3"
+      }
+     },
+     "id": {
+      "description": "The internally generated ID for the project.",
+      "type": "string"
+     },
+     "imageUrl": {
+      "description": "The URL of the project image.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "8d45mnflzgs33"
+      }
+     },
+     "jobNumber": {
+      "description": "A job identifier that\u2019s defined for the project by the user. This ID was defined when the project was created.\nMax length: 100",
+      "type": "string"
+     },
+     "lastSignIn": {
+      "description": "The timestamp of the last time someone signed into the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "im38ovifkrbyv"
+      }
+     },
+     "latitude": {
+      "description": "The latitude of the location of the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "qsply44us8h4h"
+      }
+     },
+     "longitude": {
+      "description": "The longitude of the location of the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "zp562dse6o7hj"
+      }
+     },
+     "memberCount": {
+      "description": "The total number of members on the project.",
+      "type": "integer",
+      "x-stoplight": {
+       "id": "4n7prnedw1mqu"
+      }
+     },
+     "memberGroupId": {
+      "description": "Not relevant",
+      "type": "string",
+      "x-stoplight": {
+       "id": "8v9h1l147em3f"
+      }
+     },
+     "name": {
+      "description": "The name of the project.\nMax length: 255",
+      "type": "string",
+      "x-stoplight": {
+       "id": "6cf9wq5ozzjck"
+      }
+     },
+     "platform": {
+      "description": "The APS platform that the project belongs to.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "l2bslup34ygq3"
+      }
+     },
+     "postalCode": {
+      "description": "The zip or postal code in which the project is located.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "5t24tmhaqskus"
+      }
+     },
+     "products": {
+      "description": "An array of the product objects associated with the project.",
+      "items": {
+       "type": "object",
+       "x-stoplight": {
+        "id": "qv9mwsm0079v3"
+       }
+      },
+      "type": "array",
+      "x-stoplight": {
+       "id": "15j7grna78zar"
+      }
+     },
+     "projectValue": {
+      "description": "The value of the project. When updating the project value, both the value and currency parameters are required.",
+      "type": "object",
+      "x-stoplight": {
+       "id": "7jyuuuw47s1zg"
+      }
+     },
+     "sheetCount": {
+      "description": "The total number of sheets associated with the project.",
+      "type": "integer",
+      "x-stoplight": {
+       "id": "r58ypjbag6lil"
+      }
+     },
+     "startDate": {
+      "description": "The estimated start date for the project, in ISO 8601 format.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "qxtctrcqpzdim"
+      }
+     },
+     "stateOrProvince": {
+      "description": "The state or province in which the project is located. Only valid state/province names and ISO 3166-1 alpha-2 codes is accepted. The provided state or province must exist in the country of the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "ubo3fqfnmgqug"
+      }
+     },
+     "status": {
+      "description": "The status of the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "gr9ymnwepgsvy"
+      }
+     },
+     "templateId": {
+      "description": "The ID of the project that was used as a template to create this project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "zpt9et6ahhjj8"
+      }
+     },
+     "thumbnailImageUrl": {
+      "description": "The URL of the project thumbnail image.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "pscimqfva5dqw"
+      }
+     },
+     "timezone": {
+      "description": "The time zone in which the project is located. Note that this field can be NULL.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "o53ui6vd71sgp"
+      }
+     },
+     "type": {
+      "description": "The type of the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "0rmvamrt2vu0p"
+      }
+     },
+     "updatedAt": {
+      "description": "The timestamp when the project was last updated, in ISO 8601 format. This reflects only changes to the project fields and not changes to any resources in the project.",
+      "type": "string",
+      "x-stoplight": {
+       "id": "wxbzhsi71d8hl"
+      }
+     }
+    },
+    "title": "Project",
+    "type": "object",
+    "x-stoplight": {
+     "id": "ebkpy57pcvey6"
+    }
+   },
+   "Region": {
+    "description": "Specifies the region where your request should be routed. Possible values are:\n- ``US`` - Data center for the US region.\n- ``EMEA`` - Data center for the European Union, Middle East, and Africa regions.\n- ``AUS`` - Data center for the Australia region.\n- ``CAN`` - Data center for the Canada region.\n- ``DEU`` - Data center for the Germany region.\n- ``IND`` - Data center for the India region.\n- ``JPN`` - Data center for the Japan region.\n- ``GBR`` - Data center for the United Kingdom region.",
+    "enum": [
+     "US",
+     "EMEA",
+     "AUS",
+     "CAN",
+     "DEU",
+     "IND",
+     "JPN",
+     "GBR"
+    ],
+    "title": "Region",
+    "type": "string",
+    "x-stoplight": {
+     "id": "5rz8jxdpgo4zq"
+    }
+   },
+   "fields": {
+    "enum": [
+     "accountId",
+     "addressLine1",
+     "addressLine2",
+     "businessUnitId",
+     "city",
+     "companyCount",
+     "constructionType",
+     "country",
+     "createdAt",
+     "deliveryMethod",
+     "endDate",
+     "imageUrl",
+     "jobNumber",
+     "lastSignIn",
+     "latitude",
+     "longitude",
+     "memberCount",
+     "name",
+     "platform",
+     "postalCode",
+     "products",
+     "projectValue",
+     "sheetCount",
+     "startDate",
+     "stateOrProvince",
+     "status",
+     "thumbnailImageUrl",
+     "timezone",
+     "type",
+     "updatedAt"
+    ],
+    "title": "fields",
+    "type": "string",
+    "x-stoplight": {
+     "id": "2u11626lmta32"
+    }
+   },
+   "fields_internal": {
+    "items": {
+     "$ref": "#/components/schemas/fields",
+     "x-stoplight": {
+      "id": "eak8q4id1p2i3"
+     }
+    },
+    "title": "fields_internal",
+    "type": "array",
+    "x-stoplight": {
+     "id": "gllpnqude53mp"
+    }
+   }
+  },
+  "securitySchemes": {
+   "2-legged": {
+    "flows": {
+     "clientCredentials": {
+      "refreshUrl": "",
+      "scopes": {},
+      "tokenUrl": ""
+     }
+    },
+    "type": "oauth2"
+   },
+   "3-legged": {
+    "flows": {
+     "authorizationCode": {
+      "authorizationUrl": "",
+      "refreshUrl": "",
+      "scopes": {},
+      "tokenUrl": ""
+     }
+    },
+    "type": "oauth2"
+   },
+   "3-legged-implicit": {
+    "flows": {
+     "implicit": {
+      "authorizationUrl": "",
+      "refreshUrl": "",
+      "scopes": {}
+     }
+    },
+    "type": "oauth2"
+   }
+  }
+ },
+ "info": {
+  "description": "Subset of https://raw.githubusercontent.com/autodesk-platform-services/aps-sdk-openapi/1e2490246ad3e05c86bc97ca20719054fce54a9e/forma/accountadmin/accountadmin.yaml (sha256 5b82c3003ee847eb23d484a3f4ef1d171b303ac9b2721933209ac15cb88102c1). Apache-2.0, github.com/autodesk-platform-services/aps-sdk-openapi.",
+  "title": "Construction.Account.Admin - subset called by calc-graph live adapters",
+  "version": "1.0"
+ },
+ "openapi": "3.0.0",
+ "paths": {
+  "/construction/admin/v1/projects/{projectId}": {
+   "get": {
+    "description": "Retrieves a project specified by project ID.",
+    "operationId": "get_project",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "projectId",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "This header is not currently supported in the Account Admin API.",
+      "in": "header",
+      "name": "Accept-Language",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "The region where the bucket resides. Acceptable values: US, EMEA, AUS, CAN, DEU, IND, JPN, GBR.",
+      "in": "header",
+      "name": "Region",
+      "schema": {
+       "$ref": "#/components/schemas/Region"
+      }
+     },
+     {
+      "description": "Note that this header is not relevant for Account Admin GET endpoints. The ID of a user on whose behalf your API request is acting. Required if you\u2019re using a 2-legged authentication context, which must be 2-legged OAuth2 security with user impersonation.  Your app has access to all users specified by the administrator in the SaaS integrations UI. Provide this header value to identify the user to be affected by the request.  You can use either the user\u2019s ACC ID (id), or their Autodesk ID (autodeskId).",
+      "in": "header",
+      "name": "User-Id",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "description": "A comma-separated list of the project fields to include in the response. Default value: all fields.",
+      "in": "query",
+      "name": "fields",
+      "schema": {
+       "$ref": "#/components/schemas/fields_internal"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Project"
+        }
+       }
+      },
+      "description": "A list of requested projects."
+     }
+    },
+    "security": [
+     {
+      "2-legged": []
+     },
+     {
+      "3-legged": []
+     },
+     {
+      "3-legged-implicit": []
+     }
+    ],
+    "summary": "Get a project by ID",
+    "tags": [
+     "calcgraph"
+    ]
+   }
+  }
+ },
+ "servers": [
+  {
+   "url": "https://developer.api.autodesk.com"
+  }
+ ]
+}

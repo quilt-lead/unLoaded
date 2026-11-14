@@ -21,6 +21,8 @@ dependencies = [
     "uvicorn[standard]>=0.54.0",
     "handcalcs==1.11.0",
     "weasyprint==70.0",
+    "httpx>=0.28.1",
+    "python-dateutil>=2.9.0",
 ]
 
 [project.optional-dependencies]

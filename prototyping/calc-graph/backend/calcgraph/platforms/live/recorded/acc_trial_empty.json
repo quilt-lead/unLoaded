@@ -1,0 +1,278 @@
+{
+ "_note": "SYNTHETIC recording; DM/Issues shaped by aps-sdk-openapi specs, RFIs/Submittals/Cost/Sheets by the APS reference pages",
+ "config": {
+  "hub_id": "b.f9abaa89-48b2-5fb0-a660-782989974c4f",
+  "project_id": "b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d"
+ },
+ "routes": [
+  {
+   "body": {
+    "data": {
+     "attributes": {
+      "name": "Harbor View Office (ACC trial)"
+     },
+     "id": "b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d",
+     "links": {
+      "self": {
+       "href": "https://developer.api.autodesk.com/project/v1/hubs/x/projects/y"
+      },
+      "webView": {
+       "href": "https://acc.autodesk.com/build/projects/example"
+      }
+     },
+     "type": "projects"
+    },
+    "jsonapi": {
+     "version": "1.0"
+    },
+    "links": {
+     "self": {
+      "href": "https://developer.api.autodesk.com/project/v1/hubs/x/projects/y"
+     }
+    }
+   },
+   "method": "GET",
+   "path": "/project/v1/hubs/b.f9abaa89-48b2-5fb0-a660-782989974c4f/projects/b.fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d",
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 200,
+     "offset": 0,
+     "totalResults": 0
+    },
+    "results": []
+   },
+   "method": "POST",
+   "path": "/construction/rfis/v3/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/search:rfis",
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "id": "a419e4eb-7ee5-5d23-af68-5b172ab543d0",
+      "stateId": "void",
+      "statusId": 4,
+      "title": "voided seed item"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/items",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 5
+    },
+    "results": [
+     {
+      "id": "f4c292b8-4c47-5bb4-ad39-6e80c92df120",
+      "identifier": "032000",
+      "title": "Concrete Reinforcing"
+     },
+     {
+      "id": "18c86e1b-d677-59ea-a171-93fa021cef5a",
+      "identifier": "033000",
+      "title": "Cast-in-Place Concrete"
+     },
+     {
+      "id": "bebe3c76-e7a9-5897-a0a0-da3d11e1af5e",
+      "identifier": "051200",
+      "title": "Structural Steel Framing"
+     },
+     {
+      "id": "3f717481-6fa6-5ea5-ab31-de0e923e2105",
+      "identifier": "053100",
+      "title": "Steel Decking"
+     },
+     {
+      "id": "45853375-1b3f-5459-a213-2ac4bccaa6fe",
+      "identifier": "078100",
+      "title": "Applied Fireproofing"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/specs",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 50,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "id": "f23fe3b6-80d5-527c-abef-ed0950010488",
+      "value": "Shop Drawings"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/item-types",
+   "query": {
+    "limit": "50",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 0
+    },
+    "results": []
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/pco",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 0
+    },
+    "results": []
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/oco",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "code": "05 12 00",
+      "id": "f01d6393-054d-5723-ab30-577b0db9ade6",
+      "name": "Structural steel",
+      "originalAmount": 1017600.0,
+      "quantity": 212.0,
+      "revised": 1021790.4,
+      "unit": "ton",
+      "unitPrice": 4800
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/budgets",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 1
+    },
+    "results": [
+     {
+      "id": "d71f294e-cde9-576c-a94a-7bd7855dc005",
+      "isCurrent": true,
+      "number": "S-201",
+      "title": "Level 2 framing plan",
+      "versionSet": {
+       "id": "0e8d38b1-7bc8-5452-a1e2-b37da204e35b",
+       "issuanceDate": "2026-06-01",
+       "name": "IFC set"
+      }
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/construction/sheets/v1/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/sheets",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "pagination": {
+     "limit": 100,
+     "offset": 0,
+     "totalResults": 0
+    },
+    "results": []
+   },
+   "method": "GET",
+   "path": "/construction/issues/v1/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/issues",
+   "query": {
+    "limit": "100",
+    "offset": "0"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "id": "05b3ff23-99c9-5841-a512-1129c3e9890f",
+    "status": "draft",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/construction/rfis/v3/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/rfis",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": "0b5a3f68-777f-5c3e-ad80-ceca2c1f6b7b",
+    "stateId": "draft",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/construction/submittals/v2/projects/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/items",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": "24a1e85b-875f-5598-a62f-c5a87aa14ee0",
+    "name": "created"
+   },
+   "method": "POST",
+   "path": "/cost/v1/containers/fb7b53dc-bd2c-5b90-aad0-a6c16c9d5e3d/change-orders/pco",
+   "status": 201
+  }
+ ]
+}

@@ -1,0 +1,1143 @@
+{
+ "_note": "SYNTHETIC recording shaped by the Procore OAS (generated/procore_client.openapi.json); not real data",
+ "config": {
+  "company_id": 4900001,
+  "env": "sandbox",
+  "project_id": 5800002
+ },
+ "routes": [
+  {
+   "body": [
+    {
+     "id": 4900001,
+     "is_active": true,
+     "my_company": true,
+     "name": "Calc-Graph Sandbox Co (synthetic)"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/companies",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "active": true,
+     "id": 5800002,
+     "name": "Harbor View Office (sandbox)",
+     "project_number": "HVO-SBX"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/projects",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "created_at": "2026-08-27T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-RB-S1]",
+     "due_date": "2026-09-09",
+     "formatted_number": "03 20 00-001",
+     "id": 65146241,
+     "number": "001",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Concrete Reinforcing",
+      "id": 12075,
+      "label": "03 20 00 - Concrete Reinforcing",
+      "number": "03 20 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Foundation reinforcing shop drawings - Seq 1 (grid 1-3)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-09-08T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-RB-S2]",
+     "due_date": "2026-09-21",
+     "formatted_number": "03 20 00-002",
+     "id": 65271397,
+     "number": "002",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Concrete Reinforcing",
+      "id": 12075,
+      "label": "03 20 00 - Concrete Reinforcing",
+      "number": "03 20 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Foundation reinforcing shop drawings - Seq 2 (grid 3-5)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-21T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-MIX]",
+     "due_date": "2026-08-31",
+     "formatted_number": "03 30 00-001",
+     "id": 69218290,
+     "number": "001",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Cast-in-Place Concrete",
+      "id": 12573,
+      "label": "03 30 00 - Cast-in-Place Concrete",
+      "number": "03 30 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Foundation concrete mix design (4,000 psi NW)",
+     "type": {
+      "id": 501,
+      "name": "Product Data",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-25T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-AR]",
+     "due_date": "2026-09-07",
+     "formatted_number": "05 12 00-001",
+     "id": 68259646,
+     "number": "001",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Anchor rods and base plates - setting plan and details",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-31T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: approved\n[calc-graph SUB-SMF-A]",
+     "due_date": "2026-09-11",
+     "formatted_number": "05 12 00-002",
+     "id": 65166674,
+     "number": "002",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Special moment frame line A - RBS moment connections (MC-1)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-31T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: approved\n[calc-graph SUB-SMF-D]",
+     "due_date": "2026-09-11",
+     "formatted_number": "05 12 00-003",
+     "id": 64550498,
+     "number": "003",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Special moment frame line D - RBS moment connections (MC-1)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-31T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: approved\n[calc-graph SUB-SCBF-3]",
+     "due_date": "2026-09-25",
+     "formatted_number": "05 12 00-004",
+     "id": 63371192,
+     "number": "004",
+     "private": false,
+     "revision": "1",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Special concentrically braced frame line 3 - brace gusset connections",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-09-04T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-ST-L2-S1]",
+     "due_date": "2026-09-17",
+     "formatted_number": "05 12 00-005",
+     "id": 63572778,
+     "number": "005",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Structural steel shop drawings - Level 2 framing, Seq 1 (grid 1-3)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-09-17T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: erected\n[calc-graph SUB-ST-L2-S2]",
+     "due_date": "2026-09-30",
+     "formatted_number": "05 12 00-006",
+     "id": 69600086,
+     "number": "006",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Structural steel shop drawings - Level 2 framing, Seq 2 (grid 3-5)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-09-30T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: delivered\n[calc-graph SUB-ST-L3-S1]",
+     "due_date": "2026-10-13",
+     "formatted_number": "05 12 00-007",
+     "id": 64305850,
+     "number": "007",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Structural steel shop drawings - Level 3 framing, Seq 1 (grid 1-3)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-10-13T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: fabricated\n[calc-graph SUB-ST-L3-S2]",
+     "due_date": "2026-10-26",
+     "formatted_number": "05 12 00-008",
+     "id": 68857383,
+     "number": "008",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Structural steel shop drawings - Level 3 framing, Seq 2 (grid 3-5)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-10-26T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: approved\n[calc-graph SUB-ST-RF-S1]",
+     "due_date": "2026-11-06",
+     "formatted_number": "05 12 00-009",
+     "id": 62668817,
+     "number": "009",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Structural steel shop drawings - Roof framing, Seq 1 (grid 1-3)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-11-06T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: submitted\n[calc-graph SUB-ST-RF-S2]",
+     "due_date": "2026-11-19",
+     "formatted_number": "05 12 00-010",
+     "id": 63461478,
+     "number": "010",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183101,
+      "name": "Open",
+      "status": "Open"
+     },
+     "title": "Structural steel shop drawings - Roof framing, Seq 2 (grid 3-5)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-09-30T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: delivered\n[calc-graph SUB-DK-FL el=DK-L2,DK-L3]",
+     "due_date": "2026-10-13",
+     "formatted_number": "05 31 00-001",
+     "id": 67582596,
+     "number": "001",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Steel Decking",
+      "id": 12716,
+      "label": "05 31 00 - Steel Decking",
+      "number": "05 31 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Composite floor deck - Levels 2 and 3 (3\" 20 ga)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-11-05T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: submitted\n[calc-graph SUB-DK-RF el=DK-RF]",
+     "due_date": "2026-11-18",
+     "formatted_number": "05 31 00-002",
+     "id": 65230072,
+     "number": "002",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Steel Decking",
+      "id": 12716,
+      "label": "05 31 00 - Steel Decking",
+      "number": "05 31 00"
+     },
+     "status": {
+      "id": 183101,
+      "name": "Open",
+      "status": "Open"
+     },
+     "title": "Roof deck (1-1/2\" 20 ga type B)",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-11-13T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: draft\n[calc-graph SUB-SFRM]",
+     "due_date": "2026-12-02",
+     "formatted_number": "07 81 00-001",
+     "id": 66515397,
+     "number": "001",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Applied Fireproofing",
+      "id": 12886,
+      "label": "07 81 00 - Applied Fireproofing",
+      "number": "07 81 00"
+     },
+     "status": {
+      "id": 183100,
+      "name": "Draft",
+      "status": "Draft"
+     },
+     "title": "Spray-applied fireproofing - product data and thickness schedule",
+     "type": {
+      "id": 501,
+      "name": "Product Data",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/projects/5800002/submittals",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-07-06T15:00:00Z",
+     "full_number": "RFI-001",
+     "id": 81951251,
+     "number": "001",
+     "private": false,
+     "questions": [
+      {
+       "body": "Pier P-3B top ties conflict with the anchor rod template at BP-3B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-3B,P-3B,COL-3B]",
+       "id": 97293
+      }
+     ],
+     "reference": "calc-graph RFI-001",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "closed",
+     "subject": "Anchor rod projection at base plate BP-3B vs pier P-3B ties",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-11-06T15:00:00Z",
+     "full_number": "RFI-002",
+     "id": 81718087,
+     "number": "002",
+     "private": false,
+     "questions": [
+      {
+       "body": "Detailer reports the ST-5 tab for girder G-L3-2-BC at COL-2B lands on the stiffener of the SMF-adjacent column detail. Request alternate tab location or extended tab.\n\n[calc-graph RFI-002 el=CX-G-L3-2-BC-i,G-L3-2-BC,COL-2B]",
+       "id": 50556
+      }
+     ],
+     "reference": "calc-graph RFI-002",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "open",
+     "subject": "Shear tab ST-5 at G-L3-2-BC to COL-2B: tab clashes with column flange stiffener",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-10-05T15:00:00Z",
+     "full_number": "RFI-003",
+     "id": 81542032,
+     "number": "003",
+     "private": false,
+     "questions": [
+      {
+       "body": "Gusset plate BG-3 at the top of BR-L2-3-AB-N projects 2 in. above top of steel into the deck flute at G-L3-3-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-3-AB-N-j,BR-L2-3-AB-N,G-L3-3-AB]",
+       "id": 83322
+      }
+     ],
+     "reference": "calc-graph RFI-003",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "open",
+     "subject": "SCBF gusset BG-3 at BR-L2-3-AB-N: gusset vs deck rib at Level 3",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-06-15T15:00:00Z",
+     "full_number": "RFI-004",
+     "id": 81627208,
+     "number": "004",
+     "private": false,
+     "questions": [
+      {
+       "body": "Civil storm line crosses under F-2B at el. -3.5 ft. Request lowering F-2B by 1'-0\".\n\n[calc-graph RFI-004 el=F-2B,P-2B]",
+       "id": 30591
+      }
+     ],
+     "reference": "calc-graph RFI-004",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "closed",
+     "subject": "Footing F-2B top of footing vs storm line crossing",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-10-15T15:00:00Z",
+     "full_number": "RFI-005",
+     "id": 81918823,
+     "number": "005",
+     "private": false,
+     "questions": [
+      {
+       "body": "Confirm RBS cut dimensions a, b, c for MC-1 at beam B-L3-A-23; shop drawing shows c = 2.0 in.\n\n[calc-graph RFI-005 el=B-L3-A-23,CX-B-L3-A-23-i,CX-B-L3-A-23-j]",
+       "id": 4480
+      }
+     ],
+     "reference": "calc-graph RFI-005",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "open",
+     "subject": "RBS cut geometry at B-L3-A-23 (MC-1)",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-11-10T15:00:00Z",
+     "full_number": "RFI-006",
+     "id": 81202233,
+     "number": "006",
+     "private": false,
+     "questions": [
+      {
+       "body": "Mechanical RTU-2 curb is 14 ft x 8 ft; infill beams B-RF-34-AB1/AB2 at 10 ft spacing do not catch the curb. Provide curb support framing.\n\n[calc-graph RFI-006 el=B-RF-34-AB1,B-RF-34-AB2,G-RF-3-AB,G-RF-4-AB]",
+       "id": 89825
+      }
+     ],
+     "reference": "calc-graph RFI-006",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "open",
+     "subject": "RTU curb support framing at roof bay 3-4 / A-B",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "assignee": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "created_at": "2026-11-13T15:00:00Z",
+     "full_number": "RFI-007",
+     "id": 81935939,
+     "number": "007",
+     "private": false,
+     "questions": [
+      {
+       "body": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-3-BC-i,CX-G-L2-3-BC-j,G-L2-3-BC]",
+       "id": 74768
+      }
+     ],
+     "reference": "calc-graph RFI-007",
+     "rfi_manager": {
+      "id": 7100001,
+      "login": "pm@tidewater.example",
+      "name": "Marisol Okafor"
+     },
+     "status": "draft",
+     "subject": "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "full_number": "900",
+     "id": 81999999,
+     "number": "900",
+     "private": false,
+     "questions": [
+      {
+       "body": "Seed data question.",
+       "id": 1
+      }
+     ],
+     "status": "open",
+     "subject": "Unrelated sandbox seed RFI (no marker)"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/projects/5800002/rfis",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "change_items": [
+      {
+       "cost_impact": {
+        "estimate": {
+         "amount": "2390.40",
+         "calculation_strategy": "manual"
+        }
+       },
+       "description": "Added steel weight (20% of bay members)",
+       "id": 614385
+      },
+      {
+       "cost_impact": {
+        "estimate": {
+         "amount": "1800.00",
+         "calculation_strategy": "manual"
+        }
+       },
+       "description": "EOR redesign (4 calc records)",
+       "id": 583202
+      }
+     ],
+     "company_id": 4900001,
+     "created_at": "2026-08-10T15:00:00Z",
+     "description": "Owner-directed mechanical change raised RTU-2 operating weight; roof infill and girders in bay 3-4 / A-B redesigned (calc B4).\n[calc-graph CE-001 el=B-RF-34-AB1,B-RF-34-AB2,G-RF-3-AB,G-RF-4-AB]",
+     "external_data": {
+      "origin_data": "calc-graph synthetic v2 model",
+      "origin_id": "calc-graph:CE-001"
+     },
+     "id": 99162,
+     "number": "001",
+     "project_id": 5800002,
+     "scope": "tbd",
+     "status": {
+      "id": 301,
+      "mapped_to_status": "open",
+      "name": "Open"
+     },
+     "title": "RTU-2 weight increase: roof framing bay 3-4 / A-B upsized"
+    },
+    {
+     "change_items": [
+      {
+       "cost_impact": {
+        "estimate": {
+         "amount": "1925.93",
+         "calculation_strategy": "manual"
+        }
+       },
+       "description": "Pier extension 1 ft + excavation",
+       "id": 81329
+      }
+     ],
+     "company_id": 4900001,
+     "created_at": "2026-06-24T15:00:00Z",
+     "description": "Additional excavation, lean fill and pier extension at F-2B.\n[calc-graph CE-002 el=F-2B,P-2B]",
+     "external_data": {
+      "origin_data": "calc-graph synthetic v2 model",
+      "origin_id": "calc-graph:CE-002"
+     },
+     "id": 93888,
+     "number": "002",
+     "project_id": 5800002,
+     "scope": "tbd",
+     "status": {
+      "id": 301,
+      "mapped_to_status": "open",
+      "name": "Open"
+     },
+     "title": "Lower footing F-2B 1'-0\" for storm line crossing (RFI-004)"
+    },
+    {
+     "change_items": [
+      {
+       "cost_impact": {
+        "estimate": {
+         "amount": "7600.00",
+         "calculation_strategy": "manual"
+        }
+       },
+       "description": "Embed plates welded to 8 spandrel beams (ROM)",
+       "id": 689759
+      }
+     ],
+     "company_id": 4900001,
+     "created_at": "2026-10-29T15:00:00Z",
+     "description": "Architect bulletin ASI-04 adds curtain wall anchor embeds on grid line A spandrel beams.\n[calc-graph CE-003 el=B-L2-A-12,B-L2-A-23,B-L2-A-34,B-L2-A-45,B-L3-A-12,B-L3-A-23,B-L3-A-34,B-L3-A-45]",
+     "external_data": {
+      "origin_data": "calc-graph synthetic v2 model",
+      "origin_id": "calc-graph:CE-003"
+     },
+     "id": 97432,
+     "number": "003",
+     "project_id": 5800002,
+     "scope": "tbd",
+     "status": {
+      "id": 301,
+      "mapped_to_status": "open",
+      "name": "Open"
+     },
+     "title": "Curtain wall embed plates at slab edge, line A, Levels 2-3"
+    },
+    {
+     "change_items": [
+      {
+       "cost_impact": {
+        "estimate": {
+         "amount": "450.00",
+         "calculation_strategy": "manual"
+        }
+       },
+       "description": "Extended tab (ROM)",
+       "id": 482585
+      }
+     ],
+     "company_id": 4900001,
+     "created_at": "2026-11-09T15:00:00Z",
+     "description": "Potential cost if RFI-002 answer requires an extended tab.\n[calc-graph CE-004 el=CX-G-L3-2-BC-i,G-L3-2-BC,COL-2B]",
+     "external_data": {
+      "origin_data": "calc-graph synthetic v2 model",
+      "origin_id": "calc-graph:CE-004"
+     },
+     "id": 98556,
+     "number": "004",
+     "project_id": 5800002,
+     "scope": "tbd",
+     "status": {
+      "id": 301,
+      "mapped_to_status": "open",
+      "name": "Open"
+     },
+     "title": "Field-modify shear tab at G-L3-2-BC / COL-2B (RFI-002)"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/change_events",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "created_at": "2026-08-20T15:00:00Z",
+     "executed": true,
+     "grand_total": "4190.40",
+     "id": 66001,
+     "number": "001",
+     "origin_id": "calc-graph:CO-001",
+     "revision": 0,
+     "status": "approved",
+     "title": "PCCO #001 RTU-2 roof framing"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/change_order_packages",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "executed": true,
+     "id": 44001,
+     "number": "SC-05",
+     "private": false,
+     "status": "Approved",
+     "title": "Structural steel - Keelson Steel Fabricators (fictional)",
+     "vendor": {
+      "id": 900101,
+      "name": "Keelson Steel Fabricators (fictional)"
+     }
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/commitments",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "critical_path": true,
+     "finish_datetime": "2026-11-20T15:00:00Z",
+     "id": 55001,
+     "milestone": false,
+     "name": "Erect steel L3 Seq 1",
+     "notes": "[calc-graph ERECT-L3-S1]",
+     "percentage": 40,
+     "start_datetime": "2026-11-09T07:00:00Z",
+     "wbs": "05.3.1"
+    },
+    {
+     "critical_path": true,
+     "finish_datetime": "2027-01-15T07:00:00Z",
+     "id": 55002,
+     "milestone": true,
+     "name": "Topping-out milestone",
+     "percentage": 0,
+     "start_datetime": "2027-01-15T07:00:00Z"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/tasks",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "drawings_count": 2,
+     "id": 7700003,
+     "name": "Structural"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/projects/5800002/drawing_areas",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "current_revision": {
+      "id": 1,
+      "revision_number": "2",
+      "updated_at": "2026-10-01T12:00:00Z"
+     },
+     "discipline": "Structural",
+     "id": 77101,
+     "number": "S-201",
+     "obsolete": false,
+     "title": "Level 2 framing plan"
+    },
+    {
+     "current_revision": {
+      "id": 2,
+      "revision_number": "1",
+      "updated_at": "2026-07-17T12:00:00Z"
+     },
+     "discipline": "Structural",
+     "id": 77102,
+     "number": "S-501",
+     "obsolete": false,
+     "title": "Foundation details"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.1/drawing_areas/7700003/drawings",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "code": "05 12 00",
+     "full_code": "05-12-00",
+     "id": 88001,
+     "name": "Structural Steel Framing"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/cost_codes",
+   "query": {
+    "page": "1",
+    "per_page": "100",
+    "project_id": "5800002"
+   },
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "id": 7100001,
+     "login": "pm@tidewater.example",
+     "name": "Marisol Okafor"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/projects/5800002/rfis/potential_rfi_managers",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "description": "Concrete Reinforcing",
+     "id": 12075,
+     "number": "03 20 00"
+    },
+    {
+     "description": "Cast-in-Place Concrete",
+     "id": 12573,
+     "number": "03 30 00"
+    },
+    {
+     "description": "Structural Steel Framing",
+     "id": 12225,
+     "number": "05 12 00"
+    },
+    {
+     "description": "Steel Decking",
+     "id": 12716,
+     "number": "05 31 00"
+    },
+    {
+     "description": "Applied Fireproofing",
+     "id": 12886,
+     "number": "07 81 00"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/specification_sections",
+   "status": 200
+  },
+  {
+   "body": [
+    {
+     "id": 183100,
+     "is_default": true,
+     "name": "Draft",
+     "status": "Draft"
+    },
+    {
+     "id": 183101,
+     "is_default": true,
+     "name": "Open",
+     "status": "Open"
+    },
+    {
+     "id": 183102,
+     "is_default": false,
+     "name": "Approved",
+     "status": "Closed"
+    }
+   ],
+   "method": "GET",
+   "path": "/rest/v1.0/companies/4900001/submittal_statuses",
+   "query": {
+    "page": "1",
+    "per_page": "100"
+   },
+   "status": 200
+  },
+  {
+   "body": {
+    "data": [
+     {
+      "default": true,
+      "default_status": true,
+      "deletable": false,
+      "id": "301",
+      "name": "Open"
+     }
+    ]
+   },
+   "method": "GET",
+   "path": "/rest/v2.0/companies/4900001/change_events/statuses",
+   "status": 200
+  },
+  {
+   "body": {
+    "id": 81500001,
+    "number": "1",
+    "status": "open",
+    "subject": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.0/projects/5800002/rfis",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": 61500001,
+    "number": "001",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.1/projects/5800002/submittals",
+   "status": 201
+  },
+  {
+   "body": {
+    "id": 91500001,
+    "number": "001",
+    "title": "created"
+   },
+   "method": "POST",
+   "path": "/rest/v1.1/change_events",
+   "status": 201
+  }
+ ]
+}
