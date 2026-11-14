@@ -45,7 +45,7 @@ export class Viewer {
   resize() {
     const r = this.el.getBoundingClientRect();
     if (!r.width || !r.height) return;
-    this.renderer.setSize(r.width, r.height, false);
+    this.renderer.setSize(r.width, r.height); // updateStyle: CSS size = panel, buffer = panel x devicePixelRatio
     this.camera.aspect = r.width / Math.max(1, r.height);
     this.camera.updateProjectionMatrix();
   }
