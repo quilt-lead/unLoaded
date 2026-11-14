@@ -37,6 +37,17 @@ export interface TimelinePoint {
   worst_stage: string | null;
   stages: Record<string, string | null>;
   error?: string | null;
+  /** present when this point's slip is LOWER than the point before (as_of.explain_slip_drop) */
+  slip_change?: SlipChange;
+}
+
+export interface SlipChange {
+  from: number;
+  to: number;
+  /** true only when every activity the change's work held on the driving path is complete by this date
+   *  and its elements moved to a later stage; false = a model defect, shown as such */
+  explained: boolean;
+  reason: string;
 }
 
 export interface Boundary {

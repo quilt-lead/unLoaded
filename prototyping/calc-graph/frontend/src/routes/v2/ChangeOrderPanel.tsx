@@ -63,6 +63,10 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
   const allLive = !!ps.data?.length && ps.data.every((p) => p.source === "live");
   if (co.error) return <p className="v2-error">Change order unavailable: {co.error}</p>;
   const s = co.summary;
+  // the inserted work whose hold on an existing activity sets the new project finish
+  const slipDrivers = (co.schedule?.activities ?? []).flatMap((a) =>
+    (a.holds ?? []).filter((h) => h.drives_finish).map((h) => ({ via: a.ref, title: h.title, push: h.finish_push })),
+  );
   const sheetPage = (n?: string) => idx.sheets.find((x) => x.sheet === n);
   return (
     <div className="v2-co">
@@ -94,6 +98,12 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
             </li>
             <li>
               Slip: <Basis f={s.forecast_slip} />
+              {slipDrivers.length > 0 && (
+                <>
+                  {" "}
+                  - driven by {slipDrivers.map((d) => `${d.via} holding '${d.title}' (+${d.push} wd)`).join("; ")}.
+                </>
+              )}
             </li>
             <li>
               Float: <Basis f={s.float_consumed} />
@@ -232,9 +242,29 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
               <div>
                 <span className="mono">{a.ref}</span> {a.title} <span className="v2-chip tone-warn">+{a.added_days} d est.</span>
               </div>
-              <div className="v2-small">
-                Finish {a.early_finish_before} {"->"} {a.early_finish_after}; {a.float_known === false ? "float not reported (assumed 0)" : <>float {a.float_before} {"->"} {a.float_after} d</>}
-              </div>
+              {a.inserted ? (
+                <div className="v2-small">
+                  Inserted work, {a.early_start} to {a.early_finish}
+                  {a.holds && a.holds.length > 0 ? (
+                    <>
+                      ; must finish before{" "}
+                      {a.holds.map((h, i) => (
+                        <span key={h.ref}>
+                          {i > 0 && ", "}
+                          <span className="mono">{h.ref}</span> (finish {h.early_finish_before} {"->"} {h.early_finish_after}, float {h.float_before} {"->"} {h.float_after} d
+                          {h.drives_finish ? <strong>, sets the project finish</strong> : null})
+                        </span>
+                      ))}
+                    </>
+                  ) : (
+                    "; feeds the work after it"
+                  )}
+                </div>
+              ) : (
+                <div className="v2-small">
+                  Finish {a.early_finish_before} {"->"} {a.early_finish_after}; {a.float_known === false ? "float not reported (assumed 0)" : <>float {a.float_before} {"->"} {a.float_after} d</>}
+                </div>
+              )}
               <details className="v2-small">
                 <summary>{a.reasons.length} reasons</summary>
                 <ul>

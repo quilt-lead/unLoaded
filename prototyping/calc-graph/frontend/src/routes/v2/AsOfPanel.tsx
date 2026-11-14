@@ -68,6 +68,13 @@ export function AsOfTimeline({ move, asOf, onPick }: { move: Move | null; asOf: 
       ) : (
         <p className="v2-small muted">No stage boundary in the next {tl.data.horizon_days} days makes this change worse.</p>
       )}
+      {tl.data.points
+        .filter((p) => p.slip_change)
+        .map((p) => (
+          <p key={p.date} className={`v2-small ${p.slip_change!.explained ? "ai-slip-why" : "v2-error"}`} data-testid="slip-drop">
+            Slip falls {p.slip_change!.from} {"->"} {p.slip_change!.to} wd if approved on {p.date}: {p.slip_change!.reason}
+          </p>
+        ))}
       <StepChart tl={tl.data} onPick={onPick} />
       <table className="v2-table ai-tl-table">
         <thead>
@@ -89,7 +96,14 @@ export function AsOfTimeline({ move, asOf, onPick }: { move: Move | null; asOf: 
                 <span className="muted v2-small">{p.labels.join(", ")}</span>
               </td>
               <td className="mono">{p.total_cost == null ? "-" : fmtUsd(p.total_cost)}</td>
-              <td className="mono">{p.forecast_slip ?? "-"}</td>
+              <td className="mono">
+                {p.forecast_slip ?? "-"}
+                {p.slip_change && (
+                  <span className={`v2-chip ${p.slip_change.explained ? "tone-good" : "tone-bad"}`} title={p.slip_change.reason}>
+                    {p.slip_change.explained ? "lower: why above" : "lower: unexplained"}
+                  </span>
+                )}
+              </td>
               <td className="mono">{p.finish_delay ?? "-"}</td>
               <td>{p.worst_stage ?? "-"}</td>
             </tr>

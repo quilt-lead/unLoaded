@@ -170,6 +170,87 @@ def schedule_activities_by_date(ads, element_ids: list[str]) -> dict[str, list[s
     return out
 
 
+def _point(design: dict, estimate_fn, element_ids: list[str], d: dt.date, labels, default_adapters=None):
+    """(timeline point, change order, state) for an approval date `d`."""
+    ads = adapters(design, None if is_today(d) else d, default_adapters)
+    co = estimate_fn(ads)
+    s = co.get("summary") or {}
+    st = _state(ads)
+    stages = {e: (st.element_index[e]["stage"] if st is not None and e in st.element_index else None) for e in element_ids}
+    pt = {"date": d.isoformat(), "labels": sorted(labels), "is_today": is_today(d),
+          "total_cost": (s.get("total_cost") or {}).get("value"),
+          "forecast_slip": (s.get("forecast_slip") or {}).get("value"),
+          "finish_delay": (s.get("finish_delay") or {}).get("value"),
+          "worst_stage": s.get("worst_stage"), "stages": stages,
+          "error": co.get("error")}
+    return pt, co, st
+
+
+def explain_slip_drop(prev_co: dict, co: dict, st_q) -> dict | None:
+    """Why the forecast slip of the same change is LOWER when approved later (prev_co approved earlier,
+    co later, st_q = the construction state co was estimated on). None when it is not lower.
+
+    A drop is EXPLAINED only when every activity the change's work was holding on the driving path at the
+    earlier date (schedule.element_holds[*].drives_finish) is complete by the later date, and every
+    element held there has moved to a later construction stage, so its work now holds a different, later
+    activity. That is the one mechanism by which approving later can slip less: the affected work is
+    already done, and its rework runs beside the schedule instead of holding the activity that drove the
+    finish. Anything else is unexplained (a model defect) - scripts/check_platform_contracts.py (H) fails on it."""
+    sp = ((prev_co.get("summary") or {}).get("forecast_slip") or {}).get("value")
+    sq = ((co.get("summary") or {}).get("forecast_slip") or {}).get("value")
+    if sp is None or sq is None or sq >= sp:
+        return None
+    hp = (prev_co.get("schedule") or {}).get("element_holds") or {}
+    hq = (co.get("schedule") or {}).get("element_holds") or {}
+    groups: dict[str, list[str]] = {}
+    for e, h in hp.items():
+        if h.get("drives_finish") and h.get("target"):
+            groups.setdefault(h["target"], []).append(e)
+    out = {"from": sp, "to": sq, "explained": False, "released": [], "reason": None}
+    if not groups:
+        out["reason"] = "unexplained: no held activity drove the earlier slip"
+        return out
+    parts, ok = [], True
+    for t, ids in sorted(groups.items()):
+        a = st_q.activity(t) if st_q is not None else None
+        done = a is not None and a["status"] == "complete"
+        moved = [e for e in ids if e in hq and hq[e].get("target") not in (None, t)
+                 and stage_rank(hq[e]["stage"]) > stage_rank(hp[e]["stage"])]
+        new_t = sorted({hq[e]["target"] for e in moved})
+        rel = {"activity": t, "activity_name": a["name"] if a else t, "complete": done,
+               "elements": sorted(ids), "moved": sorted(moved), "now_holds": new_t,
+               "stage_from": sorted({hp[e]["stage"] for e in ids}), "stage_to": sorted({hq[e]["stage"] for e in moved})}
+        out["released"].append(rel)
+        if not done or len(moved) != len(ids):
+            ok = False
+            continue
+        title = {hq[e]["target"]: hq[e].get("target_title") or hq[e]["target"] for e in moved}
+        names = " / ".join(f"'{title[x]}'" for x in new_t)
+        parts.append(f"'{rel['activity_name']}' finishes before this date, so its {len(ids)} affected element(s) are "
+                     f"{'/'.join(rel['stage_to'])} instead of {'/'.join(rel['stage_from'])}: their rework no longer holds it "
+                     f"(and the work after it) and must instead finish before {names}")
+    out["explained"] = ok
+    out["reason"] = ("; ".join(parts) + f" - slip {sp:g} -> {sq:g} wd") if ok else (
+        "unexplained: " + "; ".join(f"{r['activity']} {'complete' if r['complete'] else 'still open'}, "
+                                     f"{len(r['moved'])}/{len(r['elements'])} elements moved on" for r in out["released"]))
+    return out
+
+
+def sweep(design: dict, estimate_fn, element_ids: list[str], dates: list[dt.date], default_adapters=None) -> list[dict]:
+    """The change's estimate at each approval date in `dates` (ascending), each point carrying
+    slip_change (explain_slip_drop vs the point before) when its slip is lower."""
+    points, prev = [], None
+    for d in dates:
+        pt, co, st = _point(design, estimate_fn, element_ids, d, set(), default_adapters)
+        if prev is not None:
+            ch = explain_slip_drop(prev, co, st)
+            if ch:
+                pt["slip_change"] = ch
+        points.append(pt)
+        prev = co
+    return points
+
+
 def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date | None,
              default_adapters=None, horizon_days: int = 120) -> dict:
     """Cost + slip vs approval date for one change.
@@ -177,7 +258,9 @@ def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date |
     estimate_fn(adapters) -> change-order dict (change_order.estimate output) for the SAME change.
     Evaluated at the presets (today, +1 wk, +2 wk, +1 month), the selected as-of, every stage boundary
     of the elements and every finish of their packages' and downstream activities within the horizon -
-    the estimate is a step function of the projected state and those are the steps it reads. Returns {points, next_jump, approve_by_line}."""
+    the estimate is a step function of the projected state and those are the steps it reads. A point
+    whose slip is lower than the point before carries slip_change (why: explain_slip_drop).
+    Returns {points, next_jump, approve_by_line}."""
     base = today()
     sel = as_of or base
     t0 = adapters(design, None, default_adapters)
@@ -190,20 +273,15 @@ def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date |
         dates.setdefault(b["date"], set()).add("stage boundary")
     for ds in schedule_dates(t0, element_ids, after=min(base, sel) - dt.timedelta(days=1), horizon_days=horizon_days):
         dates.setdefault(ds, set()).add("schedule step")
-    points = []
+    points, prev = [], None
     for ds in sorted(dates):
-        d = dt.date.fromisoformat(ds)
-        ads = adapters(design, None if is_today(d) else d, default_adapters)
-        co = estimate_fn(ads)
-        s = co.get("summary") or {}
-        st = _state(ads)
-        stages = {e: (st.element_index[e]["stage"] if st is not None and e in st.element_index else None) for e in element_ids}
-        points.append({"date": ds, "labels": sorted(dates[ds]), "is_today": is_today(d),
-                       "total_cost": (s.get("total_cost") or {}).get("value"),
-                       "forecast_slip": (s.get("forecast_slip") or {}).get("value"),
-                       "finish_delay": (s.get("finish_delay") or {}).get("value"),
-                       "worst_stage": s.get("worst_stage"), "stages": stages,
-                       "error": co.get("error")})
+        pt, co, st = _point(design, estimate_fn, element_ids, dt.date.fromisoformat(ds), dates[ds], default_adapters)
+        if prev is not None:
+            ch = explain_slip_drop(prev, co, st)
+            if ch:
+                pt["slip_change"] = ch
+        points.append(pt)
+        prev = co
     cur = next((p for p in points if p["date"] == sel.isoformat()), None)
     acts_at = schedule_activities_by_date(t0, element_ids)
     jumps = []   # every later point that is worse than the point before it

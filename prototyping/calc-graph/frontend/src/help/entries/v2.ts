@@ -434,7 +434,8 @@ export const V2_HELP = {
   "stat.co-slip": {
     title: "Forecast slip",
     short:
-      "How many working days the forecast project finish moves, from re-running the schedule with the added work.",
+      "How many working days the forecast project finish moves, from re-running the schedule with the change's work inserted as activities.",
+    what: "The work an element needs is cumulative by stage: revise under review (submitted); EOR redesign, re-detail and re-review (approved); plus re-fabricate the replacement (fabricated or delivered); plus a field swap or footing enlargement (erected). It starts the morning after approval and must finish before the element's next open activity. 'Driven by' names the hold that sets the new finish.",
   },
   "stat.co-delay": {
     title: "Past contract",
@@ -484,7 +485,7 @@ export const V2_HELP = {
   "panel.co-schedule": {
     title: "Schedule",
     short:
-      "Schedule activities the change hits, the days added, and float before and after.",
+      "The change's work, inserted into the schedule as its own activities: how long each takes, when it runs, and which existing activity it must finish before (with that activity's finish and float before and after).",
     terms: ["term.estimate"],
   },
   "panel.co-assumptions": {

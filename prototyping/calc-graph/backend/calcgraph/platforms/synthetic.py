@@ -92,14 +92,32 @@ RATES = {
     "poured_footing_factor": 2.0,               # enlarging a poured footing vs placing it new
     "poured_footing_mobilization_usd": 2500.0,  # per footing: excavate, dowel, shore, re-pour
 }
-# schedule effects of a change, working days, by the stage of the affected package/element
+# Schedule effects of a change, working days. Each is a piece of WORK inserted into the CPM network as
+# its own activity (change_order.estimate -> ConstructionState.reschedule), starting no earlier than the
+# approval date's data date and finishing before the element's next open activity (its "hold target").
 SCHEDULE_RULES = {
-    "design": 0, "draft": 0, "submitted": 3,   # revise drawings before / during review
-    "approved": 15,                           # EOR redesign 5 + re-detail 5 + re-review 5
-    "fabricated": 8, "delivered": 8,          # re-fabricate the affected pieces + ship
-    "erected_per_member": 0.5, "erected_min": 2,   # field rework, per member, before next open activity
-    "poured_footing": 4,                      # excavate, dowel, form, pour, cure enlargement
+    "revise_under_review": 3,      # shop drawings still in review: revise them, review restarts
+    "redesign": 15,                # shop drawings approved: EOR redesign 5 + re-detail 5 + re-review 5
+    "refabricate": 8,              # piece already fabricated: re-fabricate the replacement + ship
+    "field_rework_per_member": 0.5, "field_rework_min": 2,   # piece already erected: swap it in the field
+    "poured_footing": 4,           # footing already poured: excavate, dowel, form, pour, cure the enlargement
 }
+# The work a change needs for an element at each construction stage. CUMULATIVE by construction: a later
+# stage needs everything an earlier one did plus more (a fabricated piece is redesigned AND re-fabricated),
+# so a later approval can never need less work. scripts/check_platform_contracts.py (H1) asserts it.
+STAGE_WORK = {
+    "design": (), "draft": (),
+    "submitted": ("revise_under_review",),
+    "approved": ("redesign",),
+    "fabricated": ("redesign", "refabricate"),
+    "delivered": ("redesign", "refabricate"),
+    "erected": ("redesign", "refabricate", "field_rework"),   # a poured footing's field rework: poured_footing
+}
+# a step that includes another (redesigning approved drawings includes revising them): used by the check
+STEP_INCLUDES = {"redesign": ("revise_under_review",)}
+# index into an element's chain [DET, REV, FAB, DEL, INSTALL] of the first activity its rework must
+# precede at each stage (past the chain = the element's downstream activities)
+STAGE_HOLD_FROM = {"submitted": 1, "approved": 2, "fabricated": 3, "delivered": 4, "erected": 5}
 
 
 # ---------------------------------------------------------------------------------------------
@@ -206,20 +224,29 @@ class Activity:
 
 
 def cpm(acts: dict[str, Activity], finish_constraint: int | None = None,
-        data_day: int | None = None, fixed: dict[str, tuple[int, int]] | None = None) -> int:
+        data_day: int | None = None, fixed: dict[str, tuple[int, int]] | None = None,
+        resume: dict[str, int] | None = None) -> int:
     """Forward + backward pass in working-day indices (ES inclusive, EF exclusive).
     `fixed` pins (es, ef) of completed / started activities; `data_day` floors the start of
-    everything not yet started. Returns the project early finish."""
+    everything not yet started. `resume` = {started activity: its remaining working days}: a started
+    activity keeps its start but cannot finish before its latest FS predecessor (an inserted rework
+    activity holding it) plus its remaining duration. Returns the project early finish."""
     fixed = fixed or {}
+    resume = resume or {}
     order = _topo(acts)
     for r in order:
         a = acts[r]
         es = 0
+        fs_ready = 0
         for p, typ, lag in a.preds:
             pa = acts[p]
             es = max(es, (pa.ef if typ == "FS" else pa.es) + lag)
+            if typ == "FS":
+                fs_ready = max(fs_ready, pa.ef + lag)
         if r in fixed:
             a.es, a.ef = fixed[r]
+            if r in resume:
+                a.ef = max(a.ef, fs_ready + resume[r])
             continue
         if data_day is not None:
             es = max(es, data_day)
@@ -235,8 +262,8 @@ def cpm(acts: dict[str, Activity], finish_constraint: int | None = None,
         lf = lf_end
         for s, typ, lag in succ[r]:
             sa = acts[s]
-            lf = min(lf, sa.ls - lag if typ == "FS" else sa.ls - lag + a.dur)
-        a.lf, a.ls = lf, lf - a.dur
+            lf = min(lf, sa.ls - lag if typ == "FS" else sa.ls - lag + (a.ef - a.es))
+        a.lf, a.ls = lf, lf - (a.ef - a.es)   # ef - es = dur, except a started activity held past its plan
     return finish
 
 
@@ -298,38 +325,90 @@ class ConstructionState:
                                               "activities", "sheets", "element_index", "contract_finish",
                                               "forecast_finish", "groups")}
 
-    def reschedule(self, extra_days: dict[str, int]) -> dict:
-        """Re-run the CPM from the data date with `extra_days` added to activities (by ref).
-        Completed activities stay fixed; started ones keep their start. Returns per-activity
-        {before/after early finish, float before/after} and the project finish shift."""
+    def successors(self, ref: str) -> list[str]:
+        return [r for r, a in self._acts.items() if any(p == ref for p, _, _ in a.preds)]
+
+    def hold_target(self, refs: list[str]) -> str | None:
+        """The first activity in `refs` not complete at the data date; when every one is complete, the
+        earliest-starting open activity reachable through their successors (work on an element whose
+        own follow-on activities are all done still has to finish before something - ultimately
+        substantial completion). None only when the whole project is complete."""
+        status = {a["ref"]: a["status"] for a in self.activities}
+        for r in refs:
+            if r in self._acts and status.get(r) != "complete":
+                return r
+        seen, frontier, found = set(refs), list(refs), []
+        while frontier:
+            nxt = []
+            for r in frontier:
+                for s in self.successors(r):
+                    if s in seen:
+                        continue
+                    seen.add(s)
+                    (found if status.get(s) != "complete" else nxt).append(s)
+            if found:
+                return min(found, key=lambda r: (self._acts[r].es, r))
+            frontier = nxt
+        return None
+
+    def reschedule(self, inserted: list[dict]) -> dict:
+        """Re-run the CPM from the data date with the change's work INSERTED as new activities.
+
+        inserted: [{ref, name, dur, after: [inserted refs it follows], holds: [existing refs it must
+        finish before]}]. Each inserted activity starts no earlier than the data date (the morning after
+        approval). Completed activities stay fixed; a started activity keeps its start and, when held,
+        finishes no earlier than the rework plus its remaining duration. Returns per-activity before/after
+        early finish and float (baseline float for held activities), the inserted activities' own dates
+        and the project finish shift."""
         import copy
         acts = copy.deepcopy(self._acts)
-        fixed = {}
+        status = {a["ref"]: a["status"] for a in self.activities}
+        fixed, resume = {}, {}
         for r, a in acts.items():
-            st = self.activity(r)["status"]
-            if st == "complete":
+            if status[r] == "complete":
                 fixed[r] = (a.es, a.ef)
-            elif st == "in_progress":
-                fixed[r] = (a.es, a.ef + extra_days.get(r, 0))
-        for r, n in extra_days.items():
-            if r in acts and self.activity(r)["status"] != "complete":
-                acts[r].dur += n
+            elif status[r] == "in_progress":
+                fixed[r] = (a.es, a.ef)
+                resume[r] = a.ef - self._data_day
+        new_refs = set()
+        for x in inserted:
+            if x["ref"] in acts:
+                raise ValueError(f"inserted activity {x['ref']} already exists")
+            acts[x["ref"]] = Activity(x["ref"], x["name"], "0.0 Change (inserted)", int(x["dur"]),
+                                      [(p, "FS", 0) for p in x.get("after", [])])
+            new_refs.add(x["ref"])
+        for x in inserted:
+            for t in x.get("holds", []):
+                if status.get(t) == "complete":
+                    raise ValueError(f"{x['ref']} cannot hold {t}: it is complete at the data date")
+                acts[t].preds.append((x["ref"], "FS", 0))
         cf = self._contract_day
-        new_finish = cpm(acts, finish_constraint=cf, data_day=self._data_day, fixed=fixed)
+        new_finish = cpm(acts, finish_constraint=cf, data_day=self._data_day, fixed=fixed, resume=resume)
         old_finish = max(a.ef for a in self._acts.values())
-        per = {}
-        for r in acts:
-            o, n = self._acts[r], acts[r]
-            if n.ef != o.ef or r in extra_days:
+        per, new = {}, {}
+        held = {t for x in inserted for t in x.get("holds", [])}
+        for r, n in acts.items():
+            if r in new_refs:
+                new[r] = {"early_start": self.day_to_date(n.es).isoformat(),
+                          "early_finish": self.day_to_date(n.ef - 1).isoformat(),
+                          "float_after": n.ls - n.es}
+                continue
+            o = self._acts[r]
+            if n.ef != o.ef or r in held:
                 per[r] = {"early_finish_before": self.day_to_date(o.ef - 1).isoformat(),
                           "early_finish_after": self.day_to_date(n.ef - 1).isoformat(),
-                          "slip_days": n.ef - o.ef, "float_before": o.ls - o.es, "float_after": n.ls - n.es}
+                          "slip_days": n.ef - o.ef, "float_before": o.ls - o.es, "float_after": n.lf - n.ef,
+                          "status": status[r]}
+                if r in held:
+                    # does the inserted work set this activity's dates (rather than another, later predecessor)?
+                    ready = max(acts[p].ef for p, _, _ in n.preds if p in new_refs)
+                    per[r]["hold_binds"] = (n.ef == ready + resume[r]) if r in resume else (n.es == ready)
         return {"finish_before": self.day_to_date(old_finish - 1).isoformat(),
                 "finish_after": self.day_to_date(new_finish - 1).isoformat(),
                 "finish_slip_days": new_finish - old_finish,
                 "contract_finish": self.contract_finish,
                 "project_float_before": cf - old_finish, "project_float_after": cf - new_finish,
-                "days_past_contract": max(0, new_finish - cf), "activities": per}
+                "days_past_contract": max(0, new_finish - cf), "activities": per, "inserted": new}
 
 
 STAGE_FROM_CHAIN = ("submitted", "approved", "fabricated", "delivered", "erected")

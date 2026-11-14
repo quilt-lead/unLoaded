@@ -68,6 +68,10 @@
 .ai-dot.on {
   fill: var(--warn);
 }
+.ai-slip-why {
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
 .ai-tl-table tr.on td {
   background: var(--accent-soft);
 }

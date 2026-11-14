@@ -121,6 +121,28 @@ export interface ScheduleActivity {
   float_known?: boolean;
   platform?: string;
   link?: string;
+  /** synthetic CPM: the change's work inserted as its own activity (runs early_start..early_finish) */
+  inserted?: boolean;
+  early_start?: string;
+  early_finish?: string;
+  /** existing activities this work must finish before (float_before = baseline total float) */
+  holds?: HeldActivity[];
+}
+
+export interface HeldActivity {
+  ref: string;
+  title: string;
+  status?: string;
+  early_finish_before?: string;
+  early_finish_after?: string;
+  slip_days?: number;
+  float_before?: number;
+  float_after?: number;
+  /** working days this hold moves the project finish */
+  finish_push: number;
+  /** the change's work here is what sets the new project finish */
+  drives_finish: boolean;
+  link?: string;
 }
 
 export interface ChangeOrder {

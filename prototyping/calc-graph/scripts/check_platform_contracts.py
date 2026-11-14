@@ -11,7 +11,9 @@ header); recorded responses satisfy the spec schemas and the generated models (n
 normalize statuses and link records to registry elements via the calc-graph marker; SourcedAdapter labels
 every record and falls back to the mock with a reason; the change-order estimator runs on live-sourced
 records; the seeder's dry run / refusals / idempotence / typed write bodies; OAuth state check, 0600 token
-storage, and that no secret or token reaches logs or output.
+storage, and that no secret or token reaches logs or output. H: on a daily sweep of approval dates (today to
++6 weeks, three moves) every decrease in forecast slip is explained by a completed driving activity (as_of.
+explain_slip_drop), stage work is cumulative, and no element's schedule work vanishes or starts before approval.
 What it cannot prove: that the REAL Procore sandbox / ACC trial / Forma answer like the recordings - that
 needs real sandbox credentials (docs/platforms-real.md, "What is not verified").
 """
@@ -471,9 +473,87 @@ def g_logs():
        f"{len(logs.splitlines())} log lines, leaks={leaks}")
 
 
+# ------------------------------------------------------------------ H. forecast slip vs approval date
+SWEEP_MOVES = (("COL-2B", 5.0, 0.0), ("COL-3C", 0.0, 5.0), ("COL-4B", 5.0, 0.0))
+
+
+def h_slip_sweep():
+    """Approving the same change LATER may only slip LESS for a stated, checkable reason.
+
+    Daily (weekday) sweep of approval dates, today to +6 weeks, for three moves. A point whose forecast
+    slip is lower than the day before must carry slip_change.explained (as_of.explain_slip_drop): every
+    activity the change's work held on the driving path is complete by then and every element it held
+    moved to a later stage. Plus: stage work is cumulative, no element's work silently vanishes, and no
+    inserted work starts before the approval's data date."""
+    import datetime as dt
+    from calcgraph import as_of as asof
+    from calcgraph import move_api
+    from calcgraph.platforms.base import stage_rank
+    from calcgraph.platforms.change_order import _stage_days
+    from calcgraph.platforms.synthetic import SCHEDULE_RULES, STAGE_HOLD_FROM, STAGE_WORK, STEP_INCLUDES
+    seq = sorted(STAGE_WORK, key=stage_rank)
+
+    def closure(stage):
+        return set(STAGE_WORK[stage]) | {x for st_ in STAGE_WORK[stage] for x in STEP_INCLUDES.get(st_, ())}
+    days = {s_: _stage_days(s_, False, 1, SCHEDULE_RULES)[0] for s_ in seq}
+    bad = [f"{a}->{b}" for a, b in zip(seq, seq[1:]) if not closure(a) <= closure(b) or days[b] < days[a]]
+    ok("H1 stage work is cumulative (a later stage needs every step of an earlier one, and no fewer days)", not bad,
+       f"days by stage {days}; violations {bad}")
+    # the explainer must be able to say no: a drop while the driving hold is still open is unexplained
+    st = get_state(load_design())
+    open_act = next(a["ref"] for a in st.activities if a["status"] != "complete")
+    fake = lambda slip, tgt, stage: {"summary": {"forecast_slip": {"value": slip}}, "schedule": {"element_holds": {
+        "X": {"stage": stage, "target": tgt, "drives_finish": True}}}}
+    ch = asof.explain_slip_drop(fake(10, open_act, "approved"), fake(4, open_act, "approved"), st)
+    ok("H2 explain_slip_drop refuses a drop whose driving hold is still open", ch and ch["explained"] is False, str(ch))
+    d = move_api._design()
+    t = asof.today()
+    dates = [t + dt.timedelta(days=k) for k in range(43) if (t + dt.timedelta(days=k)).weekday() < 5]
+    for col, dx, dy in SWEEP_MOVES:
+        m = move_api.Move(column=col, dx=dx, dy=dy)
+        res = move_api._impact(d, m)
+        imp = move_api._change_order_input(d, res)
+        changed = {r["id"] for r in imp["resized"]} | {c["id"] for c in imp["connections_changed"]} | {f["id"] for f in imp["footings_changed"]}
+        ids = sorted(set(imp["elements"]) | changed)
+        cos = {}
+
+        def est(ads, _res=res):
+            co = move_api._change_order(d, _res, ads)
+            s_ = next((a.state for a in ads if getattr(a, "state", None) is not None), None)
+            cos[s_.as_of if s_ is not None else None] = (co, s_)
+            return co
+        pts = asof.sweep(d, est, ids, dates)
+        tag = f"{col} dx={dx:g} dy={dy:g}"
+        errs = [p["date"] for p in pts if p.get("error")]
+        drops = [p for p in pts if p.get("slip_change")]
+        unexpl = [f"{p['date']}: {p['slip_change']['reason']}" for p in drops if not p["slip_change"]["explained"]]
+        prev_slip = [p["forecast_slip"] for p in pts]
+        missing, early = [], []
+        for co, s_ in cos.values():
+            if s_ is None:
+                continue
+            holds = co["schedule"].get("element_holds") or {}
+            for e in sorted(changed):
+                stg = s_.element_index.get(e, {}).get("stage")
+                if stg in STAGE_HOLD_FROM and not (holds.get(e) or {}).get("target"):
+                    missing.append(f"{s_.as_of} {e} ({stg})")
+            dd = s_.project["data_date"]
+            early += [f"{s_.as_of} {a['ref']} starts {a['early_start']} < data date {dd}"
+                      for a in co["schedule"]["activities"] if a.get("inserted") and a["early_start"] < dd]
+        ok(f"H3 {tag}: every daily approval date estimates without error", not errs and len(pts) == len(dates),
+           f"{len(pts)} dates {dates[0]}..{dates[-1]}; errors {errs[:3]}")
+        ok(f"H4 {tag}: every slip decrease vs the day before is explained", not unexpl,
+           f"slips {prev_slip}; drops {[(p['date'], p['slip_change']['from'], p['slip_change']['to']) for p in drops]}; "
+           f"unexplained {unexpl[:2]}")
+        ok(f"H5 {tag}: no changed element's schedule work vanishes (each has a hold target at every date)", not missing,
+           f"{len(missing)} missing: {missing[:4]}")
+        ok(f"H6 {tag}: no inserted work starts before the approval's data date", not early, f"{early[:3]}")
+
+
 def main() -> int:
     for name, fn in [("A", a_recordings), ("B-procore", b_procore), ("B-acc", b_acc), ("B-forma", b_forma), ("C", c_sourced),
-                     ("D", d_change_order), ("E", e_seed), ("F-secrets", f_secrets), ("F-oauth", f_oauth), ("G", g_logs)]:
+                     ("D", d_change_order), ("E", e_seed), ("F-secrets", f_secrets), ("F-oauth", f_oauth), ("G", g_logs),
+                     ("H", h_slip_sweep)]:
         run(name, fn)
     width = max(len(n) for n, _, _ in RESULTS)
     for n, passed, ev in RESULTS:

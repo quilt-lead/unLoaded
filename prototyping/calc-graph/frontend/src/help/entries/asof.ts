@@ -22,7 +22,7 @@ export const ASOF_HELP = {
     title: "Cost and slip vs approval date",
     short:
       "The change-order estimate and forecast slip at each approval date where something changes, and the date to approve by before the next jump.",
-    read: "Points are today, +1 week, +2 weeks, +1 month, the selected date, every stage boundary of the affected elements and every finish of their submittal packages' and follow-on activities in the next 120 days (the estimate is a step function of those). The approve-by line names the element and the stage boundary that drives the next jump. Click a date to use it.",
+    read: "Points are today, +1 week, +2 weeks, +1 month, the selected date, every stage boundary of the affected elements and every finish of their submittal packages' and follow-on activities in the next 120 days (the estimate is a step function of those). The approve-by line names the element and the stage boundary that drives the next jump. Slip can fall at a later date for one reason only: the activity the change's work was holding on the critical path is finished by then, so the affected pieces are already in place and their rework runs beside the schedule (before a later activity with more room) instead of holding it. The line under the approve-by line says which activity and why; a fall without that reason is flagged as unexplained. Click a date to use it.",
     real: "Every figure is an estimate from stated unit rates on a synthetic project.",
     terms: ["term.as-of", "term.change-order"],
   },
