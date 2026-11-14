@@ -90,18 +90,31 @@ BG-1..3 gussets, BP-1..4 base plates; each end gets the lightest typical that wo
 | POST | `/impact` body `{column, dx, dy, remove}` | `{stale: [{record, calc, kind, reasons[], chain[], screened}], estimates: {element: {span_old/new, mu_old/new, uc_old/new, governs, size_est, ru_new, capacity, next_typical, special, B_req, method: "estimate - ..."}}, geometry, clashes, lateral[], notes[], health: {band, score, band_construction, score_construction, reasons: [{band, reason, factor}], worst_uc, stale_records, sheets}, occurrences: {element: [...]}, change_order, labels}` |
 | GET | `/health?probe=2` | health of every column for a +/- probe move (heat view) |
 | POST | `/rerun` body `{column, dx, dy, remove, records?}` | redo calcs: `{rev_id, method, order_rule, results: [{step, record, calc, kind, job: gravity/lateral, old, new, size_old, size_new, status, ok_old, ok_new, ng_to_ok, new_page?}], summary, files: {calc_revision_pdf}}` - a NEW calc revision in data/synthetic_v2/revisions/<rev_id>/ |
-| GET | `/revisions`, `/revisions/{rev_id}`, `/revisions/{rev_id}/calc_revision.pdf` | calc revisions (re-runs) + model revisions in the store |
+| GET | `/revisions`, `/revisions/{rev_id}`, `/revisions/{rev_id}/{calc_revision\|rerun_sheets}.pdf`, `/revisions/{rev_id}/{name}/pages/{n}.png?hl=` | calc revisions (re-runs) + model revisions in the store; calc_revision = revised sheets in the package's own style with clouds + "was -> now"; rerun_sheets = handcalcs sheets (math printed from the Python that recomputed it, every value asserted against the re-run). Each result row carries `uc_current_size_new_layout` (old size, new layout) so NG -> OK is meaningful, and `new_page` {page, bbox, sheet, rerun_sheet} |
 | POST | `/apply` body `{column, dx, dy, remove, label?}` | applies the move as a NEW model revision in the SQLite revision store (project "Synthetic v2"; IFC ingested through the production pipeline): `{project, revision, parent, label, diff: compare_models(parent, revision)}` |
 | GET | `/compare?a=&b=` | element diff of two model revisions |
 | GET | `/docs/{calcs\|drawings\|specs}/file`, `/docs/{doc}/pages/{n}.png?hl=x0,y0,x1,y1;...&w=` | original synthetic documents, page renders with highlight boxes |
 | GET | `/platforms`, `/platforms/{procore\|autodesk_build\|forma}/{record_type}?raw=` | mock construction platforms (normalized or platform-shaped) |
 | GET | `/construction-status/{element}` | `{stage, submittals, open_rfis, float_days, reasons, move_difficulty}` |
 | POST | `/change-order` body as /impact | potential change order: submittals, RFIs, sheets, spec articles, calc records, cost (every figure `{value, unit, estimate: true, basis}`), schedule |
-| GET | `/etabs/objects?kind=`, `/etabs/model.e2k?column=&dx=&dy=&remove=` | mock ETABS objects; .e2k written by calc-graph (ETABS did not open it) |
-| POST | `/etabs/send`, `/etabs/pull/{job_id}` | mock send / pull; results computed by our PyNite re-run, labelled so |
+| GET | `/etabs/objects?kind=`, `/etabs/model.e2k?column=&dx=&dy=&remove=` | `{answered_by: {adapter, adapter_name, mock}, items: [...]}`; .e2k written by calc-graph (ETABS did not open it; header X-Answered-By). Adapter = `CALCGRAPH_ETABS_ADAPTER` (etabs = mock, default; bhom_etabs = Windows bridge) |
+| POST | `/etabs/send`, `/etabs/pull/{job_id}` | send / pull (+ answered_by); with the mock, results are our PyNite re-run, labelled so |
 | GET | `/scenarios`, `/eval` | answer key summary; engine scorecard |
+
+## Numbers (run 2026-11-14, from the scripts above)
+
+- AISC table: 14/14 reference shapes within 1 % (max 0.4 %, W27X84 area 24.7 vs 24.8).
+- Answer key: 25 scenarios - easy 1, moderate 10, hard 11, do-not-move 3.
+- Engine on the generator registry: stale topological P 0.563 / R 0.992, screened (> 5 %) P 0.830 /
+  R 0.922; UC at current size: 99.8 % within 0.05, over/under-1.0 flag 100 %; health band 25/25.
+- Engine on the registry REBUILT FROM THE DOCUMENTS (`evaluate_move.py --source ingested`,
+  registry_engine.py: ingested relations + IFC geometry + values parsed from printed calc rows):
+  stale topological P 0.524 / R 0.935, screened P 0.852 / R 0.871; UC 99.7 % within 0.05; health
+  band 23/25 exact, 25/25 within one band.
+- Load path, v2 IFC through the production ingest: 100 / 100 (was 26.9 / 33.9); v1 unchanged.
 
 ## Not built / not verified here
 
-UI (pending the React port). The engine on a registry REBUILT from the documents (it runs on the
-generator's registry today). Live connectors (all platform and ETABS data is mock).
+UI by this agent (the React port builds it on these routes). Live connectors (all platform and
+ETABS data is mock unless the Windows bridge adapter is selected). The two health rules noted above
+were added after a first evaluation, so the design-path band score is in-sample for them.
