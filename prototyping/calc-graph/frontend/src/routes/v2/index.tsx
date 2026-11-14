@@ -1,18 +1,20 @@
-// R3 owns src/routes/v2. Placeholder until the move-a-column UI is built.
+// R3 owns src/routes/v2: the move-a-column UI on the synthetic v2 data (/api/v2).
+import { lazy, Suspense, type ReactElement } from "react";
 import { Routes, Route } from "react-router-dom";
+import MovePage from "./MovePage";
+import "./v2.css";
+
+const ElementPage = lazy(() => import("./ElementPage"));
+const EtabsPage = lazy(() => import("./EtabsPage"));
+
+const wait = (el: ReactElement) => <Suspense fallback={<div className="page muted">Loading...</div>}>{el}</Suspense>;
 
 export default function V2Routes() {
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <div className="page">
-            <h1>Move a column</h1>
-            <p className="page-lede">The move-a-column, health meter and change-order UI is being built here (API: /api/v2).</p>
-          </div>
-        }
-      />
+      <Route index element={<MovePage />} />
+      <Route path="element/:eid" element={wait(<ElementPage />)} />
+      <Route path="etabs" element={wait(<EtabsPage />)} />
     </Routes>
   );
 }
