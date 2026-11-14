@@ -733,7 +733,11 @@ def _elevations(R, doc, plans, info, grid, docc, stats, tag_of) -> list[dict]:
                 if nid:
                     tag_of[el["id"]] = nid
                     docc(nid, s, bbox, "elevation_tag", el["text"], "elevation tag -> 3D point (view bubbles + level markers) -> nearest member with that section", conf)
-                    R.rel(nid, fid, "member-of", "member tagged in the frame's elevation", "inferred")
+                    # frame membership is read off the SFRS marking (the profile's sfrs prefix, "*W14X193"), not off
+                    # being drawn in the elevation: gravity columns / beams at the frame ends are drawn there too.
+                    # Unmarked members keep only their elevation_tag occurrence (a "drawn in" fact).
+                    if el.get("params", {}).get("sfrs"):
+                        R.rel(nid, fid, "member-of", "SFRS-marked (*) member tagged in the frame's elevation")
                     stats["elevation tags resolved"] += 1
                 else:
                     stats["elevation tags unresolved"] += 1

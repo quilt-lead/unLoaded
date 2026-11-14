@@ -63,7 +63,7 @@
     "rel_frames-into_recall": 1.0,
     "rel_instance-of_precision": 0.9952456418383518,
     "rel_instance-of_recall": 0.9952456418383518,
-    "rel_member-of_precision": 0.9893899204244032,
+    "rel_member-of_precision": 1.0,
     "rel_member-of_recall": 1.0,
     "rel_specified-by_precision": 0.5648148148148148,
     "rel_specified-by_recall": 0.5
