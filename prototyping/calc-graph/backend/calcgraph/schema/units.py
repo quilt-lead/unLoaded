@@ -4,7 +4,7 @@ pint owns the unit algebra (its definitions of the foot, inch, pound-force, pasc
 the conversions. This module is the thin layer the schema needs on top of it, with the
 public API the callers and contract checks rely on unchanged:
 
-- a CLOSED vocabulary of ~45 structural units with canonical spellings ("kip*ft", "ksf") and
+- a CLOSED vocabulary of ~65 structural units with canonical spellings ("kip*ft", "ksf") and
   the spellings found in sources (`ALIASES`); anything else is rejected (`UnknownUnit`), so a
   source cannot smuggle an arbitrary pint expression into the schema
 - converting or adding across dimensions is rejected (`UnitMismatch`), e.g. kip -> ft; pint's
@@ -62,6 +62,10 @@ UNITS: dict[str, str] = {
     # area / volume
     "m2": "meter ** 2", "ft2": "foot ** 2", "in2": "inch ** 2",
     "m3": "meter ** 3", "ft3": "foot ** 3", "yd3": "yard ** 3", "in3": "inch ** 3",
+    "mm2": "millimeter ** 2", "mm3": "millimeter ** 3", "cm2": "centimeter ** 2", "cm3": "centimeter ** 3",
+    # section properties: second moment of area / torsion constant (L^4), warping constant (L^6)
+    "m4": "meter ** 4", "mm4": "millimeter ** 4", "cm4": "centimeter ** 4", "in4": "inch ** 4", "ft4": "foot ** 4",
+    "m6": "meter ** 6", "mm6": "millimeter ** 6", "in6": "inch ** 6",
     # force
     "N": "newton", "kN": "kilonewton", "lbf": "pound_force", "kip": "1000 * pound_force",
     # moment
@@ -70,6 +74,11 @@ UNITS: dict[str, str] = {
     # line load
     "N/m": "newton / meter", "kN/m": "kilonewton / meter", "plf": "pound_force / foot",
     "klf": "1000 * pound_force / foot",
+    # translational spring stiffness (force / length: same dimension as a line load)
+    "kip/in": "1000 * pound_force / inch", "lbf/in": "pound_force / inch",
+    # rotational spring stiffness (moment / angle)
+    "N*m/rad": "newton * meter / cg_angle", "kN*m/rad": "kilonewton * meter / cg_angle",
+    "kip*in/rad": "1000 * pound_force * inch / cg_angle", "kip*ft/rad": "1000 * pound_force * foot / cg_angle",
     # pressure / stress
     "Pa": "pascal", "kPa": "kilopascal", "MPa": "megapascal",
     "psf": "pound_force / foot ** 2", "ksf": "1000 * pound_force / foot ** 2",
@@ -90,6 +99,9 @@ ALIASES: dict[str, str] = {
     "k/ft": "klf", "kip/ft": "klf", "lb/ft": "plf", "#/ft": "plf",
     "k/ft2": "ksf", "k/ft^2": "ksf", "lb/ft2": "psf", "lb/ft^2": "psf", "#/ft2": "psf",
     "k/in2": "ksi", "lb/in2": "psi", "sf": "ft2", "sqft": "ft2", "sq ft": "ft2", "cy": "yd3",
+    "k/in": "kip/in", "kip/inch": "kip/in", "lb/in": "lbf/in", "#/in": "lbf/in",
+    "k-in/rad": "kip*in/rad", "k-ft/rad": "kip*ft/rad", "kn-m/rad": "kN*m/rad", "nm/rad": "N*m/rad",
+    "mm^2": "mm2", "mm^4": "mm4", "in^4": "in4", "in^6": "in6", "m^4": "m4",
     "degrees": "deg", "degree": "deg", "\u00b0": "deg", "%": "percent", "": "1", "-": "1",
 }
 

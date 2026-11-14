@@ -1,0 +1,4297 @@
+[
+ {
+  "_t": "BH.oM.Structure.MaterialFragments.Steel",
+  "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+  "Name": "A992Fy50",
+  "Density": 7849.05,
+  "DampingRatio": 0.0,
+  "PoissonsRatio": 0.3,
+  "ThermalExpansionCoeff": 1.17e-05,
+  "YoungsModulus": 199947961501.88254,
+  "YieldStress": 344737864.6584182,
+  "UltimateStress": 448159224.0559436
+ },
+ {
+  "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+  "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+  "Name": "W14X48",
+  "Fabrication": "HotRolled",
+  "PlateRestraint": "NoRestraint",
+  "Material": {
+   "_t": "BH.oM.Structure.MaterialFragments.Steel",
+   "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+   "Name": "A992Fy50",
+   "Density": 7849.05,
+   "DampingRatio": 0.0,
+   "PoissonsRatio": 0.3,
+   "ThermalExpansionCoeff": 1.17e-05,
+   "YoungsModulus": 199947961501.88254,
+   "YieldStress": 344737864.6584182,
+   "UltimateStress": 448159224.0559436
+  },
+  "SectionProfile": {
+   "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+   "Shape": "ISection",
+   "Height": 0.35052,
+   "Width": 0.20396199999999998,
+   "WebThickness": 0.008636,
+   "FlangeThickness": 0.015112999999999998,
+   "RootRadius": 0.0,
+   "ToeRadius": 0.0,
+   "Edges": []
+  },
+  "Area": 0.009096756,
+  "Rgy": 0.14858999999999997,
+  "Rgz": 0.048513999999999995,
+  "J": 6.0353556712e-07,
+  "Iy": 0.00020145600999039998,
+  "Iz": 2.139429527584e-05,
+  "Iw": 6.015203410498148e-07,
+  "Wely": 0.0011503718927999998,
+  "Welz": 0.00020975441919999995,
+  "Wply": 0.0012847458175999998,
+  "Wplz": 0.00032118645439999994,
+  "CentreZ": 0.0,
+  "CentreY": 0.0,
+  "Vz": 0.0,
+  "Vpz": 0.0,
+  "Vy": 0.0,
+  "Vpy": 0.0,
+  "Asy": 0.0,
+  "Asz": 0.0030270907200000002
+ },
+ {
+  "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+  "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+  "Name": "W18X40",
+  "Fabrication": "HotRolled",
+  "PlateRestraint": "NoRestraint",
+  "Material": {
+   "_t": "BH.oM.Structure.MaterialFragments.Steel",
+   "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+   "Name": "A992Fy50",
+   "Density": 7849.05,
+   "DampingRatio": 0.0,
+   "PoissonsRatio": 0.3,
+   "ThermalExpansionCoeff": 1.17e-05,
+   "YoungsModulus": 199947961501.88254,
+   "YieldStress": 344737864.6584182,
+   "UltimateStress": 448159224.0559436
+  },
+  "SectionProfile": {
+   "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+   "Shape": "ISection",
+   "Height": 0.45465999999999995,
+   "Width": 0.152908,
+   "WebThickness": 0.008001,
+   "FlangeThickness": 0.013335,
+   "RootRadius": 0.0,
+   "ToeRadius": 0.0,
+   "Edges": []
+  },
+  "Area": 0.007612888,
+  "Rgy": 0.183134,
+  "Rgz": 0.032258,
+  "J": 3.37147454736e-07,
+  "Iy": 0.00025473363246719997,
+  "Iz": 7.95002022896e-06,
+  "Iw": 3.866916478177381e-07,
+  "Wely": 0.0011208751775999997,
+  "Welz": 0.00010405785639999997,
+  "Wply": 0.0012847458175999998,
+  "Wplz": 0.00016387063999999995,
+  "CentreZ": 0.0,
+  "CentreY": 0.0,
+  "Vz": 0.0,
+  "Vpz": 0.0,
+  "Vy": 0.0,
+  "Vpy": 0.0,
+  "Asy": 0.0,
+  "Asz": 0.0036377346599999996
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "c18431a5-a9cb-5e42-a065-43d34e28fd32",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "1@Base",
+    "Label": "1",
+    "Story": "Base",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Orientation": null,
+  "Support": {
+   "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+   "BHoM_Guid": "e0124b0f-657d-5069-bb65-09ed9ac92992",
+   "Name": "Fixed",
+   "TranslationalStiffnessX": 0.0,
+   "TranslationX": "Fixed",
+   "TranslationalStiffnessY": 0.0,
+   "TranslationY": "Fixed",
+   "TranslationalStiffnessZ": 0.0,
+   "TranslationZ": "Fixed",
+   "RotationalStiffnessX": 0.0,
+   "RotationX": "Fixed",
+   "RotationalStiffnessY": 0.0,
+   "RotationY": "Fixed",
+   "RotationalStiffnessZ": 0.0,
+   "RotationZ": "Fixed"
+  }
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "1@Story1",
+    "Label": "1",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 4.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "1@Story2",
+    "Label": "1",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 8.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "98ac78ff-a704-54a4-996d-0a9e7573eee4",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "2@Base",
+    "Label": "2",
+    "Story": "Base",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 9.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Orientation": null,
+  "Support": {
+   "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+   "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+   "Name": "Pin",
+   "TranslationalStiffnessX": 0.0,
+   "TranslationX": "Fixed",
+   "TranslationalStiffnessY": 0.0,
+   "TranslationY": "Fixed",
+   "TranslationalStiffnessZ": 0.0,
+   "TranslationZ": "Fixed",
+   "RotationalStiffnessX": 0.0,
+   "RotationX": "Free",
+   "RotationalStiffnessY": 0.0,
+   "RotationY": "Free",
+   "RotationalStiffnessZ": 0.0,
+   "RotationZ": "Free"
+  }
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "2@Story1",
+    "Label": "2",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 9.0,
+   "Y": 0.0,
+   "Z": 4.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "2@Story2",
+    "Label": "2",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 9.0,
+   "Y": 0.0,
+   "Z": 8.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "d097aed7-833d-565f-9f61-72bb5e77881b",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "3@Base",
+    "Label": "3",
+    "Story": "Base",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 18.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Orientation": null,
+  "Support": {
+   "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+   "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+   "Name": "Pin",
+   "TranslationalStiffnessX": 0.0,
+   "TranslationX": "Fixed",
+   "TranslationalStiffnessY": 0.0,
+   "TranslationY": "Fixed",
+   "TranslationalStiffnessZ": 0.0,
+   "TranslationZ": "Fixed",
+   "RotationalStiffnessX": 0.0,
+   "RotationX": "Free",
+   "RotationalStiffnessY": 0.0,
+   "RotationY": "Free",
+   "RotationalStiffnessZ": 0.0,
+   "RotationZ": "Free"
+  }
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "3@Story1",
+    "Label": "3",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 18.0,
+   "Y": 0.0,
+   "Z": 4.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Node",
+  "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "3@Story2",
+    "Label": "3",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Position": {
+   "_t": "BH.oM.Geometry.Point",
+   "X": 18.0,
+   "Y": 0.0,
+   "Z": 8.0
+  },
+  "Orientation": null,
+  "Support": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "dc1e8c5d-e932-516b-aca0-563f4d20cc2c",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "1",
+    "Label": "C1",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "c18431a5-a9cb-5e42-a065-43d34e28fd32",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Base",
+     "Label": "1",
+     "Story": "Base",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 0.0
+   },
+   "Orientation": null,
+   "Support": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "e0124b0f-657d-5069-bb65-09ed9ac92992",
+    "Name": "Fixed",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Fixed",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Fixed",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Fixed"
+   }
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Story1",
+     "Label": "1",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "7daaa7c7-4f2f-5249-ab03-793b60a7747f",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "2",
+    "Label": "C1",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Story1",
+     "Label": "1",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Story2",
+     "Label": "1",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "fb50cdcd-9eda-5742-9a32-0f4bcb211e29",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "3",
+    "Label": "C2",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "98ac78ff-a704-54a4-996d-0a9e7573eee4",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Base",
+     "Label": "2",
+     "Story": "Base",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 0.0
+   },
+   "Orientation": null,
+   "Support": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Free",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   }
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story1",
+     "Label": "2",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "3f7e6097-0e5f-5738-a574-e957c2366c67",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "4",
+    "Label": "C2",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story1",
+     "Label": "2",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story2",
+     "Label": "2",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "474561bf-f328-560d-8f9b-3aded1506646",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "5",
+    "Label": "C3",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "d097aed7-833d-565f-9f61-72bb5e77881b",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Base",
+     "Label": "3",
+     "Story": "Base",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 0.0
+   },
+   "Orientation": null,
+   "Support": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Free",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   }
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Story1",
+     "Label": "3",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "8e3200f4-4cf7-5fd2-be71-cb75a40ed790",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "6",
+    "Label": "C3",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Story1",
+     "Label": "3",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Story2",
+     "Label": "3",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+   "Name": "W14X48",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.35052,
+    "Width": 0.20396199999999998,
+    "WebThickness": 0.008636,
+    "FlangeThickness": 0.015112999999999998,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.009096756,
+   "Rgy": 0.14858999999999997,
+   "Rgz": 0.048513999999999995,
+   "J": 6.0353556712e-07,
+   "Iy": 0.00020145600999039998,
+   "Iz": 2.139429527584e-05,
+   "Iw": 6.015203410498148e-07,
+   "Wely": 0.0011503718927999998,
+   "Welz": 0.00020975441919999995,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00032118645439999994,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0030270907200000002
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "4b3ed55c-fdb1-58f2-b984-a2cf6a6a6b76",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "7",
+    "Label": "B1",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Story1",
+     "Label": "1",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story1",
+     "Label": "2",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+   "Name": "W18X40",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.45465999999999995,
+    "Width": 0.152908,
+    "WebThickness": 0.008001,
+    "FlangeThickness": 0.013335,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.007612888,
+   "Rgy": 0.183134,
+   "Rgz": 0.032258,
+   "J": 3.37147454736e-07,
+   "Iy": 0.00025473363246719997,
+   "Iz": 7.95002022896e-06,
+   "Iw": 3.866916478177381e-07,
+   "Wely": 0.0011208751775999997,
+   "Welz": 0.00010405785639999997,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00016387063999999995,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0036377346599999996
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": {
+   "_t": "BH.oM.Structure.Offsets.Offset",
+   "BHoM_Guid": "a546ce3e-2845-5427-8b6e-539c531e37fd",
+   "Name": "",
+   "Start": {
+    "_t": "BH.oM.Geometry.Vector",
+    "X": 0.178,
+    "Y": 0.0,
+    "Z": 0.0
+   },
+   "End": {
+    "_t": "BH.oM.Geometry.Vector",
+    "X": -0.178,
+    "Y": 0.0,
+    "Z": 0.0
+   }
+  }
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "106a1426-a266-54fc-87ac-864925ab1747",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "8",
+    "Label": "B1",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "1@Story2",
+     "Label": "1",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 0.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story2",
+     "Label": "2",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+   "Name": "W18X40",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.45465999999999995,
+    "Width": 0.152908,
+    "WebThickness": 0.008001,
+    "FlangeThickness": 0.013335,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.007612888,
+   "Rgy": 0.183134,
+   "Rgz": 0.032258,
+   "J": 3.37147454736e-07,
+   "Iy": 0.00025473363246719997,
+   "Iz": 7.95002022896e-06,
+   "Iw": 3.866916478177381e-07,
+   "Wely": 0.0011208751775999997,
+   "Welz": 0.00010405785639999997,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00016387063999999995,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0036377346599999996
+  },
+  "OrientationAngle": 0.0,
+  "Release": null,
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": {
+   "_t": "BH.oM.Structure.Offsets.Offset",
+   "BHoM_Guid": "70aa5721-963b-559b-89ff-777b7dbdd6d8",
+   "Name": "",
+   "Start": {
+    "_t": "BH.oM.Geometry.Vector",
+    "X": 0.178,
+    "Y": 0.0,
+    "Z": 0.0
+   },
+   "End": {
+    "_t": "BH.oM.Geometry.Vector",
+    "X": -0.178,
+    "Y": 0.0,
+    "Z": 0.0
+   }
+  }
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "d6945fdd-69b7-5641-988f-7059a4e5bf7a",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "9",
+    "Label": "B2",
+    "Story": "Story1",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story1",
+     "Label": "2",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Story1",
+     "Label": "3",
+     "Story": "Story1",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 4.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+   "Name": "W18X40",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.45465999999999995,
+    "Width": 0.152908,
+    "WebThickness": 0.008001,
+    "FlangeThickness": 0.013335,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.007612888,
+   "Rgy": 0.183134,
+   "Rgz": 0.032258,
+   "J": 3.37147454736e-07,
+   "Iy": 0.00025473363246719997,
+   "Iz": 7.95002022896e-06,
+   "Iw": 3.866916478177381e-07,
+   "Wely": 0.0011208751775999997,
+   "Welz": 0.00010405785639999997,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00016387063999999995,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0036377346599999996
+  },
+  "OrientationAngle": 0.0,
+  "Release": {
+   "_t": "BH.oM.Structure.Constraints.BarRelease",
+   "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+   "Name": "PinPin",
+   "StartRelease": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Fixed",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   },
+   "EndRelease": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Fixed",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   }
+  },
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Elements.Bar",
+  "BHoM_Guid": "484458cb-5d65-5288-84bf-f1bad5e788e8",
+  "Name": "",
+  "Fragments": [
+   {
+    "_t": "BH.oM.Adapters.ETABS.ETABSId",
+    "Id": "10",
+    "Label": "B2",
+    "Story": "Story2",
+    "PersistentId": null
+   }
+  ],
+  "Start": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "2@Story2",
+     "Label": "2",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 9.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "End": {
+   "_t": "BH.oM.Structure.Elements.Node",
+   "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+   "Name": "",
+   "Fragments": [
+    {
+     "_t": "BH.oM.Adapters.ETABS.ETABSId",
+     "Id": "3@Story2",
+     "Label": "3",
+     "Story": "Story2",
+     "PersistentId": null
+    }
+   ],
+   "Position": {
+    "_t": "BH.oM.Geometry.Point",
+    "X": 18.0,
+    "Y": 0.0,
+    "Z": 8.0
+   },
+   "Orientation": null,
+   "Support": null
+  },
+  "SectionProperty": {
+   "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+   "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+   "Name": "W18X40",
+   "Fabrication": "HotRolled",
+   "PlateRestraint": "NoRestraint",
+   "Material": {
+    "_t": "BH.oM.Structure.MaterialFragments.Steel",
+    "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+    "Name": "A992Fy50",
+    "Density": 7849.05,
+    "DampingRatio": 0.0,
+    "PoissonsRatio": 0.3,
+    "ThermalExpansionCoeff": 1.17e-05,
+    "YoungsModulus": 199947961501.88254,
+    "YieldStress": 344737864.6584182,
+    "UltimateStress": 448159224.0559436
+   },
+   "SectionProfile": {
+    "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+    "Shape": "ISection",
+    "Height": 0.45465999999999995,
+    "Width": 0.152908,
+    "WebThickness": 0.008001,
+    "FlangeThickness": 0.013335,
+    "RootRadius": 0.0,
+    "ToeRadius": 0.0,
+    "Edges": []
+   },
+   "Area": 0.007612888,
+   "Rgy": 0.183134,
+   "Rgz": 0.032258,
+   "J": 3.37147454736e-07,
+   "Iy": 0.00025473363246719997,
+   "Iz": 7.95002022896e-06,
+   "Iw": 3.866916478177381e-07,
+   "Wely": 0.0011208751775999997,
+   "Welz": 0.00010405785639999997,
+   "Wply": 0.0012847458175999998,
+   "Wplz": 0.00016387063999999995,
+   "CentreZ": 0.0,
+   "CentreY": 0.0,
+   "Vz": 0.0,
+   "Vpz": 0.0,
+   "Vy": 0.0,
+   "Vpy": 0.0,
+   "Asy": 0.0,
+   "Asz": 0.0036377346599999996
+  },
+  "OrientationAngle": 0.0,
+  "Release": {
+   "_t": "BH.oM.Structure.Constraints.BarRelease",
+   "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+   "Name": "PinPin",
+   "StartRelease": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Fixed",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   },
+   "EndRelease": {
+    "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+    "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+    "Name": "Pin",
+    "TranslationalStiffnessX": 0.0,
+    "TranslationX": "Fixed",
+    "TranslationalStiffnessY": 0.0,
+    "TranslationY": "Fixed",
+    "TranslationalStiffnessZ": 0.0,
+    "TranslationZ": "Fixed",
+    "RotationalStiffnessX": 0.0,
+    "RotationX": "Fixed",
+    "RotationalStiffnessY": 0.0,
+    "RotationY": "Free",
+    "RotationalStiffnessZ": 0.0,
+    "RotationZ": "Free"
+   }
+  },
+  "FEAType": "Flexural",
+  "Support": null,
+  "Offset": null
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.Loadcase",
+  "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+  "Name": "Dead",
+  "Nature": "Dead",
+  "Number": 1
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.Loadcase",
+  "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+  "Name": "SDL",
+  "Nature": "SuperDead",
+  "Number": 2
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.Loadcase",
+  "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+  "Name": "Live",
+  "Nature": "Live",
+  "Number": 3
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.Loadcase",
+  "BHoM_Guid": "5a351b63-cbaa-5c9a-b4dd-6b9186bb9e63",
+  "Name": "EQX",
+  "Nature": "Seismic",
+  "Number": 4
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.Loadcase",
+  "BHoM_Guid": "80163ae6-658a-574f-8a69-9b7063bd951d",
+  "Name": "WX",
+  "Nature": "Wind",
+  "Number": 5
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.LoadCombination",
+  "BHoM_Guid": "4a8c3ec1-98bb-5bf7-a98a-1f0e8dca3902",
+  "Name": "1.2D+1.6L",
+  "Number": 101,
+  "LoadCases": [
+   [
+    1.2,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+     "Name": "Dead",
+     "Nature": "Dead",
+     "Number": 1
+    }
+   ],
+   [
+    1.2,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+     "Name": "SDL",
+     "Nature": "SuperDead",
+     "Number": 2
+    }
+   ],
+   [
+    1.6,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+     "Name": "Live",
+     "Nature": "Live",
+     "Number": 3
+    }
+   ]
+  ]
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.LoadCombination",
+  "BHoM_Guid": "d13f4c10-ff52-59df-8309-3b841f199603",
+  "Name": "1.4D+0.5L+1.0EQX",
+  "Number": 102,
+  "LoadCases": [
+   [
+    1.4,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+     "Name": "Dead",
+     "Nature": "Dead",
+     "Number": 1
+    }
+   ],
+   [
+    1.4,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+     "Name": "SDL",
+     "Nature": "SuperDead",
+     "Number": 2
+    }
+   ],
+   [
+    0.5,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+     "Name": "Live",
+     "Nature": "Live",
+     "Number": 3
+    }
+   ],
+   [
+    1.0,
+    {
+     "_t": "BH.oM.Structure.Loads.Loadcase",
+     "BHoM_Guid": "5a351b63-cbaa-5c9a-b4dd-6b9186bb9e63",
+     "Name": "EQX",
+     "Nature": "Seismic",
+     "Number": 4
+    }
+   ]
+  ]
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.GravityLoad",
+  "BHoM_Guid": "10197e2d-5454-55e3-9310-8588b96d524c",
+  "Name": "self weight",
+  "GravityDirection": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": -1.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+   "Name": "Dead",
+   "Nature": "Dead",
+   "Number": 1
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Bar>",
+   "BHoM_Guid": "180a7122-6934-57ae-a221-8c85cb768e7d",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "dc1e8c5d-e932-516b-aca0-563f4d20cc2c",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "1",
+       "Label": "C1",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "c18431a5-a9cb-5e42-a065-43d34e28fd32",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Base",
+        "Label": "1",
+        "Story": "Base",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "Orientation": null,
+      "Support": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "e0124b0f-657d-5069-bb65-09ed9ac92992",
+       "Name": "Fixed",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Fixed",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Fixed"
+      }
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story1",
+        "Label": "1",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "7daaa7c7-4f2f-5249-ab03-793b60a7747f",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "2",
+       "Label": "C1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story1",
+        "Label": "1",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story2",
+        "Label": "1",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "fb50cdcd-9eda-5742-9a32-0f4bcb211e29",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "3",
+       "Label": "C2",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "98ac78ff-a704-54a4-996d-0a9e7573eee4",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Base",
+        "Label": "2",
+        "Story": "Base",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "Orientation": null,
+      "Support": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Free",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "3f7e6097-0e5f-5738-a574-e957c2366c67",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "4",
+       "Label": "C2",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "474561bf-f328-560d-8f9b-3aded1506646",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "5",
+       "Label": "C3",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "d097aed7-833d-565f-9f61-72bb5e77881b",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Base",
+        "Label": "3",
+        "Story": "Base",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "Orientation": null,
+      "Support": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "d1735508-9ca8-56e4-82f9-6973026e8d80",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Free",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story1",
+        "Label": "3",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "8e3200f4-4cf7-5fd2-be71-cb75a40ed790",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "6",
+       "Label": "C3",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story1",
+        "Label": "3",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story2",
+        "Label": "3",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "b4db9fbe-fdf2-5ced-835e-8f641b0e89e7",
+      "Name": "W14X48",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.35052,
+       "Width": 0.20396199999999998,
+       "WebThickness": 0.008636,
+       "FlangeThickness": 0.015112999999999998,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.009096756,
+      "Rgy": 0.14858999999999997,
+      "Rgz": 0.048513999999999995,
+      "J": 6.0353556712e-07,
+      "Iy": 0.00020145600999039998,
+      "Iz": 2.139429527584e-05,
+      "Iw": 6.015203410498148e-07,
+      "Wely": 0.0011503718927999998,
+      "Welz": 0.00020975441919999995,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00032118645439999994,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0030270907200000002
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "4b3ed55c-fdb1-58f2-b984-a2cf6a6a6b76",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "7",
+       "Label": "B1",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story1",
+        "Label": "1",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": {
+      "_t": "BH.oM.Structure.Offsets.Offset",
+      "BHoM_Guid": "a546ce3e-2845-5427-8b6e-539c531e37fd",
+      "Name": "",
+      "Start": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": 0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "End": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": -0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      }
+     }
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "106a1426-a266-54fc-87ac-864925ab1747",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "8",
+       "Label": "B1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story2",
+        "Label": "1",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": {
+      "_t": "BH.oM.Structure.Offsets.Offset",
+      "BHoM_Guid": "70aa5721-963b-559b-89ff-777b7dbdd6d8",
+      "Name": "",
+      "Start": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": 0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "End": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": -0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      }
+     }
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "d6945fdd-69b7-5641-988f-7059a4e5bf7a",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "9",
+       "Label": "B2",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story1",
+        "Label": "3",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": {
+      "_t": "BH.oM.Structure.Constraints.BarRelease",
+      "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+      "Name": "PinPin",
+      "StartRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      },
+      "EndRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "484458cb-5d65-5288-84bf-f1bad5e788e8",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "10",
+       "Label": "B2",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story2",
+        "Label": "3",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": {
+      "_t": "BH.oM.Structure.Constraints.BarRelease",
+      "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+      "Name": "PinPin",
+      "StartRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      },
+      "EndRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.BarUniformlyDistributedLoad",
+  "BHoM_Guid": "f8b0cee5-9610-5edf-97ad-d12a68200236",
+  "Name": "SDL beams",
+  "Force": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": -12000.0
+  },
+  "Moment": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+   "Name": "SDL",
+   "Nature": "SuperDead",
+   "Number": 2
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Bar>",
+   "BHoM_Guid": "9711112b-33c1-5e10-9029-f97c5ea3800a",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "4b3ed55c-fdb1-58f2-b984-a2cf6a6a6b76",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "7",
+       "Label": "B1",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story1",
+        "Label": "1",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": {
+      "_t": "BH.oM.Structure.Offsets.Offset",
+      "BHoM_Guid": "a546ce3e-2845-5427-8b6e-539c531e37fd",
+      "Name": "",
+      "Start": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": 0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "End": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": -0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      }
+     }
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "106a1426-a266-54fc-87ac-864925ab1747",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "8",
+       "Label": "B1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story2",
+        "Label": "1",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": {
+      "_t": "BH.oM.Structure.Offsets.Offset",
+      "BHoM_Guid": "70aa5721-963b-559b-89ff-777b7dbdd6d8",
+      "Name": "",
+      "Start": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": 0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "End": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": -0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      }
+     }
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "d6945fdd-69b7-5641-988f-7059a4e5bf7a",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "9",
+       "Label": "B2",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "2ea809da-97fd-5e67-a31e-7de0b793768e",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story1",
+        "Label": "2",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "ebfff463-6044-581b-9ac2-d029bc782e76",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story1",
+        "Label": "3",
+        "Story": "Story1",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 4.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": {
+      "_t": "BH.oM.Structure.Constraints.BarRelease",
+      "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+      "Name": "PinPin",
+      "StartRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      },
+      "EndRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "484458cb-5d65-5288-84bf-f1bad5e788e8",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "10",
+       "Label": "B2",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story2",
+        "Label": "3",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": {
+      "_t": "BH.oM.Structure.Constraints.BarRelease",
+      "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+      "Name": "PinPin",
+      "StartRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      },
+      "EndRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.BarVaryingDistributedLoad",
+  "BHoM_Guid": "60b91c6d-80de-5546-81fa-4369137cbe23",
+  "Name": "live triangle",
+  "StartPosition": 0.0,
+  "ForceAtStart": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "MomentAtStart": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "EndPosition": 1.0,
+  "ForceAtEnd": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": -18000.0
+  },
+  "MomentAtEnd": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+   "Name": "Live",
+   "Nature": "Live",
+   "Number": 3
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Bar>",
+   "BHoM_Guid": "ad19630d-7c12-5259-a758-6cceaa44e575",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "106a1426-a266-54fc-87ac-864925ab1747",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "8",
+       "Label": "B1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "1@Story2",
+        "Label": "1",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 0.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": null,
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": {
+      "_t": "BH.oM.Structure.Offsets.Offset",
+      "BHoM_Guid": "70aa5721-963b-559b-89ff-777b7dbdd6d8",
+      "Name": "",
+      "Start": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": 0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      },
+      "End": {
+       "_t": "BH.oM.Geometry.Vector",
+       "X": -0.178,
+       "Y": 0.0,
+       "Z": 0.0
+      }
+     }
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false,
+  "RelativePositions": true
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.BarPointLoad",
+  "BHoM_Guid": "6f276a53-1318-59ff-9d54-33e92c05e005",
+  "Name": "live point",
+  "DistanceFromA": 4.5,
+  "Force": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": -40000.0
+  },
+  "Moment": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+   "Name": "Live",
+   "Nature": "Live",
+   "Number": 3
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Bar>",
+   "BHoM_Guid": "ca331dc6-ad04-592b-a37d-2ad70109049b",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Bar",
+     "BHoM_Guid": "484458cb-5d65-5288-84bf-f1bad5e788e8",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "10",
+       "Label": "B2",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Start": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "eaac99bc-8061-59ed-8104-6266e41abf5c",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "2@Story2",
+        "Label": "2",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 9.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "End": {
+      "_t": "BH.oM.Structure.Elements.Node",
+      "BHoM_Guid": "7a27a742-5851-5e2f-9662-43163f92ab82",
+      "Name": "",
+      "Fragments": [
+       {
+        "_t": "BH.oM.Adapters.ETABS.ETABSId",
+        "Id": "3@Story2",
+        "Label": "3",
+        "Story": "Story2",
+        "PersistentId": null
+       }
+      ],
+      "Position": {
+       "_t": "BH.oM.Geometry.Point",
+       "X": 18.0,
+       "Y": 0.0,
+       "Z": 8.0
+      },
+      "Orientation": null,
+      "Support": null
+     },
+     "SectionProperty": {
+      "_t": "BH.oM.Structure.SectionProperties.SteelSection",
+      "BHoM_Guid": "777369f0-2527-591b-b1b2-10725be6c78d",
+      "Name": "W18X40",
+      "Fabrication": "HotRolled",
+      "PlateRestraint": "NoRestraint",
+      "Material": {
+       "_t": "BH.oM.Structure.MaterialFragments.Steel",
+       "BHoM_Guid": "f46af517-953e-58ad-9930-6e8fb0eeac50",
+       "Name": "A992Fy50",
+       "Density": 7849.05,
+       "DampingRatio": 0.0,
+       "PoissonsRatio": 0.3,
+       "ThermalExpansionCoeff": 1.17e-05,
+       "YoungsModulus": 199947961501.88254,
+       "YieldStress": 344737864.6584182,
+       "UltimateStress": 448159224.0559436
+      },
+      "SectionProfile": {
+       "_t": "BH.oM.Spatial.ShapeProfiles.ISectionProfile",
+       "Shape": "ISection",
+       "Height": 0.45465999999999995,
+       "Width": 0.152908,
+       "WebThickness": 0.008001,
+       "FlangeThickness": 0.013335,
+       "RootRadius": 0.0,
+       "ToeRadius": 0.0,
+       "Edges": []
+      },
+      "Area": 0.007612888,
+      "Rgy": 0.183134,
+      "Rgz": 0.032258,
+      "J": 3.37147454736e-07,
+      "Iy": 0.00025473363246719997,
+      "Iz": 7.95002022896e-06,
+      "Iw": 3.866916478177381e-07,
+      "Wely": 0.0011208751775999997,
+      "Welz": 0.00010405785639999997,
+      "Wply": 0.0012847458175999998,
+      "Wplz": 0.00016387063999999995,
+      "CentreZ": 0.0,
+      "CentreY": 0.0,
+      "Vz": 0.0,
+      "Vpz": 0.0,
+      "Vy": 0.0,
+      "Vpy": 0.0,
+      "Asy": 0.0,
+      "Asz": 0.0036377346599999996
+     },
+     "OrientationAngle": 0.0,
+     "Release": {
+      "_t": "BH.oM.Structure.Constraints.BarRelease",
+      "BHoM_Guid": "0e3ec908-b23d-5ddd-b42e-f6e82a8222b9",
+      "Name": "PinPin",
+      "StartRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      },
+      "EndRelease": {
+       "_t": "BH.oM.Structure.Constraints.Constraint6DOF",
+       "BHoM_Guid": "006485a0-5c92-5e10-8e82-73f15c4561cc",
+       "Name": "Pin",
+       "TranslationalStiffnessX": 0.0,
+       "TranslationX": "Fixed",
+       "TranslationalStiffnessY": 0.0,
+       "TranslationY": "Fixed",
+       "TranslationalStiffnessZ": 0.0,
+       "TranslationZ": "Fixed",
+       "RotationalStiffnessX": 0.0,
+       "RotationX": "Fixed",
+       "RotationalStiffnessY": 0.0,
+       "RotationY": "Free",
+       "RotationalStiffnessZ": 0.0,
+       "RotationZ": "Free"
+      }
+     },
+     "FEAType": "Flexural",
+     "Support": null,
+     "Offset": null
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.PointLoad",
+  "BHoM_Guid": "84527d23-de77-517a-9d72-b703f0f46012",
+  "Name": "EQX roof",
+  "Force": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 60000.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Moment": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "5a351b63-cbaa-5c9a-b4dd-6b9186bb9e63",
+   "Name": "EQX",
+   "Nature": "Seismic",
+   "Number": 4
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Node>",
+   "BHoM_Guid": "5102b49f-b97b-5b46-8972-0b64ff076706",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Node",
+     "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "1@Story2",
+       "Label": "1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Position": {
+      "_t": "BH.oM.Geometry.Point",
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 8.0
+     },
+     "Orientation": null,
+     "Support": null
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false
+ },
+ {
+  "_t": "BH.oM.Structure.Loads.PointLoad",
+  "BHoM_Guid": "0e1b5e15-ff08-530a-8eec-0f34b4beda27",
+  "Name": "WX roof",
+  "Force": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 35000.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Moment": {
+   "_t": "BH.oM.Geometry.Vector",
+   "X": 0.0,
+   "Y": 0.0,
+   "Z": 0.0
+  },
+  "Loadcase": {
+   "_t": "BH.oM.Structure.Loads.Loadcase",
+   "BHoM_Guid": "80163ae6-658a-574f-8a69-9b7063bd951d",
+   "Name": "WX",
+   "Nature": "Wind",
+   "Number": 5
+  },
+  "Objects": {
+   "_t": "BH.oM.Base.BHoMGroup<BH.oM.Structure.Elements.Node>",
+   "BHoM_Guid": "37326623-c090-5596-82a7-db5c43d5810d",
+   "Name": "",
+   "Elements": [
+    {
+     "_t": "BH.oM.Structure.Elements.Node",
+     "BHoM_Guid": "e54532ef-ac35-522d-bdb2-8484141f2d7f",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "1@Story2",
+       "Label": "1",
+       "Story": "Story2",
+       "PersistentId": null
+      }
+     ],
+     "Position": {
+      "_t": "BH.oM.Geometry.Point",
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 8.0
+     },
+     "Orientation": null,
+     "Support": null
+    },
+    {
+     "_t": "BH.oM.Structure.Elements.Node",
+     "BHoM_Guid": "b6f850f8-f3d7-58bf-8396-76f3a274f2bd",
+     "Name": "",
+     "Fragments": [
+      {
+       "_t": "BH.oM.Adapters.ETABS.ETABSId",
+       "Id": "1@Story1",
+       "Label": "1",
+       "Story": "Story1",
+       "PersistentId": null
+      }
+     ],
+     "Position": {
+      "_t": "BH.oM.Geometry.Point",
+      "X": 0.0,
+      "Y": 0.0,
+      "Z": 4.0
+     },
+     "Orientation": null,
+     "Support": null
+    }
+   ]
+  },
+  "Axis": "Global",
+  "Projected": false
+ },
+ {
+  "_t": "BH.oM.Structure.Requests.BarResultRequest",
+  "ResultType": "BarForce",
+  "DivisionType": "EvenlyDistributed",
+  "Divisions": 3,
+  "Cases": [
+   {
+    "_t": "BH.oM.Structure.Loads.LoadCombination",
+    "BHoM_Guid": "4a8c3ec1-98bb-5bf7-a98a-1f0e8dca3902",
+    "Name": "1.2D+1.6L",
+    "Number": 101,
+    "LoadCases": [
+     [
+      1.2,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+       "Name": "Dead",
+       "Nature": "Dead",
+       "Number": 1
+      }
+     ],
+     [
+      1.2,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+       "Name": "SDL",
+       "Nature": "SuperDead",
+       "Number": 2
+      }
+     ],
+     [
+      1.6,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+       "Name": "Live",
+       "Nature": "Live",
+       "Number": 3
+      }
+     ]
+    ]
+   },
+   {
+    "_t": "BH.oM.Structure.Loads.LoadCombination",
+    "BHoM_Guid": "d13f4c10-ff52-59df-8309-3b841f199603",
+    "Name": "1.4D+0.5L+1.0EQX",
+    "Number": 102,
+    "LoadCases": [
+     [
+      1.4,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+       "Name": "Dead",
+       "Nature": "Dead",
+       "Number": 1
+      }
+     ],
+     [
+      1.4,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+       "Name": "SDL",
+       "Nature": "SuperDead",
+       "Number": 2
+      }
+     ],
+     [
+      0.5,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+       "Name": "Live",
+       "Nature": "Live",
+       "Number": 3
+      }
+     ],
+     [
+      1.0,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "5a351b63-cbaa-5c9a-b4dd-6b9186bb9e63",
+       "Name": "EQX",
+       "Nature": "Seismic",
+       "Number": 4
+      }
+     ]
+    ]
+   }
+  ],
+  "Modes": [],
+  "ObjectIds": []
+ },
+ {
+  "_t": "BH.oM.Structure.Requests.NodeResultRequest",
+  "ResultType": "NodeReaction",
+  "Axis": "Global",
+  "Cases": [
+   {
+    "_t": "BH.oM.Structure.Loads.LoadCombination",
+    "BHoM_Guid": "4a8c3ec1-98bb-5bf7-a98a-1f0e8dca3902",
+    "Name": "1.2D+1.6L",
+    "Number": 101,
+    "LoadCases": [
+     [
+      1.2,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "c37bcfde-9919-5133-8126-767aea2b5d5b",
+       "Name": "Dead",
+       "Nature": "Dead",
+       "Number": 1
+      }
+     ],
+     [
+      1.2,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "54d6e54d-a056-5e98-b868-d98d7edd266c",
+       "Name": "SDL",
+       "Nature": "SuperDead",
+       "Number": 2
+      }
+     ],
+     [
+      1.6,
+      {
+       "_t": "BH.oM.Structure.Loads.Loadcase",
+       "BHoM_Guid": "da992848-be99-5b52-a418-a0cab3324e3a",
+       "Name": "Live",
+       "Nature": "Live",
+       "Number": 3
+      }
+     ]
+    ]
+   }
+  ],
+  "Modes": [],
+  "ObjectIds": []
+ },
+ {
+  "_t": "BH.oM.Structure.Requests.GlobalResultRequest",
+  "ResultType": "StoreyDrifts",
+  "Cases": [
+   {
+    "_t": "BH.oM.Structure.Loads.Loadcase",
+    "BHoM_Guid": "5a351b63-cbaa-5c9a-b4dd-6b9186bb9e63",
+    "Name": "EQX",
+    "Nature": "Seismic",
+    "Number": 4
+   }
+  ],
+  "Modes": [],
+  "ObjectIds": []
+ }
+]
