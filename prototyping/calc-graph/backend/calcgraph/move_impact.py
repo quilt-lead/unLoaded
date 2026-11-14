@@ -32,6 +32,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 
+import networkx as nx
 from Pynite import FEModel3D
 
 E_KSF = 29000.0 * 144.0
@@ -366,14 +367,20 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
             affected.update(mg["members"])
         affected.update(rf["member"] for rf in rg["reframed"])
     # supports of affected members are affected (point load moves / changes)
-    queue = list(affected)
-    while queue:
-        m = queue.pop()
-        for end, s in eff_sup.get(m, {}).items():
+    # load path after re-framing as a NetworkX graph (member -> support); every beam/girder
+    # downstream of an affected member carries a changed point load
+    lp = nx.DiGraph()
+    for m_, ends in eff_sup.items():
+        for end_, s_ in ends.items():
+            lp.add_edge(m_, s_, end=end_)
+    for m in list(affected):
+        if m not in lp:
+            continue
+        for s in nx.descendants(lp, m):
             if s in g.el and g.el[s]["type"] in ("beam", "girder") and s not in affected:
                 affected.add(s)
-                queue.append(s)
-                mark_el(s, f"carries {m}: point load position / magnitude changes", [column, m])
+                via = next(iter(nx.shortest_path(lp, m, s)[-2:-1]), m)
+                mark_el(s, f"carries {via}: point load position / magnitude changes", [column, m])
     new_rx: dict[str, dict[str, list[float]]] = {}
     old_rx: dict[str, dict[str, list[float]]] = {}
 
@@ -382,15 +389,13 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
         rv = next((g.rec[r]["values"] for r in g.designed.get(mid, []) if g.rec[r]["kind"] in ("beam_design", "smf_beam")), None)
         return e, rv
 
-    order = sorted(affected, key=lambda m: (len(eff_carried.get(m, [])) > 0, m))
+    # carried members before their supports: topological order of the load path on the affected set
+    sub = lp.subgraph(affected).copy()
+    sub.add_nodes_from(affected)
+    order = list(nx.lexicographical_topological_sort(sub))
     resolved = {}
-    for _ in range(2):   # carried members before their supports (two passes is enough: beam -> girder)
+    for _pass in range(1):
         for mid in order:
-            if mid in resolved:
-                continue
-            carried_aff = [c for c, _ in eff_carried.get(mid, []) if c in affected and c not in resolved]
-            if carried_aff:
-                continue
             e, rv = member_loads(mid)
             if not rv or "w_D_klf" not in rv:
                 continue
@@ -424,9 +429,10 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
                         "mu_old": old_rec["values"].get("Mu_kft") if old_rec else None, "mu_new": round(r["mu"], 1),
                         "uc_old": old_rec["uc"] if old_rec else None, "uc_new": round(r["uc"], 3), "governs": r["governs"],
                         "method": "estimate - local PyNite re-solve at current size", "record": old_rec["id"] if old_rec else None}
+            if r["uc"] > 1.0:
+                est[mid]["size_est"] = _size_up(e["size"], r)
             old_rx[mid] = {"i": _vec(rv, "R_i", roof), "j": _vec(rv, "R_j", roof)}
             new_rx[mid] = {"i": r["Ri_c"], "j": r["Rj_c"]}
-        order = [m for m in order if m not in resolved]
 
     # ---- connections at both ends of every affected member
     for mid in list(resolved) + ([m for mg in (rg["merged"] if remove else []) for m in mg["members"]]):
@@ -643,6 +649,23 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
                        "estimates": "estimate - not a re-design"}}
 
 
+def _size_up(size: str, r: dict) -> str | None:
+    """Lightest heavier W whose Zx and Ix cover the screened flexure / deflection ratios
+    (strength and stiffness scale with Zx and Ix at a given span) - an estimate."""
+    try:
+        from synth.v2 import aisc
+    except Exception:
+        return None
+    s0 = aisc.get(size)
+    need_z = s0["Zx"] * max(r["ratios"].get("flexure", 0), 1.0) if r["ratios"].get("flexure", 0) > 1 else s0["Zx"]
+    need_i = s0["Ix"] * max(r["ratios"].get("defl_live", 0), r["ratios"].get("defl_total", 0), 1.0)
+    for c in aisc.beam_candidates():
+        sc = aisc.get(c)
+        if sc["W"] > s0["W"] and sc["Zx"] >= need_z and sc["Ix"] >= need_i:
+            return c
+    return None
+
+
 def _reactions(L, w, pts):
     """Simple-span reactions per component (D, L, Lr) - statics, exact."""
     ri, rj = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
@@ -717,11 +740,16 @@ def health_of(g: Graph, column: str, remove: bool, est: dict, stale: dict, clash
     reasons.append((0, f"worst estimated UC at current sizes {worst:.2f}", "reserve"))
     if g.links_inferred:
         reasons.append((0, f"{g.links_inferred} inferred links in the graph - check them", "data confidence"))
-    band = max((b for b, _, _ in reasons), default=0)
-    score = min(100, int(25 * band + min(15, n_stale / 10) + max(0.0, min(10.0, (worst - 0.8) * 25))))
+    # design health (engineering only - what the answer key scores) vs construction-adjusted
+    # health (adds the platforms' fabrication / erection status, submittals, RFIs, float)
+    band = max((b for b, _, f in reasons if f != "construction status"), default=0)
+    band_c = max((b for b, _, _ in reasons), default=0)
+    def score_of(b):
+        return min(100, int(25 * b + min(15, n_stale / 10) + max(0.0, min(10.0, (worst - 0.8) * 25))))
     top = [{"band": BANDS[b], "reason": r, "factor": f} for b, r, f in sorted(reasons, key=lambda t: -t[0])]
-    return {"band": BANDS[band], "score": score, "reasons": top[:8], "worst_uc": round(worst, 3),
-            "stale_records": n_stale, "sheets": sheets}
+    return {"band": BANDS[band], "score": score_of(band), "band_construction": BANDS[band_c],
+            "score_construction": score_of(band_c), "construction_status_used": platform_status is not None,
+            "reasons": top[:10], "worst_uc": round(worst, 3), "stale_records": n_stale, "sheets": sheets}
 
 
 def heat(exp: dict, probe_ft: float = 2.0, platform_status=None) -> dict:

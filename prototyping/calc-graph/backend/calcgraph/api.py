@@ -301,5 +301,7 @@ def set_page_png(sid: str, doc: str, n: int, request: Request, clip: str = "", w
     return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=3600"})
 
 
+from .move_api import router as _v2_router; app.include_router(_v2_router)  # synthetic v2: move/registry/platforms/ETABS (move_api.py)
+
 if os.path.isdir(DIST):
     app.mount("/", StaticFiles(directory=DIST, html=True), name="ui")
