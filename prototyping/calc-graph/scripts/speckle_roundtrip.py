@@ -21,7 +21,8 @@ display only - the section of record is the `section` property). `.../ifc-import
 through the server's file ingestion. app.speckle.systems only creates projects inside a
 workspace and a free workspace holds one project, hence `--project-id` to reuse one.
 
-`receive` reads the newest (or a given) version: an object-tree version through
+`receive` reads the newest version, or `--version` (pass it right after a send or publish: the
+version list lags a new version by a few seconds): an object-tree version through
 `operations.receive`, a v4 artefact bundle (what the IFC importer writes) through
 `specklepy.bundle`, because `operations.receive` projects bundles to Base objects and drops the
 properties of instanced objects. It writes every object with properties or an applicationId,
@@ -165,6 +166,8 @@ def _box_mesh_vertices(rec: dict) -> list[float]:
     un = math.sqrt(sum(c * c for c in u))
     u = [c / un for c in u]                     # horizontal, across the member
     v = [t[1] * u[2] - t[2] * u[1], t[2] * u[0] - t[0] * u[2], t[0] * u[1] - t[1] * u[0]]   # "up" in section
+    if v[2] < 0:                                # t x u points down for some directions: keep v up
+        v = [-c for c in v]
     # beams hang below their top-of-steel line; vertical members are centred on the line
     v_lo, v_hi = ((-d, 0.0) if abs(t[2]) < 0.99 and rec["category"] in ("beam", "girder", "grade_beam")
                   else (-d / 2, d / 2))
@@ -521,9 +524,12 @@ def diff(sent_path: str, recv_path: str, label: str) -> dict:
         squash = {"".join(v.upper().split()) for v in flat_vals}
         r = {"id": m["id"], "category": m["category"], "speckle_type": o["speckle_type"],
              "matched": "applicationId=GlobalId" if o.get("applicationId") == m["global_id"]
-             else "name=registry id" if o.get("name") == m["id"] else "registry id or GlobalId in a property",
+             else "name=registry id" if o.get("name") == m["id"] else "GlobalId in a property"
+             if m["global_id"] in flat_vals else "registry id in a property",
              "duplicates": max(0, len(strong) - 1),
              "registry_id": m["id"] in flat_vals,
+             # Revit names a received DirectShape "<Category> - <source name>": the id survives only there
+             "id_in_name_only": m["id"] not in flat_vals and str(o.get("name") or "").endswith(" - " + m["id"]),
              "global_id": m["global_id"] in flat_vals or o.get("applicationId") == m["global_id"],
              "section": "".join(m["section"].upper().split()) in squash,
              "material": None if m["material"] is None else any(m["material"].upper() in v.upper() for v in flat_vals),
@@ -558,6 +564,7 @@ def diff(sent_path: str, recv_path: str, label: str) -> dict:
         for k in CHECKS:
             app = [r for r in got if r[k] is not None]
             t[k] = f"{sum(bool(r[k]) for r in app)}/{len(app)}" if len(app) != len(got) else sum(bool(r[k]) for r in got)
+        t["id_in_name_only"] = sum(bool(r["id_in_name_only"]) for r in got)
         t["coord_ok"] = sum(1 for r in got if best_err(r) is not None and best_err(r) <= COORD_TOL_FT)
 
         def mx(key, rows=got):
@@ -576,7 +583,7 @@ def diff(sent_path: str, recv_path: str, label: str) -> dict:
               "objects_received": len(objs), "speckle_types": recv["speckle_types"], "table": table,
               "lost": [m["id"] for m in lost], "unmatched_received": dict(extra), "rows": rows}
     print(f"\n== {label}: version {recv['version_id']} ({recv['source_application']}), {len(objs)} objects received")
-    hdr = ["category", "sent", "matched", *CHECKS, "coord_ok", "max_line_err_ft", "max_bbox_vs_registry_ft",
+    hdr = ["category", "sent", "matched", *CHECKS, "id_in_name_only", "coord_ok", "max_line_err_ft", "max_bbox_vs_registry_ft",
            "max_bbox_vs_ifc_ft", "duplicates"]
     print("| " + " | ".join(hdr) + " |")
     print("|" + "---|" * len(hdr))
