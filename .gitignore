@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+
+# frontend (Vite app at the repo root)
+node_modules/
+dist/
+# web-ifc wasm, copied from node_modules by scripts/copy-wasm.mjs on every dev / build
+public/wasm/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# backend local data: store, synthetic package, eval output, caches - never committed.
+# Only the open sample model, small fixtures and the sources list are tracked.
+# backend/data/sets/ and backend/data/labels/ (copyrighted permit set, private hand labels) stay ignored;
+# the copyright guard (backend/scripts/check_no_copyrighted.py) also blocks them.
+backend/data/*
+!backend/data/open/
+!backend/data/fixtures/
+!backend/data/SOURCES.md
+*.sqlite

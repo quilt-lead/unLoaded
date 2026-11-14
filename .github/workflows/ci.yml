@@ -1,0 +1,99 @@
+# CI for the repo: Vite + React frontend at the root, Python calc-graph backend in backend/ (a uv project).
+# Actions pinned to commit SHAs (tag in the comment) - same pins as the calc-graph hackathon CI.
+# The copyrighted drawing-set PDFs and hand labels are never in CI: evaluate_all runs --synthetic-only,
+# and the copyright guard runs over HEAD and over the PR's commits.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [prod, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  copyright:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0  # the guard walks the PR's commits
+      - name: Copyright guard (self-test, every tracked file, PR commits)
+        # stdlib only, so the runner's python3 is enough; it scans the whole repo, not just backend/
+        run: |
+          python3 backend/scripts/check_no_copyrighted.py --self-test
+          python3 backend/scripts/check_no_copyrighted.py --tracked
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            python3 backend/scripts/check_no_copyrighted.py --range "origin/${{ github.base_ref }}..HEAD"
+          fi
+
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.11.16"
+      - name: uv sync
+        run: uv sync --frozen --extra dev
+      - name: Backend tests
+        run: uv run --extra dev pytest tests -q
+      - name: Synthetic generator is byte-stable
+        run: uv run python -m synth.generate --check
+      - name: Evaluate (synthetic only, regression vs eval/baseline.json)
+        run: uv run python scripts/evaluate_all.py --synthetic-only
+      - name: Scorecard artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: scorecard
+          path: backend/data/eval/scorecard.json
+          if-no-files-found: ignore
+
+  schema-drift:
+    # src/types/schema.ts is generated from backend/calcgraph/schema; a model change without a regen fails here
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
+        with:
+          version: "0.11.16"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22.23.0"  # npx runs the pinned json-schema-to-typescript
+      - name: uv sync
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Regenerate src/types/schema.ts
+        working-directory: backend
+        run: uv run python scripts/gen_ts_types.py
+      - name: No drift
+        # status also catches a schema.ts that was never committed (untracked after the regen)
+        run: |
+          git diff --exit-code src/types/schema.ts
+          test -z "$(git status --porcelain src/types/schema.ts)" || { git status --short src/types/schema.ts; exit 1; }
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22.23.0"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build

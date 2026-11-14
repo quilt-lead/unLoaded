@@ -1,0 +1,27 @@
+{
+ "about": "calc-graph evaluation baseline - numbers only, no drawing text. Written by scripts/evaluate_all.py --update-baseline.",
+ "stages": {
+  "copyright": {
+   "checks": {
+    "no_copyrighted_in_head": true
+   }
+  },
+  "synthetic_v1": {
+   "metrics": {
+    "calc_edges_precision": 0.8461538461538461,
+    "calc_edges_recall": 0.9166666666666666,
+    "decisions_carried": 1.0,
+    "design_f1": 0.962962962962963,
+    "design_precision": 0.9323770491803278,
+    "design_recall": 0.9956236323851203,
+    "load_path_precision": 1.0,
+    "load_path_recall": 1.0,
+    "rev2_load_path_recall": 1.0,
+    "rev_diff_exact": 1.0,
+    "segmentation_exact": 1.0,
+    "xref_precision": 1.0
+   }
+  }
+ },
+ "updated": "2026-11-14 16:21 EST"
+}

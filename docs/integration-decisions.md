@@ -1,0 +1,176 @@
+# Integration decisions: main + hackathon engine + extraction
+
+Branch `issy/integrate-calc-graph-engine` (owner: Issy, Isabel Greenslade), cut from `prod`.
+Started 2026-11-14, 6:10 PM ET. Commits are authored as Isabel Greenslade.
+All times US Eastern. This file records each decision, why it was made, and how to check
+it, so the work can be reviewed later. Newest entries are appended at the bottom of each section.
+
+## Sources
+
+| Source | Where | State used |
+|---|---|---|
+| **main** | `origin/prod` | `00d47e0` "reactified" (Noah, 5:49 PM), then merged forward as `prod` moves (see "Upstream merges") |
+| **hackathon** | `~/Documents/unLoaded`, branch `issy-prototype` | the **local working copy**, including one unpushed commit (`b70df9a`) and ~1,500 uncommitted lines (MCP server, drawing verify). Chosen by Issy over the pushed `origin/issy-prototype` (`237fae1`) |
+| **extraction** | `origin/extraction` | `ae53652` (rh-6, 6:12 PM): the `calc-viewer` prototype. Ideas only, no code or data (D13) |
+
+## Decisions
+
+### D1. Main's UI is the product shell; the hackathon is the engine behind it
+**Why:** the two only overlap on the four views (element graph, calc graph, 3D, PDFs). Main has
+the better shell for each: radial hierarchy, grouping, dockable panels, look. The hackathon has the
+real content each one is missing: matching with evidence, a real calc graph, real PDFs, revisions,
+impact, IFC geometry, tests. Both are React 18.3.1 / three 0.170.0, so there is no stack conflict.
+The hackathon's own frontend shell and routes are dropped; individual components are moved in.
+**Check:** the view-by-view comparison in the session that produced this branch, and that
+`src/` contains no route-based app shell from the hackathon.
+
+### D2. IFC parsing moves to the server (IfcOpenShell), and the browser regex parser is deleted
+**Why:** main's `src/utils/ifcParser.ts` parsed STEP text with regex. It cannot produce geometry
+and won't hold up on real files. The mission needs "user uploads IFC (and calc PDF) → graphs →
+links", and the matcher and PDF ingest are Python. This turns main from a static site into a client
+plus server app. It is the biggest architectural change on the branch. **Flag for Noah.**
+**Check:** `src/utils/ifcParser.ts` is gone; uploads POST to `/api/projects/{pid}/model` and `/calcs`.
+
+### D3. Only the core engine (mapper-v1) is brought over; about 70% of the hackathon stays on its branch
+**Brought:** `ifc_ingest, loadpath, pdf_ingest, segment, matcher, calcdeps, impact, store, revstore,
+pipeline, store_api, cli, schema/`, the original synthetic generator, tests, evaluation, copyright guard.
+**Left behind:** the v2 engine (move-a-column, registry, platforms, as-of, inbox), ETABS / Speckle /
+Windows bridge, drawing-set ingest, AI steps, MCP server, drawing verify.
+**Why:** the v2 engine and everything built on it read the generator's own answer file
+(`data/synthetic_v2/design.json`). They have never parsed an uploaded file, so they can't serve the
+mission's "user uploads an IFC" path. The rest is outside the mission (analysis-software round trips, RFIs).
+**Check:** `backend/calcgraph/` has no `platforms/`, `ai/`, `move_*`, `registry_*`, `set_*`, `mcp_*`;
+the backend agent's report lists every import cut at a kept module.
+
+### D4. The MCP server is deferred, not dropped
+**Why:** "connect your AI to calc-graph" fits the mission, but `mcp_server.py` imports `move_api` and
+`mcp_element_query.py` reads `design.json`. It answers about the synthetic design, not an uploaded
+project. Bringing it in would mean bringing the v2 engine (D3). It should be rewired onto the
+revision store first.
+
+### D5. API routes keep identical paths and payloads to the hackathon
+**Why:** the backend and frontend were ported in parallel; a fixed contract let both work at once
+without waiting. Kept: health, projects, state, model/calcs upload, sample, revisions, compare,
+revision file, page PNG, decisions, impact, export, `/api/store/*`. Dropped: `/api/sets/*`, v2,
+as-of, inbox, verify, MCP.
+
+### D6. One data contract, entering in one place
+**Why (root cause):** main's mock data had each node carry its own invented `documents[]`, and every
+view derived things from it separately (calc categories, revisions, load direction). Fixing views
+one at a time would leave the next view free to invent again. Instead:
+- the Python schema models are the source of truth; `src/types/schema.ts` is generated from them
+  (`backend/scripts/gen_ts_types.py`) and **CI fails if it drifts**;
+- `src/data/loadProject.ts` is the only code that turns backend payloads into the view model;
+  components never read backend shapes directly;
+- deleted: `BimNode.documents`, fake revisions (Rev A–D), invented axial load / strength,
+  `buildCalculationGraph`'s inference (the calc graph now comes from backend `calc_edges`).
+**Check:** grep `src/` for `documents`, `ifcParser`, `bim-database`; only `src/data/` and `src/api/`
+import `types/schema`.
+
+### D7. Load direction comes from geometry, plus the IFC file's own connection records
+**Why:** main guessed load direction from floor number and type rank (`graphEngine.ts`
+`getStructuralGravityRank` / `orientLoadLink`). The hackathon's `loadpath` derives it from geometry
+contact, which is what actually bears on what. One thing main did better was read authored IFC
+connectivity (`IfcRelConnects*`). That is added to `loadpath` as an extra edge source with its own
+rule name, so the backend is the only place edges come from.
+**Check:** the evaluation's load-path precision/recall is not lower than the baseline.
+
+### D8. The utilisation heatmap is disabled until there is a real source
+**Why:** main's utilisation numbers were invented. The hackathon only has unity checks in the v2
+engine (D3), computed from the generator's design. Showing invented numbers on a real project is
+worse than showing none. The toggle stays, disabled with an explanation, and turns on automatically
+when elements carry a utilisation value. 3D colouring instead shows real things: review status,
+link confidence, stale-from-impact. A future source: utilisation read from the calc PDFs by the matcher.
+
+### D9. 3D renders real IFC geometry (web-ifc), keeping main's viewer behaviour
+**Why:** main drew boxes from invented `pos3d/size3d`. The hackathon's `viewer.ts` renders the real
+IFC by GlobalId. Main's selection sync, zoom-to-selection, docking and heatmap toggle are kept.
+
+### D10. Demo data: the hackathon's synthetic steel frame; Noah's sample JSON is removed
+**Why:** it has a real IFC, a real calc PDF and known correct answers, so it exercises and scores
+the real pipeline. Noah's "Hudson Point Tower" JSON is mock data with no PDFs behind it, and its
+fields (documents, utilisation, axial loads) no longer exist in the contract (D6).
+Removed: `data/bim-database.json`, `public/data/bim-database.json`, `sample-data/bim-database.json`.
+
+### D11. Guardrails land with the code: copyright guard, evaluation baseline, CI
+**Why:** this repo is **public**. The hackathon worked next to a copyrighted permit set; its guard
+blocks PDFs, images and distinctive strings from that set. It now scans the whole repo, including
+`src/` and `public/`. Only `data/open/` (an openly licensed IFC) and small fixtures were copied.
+The evaluation baseline makes any matcher change show its effect in numbers; CI runs guard, pytest,
+generator check, evaluation, schema drift, frontend build.
+**Note:** tests and type-checks cannot run on the laptop that built this branch (blocked by a local
+hook), so **CI on the pushed branch is the first real test and type-check**. Until it has run green,
+treat the branch as unverified.
+
+### D12. Upstream main is merged forward, and its features are rebuilt on the new contract
+**Why:** Noah keeps shipping to `prod` (e.g. `c69ef3d`). Merging `prod` into this branch (rather than
+rebasing) keeps the history honest and lets the reviewer see each upstream change arrive. When an
+upstream commit adds a feature on the old mock data, the feature is kept and rebuilt on the real data,
+not dropped. See "Upstream merges".
+
+### D13. From the extraction branch: ideas only, no code, no data
+**Brought, as engine/UI changes (third stage):**
+1. link **role**: design vs loads-only; an element counts as "designed" only with a design link;
+2. confidence as a **sum of weighted evidence**, including negative evidence, plus caveats;
+3. **typical groups** (same size + level) as a link target, so a size-only calc links once to a group
+   instead of fanning a weak link to every matching element;
+4. **size-mismatch findings**: IFC profile ≠ size in the calc;
+5. calcs as **spans of page regions** with a stepper, instead of whole pages.
+
+**Not brought:** the plain-JS viewers (superseded by main's UI), `build.py` (hardwired to one
+project's sheet list), hand-written summaries, two-sided drawing↔calc evidence (needs drawings as
+an input; later), and **all of `calc-viewer/data/`**.
+**Why no data:** it was built from the copyrighted permit set ("Building 12"): sheet numbers, text
+snippets with box positions, summaries, ~1.4 MB. **It is already pushed to the public repo on
+`origin/extraction`**; that is outside this branch and needs rh-6 / Noah to remove it from history.
+
+### D14. The copyright guard stores only hashes of the protected terms
+**Why:** the hackathon guard listed the protected set's firm, project and architect names and job /
+permit numbers in plain text, in `copyright_guard.json` and the guard script. In a public repo that
+publishes the identity the guard protects. The guard now stores salted SHA-256 hashes of normalised
+terms and hashes token n-grams at scan time. Terms are added with `--add-term` on stdin, so they never
+touch a file or shell history. `--self-test` uses a throwaway term generated at runtime.
+**Check:** grep the hackathon term list against this repo: 0 hits.
+
+### D15. Backend port specifics (from the porting agent's report)
+- One path root: `revstore.ROOT` = `backend/`; `api.py` derives store / synthetic / `dist/` from it.
+- Not brought, because nothing kept imports them: `sizes`, `aisc`, `ifc_diff`, `ids/`, `validate_ifc.py` (v2-only).
+  `check_store_parity.py` dropped (one-off migration gate needing `data/sets`).
+- `revstore` drawing-set path removed. `store.py` still accepts drawing-set rows, so a store written
+  by the hackathon opens unchanged.
+- `test_schema.py` had loaded `schema_audit.py` (which imports drawing-set adapters); its
+  `contract_checks()` moved into the test verbatim, so that coverage is kept.
+- Eval stages kept: `synthetic_v1`, `copyright` (baseline numbers unchanged), plus a new
+  `synthetic_check` (generator byte-stability). All v2 / AI / drawing-set / ETABS stages deleted.
+- D7 implemented: `ifc_ingest.read_ifc` returns `IfcRelConnectsElements` (incl. subtypes) between
+  ingested elements; `loadpath` emits them as rule `ifc_rel_connects`; an edge found by geometry too
+  keeps geometry's direction and records both rules. The synthetic IFCs contain 0 such relations,
+  so the evaluation metric is unchanged by construction; a hand-edited copy with 2 relations
+  produced 1 new edge + 1 merged edge as designed.
+- Smoke (2026-11-14, ~6:45 PM ET, app run locally, no tests): sample → 459 elements (457 linked),
+  800 links all with evidence, 12 calcs, 13 calc edges, 970 load-path edges; rev 2 compare →
+  15 removed, 12 changed (matches ground truth). All kept routes returned 200.
+- Licensing to note: PyMuPDF is AGPL-3.0 (matters if shipped commercially); the buildingSMART
+  sample IFC is CC BY 4.0, attribution in `backend/data/SOURCES.md` must stay with it.
+- Pre-commit hook install: `git config core.hooksPath backend/scripts/git-hooks`.
+
+## Upstream merges
+
+| When (ET) | prod commit | What it brought | How it was integrated |
+|---|---|---|---|
+| 6:25 PM | `c69ef3d` "added diff compare to the ui" (Noah) | empty workspace on start; namable groups + whole-group selection; client-side A/B database diff mode with Swap A↔B, coloured statuses, removed-member ghosts, before→after cards; CLAUDE.md architecture notes; sample JSON moved to `sample-data/` | Empty start and groups kept as-is. Diff mode UI and colours kept, but fed from the backend's revision diff (`/compare`, key join by GlobalId + content hash); `computeDatabaseDiff()` deleted so there is one diff implementation (D6). A and B are two model revisions; diff fields that don't exist in real data (utilisation, axial load, strength) are dropped, not faked. Sample JSON deleted (D10). |
+
+## Open questions for Noah / the team
+
+1. D2: client + server instead of a static site. Fine?
+2. D8: is reading utilisation from the calc PDFs the right next source?
+3. D4: when to rewire the MCP server onto the store.
+4. The public `origin/extraction` data (D13).
+
+## How to review this branch
+
+1. Read this file, then `docs/ARCHITECTURE.md`.
+2. Wait for CI green on the pushed branch (D11); nothing has been tested locally.
+3. Run it: `cd backend && uv sync && uv run python -m synth.generate --out data/synthetic --seed 7 && uv run calc-graph serve`,
+   then `npm install && npm run dev`; press **Load sample**.
+4. Spot-check D6 (greps), D7 (evaluation numbers), D11 (`git ls-files | grep -iE '\.pdf$|calc-viewer|data/sets|data/labels'` returns nothing).

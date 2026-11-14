@@ -1,0 +1,10 @@
+#!/bin/sh
+# Copyright guard on every commit (scans the staged changes of the whole repo: src/, public/, backend/, ...).
+# Install once per clone, from the repo root:
+#   git config core.hooksPath backend/scripts/git-hooks
+set -e
+backend=$(cd "$(dirname "$0")/../.." && pwd)
+py="$backend/.venv/bin/python"
+[ -x "$py" ] || py=python3
+
+"$py" "$backend/scripts/check_no_copyrighted.py" --staged
