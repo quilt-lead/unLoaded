@@ -459,13 +459,18 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
             leg = (con["legends"].get(ins["sheet"]) or {}).get(sym) or {}
             tid = det_type.get(leg.get("detail") or "")
         T = sheet_transform(s, grid) if s["kind"] in ("framing", "foundation") else None
-        if T is None or not tid:
-            stats["connection instances not resolved (no plan registration or no type)"] += 1
+        view = next((v for v in views if v["sheet"]["sheet"] == s["sheet"] and v["y0"] <= ins["point"][1] <= v["y1"]), None)
+        if (T is None and view is None) or not tid:
+            stats["connection instances not resolved (no plan / elevation registration or no type)"] += 1
             continue
         fam = tid.split(":")[1].split("-")[0]
-        pt = T(*ins["point"])
-        storeys = _storeys_for(s["level"], info)
-        cands = [n for n in plates if info[n]["storey"] in storeys and (info[n]["mark"] or "").split("-")[0] == fam]
+        if T is not None:
+            pt = T(*ins["point"])
+            storeys = _storeys_for(s["level"], info)
+            cands = [n for n in plates if info[n]["storey"] in storeys and (info[n]["mark"] or "").split("-")[0] == fam]
+        else:      # an elevation: the leader end is a 3D point through the view's registration
+            pt = view["to3d"](*ins["point"])
+            cands = [n for n in plates if (info[n]["mark"] or "").split("-")[0] == fam]
         nid, conf = _conf(_nearest(pt, cands, info, "centre"), 1.0)
         if not nid:
             stats["connection instances unresolved"] += 1
@@ -500,10 +505,12 @@ def ingest_drawings(R: Registry, path: str, ifc: dict, pf) -> dict:
                     stats["elevation symbols resolved"] += 1
                 else:
                     stats["elevation symbols unresolved"] += 1
+    # ---- section cuts (a pair of bubbles with the same ref on a plan) and the labels in the cut view
+    _sections(R, doc, con, sheets, info, grid, marks, docc, stats, page_lines)
     # ---- schedules
-    _schedules(R, doc, plans, info, grid, marks, docc, stats)
+    _schedules(R, doc, plans, info, grid, marks, docc, stats, pf)
     # ---- notes
-    _notes(R, doc, plans, info, docc, stats)
+    _notes(R, doc, plans, info, docc, stats, pf)
     return {"sheets": plans["sheets"], "stats": dict(stats), "legend_check": con["legend_check"]}
 
 
@@ -527,6 +534,113 @@ def _tag_box(words: list, el: dict, gap: float = 8.0) -> list[float]:
             break
         box = [min(box[0], nxt[0]), min(box[1], nxt[1]), max(box[2], nxt[2]), max(box[3], nxt[3])]
     return _r(box)
+
+
+def _seg_seg(a, b, c, d) -> float:
+    """Plan distance between segments ab and cd (0 when they cross)."""
+    def ccw(p, q, r):
+        return (r[1] - p[1]) * (q[0] - p[0]) - (q[1] - p[1]) * (r[0] - p[0])
+    if (ccw(a, c, d) > 0) != (ccw(b, c, d) > 0) and (ccw(a, b, c) > 0) != (ccw(a, b, d) > 0):
+        return 0.0
+    return min(_seg_dist(a, c, d), _seg_dist(b, c, d), _seg_dist(c, a, b), _seg_dist(d, a, b))
+
+
+def _sections(R, doc, con, sheets, info, grid, marks, docc, stats, page_lines):
+    """Section cuts: on a registered plan, two bubbles with the same ref ("1/S-601") are the ends of one cut
+    line; the cut shows what the line passes through or right beside on that plan's storey(s) (within 1.0 m
+    of the element's plan footprint: a cut is drawn just off the column it looks at). In the cut's
+    view on the target sheet (the view whose numbered title is the nearest one below a label), each label
+    resolves among those elements by the section, mark or noun it prints."""
+    by = defaultdict(list)
+    for o in con["other_callouts"]:
+        by[(o["sheet"], o["ref"])].append(o)
+    cut_els = defaultdict(set)          # ref -> elements it cuts
+    for (sh, ref), bs in by.items():
+        if len(bs) != 2 or sh not in sheets:
+            continue
+        s = sheets[sh]
+        T = sheet_transform(s, grid) if s["kind"] in ("framing", "foundation") else None
+        if T is None:
+            continue
+        ca = [((b["bbox"][0] + b["bbox"][2]) / 2, (b["bbox"][1] + b["bbox"][3]) / 2) for b in bs]
+        A, B = T(*ca[0]), T(*ca[1])
+        box = _union([b["bbox"] for b in bs])
+        storeys = _storeys_for(s["level"], info)
+        hit = []
+        for nid, x in info.items():
+            if x["storey"] not in storeys or not x["min"]:
+                continue
+            if x["type"] == "deck":
+                inside = all(x["min"][0] - 0.01 <= p[0] <= x["max"][0] + 0.01 and x["min"][1] - 0.01 <= p[1] <= x["max"][1] + 0.01 for p in (A, B))
+                if inside:
+                    hit.append(nid)
+                continue
+            if x["type"] in ("beam", "girder", "grade_beam", "brace"):
+                d = _seg_seg(A, B, x["p1"][:2], x["p2"][:2])
+            else:      # distance from the cut line to the element's plan footprint
+                corners = [(x["min"][0], x["min"][1]), (x["max"][0], x["min"][1]), (x["max"][0], x["max"][1]), (x["min"][0], x["max"][1])]
+                d = min(_seg_seg(A, B, corners[i], corners[(i + 1) % 4]) for i in range(4))
+                if x["min"][0] <= A[0] <= x["max"][0] and x["min"][1] <= A[1] <= x["max"][1]:
+                    d = 0.0
+            if d <= 1.0:
+                hit.append(nid)
+        for nid in hit:
+            cut_els[ref].add(nid)
+            docc(nid, s, box, "section_cut", ref, "section cut line passes through / beside it in plan (within 1.0 m of its footprint)", "inferred")
+            for (src, dst, k) in [k for k in R.rels if k[0] == nid and k[2] == "instance-of"]:
+                if R.nodes[dst]["kind"] == "type":
+                    docc(dst, s, box, "section_cut", ref, "section cut crosses an instance of this type", "inferred")
+            stats["section cut occurrences (plan)"] += 1
+    # the views on the target sheets
+    targets = defaultdict(list)
+    for ref in cut_els:
+        n, sh = ref.split("/", 1)
+        targets[sh].append(n)
+    for sh, nums in targets.items():
+        if sh not in sheets:
+            continue
+        s = sheets[sh]
+        lines = [l for l in page_lines(s["page"]) if l["dir"][0] > 0.99]
+        titles = []
+        for l in lines:
+            if re.fullmatch(r"\d{1,2}", l["text"]):
+                t = [m for m in lines if m is not l and 0 < m["bbox"][0] - l["bbox"][2] < 40 and abs((m["bbox"][1] + m["bbox"][3]) / 2 - (l["bbox"][1] + l["bbox"][3]) / 2) < 8
+                     and re.search(r"[A-Z]{4}", m["text"])]
+                if t:
+                    titles.append((l["text"], l, t[0]))
+        for l in lines:
+            if any(l is t[1] or l is t[2] for t in titles) or l["text"].startswith("SCALE"):
+                continue
+            below = [t for t in titles if t[1]["bbox"][1] > l["bbox"][3] and -300 < l["bbox"][0] - t[1]["bbox"][0] < 900]
+            if not below:
+                continue
+            num = min(below, key=lambda t: t[1]["bbox"][1] - l["bbox"][3])[0]
+            ref = f"{num}/{sh}"
+            if ref not in cut_els:
+                continue
+            els, T_ = cut_els[ref], l["text"].upper()
+            hits = []
+            sz = next((sizes.norm(w) for w in re.findall(r"\*?(?:W|HSS)\d[\dX/.]*", T_) if sizes.norm(w)), None)
+            if sz:
+                hits += [n for n in els if info[n]["section"] == sz["norm"]]
+                if f"TYPE:{sz['norm']}" in R.nodes:
+                    hits.append(f"TYPE:{sz['norm']}")
+            m0 = re.match(r"^\*?([A-Z]{1,3}-?\d+(?:\.\d)?)\b", T_) or re.search(r"\b([A-Z]{2}-\d+)\b", T_)
+            if m0:
+                mk = m0.group(1)
+                hits += [n for n in els if n in marks.get(mk, ()) or n in marks.get(mk.replace("-", ""), ())]
+                for tid in (f"TYPE:{mk}", f"TYPE:{mk[0]}-{mk[1:]}"):
+                    if tid in R.nodes and any(k[0] in els and k[1] == tid for k in R.rels):
+                        hits.append(tid)
+            if "DECK" in T_:
+                hits += [n for n in els if info[n]["type"] == "deck"]
+            lk = level_key(T_) if re.search(r"\bLEVEL\s*\d|\bROOF\b", T_) else None
+            if lk and f"LEVEL:{lk}" in R.nodes:
+                hits.append(f"LEVEL:{lk}")
+            hits += [m for m in governs(T_, R)["materials"] if governs(T_, R)["why"][m] == "designation" or "STUD" in T_]
+            for nid in dict.fromkeys(hits):
+                docc(nid, s, l["bbox"], "section_cut", l["text"], f"label in section view {ref} names it (among what the cut crosses)", "inferred")
+                stats["section view labels resolved"] += 1
 
 
 def _lines_of(page) -> list[dict]:
@@ -588,6 +702,8 @@ def _elevations(R, doc, plans, info, grid, docc, stats, tag_of) -> list[dict]:
                     ft = int(m.group(2)) + (int(m.group(3)) / 12) * (1 if int(m.group(2)) >= 0 else -1)
                     lv.append(((box[1] + box[3]) / 2, ft * 0.3048, m.group(1)))
                     lk = level_key(m.group(1))
+                    if lk:
+                        R.level_elev = getattr(R, "level_elev", {}) | {lk: ft}
                     if lk and f"LEVEL:{lk}" in R.nodes:
                         docc(f"LEVEL:{lk}", s, box, "elevation_tag", txt, "level marker in an elevation", "exact")
                     break
@@ -645,13 +761,14 @@ def _rows_of(words, tol=3.0):
     return rows
 
 
-def _schedules(R, doc, plans, info, grid, marks, docc, stats):
+def _schedules(R, doc, plans, info, grid, marks, docc, stats, pf):
     gl = re.compile(r"^(\d{1,2})/([A-Z])$|^([A-Z])-?(\d{1,2})$")
     for s in plans["sheets"]:
         if s["kind"] in ("details", "notes"):
             continue
         page = doc[s["page"] - 1]
-        words = [w for w in page.get_text("words") if w[2] < (s["cutoff"] if s["kind"] in ("framing",) else 2316)]
+        words = [w for w in page.get_text("words") if w[2] < (s["cutoff"] if s["kind"] in ("framing",)
+                                                              else pf.drawings.title_block.x_min.at(page.rect.width))]
         rows = _rows_of(words)
         # (a) grid-keyed schedule: a header row of >= 4 grid intersection labels; each text line below sits in
         #     the column whose header it is centred under, down to the table's end (a 60 pt gap)
@@ -731,27 +848,60 @@ def _schedules(R, doc, plans, info, grid, marks, docc, stats):
                     docc(tid, s, bbox, "schedule_row", text, "type-mark schedule row", "exact")
 
 
-def _notes(R, doc, plans, info, docc, stats):
+def _paragraphs(lines: list[dict]) -> list[list[dict]]:
+    """Note paragraphs: lines of one text block, split where a numbered / lettered note starts or the
+    vertical gap opens past a third of a line height (table rows, separate notes)."""
+    out = []
+    for lns in _by_block(lines).values():
+        lns.sort(key=lambda l: (l["bbox"][1], l["bbox"][0]))
+        cur = []
+        for l in lns:
+            if cur:
+                h = cur[-1]["bbox"][3] - cur[-1]["bbox"][1]
+                if re.match(r"^(\d{1,2}|[A-Z])\.\s", l["text"]) or l["bbox"][1] - cur[-1]["bbox"][3] > max(3.0, h / 3):
+                    out.append(cur)
+                    cur = []
+            cur.append(l)
+        if cur:
+            out.append(cur)
+    return out
+
+
+def _by_block(lines):
+    d = defaultdict(list)
+    for l in lines:
+        d[l["block"]].append(l)
+    return d
+
+
+def _notes(R, doc, plans, info, docc, stats, pf):
+    el_rx = re.compile(r"\bEL\.?\s*(-?\d+)'\s*-\s*(\d+)\"")
     for s in plans["sheets"]:
         if s["kind"] == "details":
             continue
         page = doc[s["page"] - 1]
-        blocks = defaultdict(list)
-        for ln in _lines_of(page):
-            if ln["dir"][0] > 0.99 and ln["bbox"][0] < 2316 and (s["kind"] == "notes" or ln["bbox"][0] >= s["cutoff"]):
-                blocks[ln["block"]].append(ln)
-        for lns in blocks.values():
+        tb = pf.drawings.title_block.x_min.at(page.rect.width)
+        nx = pf.drawings.notes_column.x_min.at(page.rect.width)
+        lines = [ln for ln in _lines_of(page) if ln["dir"][0] > 0.99 and ln["bbox"][2] <= tb
+                 and (s["kind"] == "notes" or ln["bbox"][0] >= min(nx, s["cutoff"]))]
+        for lns in _paragraphs(lines):
             text = " ".join(l["text"] for l in lns)
             if len(text) < 12:
                 continue
             g = governs(text, R)
             hits = g["materials"] + g["details"] + g["frames"] + g["decks"]
+            for m in el_rx.finditer(text.upper()):     # an elevation that is a level's elevation names the level
+                ft = int(m.group(1)) + int(m.group(2)) / 12 * (1 if int(m.group(1)) >= 0 else -1)
+                for lk, z in getattr(R, "level_elev", {}).items():
+                    if abs(z - ft) < 0.01 and f"LEVEL:{lk}" not in hits:
+                        hits.append(f"LEVEL:{lk}")
+                        g["why"][f"LEVEL:{lk}"] = "designation: level elevation"
             if not hits:
                 continue
             bbox = _union([l["bbox"] for l in lns])
             for nid in hits:
                 docc(nid, s, bbox, "note", text[:200], "note text names it (vocabulary: " + g["why"].get(nid, "") + ")",
-                     "exact" if g["why"].get(nid, "").startswith("designation") else "inferred")
+                     "exact" if g["why"].get(nid, "").startswith(("designation", "detail mark", "frame id")) else "inferred")
                 stats["note occurrences"] += 1
 
 
@@ -800,8 +950,12 @@ def governs(text: str, R: Registry) -> dict:
                 dets.add(nid)
                 why[nid] = f"detail title noun '{phrase}'"
     frames = []
+    ids = {nid for nid, n in R.nodes.items() if n["type"] == "frame" and re.search(r"\b" + re.escape(nid.split(":")[1]) + r"\b", T)}
+    for nid in sorted(ids):
+        frames.append(nid)
+        why[nid] = "frame id"
     for nid, n in R.nodes.items():
-        if n["type"] != "frame":
+        if n["type"] != "frame" or ids:
             continue
         sysab, line = nid.split(":")[1].rsplit("-", 1)
         phrase = _SYS.get(sysab, "")
