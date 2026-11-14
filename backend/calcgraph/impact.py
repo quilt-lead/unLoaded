@@ -9,8 +9,14 @@ remove  - the element is removed: what it supported is re-framed (direct upstrea
           downstream like a change.
 Then: every calc linked to a hit or removed element is stale, and every calc
 downstream of a stale calc in the calc graph is stale too.
+
+`edges` are the element graph's `supports` edges (src is supported by dst). Waves count steps the
+way packages/element-graph's loadPathDown counts depth: the step into a connection node counts,
+the step out of it to a member does not, so the engine and the UI report the same depth.
 """
 from __future__ import annotations
+
+from collections import deque
 
 
 def propagate(gid: str, mode: str, edges: list[dict], links: list[dict], calc_edges: list[dict],
@@ -52,19 +58,19 @@ def propagate(gid: str, mode: str, edges: list[dict], links: list[dict], calc_ed
         why[gid] = "changed"
 
     hit: dict[str, int] = {}
-    wave = [s for s in dict.fromkeys(seeds) if s not in removed]
-    for s in wave:
-        hit[s] = 0
-    w = 0
-    while wave:
-        w += 1
-        nxt = []
-        for x in wave:
-            for d in down.get(x, []):
-                if d not in removed and d not in hit:
-                    hit[d] = w
-                    nxt.append(d)
-        wave = nxt
+    q: deque[str] = deque()
+    for s in dict.fromkeys(seeds):
+        if s not in removed:
+            hit[s] = 0
+            q.append(s)
+    while q:  # 0-1 BFS: leaving a connection node costs 0, every other step 1
+        x = q.popleft()
+        step = 0 if elements.get(x, {}).get("cat") == "Connection" else 1
+        for d in down.get(x, []):
+            if d in removed or (d in hit and hit[d] <= hit[x] + step):
+                continue
+            hit[d] = hit[x] + step
+            (q.appendleft if step == 0 else q.append)(d)
 
     stale: dict[str, str] = {}
     by_calc: dict[str, list[str]] = {}
@@ -79,12 +85,12 @@ def propagate(gid: str, mode: str, edges: list[dict], links: list[dict], calc_ed
     kdown: dict[str, list[str]] = {}
     for e in calc_edges:
         kdown.setdefault(e["src"], []).append(e["dst"])
-    q = list(stale)
-    while q:
-        k = q.pop(0)
+    cq = list(stale)
+    while cq:
+        k = cq.pop(0)
         for d in kdown.get(k, []):
             if d not in stale:
                 stale[d] = f"input from {k}"
-                q.append(d)
+                cq.append(d)
     return {"global_id": gid, "mode": mode, "removed": sorted(removed), "hit": hit, "why": why,
             "stale": stale, "waves": max(hit.values(), default=0)}

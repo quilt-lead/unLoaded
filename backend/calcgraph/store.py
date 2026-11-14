@@ -40,6 +40,7 @@ import json
 import os
 import shutil
 import sqlite3
+import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -139,47 +140,67 @@ def sha256_file(path: str) -> str:
     return h.hexdigest()
 
 
-def _edge_evidence(x: dict) -> dict:
-    """What a load-path edge stores beside (src, dst, kind, rule): the gap measured, plus - only when
-    the IFC's authored connectivity contributed (loadpath ifc_rel_connects) - every rule that found
-    the edge and the IFC relation entities. Geometry-only edges store exactly what v1 stored."""
-    ev = {"gap_m": x.get("gap_m")}
-    if x.get("ifc_rels"):
-        ev["rules"] = list(x.get("rules") or [x["rule"]])
-        ev["ifc_rels"] = list(x["ifc_rels"])
-    return ev
-
-
 def content_hash(obj) -> str:
     return hashlib.sha1(json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 class Store:
+    """One store directory. Thread safety (FastAPI runs sync routes on a thread pool): every thread
+    gets its OWN sqlite3 connection (`db` is per-thread; sqlite3's check_same_thread stays on, so a
+    connection used from a second thread raises instead of corrupting a shared statement), the file
+    is in WAL mode so readers never block on a writer, and multi-statement writes (ingest, remap,
+    decisions, project creation) run under `write_lock` so two writers cannot interleave.
+
+    Why: a single connection shared by every request thread let two concurrent requests step the
+    SAME cached prepared statement (identical SQL text); one of them then got None from fetchone()
+    ("project 1 not found") or sqlite3.InterfaceError "bad parameter or other API misuse" (a 500),
+    and a retry, no longer concurrent, succeeded."""
+
     def __init__(self, root: str):
         self.root = root
         os.makedirs(os.path.join(root, "blobs"), exist_ok=True)
-        path = os.path.join(root, "calcgraph.sqlite")
-        self.db = sqlite3.connect(path, check_same_thread=False)
-        self.db.row_factory = sqlite3.Row
-        version = self.db.execute("PRAGMA user_version").fetchone()[0]
-        legacy = bool(self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='revision'").fetchone())
-        if legacy and version < STORE_VERSION:
-            self.db.close()
-            bak = path + ".pre-f2.bak"
-            if not os.path.exists(bak):
-                shutil.copyfile(path, bak)
-            self.db = sqlite3.connect(path, check_same_thread=False)
-            self.db.row_factory = sqlite3.Row
-            self._migrate_v1()
-        elif not legacy:
-            self.db.executescript(
-                "CREATE TABLE project(id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL,"
-                " head_model_rev INTEGER, head_calc_rev INTEGER, kind TEXT NOT NULL DEFAULT 'ifc', slug TEXT UNIQUE);"
-                + REVISION_DDL.format(name="revision") + ";" + DETAIL_SCHEMA + SHARED_SCHEMA
-                + "ALTER TABLE mapping_run ADD COLUMN facts_at TEXT;"
-                + "ALTER TABLE mapping_run ADD COLUMN producer_json TEXT NOT NULL DEFAULT '{}';"
-                + f"PRAGMA user_version = {STORE_VERSION};")
-        self.db.execute("PRAGMA foreign_keys = ON")
+        self.path = os.path.join(root, "calcgraph.sqlite")
+        self._local = threading.local()
+        self.write_lock = threading.RLock()
+        with self.write_lock:
+            version = self.db.execute("PRAGMA user_version").fetchone()[0]
+            legacy = bool(self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='revision'").fetchone())
+            if legacy and version < STORE_VERSION:
+                self._close_thread_connection()
+                bak = self.path + ".pre-f2.bak"
+                if not os.path.exists(bak):
+                    shutil.copyfile(self.path, bak)
+                self._migrate_v1()
+            elif not legacy:
+                self.db.executescript(
+                    "CREATE TABLE project(id INTEGER PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL,"
+                    " head_model_rev INTEGER, head_calc_rev INTEGER, kind TEXT NOT NULL DEFAULT 'ifc', slug TEXT UNIQUE);"
+                    + REVISION_DDL.format(name="revision") + ";" + DETAIL_SCHEMA + SHARED_SCHEMA
+                    + "ALTER TABLE mapping_run ADD COLUMN facts_at TEXT;"
+                    + "ALTER TABLE mapping_run ADD COLUMN producer_json TEXT NOT NULL DEFAULT '{}';"
+                    + f"PRAGMA user_version = {STORE_VERSION};")
+            self.db.execute("PRAGMA journal_mode = WAL")
+            self.db.execute("PRAGMA foreign_keys = ON")
+
+    def _connect(self) -> sqlite3.Connection:
+        con = sqlite3.connect(self.path, timeout=30)  # timeout = busy wait for another connection's write lock
+        con.row_factory = sqlite3.Row
+        con.execute("PRAGMA foreign_keys = ON")
+        return con
+
+    @property
+    def db(self) -> sqlite3.Connection:
+        """This thread's connection (opened on first use)."""
+        con = getattr(self._local, "db", None)
+        if con is None:
+            con = self._local.db = self._connect()
+        return con
+
+    def _close_thread_connection(self) -> None:
+        con = getattr(self._local, "db", None)
+        if con is not None:
+            con.close()
+            self._local.db = None
 
     # ---------------- v1 -> v2 migration ----------------
     def _migrate_v1(self) -> None:
@@ -269,12 +290,13 @@ class Store:
 
     # ---------------- projects / revisions ----------------
     def ensure_project(self, name: str = "Default") -> int:
-        r = self.db.execute("SELECT id FROM project WHERE kind='ifc' ORDER BY id LIMIT 1").fetchone()
-        if r:
-            return r["id"]
-        cur = self.db.execute("INSERT INTO project(name, created_at) VALUES (?,?)", (name, now_et()))
-        self.db.commit()
-        return cur.lastrowid
+        with self.write_lock:  # check-then-insert: two first requests must not create two projects
+            r = self.db.execute("SELECT id FROM project WHERE kind='ifc' ORDER BY id LIMIT 1").fetchone()
+            if r:
+                return r["id"]
+            cur = self.db.execute("INSERT INTO project(name, created_at) VALUES (?,?)", (name, now_et()))
+            self.db.commit()
+            return cur.lastrowid
 
     def legacy_projects(self) -> list[dict]:
         return [dict(r) for r in self.db.execute(f"SELECT {LEGACY_PROJECT_COLS} FROM project WHERE kind='ifc' ORDER BY id")]
@@ -465,7 +487,7 @@ class Store:
         self.db.executemany("INSERT INTO element VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
         self.db.executemany(
             "INSERT INTO element_edge(revision_id, src, dst, kind, rule, evidence_json) VALUES (?,?,?,?,?,?)",
-            [(rid, x["src"], x["dst"], x["kind"], x["rule"], json.dumps(_edge_evidence(x))) for x in edges])
+            [(rid, x["src"], x["dst"], x["kind"], x["rule"], json.dumps({"gap_m": x.get("gap_m")})) for x in edges])
 
     def elements(self, rid: int) -> list[dict]:
         out = []
@@ -549,12 +571,13 @@ class Store:
 
     # ---------------- decisions (append-only) ----------------
     def add_decision(self, pid: int, gid: str, calc_key: str, action: str, actor: str | None, note: str | None) -> int:
-        p = self.project(pid)
-        cur = self.db.execute(
-            "INSERT INTO decision(project_id, global_id, calc_key, action, actor, note, at, model_rev, calc_rev)"
-            " VALUES (?,?,?,?,?,?,?,?,?)", (pid, gid, calc_key, action, actor, note, now_et(), p["head_model_rev"], p["head_calc_rev"]))
-        self.db.commit()
-        return cur.lastrowid
+        with self.write_lock:
+            p = self.project(pid)
+            cur = self.db.execute(
+                "INSERT INTO decision(project_id, global_id, calc_key, action, actor, note, at, model_rev, calc_rev)"
+                " VALUES (?,?,?,?,?,?,?,?,?)", (pid, gid, calc_key, action, actor, note, now_et(), p["head_model_rev"], p["head_calc_rev"]))
+            self.db.commit()
+            return cur.lastrowid
 
     def effective_decisions(self, pid: int) -> dict[tuple[str, str], dict]:
         out: dict[tuple[str, str], dict] = {}

@@ -1,6 +1,7 @@
 // Thin fetch client for the calc-graph FastAPI backend (backend/). Every call goes through
 // `request`, which turns a non-2xx response into an ApiError carrying FastAPI's `detail`
 // (never swallowed). In dev, Vite proxies /api to http://127.0.0.1:8000.
+import type { SerializedElementGraph } from '@unloaded/element-graph';
 import type {
   ApiCompare,
   ApiDecisionIn,
@@ -68,13 +69,37 @@ export const api = {
   impact: (pid: number, gid: string, mode: 'change' | 'remove', signal?: AbortSignal) =>
     get<ApiImpact>(`/api/projects/${pid}/impact?gid=${enc(gid)}&mode=${mode}`, signal),
   decide: (pid: number, d: ApiDecisionIn) => post<{ id: number }>(`/api/projects/${pid}/decisions`, d),
-  sample: (pid: number, modelRev: 1 | 2) => post<ApiSampleOut>(`/api/projects/${pid}/sample?model_rev=${modelRev}`),
-  upload: (pid: number, kind: 'model' | 'calcs', file: File, label?: string) => {
+  /** the sample calc package (the sample model is uploaded like any other, through the element graph) */
+  sampleCalcs: (pid: number) => post<ApiSampleOut>(`/api/projects/${pid}/sample`),
+  /** a sample IFC, as a File, for the same client-side import path as an upload */
+  sampleFile: async (name: string): Promise<File> => {
+    const url = `/api/sample/files/${enc(name)}`;
+    let r: Response;
+    try {
+      r = await fetch(url);
+    } catch {
+      throw new ApiError('Backend not reachable', 0, url);
+    }
+    if (!r.ok) throw new ApiError(`${r.status} ${r.statusText} for ${url}`, r.status, url);
+    return new File([await r.blob()], name, { type: 'application/x-step' });
+  },
+  /** a model revision = the IFC file + the element graph the browser built from it */
+  uploadModel: (pid: number, file: File, graph: SerializedElementGraph, label?: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    // ElementGraph.serialize() JSON, sent as a file part (the backend stores it verbatim)
+    fd.append('graph', new Blob([JSON.stringify(graph)], { type: 'application/json' }), 'element-graph.json');
+    if (label) fd.append('label', label);
+    return postForm<ApiUploadOut>(`/api/projects/${pid}/model`, fd);
+  },
+  uploadCalcs: (pid: number, file: File, label?: string) => {
     const fd = new FormData();
     fd.append('file', file);
     if (label) fd.append('label', label);
-    return postForm<ApiUploadOut>(`/api/projects/${pid}/${kind}`, fd);
+    return postForm<ApiUploadOut>(`/api/projects/${pid}/calcs`, fd);
   },
+  /** the element graph stored with a model revision */
+  revisionGraph: (rid: number, signal?: AbortSignal) => get<SerializedElementGraph>(`/api/revisions/${rid}/graph`, signal),
 };
 
 /** URL builders for binary resources (PDFs, IFC) - not JSON, so not fetched here. */

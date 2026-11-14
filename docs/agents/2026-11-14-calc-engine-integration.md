@@ -1,6 +1,13 @@
-# Integration decisions: main + hackathon engine + extraction
+# Calc engine integration: main + hackathon engine + extraction
 
-Branch `issy/integrate-calc-graph-engine` (owner: Issy, Isabel Greenslade), cut from `prod`.
+- **Status:** active
+- **Branch:** `issy/integrate-calc-graph-engine` (owner: Issy). Not pushed, no PR yet.
+- **Owned files:** `backend/`, `.github/workflows/ci.yml`, `src/api/`, `src/data/`, `src/components/pdf/`,
+  `src/components/three/`, `src/components/RevisionPanel.tsx`, and the merge of these into main's components.
+- **Working files (in flight):** the `prod` merge (PR #3 + c69ef3d) across `src/`, `package.json`; `backend/calcgraph/{api,pipeline,store}.py`.
+
+
+Cut from `prod`.
 Started 2026-11-14, 6:10 PM ET. Commits are authored as Isabel Greenslade.
 All times US Eastern. This file records each decision, why it was made, and how to check
 it, so the work can be reviewed later. Newest entries are appended at the bottom of each section.
@@ -162,11 +169,45 @@ Also removed: `/api/store/sets/{sid}/bundle` (could only return 404) and the now
   sample IFC is CC BY 4.0, attribution in `backend/data/SOURCES.md` must stay with it.
 - Pre-commit hook install: `git config core.hooksPath backend/scripts/git-hooks`.
 
+### D16. Carl's TS element graph is the single source of elements and topology; the backend is the calc engine
+**Context:** at 6:40 PM ET `prod` merged PR #3 (Carl, `20baa23`): `packages/ifc-parser` (web-ifc → ModelInput) and
+`packages/element-graph` (connections as nodes; `supports` / `connects` / `part_of` edges with evidence, incl.
+`IfcRelConnects*`), with ~68 tests and one adapter `src/loaders/elementGraphToBim.ts`. That overlapped the Python
+IFC ingest + load path already ported here (D2, D7).
+**Decided by:** Claude, delegated by Issy ("whatever a structural engineer would find better").
+**Why:** two parsers would build two element graphs that can disagree about the same model, so one must go.
+Carl's is already merged by the team; it keeps connections as discrete nodes (what the engineers at the
+hackathon asked for); it reads authored connectivity; and the model opens instantly in the browser. Matching,
+evidence, impact and revisions need the PDF stack, which is Python, so the backend keeps those.
+**What changes:** the client parses the IFC and POSTs the IFC file + the serialized graph as a model revision;
+the backend stores both and builds its element rows from the graph (`GET /api/revisions/{rid}/graph` returns it).
+`ifc_ingest.py` and `loadpath.py` leave the runtime, and D7's `ifc_rel_connects` rule with them (Carl's graph
+already records those relations as explicit evidence). **D2 is reversed** (IFC parsing is client-side again,
+but with web-ifc rather than the old regex parser) and **D7 is superseded**.
+**Guard against getting worse:** Carl's graph had never been scored against known answers. CI now builds his
+graph for the synthetic model and scores load path and matching against ground truth. Before the Python path was
+deleted, both were scored side by side against `ground_truth.json` through the same pipeline
+(2026-11-14 ~7:20 PM ET, `scripts/evaluate.py`, run as a script on data): **identical on every metric**.
+Load path rev 1 and rev 2 precision/recall 1.000/1.000 (692/692, 0 extra, 0 missed); mapping
+P/R/F1 0.9324/0.9956/0.9630 with the same per-tier counts; xref 312/312; calc edges 0.846/0.917;
+segmentation 12/12; rev 1→2 diff 15 removed / 12 changed; C8 removal impact 15 removed / 36 hit.
+So Carl's graph misses no element or edge class. Python counted 970 load-path edges vs 692 because it
+added extra beam→column edges through each connection that ground truth doesn't count.
+Also fixed at the root: concurrent requests shared one unlocked SQLite connection (17/240 failed);
+now one connection per thread, WAL, writes serialised (0/480 failed). Anything Carl's graph misses is to be
+fixed in `packages/element-graph`, not by keeping a second engine.
+**Also:** 3D keeps real IFC meshes rather than Carl's axis-aligned boxes (diagonal members, his open item);
+one web-ifc asset pipeline (his `copy-assets.mjs`). `legacyBimJson.ts` and `sample-data/` are removed (D10).
+Project rules from `prod`'s CLAUDE.md now apply: vendored UI skills, and these notes live in `docs/agents/`.
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
 |---|---|---|---|
 | 6:25 PM | `c69ef3d` "added diff compare to the ui" (Noah) | empty workspace on start; namable groups + whole-group selection; client-side A/B database diff mode with Swap A↔B, coloured statuses, removed-member ghosts, before→after cards; CLAUDE.md architecture notes; sample JSON moved to `sample-data/` | Empty start and groups kept as-is. Diff mode UI and colours kept, but fed from the backend's revision diff (`/compare`, key join by GlobalId + content hash); `computeDatabaseDiff()` deleted so there is one diff implementation (D6). A and B are two model revisions; diff fields that don't exist in real data (utilisation, axial load, strength) are dropped, not faked. Sample JSON deleted (D10). |
+| 6:40 PM | `20baa23` PR #3 from `cs/dev` (Carl): `7b1b503` TS IFC parser + element graph into the UI, `13e5c54` vendored UI skills, `e5dd2b9` merge of c69ef3d | TS parser + element graph, npm workspaces, `src/loaders/*`, deletion of the regex parser, UI skills, `docs/agents/` convention | See D16. Merged with `git merge origin/prod`; conflicts in 12 frontend files + package files resolved on the new contract. |
+| 6:46 PM | `d361b96` "added json samples" (Noah) | two legacy-format demo JSONs, `sample-data/harborview-tower-rev{1-base,2-compare}.json` (~47k lines, 420 invented `documents` entries), for the diff demo | To be merged after the PR #3 merge commit. The files are deleted: they use the legacy BIM JSON format whose loader goes (D16) and carry invented calc documents (D6/D10). **Withdrawn 2026-11-14 ~7:15 PM ET after Issy questioned it:** deleting a teammate's active demo data in a merge isn't this branch's call. The samples and `legacyBimJson.ts` stay; whether demo JSON with invented documents belongs in the repo is for Noah. |
+| 6:52 PM | `c3f39fb` "added json samples" (Noah) | the same two harborview JSONs again under root `data/`, plus a 10-line `package-lock.json` trim | Kept (see the `d361b96` row: deletion withdrawn). Note root `data/bim-database.json` was removed in D10 as a duplicate; these are new files. The lockfile is regenerated by `npm install` on this branch, so the trim is absorbed. |
 
 ## Open questions for Noah / the team
 

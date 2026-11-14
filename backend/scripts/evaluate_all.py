@@ -7,7 +7,8 @@
 Stages (a stage whose inputs are missing is SKIPPED, never failed):
   synthetic_check  python -m synth.generate --check: the synthetic generator is byte-stable (pass/fail)
   synthetic_v1     scripts/evaluate.py on the synthetic package (segmentation, design-mapping P/R, xref,
-                   load path, calc edges, revisions)
+                   load path, calc edges, revisions), scored on the element graphs the UI's packages build
+                   (scripts/build_graph.mjs, rebuilt here from data/synthetic/model_rev{1,2}.ifc; needs Node)
   copyright        scripts/check_no_copyrighted.py --tracked (pass/fail)
 
 Gating: a metric is compared with the baseline when it is listed as gated; a drop larger than
@@ -51,6 +52,15 @@ def st_synthetic_check(a) -> dict:
 
 
 def st_synthetic_v1(a) -> dict:
+    syn = os.path.join(ROOT, "data", "synthetic")
+    if not os.path.exists(os.path.join(syn, "ground_truth.json")):
+        g = run([PY, "-m", "synth.generate", "--out", syn])
+        if g.returncode:
+            raise RuntimeError(f"synth.generate exit {g.returncode}: {g.stderr[-600:]}")
+    b = run(["node", "scripts/build_graph.mjs"] + [os.path.join(syn, f"model_rev{n}{ext}") for n in (1, 2)
+                                                   for ext in (".ifc", ".graph.json")])
+    if b.returncode:
+        raise RuntimeError(f"scripts/build_graph.mjs exit {b.returncode}: {b.stderr[-600:]}")
     p = run([PY, "scripts/evaluate.py"])
     if p.returncode:
         raise RuntimeError(f"scripts/evaluate.py exit {p.returncode}: {p.stderr[-600:]}")

@@ -1,7 +1,9 @@
 """calc-graph command line.
 
   calc-graph serve [--host 127.0.0.1] [--port 8000]   API + built frontend (<repo>/dist)
-  calc-graph ingest model.ifc [calcs.pdf]             ingest into the store and print a summary
+  calc-graph ingest model.ifc model.graph.json [calcs.pdf]
+                                                      ingest into the store and print a summary
+                                                      (graph: node scripts/build_graph.mjs model.ifc model.graph.json)
   calc-graph migrate-store                            migrate the store (backend/data/store, or CALCGRAPH_STORE)
                                                       to the current store version, backfill schema facts;
                                                       prints counts
@@ -19,6 +21,7 @@ def main() -> None:
     s.add_argument("--port", type=int, default=8000)
     i = sub.add_parser("ingest")
     i.add_argument("ifc")
+    i.add_argument("graph", help="serialized element graph of the IFC (scripts/build_graph.mjs)")
     i.add_argument("pdf", nargs="?")
     sub.add_parser("migrate-store")
     a = ap.parse_args()
@@ -41,7 +44,7 @@ def main() -> None:
         from .api import st
         from . import pipeline
         pid = st.ensure_project()
-        pipeline.ingest_model(st, pid, a.ifc)
+        pipeline.ingest_model(st, pid, a.ifc, open(a.graph, "rb").read())
         if a.pdf:
             pipeline.ingest_calcs(st, pid, a.pdf)
         s = pipeline.state(st, pid)

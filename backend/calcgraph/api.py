@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
 
-from . import pipeline, revstore
+from . import graph_ingest, pipeline, revstore
 from .store_api import router as store_router
 
 STORE_DIR = revstore.store_dir()                      # backend/data/store (override: CALCGRAPH_STORE)
@@ -58,13 +58,21 @@ async def _save(upload: UploadFile, suffix: str) -> str:
 
 
 @app.post("/api/projects/{pid}/model")
-async def upload_model(pid: int, file: UploadFile = File(...), label: str | None = Form(None)):
+async def upload_model(pid: int, file: UploadFile = File(...), graph: UploadFile = File(...),
+                       label: str | None = Form(None)):
+    """A model revision = the IFC (`file`, stored content-addressed: /api/revisions/{rid}/file) plus
+    the element graph the client built from it (`graph`: ElementGraph.serialize() JSON, format
+    unloaded.element-graph v1, sent as a file part; stored verbatim: /api/revisions/{rid}/graph).
+    Elements and load path come from the graph; the backend does not parse the IFC."""
     _pid(pid)
+    raw = await graph.read()
     path = await _save(file, ".ifc")
     try:
-        rid = pipeline.ingest_model(st, pid, path, file.filename, label)
+        rid = pipeline.ingest_model(st, pid, path, raw, file.filename, label)
+    except graph_ingest.GraphError as e:  # validated before anything is stored
+        raise HTTPException(400, f"Could not read that element graph: {e}")
     except Exception as e:  # surface the reason to the UI, never a silent 500
-        raise HTTPException(400, f"Could not read that IFC: {e}")
+        raise HTTPException(400, f"Could not store that model: {e}")
     finally:
         os.unlink(path)
     return {"revision": rid}
@@ -83,26 +91,39 @@ async def upload_calcs(pid: int, file: UploadFile = File(...), label: str | None
     return {"revision": rid}
 
 
-@app.post("/api/projects/{pid}/sample")
-def load_sample(pid: int, model_rev: int = 1):
-    """Ingest the synthetic package (generated on first use). model_rev=2 loads the
-    'column C8 removed' model revision on top of whatever is loaded."""
-    _pid(pid)
+def _synthetic() -> str:
+    """The synthetic package dir, generated on first use (python -m synth.generate)."""
     if not os.path.exists(os.path.join(SYNTH_DIR, "ground_truth.json")):
         from synth.generate import generate
         generate(SYNTH_DIR)
-    p = st.project(pid)
-    out = {}
-    if model_rev == 1 or not p["head_model_rev"]:
-        out["model"] = pipeline.ingest_model(st, pid, os.path.join(SYNTH_DIR, "model_rev1.ifc"), "model_rev1.ifc",
-                                             "Sample - Rev 1 issued for permit")
-    if model_rev == 2:
-        out["model"] = pipeline.ingest_model(st, pid, os.path.join(SYNTH_DIR, "model_rev2.ifc"), "model_rev2.ifc",
-                                             "Sample - Rev 2 column C8 removed")
-    if not st.project(pid)["head_calc_rev"] or model_rev == 1:
-        out["calcs"] = pipeline.ingest_calcs(st, pid, os.path.join(SYNTH_DIR, "calc_package.pdf"), "calc_package.pdf",
-                                             "Sample calc package")
-    return out
+    return SYNTH_DIR
+
+
+@app.post("/api/projects/{pid}/sample")
+def load_sample(pid: int):
+    """Ingest the synthetic CALC PACKAGE as a new calc revision. The sample MODEL is loaded by the
+    client like any upload: fetch /api/sample/files/model_rev1.ifc (or model_rev2.ifc), build its
+    element graph, POST both to /api/projects/{pid}/model."""
+    _pid(pid)
+    return {"calcs": pipeline.ingest_calcs(st, pid, os.path.join(_synthetic(), "calc_package.pdf"), "calc_package.pdf",
+                                           "Sample calc package")}
+
+
+SAMPLE_FILES = {"model_rev1.ifc": "application/x-step", "model_rev2.ifc": "application/x-step",
+                "calc_package.pdf": "application/pdf"}
+
+
+@app.get("/api/sample/files/{name}")
+def sample_file(name: str):
+    """The synthetic sample's source files (model_rev1.ifc = Rev 1 issued for permit, model_rev2.ifc =
+    Rev 2 with column C8 removed, calc_package.pdf). Not generated on demand: run synth.generate."""
+    if name not in SAMPLE_FILES:
+        raise HTTPException(404, f"no sample file {name!r}; available: {', '.join(SAMPLE_FILES)}")
+    path = os.path.join(SYNTH_DIR, name)
+    if not os.path.exists(path):
+        raise HTTPException(404, f"sample file {name} is not generated yet - run: cd backend && "
+                                 "uv run python -m synth.generate (or POST /api/projects/1/sample once)")
+    return FileResponse(path, media_type=SAMPLE_FILES[name], filename=name)
 
 
 @app.get("/api/projects/{pid}/revisions")
@@ -128,6 +149,21 @@ def revision_file(rid: int):
         raise HTTPException(404)
     media = "application/pdf" if r["kind"] == "calcs" else "application/x-step"
     return FileResponse(st.blob_path(rid), media_type=media, filename=r["source_name"])
+
+
+@app.get("/api/revisions/{rid}/graph")
+def revision_graph(rid: int):
+    """The serialized element graph stored with a model revision, verbatim (no re-parse of the IFC)."""
+    try:
+        r = st.revision(rid)
+    except KeyError:
+        raise HTTPException(404)
+    if r["kind"] != "model":
+        raise HTTPException(400, f"revision {rid} is not a model revision")
+    path = pipeline.model_graph(st, rid)
+    if not path:
+        raise HTTPException(404, f"model revision {rid} has no stored element graph (stored before graphs were)")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/revisions/{rid}/pages/{n}.png")

@@ -45,12 +45,27 @@ jobs:
       - uses: astral-sh/setup-uv@e92bafb6253dcd438e0484186d7669ea7a8ca1cc  # v6.4.3
         with:
           version: "0.11.16"
+      # the element graph is built by the TypeScript packages the UI runs (packages/ifc-parser +
+      # packages/element-graph) - the backend scores THAT graph, so the job needs Node and web-ifc
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: "22.23.0"  # >= 22.18: runs the packages' .ts sources with type stripping
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: npm ci (repo root - web-ifc + workspace packages)
+        working-directory: .
+        run: npm ci
       - name: uv sync
         run: uv sync --frozen --extra dev
+      - name: Synthetic generator is byte-stable (also writes data/synthetic)
+        run: uv run python -m synth.generate --check
+      - name: Element graphs of the synthetic model revisions
+        run: >-
+          node scripts/build_graph.mjs
+          data/synthetic/model_rev1.ifc data/synthetic/model_rev1.graph.json
+          data/synthetic/model_rev2.ifc data/synthetic/model_rev2.graph.json
       - name: Backend tests
         run: uv run --extra dev pytest tests -q
-      - name: Synthetic generator is byte-stable
-        run: uv run python -m synth.generate --check
       - name: Evaluate (synthetic only, regression vs eval/baseline.json)
         run: uv run python scripts/evaluate_all.py --synthetic-only
       - name: Scorecard artifact

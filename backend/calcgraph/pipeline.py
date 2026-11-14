@@ -1,17 +1,23 @@
-"""Ingest + mapping pipeline shared by the API, the CLI and scripts/evaluate.py."""
+"""Ingest + mapping pipeline shared by the API, the CLI and scripts/evaluate.py.
+
+A model revision = the IFC (kept content-addressed as the revision's document, for geometry) plus
+the serialized element graph the TypeScript packages built from it (stored verbatim as the
+revision's `element-graph.json` artifact). Element rows and load-path edges come from that graph
+(graph_ingest); the backend does not parse the IFC for elements or topology."""
 from __future__ import annotations
 
 import json
 import os
 
-from . import ENGINE_VERSION, calcdeps, ifc_ingest, impact, loadpath, matcher, pdf_ingest, revstore, segment
+from . import ENGINE_VERSION, calcdeps, graph_ingest, impact, matcher, pdf_ingest, revstore, segment
 from .store import HEAD, Store
 
 # what each IFC-path producer declares about its facts, recorded with every revision / run it
 # builds (revstore.producer adds module@source-hash as engine + version)
-MODEL_PRODUCER = {"ifc_ingest": {"rule_id": "ifc_ingest.read_ifc", "confidence": 1.0},
-                  "loadpath": {"confidence": 1.0, "note": "deterministic contact rules + authored IfcRelConnectsElements "
-                                                "(rule ifc_rel_connects); rule id = the edge's rule text"}}
+MODEL_PRODUCER = {"graph_ingest": {"rule_id": "graph_ingest.elements", "confidence": 1.0,
+                                   "note": "element rows + load path (supports edges) read from the serialized "
+                                           "element graph (packages/element-graph); rule id = the edge's evidence rule"}}
+GRAPH_ARTIFACT = "element-graph.json"
 CALC_PRODUCER = {"segment": {"rule_id": segment.TITLE_BOX_RULE, "confidence": 1.0}, "pdf_ingest": {}}
 RUN_PRODUCER = {"matcher": {"note": "rule id = matcher.<tier>, confidence = the tier score"},
                 "calcdeps": {"confidence": 1.0, "note": "deterministic page-reference / cross-reference rules"}}
@@ -20,38 +26,56 @@ PALETTE = ["#4e79a7", "#f28e2b", "#59a14f", "#b07aa1", "#e15759", "#76b7b2", "#e
            "#2b8c8c", "#8f6ed5", "#d4a017", "#3d9970", "#c2185b", "#5f7d95"]
 
 
-def ingest_model(st: Store, pid: int, path: str, source_name: str | None = None, label: str | None = None,
-                 parent: int | None | object = HEAD) -> int:
-    """New model revision, made the head. parent: see Store.add_revision (default the current head)."""
-    data = ifc_ingest.read_ifc(path)
-    edges = loadpath.infer(data["elements"], data["connections"])
-    rid = st.add_revision(pid, "model", path, source_name or os.path.basename(path), label,
-                          {**data["meta"], "elements": len(data["elements"]), "load_path_edges": len(edges)},
-                          producer=revstore.producer(*MODEL_PRODUCER, **MODEL_PRODUCER), parent=parent)
-    st.put_elements(rid, data["elements"], edges)
-    st.set_head(pid, "model", rid)
-    st.commit()
-    revstore.write_revision_facts(st, rid)
-    st.commit()
-    remap(st, pid)
-    return rid
+def ingest_model(st: Store, pid: int, path: str, graph: bytes | str, source_name: str | None = None,
+                 label: str | None = None, parent: int | None | object = HEAD) -> int:
+    """New model revision, made the head. `path` = the IFC, `graph` = its serialized element graph
+    (raises graph_ingest.GraphError before anything is stored when it is not one).
+    parent: see Store.add_revision (default the current head)."""
+    raw = graph.encode() if isinstance(graph, str) else graph
+    g = graph_ingest.parse(raw)
+    els, edges = graph_ingest.elements(g), graph_ingest.load_path(g)
+    meta = {"schema": (g.get("meta") or {}).get("schema"), "project": (g.get("meta") or {}).get("project"),
+            "elements": len(els), "load_path_edges": len(edges), "graph_format": f"{g['format']}@{g['version']}"}
+    with st.write_lock:
+        rid = st.add_revision(pid, "model", path, source_name or os.path.basename(path), label, meta,
+                              producer=revstore.producer(*MODEL_PRODUCER, **MODEL_PRODUCER), parent=parent)
+        st.put_artifact(rid, GRAPH_ARTIFACT, raw)
+        st.put_elements(rid, els, edges)
+        st.set_head(pid, "model", rid)
+        st.commit()
+        revstore.write_revision_facts(st, rid)
+        st.commit()
+        remap(st, pid)
+        return rid
+
+
+def model_graph(st: Store, rid: int) -> str | None:
+    """Path of the serialized element graph stored with a model revision (None: none stored)."""
+    a = st.artifact(rid, GRAPH_ARTIFACT)
+    return a["path"] if a and os.path.exists(a["path"]) else None
 
 
 def ingest_calcs(st: Store, pid: int, path: str, source_name: str | None = None, label: str | None = None) -> int:
     data = pdf_ingest.read_pdf(path)
     calcs = segment.segment(data["pages"])
-    rid = st.add_revision(pid, "calcs", path, source_name or os.path.basename(path), label,
-                          {**data["meta"], "calcs": len(calcs)}, producer=revstore.producer(*CALC_PRODUCER, **CALC_PRODUCER))
-    st.put_calcs(rid, data["pages"], calcs)
-    st.set_head(pid, "calcs", rid)
-    st.commit()
-    revstore.write_revision_facts(st, rid)
-    st.commit()
-    remap(st, pid)
-    return rid
+    with st.write_lock:
+        rid = st.add_revision(pid, "calcs", path, source_name or os.path.basename(path), label,
+                              {**data["meta"], "calcs": len(calcs)}, producer=revstore.producer(*CALC_PRODUCER, **CALC_PRODUCER))
+        st.put_calcs(rid, data["pages"], calcs)
+        st.set_head(pid, "calcs", rid)
+        st.commit()
+        revstore.write_revision_facts(st, rid)
+        st.commit()
+        remap(st, pid)
+        return rid
 
 
 def remap(st: Store, pid: int) -> int | None:
+    with st.write_lock:
+        return _remap(st, pid)
+
+
+def _remap(st: Store, pid: int) -> int | None:
     p = st.project(pid)
     if not (p["head_model_rev"] and p["head_calc_rev"]):
         return None
@@ -144,6 +168,14 @@ def _producer(st: Store, table: str, sid: int | None) -> dict:
     return json.loads(r[0]) if r and r[0] else {}
 
 
+def _connectivity(st: Store, rid: int) -> list[dict]:
+    path = model_graph(st, rid)
+    if not path:
+        return []
+    with open(path, "rb") as fh:
+        return graph_ingest.connectivity(graph_ingest.parse(fh.read()))
+
+
 def export(st: Store, pid: int) -> dict:
     s = state(st, pid)
     cal = {c["key"]: c for c in s["calcs"]}
@@ -168,7 +200,10 @@ def export(st: Store, pid: int) -> dict:
                    "title_box": boxes.get(c["key"])} for c in s["calcs"]],
         "calc_edges": [{"src": e["src"], "dst": e["dst"], "rules": e["rules"], "evidence": e["evidence"]}
                        for e in s["calc_edges"]],
+        # load path = the element graph's `supports` edges (src is supported by dst; load flows src -> dst)
         "load_path": [{"src": e["src"], "dst": e["dst"], "rule": e["rule"]} for e in s["edges"]],
+        # physical connectivity = the graph's undirected `connects` edges (not load path)
+        "connectivity": _connectivity(st, s["model_rev"]["id"]) if s["model_rev"] else [],
         "elements": [{
             "global_id": e["global_id"], "ifc_type": e["ifc_type"], "mark": e["mark"], "storey": e["storey"],
             "size": e["profile"], "status": e["status"],

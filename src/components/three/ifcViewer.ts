@@ -5,15 +5,17 @@
 // (diff elements the head model does not have) placed in the same building coordinates.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { IfcAPI } from 'web-ifc';
+import type { IfcAPI } from 'web-ifc';
 
 let enginePromise: Promise<IfcAPI> | null = null;
 function engine(): Promise<IfcAPI> {
   if (!enginePromise) {
     enginePromise = (async () => {
+      // lazy: web-ifc is its own ~3 MB chunk, fetched only when a model is shown or opened
+      const { IfcAPI } = await import('web-ifc');
       const api = new IfcAPI();
-      api.SetWasmPath('/wasm/', true);
-      await api.Init();
+      api.SetWasmPath(`${import.meta.env.BASE_URL}wasm/`, true); // copied by scripts/copy-assets.mjs
+      await api.Init(undefined, true); // single-threaded build: no COOP/COEP headers, one wasm (web-ifc.wasm)
       return api;
     })();
     enginePromise.catch(() => {

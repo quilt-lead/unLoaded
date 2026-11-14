@@ -22,6 +22,7 @@ import type {
   CalcDependency,
   CalcLink,
   CalcPackage,
+  ConnectivityEdge,
   DecisionAction,
   ImpactView,
   LoadPathEdge,
@@ -40,6 +41,7 @@ interface PropertyInspectorProps {
   calcs: CalcPackage[];
   calcDependencies: CalcDependency[];
   loadPath: LoadPathEdge[];
+  connectivity: ConnectivityEdge[];
   calcToElementIds: Map<string, string[]>;
   counts: Record<MappingStatus, number> | null;
   groups: NodeGroup[];
@@ -103,7 +105,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const [showAllParams, setShowAllParams] = useState(false);
   const nodeById = new Map(p.elementNodes.map((n) => [n.id, n]));
   const calcByKey = new Map(p.calcs.map((c) => [c.key, c]));
-  const writeTitle = p.canWrite ? undefined : 'Needs the backend (this export was opened from a file)';
+  const writeTitle = p.canWrite ? undefined : 'Needs the backend (this project was opened from a file)';
 
   const impactBox = p.impact && (
     <div className="bg-amber-500/[0.08] border border-amber-400/30 rounded-xl p-2.5 space-y-2">
@@ -508,6 +510,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const rejected = links.filter((l) => l.review === 'rejected');
   const candidates = p.calcs.filter((c) => !c.frontMatter && !links.some((l) => l.calcKey === c.key && l.review !== 'rejected'));
   const { carriesFrom, deliversTo } = getLoadNeighbors(el.id, p.loadPath);
+  const connected = p.connectivity
+    .filter((e) => e.source === el.id || e.target === el.id)
+    .map((e) => ({ e, other: nodeById.get(e.source === el.id ? e.target : e.source) }))
+    .filter((x): x is { e: ConnectivityEdge; other: BimNode } => Boolean(x.other));
   const params = Object.entries(el.params ?? {});
   const shownParams = showAllParams ? params : params.slice(0, 8);
 
@@ -605,6 +611,12 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
             <span className="mono text-[9px] text-zinc-500 uppercase block">Section / Size</span>
             <span className="mono text-[11px] font-semibold text-cyan-300">{el.size ?? '—'}</span>
           </div>
+          {el.material && (
+            <div className="col-span-2">
+              <span className="mono text-[9px] text-zinc-500 uppercase block">Material</span>
+              <span className="text-[11px] text-zinc-200">{el.material}</span>
+            </div>
+          )}
           {el.typeName && (
             <div className="col-span-2">
               <span className="mono text-[9px] text-zinc-500 uppercase block">Type</span>
@@ -741,6 +753,22 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           {p.activeLoadChainNodeIds.size > 1 && (
             <p className="mono text-[9px] text-zinc-500 mt-1.5">{p.activeLoadChainNodeIds.size - 1} elements on the traced chain (see Trace in the filter bar)</p>
           )}
+        </Section>
+      )}
+
+      {connected.length > 0 && (
+        <Section title={`Physical connectivity (${connected.length})`} tone="text-cyan-400">
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {connected.map(({ e, other }, i) => (
+              <NodeRow
+                key={i}
+                node={other}
+                tone="bg-cyan-500/[0.06] hover:bg-cyan-500/[0.14] border-cyan-500/20"
+                right={<span title={e.rule}>{e.kind === 'part_of' ? (e.source === el.id ? 'part of' : 'has part') : getDisplayType(other)}</span>}
+                onClick={() => p.onSelectNode(other.id)}
+              />
+            ))}
+          </div>
         </Section>
       )}
 

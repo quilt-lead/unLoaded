@@ -1,9 +1,11 @@
 """The IFC-path revision store -> schema facts.
 
-Per-snapshot builders, used by the revision store when it writes a snapshot's facts
-(revstore) and by the audit:
+Per-snapshot builders, used by the revision store when it writes a snapshot's facts (revstore):
   model_facts(st, rid)    elements (evidence: the IFC entity in that model revision) + load-path
-                          relations (evidence: both entities; gap_m with its unit)
+                          relations (evidence: both entities; gap_m with its unit). Since the
+                          element graph moved to packages/element-graph, both come from the
+                          serialized graph (producer graph_ingest); revisions stored earlier
+                          carry the old ifc_ingest / loadpath producers and are read the same way
   calc_facts(st, rid)     calc sheets (evidence: the calc's title box, which the store keeps per
                           calc since F2 - title-line word boxes, or the whole first page for a
                           scanned / front-matter page, saying so)
@@ -14,24 +16,14 @@ revision.producer_json / mapping_run.producer_json (engine = module@source-hash,
 declared confidence) and the run's engine_version. Snapshots produced before F2 carry no
 producer record: those fields fall back to the rule table below and are listed in
 provenance.adapter_supplied, so the gap stays counted.
-
-convert(store_dir, scratch, view) - the audit's two views of the head revisions:
-- "state":  the head snapshots' facts with the carried-forward human decisions applied (link
-            status; a link made by hand is a Link with human provenance)
-- "export": GET /api/projects/{pid}/export, which since F2 carries the evidence boxes, calc
-            title boxes and calc-edge evidence it used to drop.
-Reads a COPY of the sqlite file, never the live one.
 """
 from __future__ import annotations
 
 import json
-import os
 import re
-import shutil
 from collections import Counter
 
-from ..models import (Bundle, CalcSheet, DocKind, Document, Element, Link, ModelEvidence, Provenance, Relation,
-                      RelationKind, Revision)
+from ..models import Bundle, CalcSheet, Element, Link, ModelEvidence, Provenance, Relation, RelationKind
 from ._common import Reject, Rule, Tally, build, evidence_list, prov, to_values
 
 # pre-4512334 loadpath stored kind "load_path" for every edge; the relation type is in its rule text
@@ -99,7 +91,9 @@ def model_facts(st, rid: int, t: Tally, b: Bundle, strict: bool = False) -> None
     rev = st.revision(rid)
     msha, at = rev["sha256"], rev["created_at"]
     prod = _producer(st, "revision", rid)
-    pi, pl = prod.get("ifc_ingest"), prod.get("loadpath")
+    graph = prod.get("graph_ingest")
+    pi, pl = graph or prod.get("ifc_ingest"), graph or prod.get("loadpath")
+    el_rule, lp_prefix = ("graph_ingest.elements", "element_graph") if graph else ("ifc_ingest.read_ifc", "loadpath")
     for e in st.elements(rid):
         def make(e=e):
             uc = Counter()
@@ -109,7 +103,7 @@ def model_facts(st, rid: int, t: Tally, b: Bundle, strict: bool = False) -> None
             return {"_units": uc, "id": eid(e["global_id"]), "category": e.get("cat") or e["ifc_type"],
                     "mark": e.get("mark") or "", "designation": e.get("profile") or "", "level": e.get("storey") or "",
                     "attrs": to_values(uc, e.get("params") or {}),
-                    "provenance": prov([ev], rule_id, R_IFC, declared_rule_id="ifc_ingest.read_ifc", at=at, **kw)}
+                    "provenance": prov([ev], rule_id, R_IFC, declared_rule_id=el_rule, at=at, **kw)}
         build(t, b, "elements", Element, e["global_id"], make, strict)
     for x in st.element_edges(rid):
         def make(x=x):
@@ -119,7 +113,7 @@ def model_facts(st, rid: int, t: Tally, b: Bundle, strict: bool = False) -> None
             return {"_units": uc, "id": f"rel:{x['kind']}:{eid(x['src'])}->{eid(x['dst'])}",
                     "kind": _rel_kind(x["kind"], x["rule"]), "src": eid(x["src"]), "dst": eid(x["dst"]),
                     "attrs": to_values(uc, {"source_kind": x["kind"], "gap_m": x.get("gap_m")}),
-                    "provenance": prov(evs, f"loadpath.{_slug(x.get('rule'))}", R_LP, rule_text=x.get("rule") or "",
+                    "provenance": prov(evs, f"{lp_prefix}.{_slug(x.get('rule'))}", R_LP, rule_text=x.get("rule") or "",
                                        at=at, **_pkw(pl, with_rule=False))}
         build(t, b, "relations", Relation, f"{x['src']}->{x['dst']}", make, strict)
 
@@ -177,19 +171,6 @@ def run_facts(st, run_id: int, t: Tally, b: Bundle, strict: bool = False) -> Non
                                confidence=(pd or {}).get("confidence"), at=at)}, strict)
 
 
-def documents_and_revisions(st, pid: int, b: Bundle) -> None:
-    seen = set()
-    for r in st.revisions(pid):
-        if r["sha256"] not in seen:
-            seen.add(r["sha256"])
-            b.documents.append(Document(sha256=r["sha256"], kind=DocKind.ifc if r["kind"] == "model" else DocKind.calc,
-                                        name=r["source_name"] or r["blob"]))
-        b.revisions.append(Revision(id=f"rev:{pid}:{r['id']}", kind=r["kind"], seq=r["seq"],
-                                    parent_id=f"rev:{pid}:{r['parent_id']}" if r["parent_id"] else None,
-                                    doc_sha=r["sha256"], label=r["label"] or "", source_name=r["source_name"] or "",
-                                    created_at=r["created_at"], created_by="ingest"))
-
-
 def apply_decisions(st, pid: int, links: list[Link], gids: set[str], keys: set[str]) -> list[Link]:
     """The append-only decision log, carried forward: status on auto links; a manual link with no
     auto link becomes a Link with human provenance (the decision is its evidence of record)."""
@@ -211,110 +192,3 @@ def apply_decisions(st, pid: int, links: list[Link], gids: set[str], keys: set[s
                                                   method="human", confidence=1.0, actor=d["actor"] or "unknown",
                                                   at=d["at"])))
     return out
-
-
-def head_bundle(st, pid: int, t: Tally, strict: bool = False) -> Bundle:
-    """State view: the head model / calc revisions and their latest mapping run, decisions applied."""
-    p = st.project(pid)
-    b = Bundle(source=t.source)
-    documents_and_revisions(st, pid, b)
-    mrev, crev = p["head_model_rev"], p["head_calc_rev"]
-    if mrev:
-        model_facts(st, mrev, t, b, strict)
-    if crev:
-        calc_facts(st, crev, t, b, strict)
-    run = st.latest_run(pid, mrev, crev) if (mrev and crev) else None
-    if run:
-        run_facts(st, run["id"], t, b, strict)
-        gids = {e["global_id"] for e in st.elements(mrev)}
-        keys = {c["key"] for c in st.calcs(crev)}
-        b.links = apply_decisions(st, pid, b.links, gids, keys)
-        t.notes.append("human decisions (append-only log) applied as Link.status; manual links carry human provenance")
-    return b
-
-
-# ---------------- audit views ----------------
-def open_copy(store_dir: str, scratch: str):
-    from ...store import Store
-    os.makedirs(scratch, exist_ok=True)
-    shutil.copyfile(os.path.join(store_dir, "calcgraph.sqlite"), os.path.join(scratch, "calcgraph.sqlite"))
-    blobs = os.path.join(store_dir, "blobs")
-    if os.path.isdir(blobs) and not os.path.exists(os.path.join(scratch, "blobs")):
-        os.symlink(blobs, os.path.join(scratch, "blobs"))
-    return Store(scratch)
-
-
-def convert(store_dir: str, scratch: str, view: str = "state", pid: int | None = None,
-            strict: bool = False) -> tuple[Bundle, Tally]:
-    st = open_copy(store_dir, scratch)
-    pid = pid or st.ensure_project()
-    t = Tally(source=f"ifc-store/{view}")
-    if view == "state":
-        return head_bundle(st, pid, t, strict), t
-    from ... import pipeline
-    exp = pipeline.export(st, pid)
-    s = pipeline.state(st, pid)
-    b = Bundle(source=t.source)
-    documents_and_revisions(st, pid, b)
-    msha, csha = s["model_rev"]["sha256"], s["calc_rev"]["sha256"]
-    at = s["run"]["created_at"] if s["run"] else None
-    run_engine = s["run"]["engine_version"] if s["run"] else None
-    prods = exp.get("producers") or {}
-    pi, pl = (prods.get("model") or {}).get("ifc_ingest"), (prods.get("model") or {}).get("loadpath")
-    ps, pd = (prods.get("calcs") or {}).get("segment"), (prods.get("mapping") or {}).get("calcdeps")
-
-    def make_el(e):
-        kw = _pkw(pi)
-        rule_id = kw.pop("rule_id")
-        return {"id": eid(e["global_id"]), "category": e["ifc_type"], "mark": e.get("mark") or "",
-                "designation": e.get("size") or "", "level": e.get("storey") or "",
-                "provenance": prov([ModelEvidence(doc_sha=msha, global_id=e["global_id"], entity=e["ifc_type"])], rule_id,
-                                   R_IFC, declared_rule_id="ifc_ingest.read_ifc", at=at, **kw)}
-    for e in exp["elements"]:
-        build(t, b, "elements", Element, e["global_id"], lambda e=e: make_el(e), strict)
-    kinds = {(x["src"], x["dst"]): x.get("kind", "") for x in s["edges"]}
-    for x in exp["load_path"]:
-        build(t, b, "relations", Relation, f"{x['src']}->{x['dst']}", lambda x=x: {
-            "id": f"rel:{kinds.get((x['src'], x['dst']), '')}:{eid(x['src'])}->{eid(x['dst'])}",
-            "kind": _rel_kind(kinds.get((x["src"], x["dst"]), ""), x["rule"]), "src": eid(x["src"]), "dst": eid(x["dst"]),
-            "provenance": prov([ModelEvidence(doc_sha=msha, global_id=x["src"]), ModelEvidence(doc_sha=msha, global_id=x["dst"])],
-                               f"loadpath.{_slug(x.get('rule'))}", R_LP, rule_text=x.get("rule") or "", at=at,
-                               **_pkw(pl, with_rule=False))}, strict)
-    for c in exp["calcs"]:
-        def make(c=c):
-            tb = c.get("title_box") or _raise("export calc carries no title box")
-            ev = evidence_list(_SingleDoc(csha), [{"doc": "calcs", "page": tb["page"], "rects": tb["rects"],
-                                                   "text": c.get("title") or "", "note": tb.get("note", "")}])
-            return {"id": cid(c["key"]), "doc_sha": csha, "page": c["pages"][0], "sheet_id": c["key"],
-                    "title": c.get("title") or "", "software": c.get("software") or "",
-                    "provenance": prov(ev, tb.get("rule"), R_SEG, at=at, **{k: v for k, v in _pkw(ps).items()
-                                                                              if k != "rule_id"})}
-        build(t, b, "calc_sheets", CalcSheet, c["key"], make, strict)
-    for e in exp["elements"]:
-        for l in e["calcs"]:
-            def make(l=l, g=e["global_id"]):
-                ev = l.get("evidence") or _raise("export link carries no evidence")
-                if l.get("review") == "manual" and not ev.get("rects"):
-                    return {"id": f"link:{eid(g)}->{cid(l['calc'])}", "src": eid(g), "dst": cid(l["calc"]),
-                            "tier": l["tier"], "status": "manual",
-                            "provenance": Provenance(evidence=[], rule_id="human.manual_link", rule_version="decision-log",
-                                                     engine="store.decision", method="human", confidence=1.0,
-                                                     actor=l.get("decided_by") or "unknown", at=l.get("decided_at"))}
-                return _link_fact({"global_id": g, "calc_key": l["calc"], "page": ev.get("page"), "rects": ev.get("rects"),
-                                   "span": ev.get("span"), "token": l.get("matched_text"), "tier": l["tier"],
-                                   "rule": l.get("rule"), "conf": l["confidence"], "status": l.get("review")},
-                                  csha, run_engine, at)
-            build(t, b, "links", Link, f"{e['global_id']}->{l['calc']}", make, strict)
-    for x in exp["calc_edges"]:
-        build(t, b, "relations", Relation, f"{x['src']}->{x['dst']}", lambda x=x: {
-            "id": f"rel:feeds:{cid(x['src'])}->{cid(x['dst'])}", "kind": RelationKind.feeds, "src": cid(x["src"]),
-            "dst": cid(x["dst"]), "attrs": {"rules": [str(r) for r in x.get("rules") or []]},
-            "provenance": prov(evidence_list(_SingleDoc(csha), [{"doc": "calcs", **ev} for ev in x.get("evidence") or []]),
-                               "calcdeps." + "+".join(sorted(set(x.get("rules") or []))), R_DEPS,
-                               rule_version=run_engine, engine=(pd or {}).get("engine") or run_engine,
-                               confidence=(pd or {}).get("confidence"), at=at)}, strict)
-    return b, t
-
-
-def _raise(msg: str):
-    raise Reject(msg)

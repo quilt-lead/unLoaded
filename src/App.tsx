@@ -32,13 +32,17 @@ import {
   useDecide,
   useImpact,
   useLoadSample,
+  useProjectCalc,
   useProjectId,
-  useProjectView,
+  useRevisionTopology,
   useRevisions,
-  useUpload,
+  useUploadCalcs,
+  useUploadModel,
 } from './api/hooks';
 import { urls } from './api/client';
-import { applyModelDiff, calcNodeId, loadProjectFromFile } from './data/loadProject';
+import { calcNodeId } from './data/loadProject';
+import { applyModelDiff, mergeProject } from './data/mergeProject';
+import { openFileLocally } from './data/openFile';
 import {
   computeLoadPathTrace,
   isElementTypeNode,
@@ -63,29 +67,47 @@ export const App: React.FC = () => {
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
 
-  // ---------------------------------------------------------------- data (backend or an export file)
+  // ---------------------------------------------------------------- data
+  // backend project: element graph of the head model revision (topology) + calc engine output,
+  // merged by GlobalId; or a file opened in the browser (localView), read-only.
   const health = useBackendHealth();
   const backend: 'checking' | 'online' | 'offline' = health.isSuccess ? 'online' : health.isError ? 'offline' : 'checking';
   const online = backend === 'online';
-  const [offlineView, setOfflineView] = useState<ProjectViewModel | null>(null);
+  const [localView, setLocalView] = useState<{ view: ProjectViewModel; dispose: () => void } | null>(null);
+  const [busyText, setBusyText] = useState('');
   const pidQ = useProjectId(online);
-  const pid = online ? (pidQ.data ?? null) : null;
-  const viewQ = useProjectView(offlineView ? null : pid);
-  const revisionsQ = useRevisions(offlineView ? null : pid);
+  const pid = online && !localView ? (pidQ.data ?? null) : null;
+  const calcQ = useProjectCalc(pid);
+  const modelRid = calcQ.data?.calc.modelRevisionId ?? null;
+  const topoQ = useRevisionTopology(modelRid);
+  const revisionsQ = useRevisions(pid);
   const decide = useDecide(pid);
-  const sample = useLoadSample(pid);
-  const upload = useUpload(pid);
+  const sample = useLoadSample(pid, setBusyText);
+  const uploadModel = useUploadModel(pid, setBusyText);
+  const uploadCalcs = useUploadCalcs(pid);
+  useEffect(() => () => localView?.dispose(), [localView]);
 
   const [diffRevs, setDiffRevs] = useState<{ a: number; b: number } | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('ALL');
   const [compareOpen, setCompareOpen] = useState(false);
-  const compareQ = useCompare(offlineView ? null : pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
+  const compareQ = useCompare(pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
 
   const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
-  const impactQ = useImpact(offlineView ? null : pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change');
+  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change');
   const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
 
-  const baseView: ProjectViewModel | null = offlineView ?? viewQ.data ?? null;
+  const apiView = useMemo<ProjectViewModel | null>(() => {
+    if (!calcQ.data) return null;
+    // the revision's stored element graph; the export's own topology only when there is none
+    const topology = topoQ.data ?? (modelRid == null || topoQ.isError ? calcQ.data.fallbackTopology() : null);
+    if (!topology) return null;
+    return mergeProject(topology, calcQ.data.calc, {
+      source: 'api',
+      projectId: pid,
+      modelFileUrl: modelRid != null ? urls.revisionFile(modelRid) : null,
+    });
+  }, [calcQ.data, topoQ.data, topoQ.isError, modelRid, pid]);
+  const baseView: ProjectViewModel | null = localView?.view ?? apiView;
 
   const diffApplied = useMemo(() => {
     if (!baseView || !diffRevs || !compareQ.data) return null;
@@ -118,7 +140,6 @@ export const App: React.FC = () => {
   const [rightDockWidth, setRightDockWidth] = useState(360);
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
-  const [busyText, setBusyText] = useState('');
 
   const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
   const showToast = useCallback((message: string, isError = false) => {
@@ -127,8 +148,8 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (viewQ.error) showToast(`Could not load the project: ${errMsg(viewQ.error)}`, true);
-  }, [viewQ.error, showToast]);
+    if (calcQ.error) showToast(`Could not load the project: ${errMsg(calcQ.error)}`, true);
+  }, [calcQ.error, showToast]);
   useEffect(() => {
     if (impactQ.error) showToast(`Impact check failed: ${errMsg(impactQ.error)}`, true);
   }, [impactQ.error, showToast]);
@@ -148,7 +169,7 @@ export const App: React.FC = () => {
   }, []);
 
   // a different project / revision pair: drop layout tweaks, groups and selection
-  const projectKey = baseView ? `${baseView.source}:${baseView.modelRevisionId}:${baseView.calcRevisionId}` : 'none';
+  const projectKey = baseView ? `${baseView.source}:${baseView.modelRevisionId}:${baseView.calcRevisionId}:${baseView.projectName}` : 'none';
   useEffect(() => {
     setGroups([]);
     setMoved(new Map());
@@ -419,7 +440,7 @@ export const App: React.FC = () => {
 
   const handleLoadSample = () =>
     run('Ingesting the sample building and calc package…', async () => {
-      setOfflineView(null);
+      setLocalView(null);
       setDiffRevs(null);
       await sample.mutateAsync(1);
       return 'Sample loaded: model, calc package and links';
@@ -439,27 +460,29 @@ export const App: React.FC = () => {
 
   const handleUpload = (kind: 'model' | 'calcs', file: File) =>
     run(`Reading ${file.name}…`, async () => {
-      setOfflineView(null);
+      setLocalView(null);
       setDiffRevs(null);
-      await upload.mutateAsync({ kind, file });
-      return kind === 'model' ? `Model ${file.name} ingested and re-mapped` : `Calc package ${file.name} ingested and re-mapped`;
+      if (kind === 'model') {
+        const out = await uploadModel.mutateAsync({ file });
+        if (out.warnings.length) console.warn(`${file.name}: ${out.warnings.length} import warnings`, out.warnings);
+        return `Model ${file.name} ingested as revision #${out.revisionId} and re-mapped`;
+      }
+      await uploadCalcs.mutateAsync(file);
+      return `Calc package ${file.name} ingested and re-mapped`;
     });
 
-  const handleOpenExport = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const v = loadProjectFromFile(String(ev.target?.result ?? ''));
-        setDiffRevs(null);
-        setOfflineView(v);
-        showToast(`Opened ${file.name}: ${v.elementNodes.filter((n) => n.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only)`);
-      } catch (e) {
-        showToast(`Could not open ${file.name}: ${errMsg(e)}`, true);
-      }
-    };
-    reader.onerror = () => showToast('Failed to read file from disk.', true);
-    reader.readAsText(file);
-  };
+  /** IFC, element graph, ModelInput or calc-graph export, opened in the browser only (read-only). */
+  const handleOpenFile = (file: File) =>
+    run(`Opening ${file.name}…`, async () => {
+      const opened = await openFileLocally(file, online, setBusyText);
+      setDiffRevs(null);
+      setLocalView({ view: opened.view, dispose: opened.dispose });
+      if (opened.warnings.length) console.warn(`${file.name}: ${opened.warnings.length} import warnings`, opened.warnings);
+      const n = opened.view.elementNodes.filter((x) => x.kind === 'element').length;
+      return opened.view.source === 'file'
+        ? `Opened ${file.name}: ${n} elements, ${opened.view.calcs.length} calcs (read-only)`
+        : `Opened ${file.name}: ${n} elements (not uploaded; calcs need the backend)`;
+    });
 
   const handleDecide = useCallback(
     (elementId: string, calcKey: string, action: DecisionAction) => {
@@ -592,14 +615,17 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', onUp);
   };
 
-  const modelUrl = online && view?.modelRevisionId != null ? urls.revisionFile(view.modelRevisionId) : null;
+  // a backend revision's IFC needs the backend; a locally opened IFC has an object URL
+  const modelUrl = view?.modelFileUrl && (view.source === 'local' || online) ? view.modelFileUrl : null;
   const pdfUrl = online && view?.calcRevisionId != null ? urls.revisionFile(view.calcRevisionId) : null;
   const ghostSources = useMemo(
     () => (diffApplied?.ghosts ?? []).map((g) => ({ url: urls.revisionFile(g.revisionId), gids: g.elementIds })),
     [diffApplied],
   );
-  const model3dEmpty = !view?.modelRevisionId
-    ? 'No IFC model in this project yet.'
+  const model3dEmpty = !view?.modelFileUrl
+    ? view?.source === 'local'
+      ? 'This file has no IFC geometry (an element graph or ModelInput); open the .ifc to see the model.'
+      : 'No IFC model in this project yet.'
     : 'Model geometry is served by the backend; it is offline, so only the graphs and links are shown.';
 
   const viewer3d = (
@@ -710,6 +736,7 @@ export const App: React.FC = () => {
           calcs={view?.calcs ?? []}
           calcDependencies={view?.calcDependencies ?? []}
           loadPath={view?.loadPath ?? []}
+          connectivity={view?.connectivity ?? []}
           calcToElementIds={view?.calcToElementIds ?? new Map()}
           counts={view ? view.counts : null}
           groups={groups}
@@ -739,7 +766,7 @@ export const App: React.FC = () => {
     </DockableHudPanel>
   );
 
-  const loading = backend === 'checking' || (online && !offlineView && (pidQ.isLoading || viewQ.isLoading));
+  const loading = backend === 'checking' || (online && !localView && (pidQ.isLoading || calcQ.isLoading || (modelRid != null && topoQ.isLoading)));
 
   const emptyState = (
     <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
@@ -765,7 +792,7 @@ export const App: React.FC = () => {
           {[
             { icon: <Box className="w-3.5 h-3.5 text-cyan-300" />, label: 'IFC model', accept: '.ifc', on: (f: File) => handleUpload('model', f), needs: true },
             { icon: <FileText className="w-3.5 h-3.5 text-rose-300" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f), needs: true },
-            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" />, label: 'Export JSON', accept: '.json,application/json', on: handleOpenExport, needs: false },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" />, label: 'Open file', accept: '.ifc,.json,application/json', on: handleOpenFile, needs: false },
           ].map((b) => (
             <label
               key={b.label}
@@ -791,7 +818,7 @@ export const App: React.FC = () => {
         {backend === 'offline' && (
           <p className="mt-3 text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/25 rounded-lg px-3 py-2 leading-snug text-left">
             The backend is not reachable at <code className="mono text-amber-100">/api</code>. Start it with{' '}
-            <code className="mono text-amber-100">cd backend && uv run calc-graph serve</code>, or open a saved export JSON (read-only).
+            <code className="mono text-amber-100">cd backend && uv run calc-graph serve</code>, or open an IFC or a saved export JSON in the browser (read-only).
           </p>
         )}
       </div>
@@ -819,7 +846,7 @@ export const App: React.FC = () => {
         onLoadSample={handleLoadSample}
         onUploadModel={(f) => handleUpload('model', f)}
         onUploadCalcs={(f) => handleUpload('calcs', f)}
-        onOpenExport={handleOpenExport}
+        onOpenFile={handleOpenFile}
         exportUrl={online && pid != null && hasProject && view?.source === 'api' ? urls.exportProject(pid) : null}
         diffSummary={diffSummary}
         compareOpen={compareOpen}
@@ -841,7 +868,7 @@ export const App: React.FC = () => {
           onUploadModel={(f) => {
             const before = baseView?.modelRevisionId ?? null;
             run(`Reading ${f.name}…`, async () => {
-              const out = await upload.mutateAsync({ kind: 'model', file: f });
+              const out = await uploadModel.mutateAsync({ file: f });
               setCompareOpen(false);
               if (before != null) setDiffRevs({ a: before, b: out.revisionId });
               return `${f.name} ingested as model revision #${out.revisionId}`;

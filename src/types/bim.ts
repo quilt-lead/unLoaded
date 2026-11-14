@@ -1,6 +1,8 @@
-// The VIEW MODEL every component consumes. It is built in exactly one place,
-// src/data/loadProject.ts, from the backend's /export (+ /state) payload or the same export JSON
-// loaded from a file. Backend shapes (src/api/types.ts) never reach a component.
+// The VIEW MODEL every component consumes. Two adapters feed it and one function merges them:
+//   ElementGraph (packages/element-graph) -> src/loaders/elementGraphToBim.ts -> ElementTopology
+//   backend /export (+ /state)            -> src/data/loadProject.ts          -> CalcData
+//   mergeProject(topology, calc)          -> src/data/mergeProject.ts         -> ProjectViewModel
+// Neither a backend shape (src/api/types.ts) nor an ElementGraph ever reaches a component.
 
 export type WorkspaceView = 'element-graph' | 'calculation-graph' | '3d' | 'docs';
 export type TraceDirection = 'down' | 'up' | 'both';
@@ -86,7 +88,10 @@ export interface BimNode {
   color?: string;
   desc?: string;
   // element nodes
+  /** element-graph kind: beam, column, slab, connection, ... (categories, families and elements) */
+  elementKind?: string;
   ifcType?: string;
+  material?: string;
   storey?: string;
   storeyOrder?: number;
   mark?: string;
@@ -131,8 +136,50 @@ export interface RevisionInfo {
   isHead: boolean;
 }
 
+/** physical connectivity between two elements (element-graph `connects` / `part_of`), undirected */
+export interface ConnectivityEdge {
+  source: string;
+  target: string;
+  kind: 'connects' | 'part_of';
+  rule: string;
+}
+
+/** What the element graph says, as view data (built only by src/loaders/elementGraphToBim.ts). */
+export interface ElementTopology {
+  projectName: string;
+  /** laid out: project -> kind category -> column stack / mark family -> element */
+  elementNodes: BimNode[];
+  hierarchyLinks: BimLink[];
+  loadPath: LoadPathEdge[];
+  connectivity: ConnectivityEdge[];
+}
+
+/** What the calc engine says, as view data (built only by src/data/loadProject.ts). */
+export interface CalcData {
+  projectName: string | null;
+  modelName: string | null;
+  modelRevisionId: number | null;
+  calcPackageName: string | null;
+  calcRevisionId: number | null;
+  engine: string;
+  calcs: CalcPackage[];
+  calcDependencies: CalcDependency[];
+  calcNodes: BimNode[];
+  calcLinks: BimLink[];
+  calcToElementIds: Map<string, string[]>;
+  /** element GlobalId -> its links, strongest first (rejected included) */
+  linksByElement: Map<string, CalcLink[]>;
+  statusByElement: Map<string, MappingStatus>;
+}
+
+/**
+ * Where the open project came from: the backend ('api'), a calc-graph export JSON opened from disk
+ * ('file', read-only), or a model opened in the browser without the backend ('local', topology only).
+ */
+export type ProjectSource = 'api' | 'file' | 'local';
+
 export interface ProjectViewModel {
-  source: 'api' | 'file';
+  source: ProjectSource;
   projectId: number | null;
   projectName: string;
   modelName: string | null;
@@ -143,6 +190,9 @@ export interface ProjectViewModel {
   elementNodes: BimNode[];
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
+  connectivity: ConnectivityEdge[];
+  /** IFC file for the 3D view (a backend revision URL or a local object URL), null when there is none */
+  modelFileUrl: string | null;
   calcs: CalcPackage[];
   calcDependencies: CalcDependency[];
   calcNodes: BimNode[];

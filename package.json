@@ -3,14 +3,25 @@
   "private": true,
   "version": "2.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "wasm": "node scripts/copy-wasm.mjs",
-    "dev": "npm run wasm && vite",
-    "build": "npm run wasm && tsc -b && vite build",
-    "preview": "vite preview"
+    "assets": "node scripts/copy-assets.mjs",
+    "postinstall": "node scripts/copy-assets.mjs",
+    "predev": "node scripts/copy-assets.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/copy-assets.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit && npm run typecheck --workspaces --if-present",
+    "test": "vitest run src && npm run test --workspaces --if-present",
+    "smoke": "node scripts/smoke.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.0",
+    "@unloaded/element-graph": "0.1.0",
+    "@unloaded/ifc-parser": "0.1.0",
     "lucide-react": "^0.460.0",
     "pdfjs-dist": "4.10.38",
     "react": "^18.3.1",
@@ -19,6 +30,7 @@
     "web-ifc": "0.0.66"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
@@ -27,6 +39,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.6.3",
-    "vite": "^6.0.1"
+    "vite": "^6.0.1",
+    "vitest": "^3.0.0"
   }
 }

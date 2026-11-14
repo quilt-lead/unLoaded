@@ -152,12 +152,12 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       const s: MeshStyle = { color: UNMAPPED_MESH, opacity: 0.22, visible: true, glow: null };
       if (node) {
         s.color = getEffectiveNodeColor(node, colorMode, diffMode);
-        s.opacity = node.ifcType === 'IfcSlab' ? 0.32 : 1;
+        s.opacity = node.elementKind === 'slab' ? 0.32 : 1;
       }
       if (diffMode) {
         const st = node?.diffStatus ?? 'unchanged';
         s.color = DIFF_PALETTE[st];
-        s.opacity = st === 'unchanged' ? 0.11 : st === 'removed' ? 0.45 : node?.ifcType === 'IfcSlab' ? 0.42 : 1;
+        s.opacity = st === 'unchanged' ? 0.11 : st === 'removed' ? 0.45 : node?.elementKind === 'slab' ? 0.42 : 1;
         if (st !== 'unchanged') s.glow = DIFF_PALETTE[st];
       }
       if (isGhost && !diffMode) s.visible = false;
@@ -178,7 +178,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
           s.opacity = 1;
           s.glow = '#6366f1';
         } else if (litIds.ids.has(gid)) {
-          s.opacity = Math.max(s.opacity, node?.ifcType === 'IfcSlab' ? 0.42 : 1);
+          s.opacity = Math.max(s.opacity, node?.elementKind === 'slab' ? 0.42 : 1);
           s.glow = '#bef264';
         } else {
           s.opacity = Math.min(s.opacity, 0.06);

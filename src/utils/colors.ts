@@ -194,6 +194,27 @@ export function linkStrokeStyle(review: LinkReview | undefined, confidence = 0):
   }
 }
 
+/** element-graph kind -> colour (prod's category palette) */
+export const KIND_PALETTE: Record<string, string> = {
+  slab: '#0369a1',
+  beam: '#b45309',
+  brace: '#0f766e',
+  connection: '#0e7490',
+  fastener: '#155e75',
+  column: '#15803d',
+  wall: '#be123c',
+  footing: '#9a3412',
+  pile: '#334155',
+  other: '#3f3f46',
+};
+
+/** Colour of an element / family / category by kind, else by IFC type. */
+export function typeColor(node: BimNode): string {
+  if (node.elementKind && KIND_PALETTE[node.elementKind]) return KIND_PALETTE[node.elementKind];
+  if (node.elementKind) return hashStringToJewelColor(node.elementKind);
+  return ifcTypeColor(node.ifcType, node.parent || node.id);
+}
+
 export function ifcTypeColor(ifcType: string | undefined, fallbackKey: string): string {
   const key = (ifcType || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return IFC_ENTITY_PALETTE[key] ?? hashStringToJewelColor(fallbackKey);
@@ -226,12 +247,12 @@ export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMod
     }
     case 'category':
     case 'family':
-      return ifcTypeColor(node.ifcType, node.id);
+      return typeColor(node);
     case 'element':
     default:
       if (colorMode === 'review') return node.mappingStatus ? STATUS_COLORS[node.mappingStatus] : NO_DATA_COLOR;
       if (colorMode === 'confidence') return getConfidenceColor(topLiveConfidence(node));
       if (colorMode === 'utilisation') return typeof node.utilization === 'number' ? getHeatmapColor(node.utilization) : NO_DATA_COLOR;
-      return ifcTypeColor(node.ifcType, node.parent || node.id);
+      return typeColor(node);
   }
 }

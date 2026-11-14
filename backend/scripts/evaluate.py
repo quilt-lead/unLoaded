@@ -1,10 +1,13 @@
 """Score the full pipeline against the synthetic ground truth.
 
+    node scripts/build_graph.mjs data/synthetic/model_rev1.ifc data/synthetic/model_rev1.graph.json \
+                                 data/synthetic/model_rev2.ifc data/synthetic/model_rev2.graph.json
     uv run python scripts/evaluate.py [--seed 7] [--regen]
 
-Runs the PRODUCTION modules (calcgraph.pipeline -> ifc_ingest, loadpath, pdf_ingest,
-segment, matcher, calcdeps, store) on the synthetic package in a throwaway store and
-reports:
+Runs the PRODUCTION modules (calcgraph.pipeline -> graph_ingest, pdf_ingest, segment, matcher,
+calcdeps, store) on the synthetic package in a throwaway store. The element graph of each model
+revision is the one the UI builds (packages/ifc-parser + packages/element-graph, via
+scripts/build_graph.mjs); --graph1 / --graph2 point at it. Reports:
   - calc segmentation (pages, front matter, scanned detection)
   - design mapping precision / recall: overall, per tier, per calc, per element
   - cross-reference tier: is each xref link a real mention?
@@ -48,9 +51,18 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--data", default=os.path.join(ROOT, "data", "synthetic"))
     ap.add_argument("--regen", action="store_true", help="regenerate the synthetic data first")
+    ap.add_argument("--graph1", help="serialized element graph of model_rev1.ifc (default <data>/model_rev1.graph.json)")
+    ap.add_argument("--graph2", help="serialized element graph of model_rev2.ifc (default <data>/model_rev2.graph.json)")
     a = ap.parse_args()
     if a.regen or not os.path.exists(os.path.join(a.data, "ground_truth.json")):
         generate(a.data, a.seed)
+    graphs = {}
+    for n, given in ((1, a.graph1), (2, a.graph2)):
+        gp = given or os.path.join(a.data, f"model_rev{n}.graph.json")
+        if not os.path.exists(gp):
+            sys.exit(f"no element graph {gp} - build it with: node scripts/build_graph.mjs "
+                     f"{os.path.join(a.data, f'model_rev{n}.ifc')} {gp}  (a --regen invalidates old graphs)")
+        graphs[n] = open(gp, "rb").read()
     truth = json.load(open(os.path.join(a.data, "ground_truth.json")))
     T = truth["elements"]
     report: dict = {"engine": ENGINE_VERSION, "seed": truth["seed"],
@@ -59,7 +71,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         st = Store(tmp)
         pid = st.ensure_project("eval")
-        rev1 = pipeline.ingest_model(st, pid, os.path.join(a.data, "model_rev1.ifc"), "model_rev1.ifc", "rev1")
+        rev1 = pipeline.ingest_model(st, pid, os.path.join(a.data, "model_rev1.ifc"), graphs[1], "model_rev1.ifc", "rev1")
         crev = pipeline.ingest_calcs(st, pid, os.path.join(a.data, "calc_package.pdf"), "calc_package.pdf", "calcs")
         s = pipeline.state(st, pid)
 
@@ -141,9 +153,9 @@ def main() -> None:
                                                                      == p2t.get(l["calc_key"]))}
 
         # ---------------- load path ----------------
-        # v1 truth models connection plates as path nodes (member -> plate -> support), so the
-        # derived member -> support edge that loadpath adds "via" a plate is not part of it
-        pred_lp = {(e["src"], e["dst"]) for e in s["edges"] if "via connection" not in (e.get("rule") or "")}
+        # truth models connection plates as path nodes (member -> plate -> support), as the element
+        # graph's supports edges do
+        pred_lp = {(e["src"], e["dst"]) for e in s["edges"]}
         true_lp = {tuple(x) for x in truth["load_path"]}
         report["load_path_rev1"] = prf(len(pred_lp & true_lp), len(pred_lp - true_lp), len(true_lp - pred_lp))
 
@@ -158,14 +170,14 @@ def main() -> None:
         drop = next(l for l in s["links"] if l["tier"] == "partial")
         st.add_decision(pid, keep["global_id"], keep["calc_key"], "confirm", "eval", None)
         st.add_decision(pid, drop["global_id"], drop["calc_key"], "reject", "eval", "CB1 is the hand-calc cantilever")
-        rev2 = pipeline.ingest_model(st, pid, os.path.join(a.data, "model_rev2.ifc"), "model_rev2.ifc", "rev2")
+        rev2 = pipeline.ingest_model(st, pid, os.path.join(a.data, "model_rev2.ifc"), graphs[2], "model_rev2.ifc", "rev2")
         s2 = pipeline.state(st, pid)
         by2 = {(l["global_id"], l["calc_key"]): l for l in s2["links"]}
         carried = {"confirm": by2.get((keep["global_id"], keep["calc_key"]), {}).get("status"),
                    "reject": by2.get((drop["global_id"], drop["calc_key"]), {}).get("status")}
         diff = st.compare_models(rev1, rev2)
         r2 = truth["rev2"]
-        pred_lp2 = {(e["src"], e["dst"]) for e in s2["edges"] if "via connection" not in (e.get("rule") or "")}
+        pred_lp2 = {(e["src"], e["dst"]) for e in s2["edges"]}
         true_lp2 = {tuple(x) for x in r2["load_path"]}
         report["revisions"] = {
             "model_revisions": [r["id"] for r in st.revisions(pid) if r["kind"] == "model"],
@@ -180,7 +192,7 @@ def main() -> None:
         # impact demo on rev1 data: remove column C8
         st2 = Store(os.path.join(tmp, "imp"))
         pid2 = st2.ensure_project("impact")
-        pipeline.ingest_model(st2, pid2, os.path.join(a.data, "model_rev1.ifc"))
+        pipeline.ingest_model(st2, pid2, os.path.join(a.data, "model_rev1.ifc"), graphs[1])
         pipeline.ingest_calcs(st2, pid2, os.path.join(a.data, "calc_package.pdf"))
         c8 = next(g for g, e in T.items() if e["key"] == "col:C/2")
         im = pipeline.impact_of(st2, pid2, c8, "remove")

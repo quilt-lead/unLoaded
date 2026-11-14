@@ -18,7 +18,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import type { ColorMode, DatabaseDiffSummary, WorkspaceView } from '../types/bim';
+import type { ColorMode, DatabaseDiffSummary, ProjectSource, WorkspaceView } from '../types/bim';
 
 interface HeaderBarProps {
   projectName: string;
@@ -30,12 +30,13 @@ interface HeaderBarProps {
   onChangeColorMode: (m: ColorMode) => void;
   hasUtilization: boolean;
   backend: 'checking' | 'online' | 'offline';
-  source: 'api' | 'file' | null;
+  source: ProjectSource | null;
   busy: boolean;
   onLoadSample: () => void;
   onUploadModel: (file: File) => void;
   onUploadCalcs: (file: File) => void;
-  onOpenExport: (file: File) => void;
+  /** open an IFC / element graph / ModelInput / calc-graph export in the browser only */
+  onOpenFile: (file: File) => void;
   exportUrl: string | null;
   diffSummary: DatabaseDiffSummary | null;
   compareOpen: boolean;
@@ -66,7 +67,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const modelInput = useRef<HTMLInputElement | null>(null);
   const calcInput = useRef<HTMLInputElement | null>(null);
-  const exportInput = useRef<HTMLInputElement | null>(null);
+  const openInput = useRef<HTMLInputElement | null>(null);
   const online = p.backend === 'online';
 
   useEffect(() => {
@@ -124,12 +125,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
               <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
                 DIFF MODE
               </span>
-            ) : p.source === 'file' ? (
+            ) : p.source === 'file' || p.source === 'local' ? (
               <span
-                title="Opened from an export JSON file: read-only"
+                title={p.source === 'file' ? 'Opened from an export JSON file: read-only' : 'Opened in the browser, not uploaded: no calcs, read-only'}
                 className="mono text-[10px] font-medium bg-white/[0.06] text-zinc-300 px-2 py-0.5 rounded border border-white/[0.16] tracking-wider flex-shrink-0"
               >
-                OFFLINE EXPORT
+                {p.source === 'file' ? 'OFFLINE EXPORT' : 'LOCAL · NOT UPLOADED'}
               </span>
             ) : null}
           </h1>
@@ -206,10 +207,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 setMenuOpen(false);
                 p.onLoadSample();
               }, !online || p.busy)}
-              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" />, 'Upload IFC model', 'New model revision; links are re-mapped', () => pick(modelInput), !online || p.busy)}
+              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" />, 'Upload IFC model', 'Parsed in the browser, uploaded with its element graph; links re-mapped', () => pick(modelInput), !online || p.busy)}
               {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" />, 'Upload calc package PDF', 'New calc revision; links are re-mapped', () => pick(calcInput), !online || p.busy)}
               <div className="h-px bg-white/[0.08] my-1" />
-              {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" />, 'Open export JSON', 'A saved calc-graph export, read-only, no backend needed', () => pick(exportInput))}
+              {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" />, 'Open file in browser', 'IFC, element graph or saved export JSON; read-only, not uploaded', () => pick(openInput))}
               {p.exportUrl &&
                 menuItem(<Download className="w-3.5 h-3.5 text-zinc-300" />, 'Download export JSON', 'The current mapping, to share or open offline', () => {
                   setMenuOpen(false);
@@ -225,7 +226,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         </div>
         {fileInput(modelInput, '.ifc', p.onUploadModel)}
         {fileInput(calcInput, '.pdf,application/pdf', p.onUploadCalcs)}
-        {fileInput(exportInput, '.json,application/json', p.onOpenExport)}
+        {fileInput(openInput, '.ifc,.json,application/json', p.onOpenFile)}
 
         {p.diffSummary && (
           <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">

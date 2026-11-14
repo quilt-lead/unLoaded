@@ -1,8 +1,9 @@
 // Pure helpers over the VIEW MODEL (src/types/bim.ts): node predicates, load-path tracing over the
-// backend's directed load-path edges, the radial layout, and the calc graph's mapping satellites.
-// Nothing here infers structure: hierarchy, calcs, calc dependencies and load direction all come
-// from the backend through src/data/loadProject.ts.
-import type { BimLink, BimNode, CalcLink, LoadPathEdge, TraceDirection } from '../types/bim';
+// element graph's directed load-path edges, the radial layout, and the calc graph's mapping satellites.
+// Nothing here infers structure: hierarchy, connectivity and load direction come from the element
+// graph (src/loaders/elementGraphToBim.ts), calcs and calc dependencies from the backend
+// (src/data/loadProject.ts).
+import type { BimLink, BimNode, CalcLink, ConnectivityEdge, LoadPathEdge, TraceDirection } from '../types/bim';
 
 export function isProjectNode(n?: BimNode | null): boolean {
   return Boolean(n && (n.kind === 'project' || n.kind === 'calc-root'));
@@ -42,7 +43,7 @@ export function getDisplayType(node: BimNode): string {
     case 'mapped-element':
       return 'Linked element';
     default:
-      return node.ifcType ? node.ifcType.replace(/^Ifc/, '') : 'Element';
+      return node.elementKind ? node.elementKind.charAt(0).toUpperCase() + node.elementKind.slice(1) : node.ifcType ? node.ifcType.replace(/^Ifc/, '') : 'Element';
   }
 }
 
@@ -63,7 +64,7 @@ export function loadPathKey(source: string, target: string): string {
 }
 
 /**
- * Follow the backend's directed load-path edges (source delivers load to target) from the seeds:
+ * Follow the element graph's directed load-path edges (`supports`: source delivers load to target) from the seeds:
  * 'down' toward the foundations, 'up' toward what the seeds carry, or both.
  */
 export function computeLoadPathTrace(
@@ -109,6 +110,16 @@ export function computeLoadPathTrace(
     if (traceDirection === 'up' || traceDirection === 'both') walk(s, up, false);
   }
   return { chainNodeIds, chainLinkKeys };
+}
+
+/** Elements physically connected to one element (element-graph `connects` / `part_of`). */
+export function getConnectivityNeighbors(nodeId: string, connectivity: ConnectivityEdge[]): string[] {
+  const out = new Set<string>();
+  for (const e of connectivity) {
+    if (e.source === nodeId) out.add(e.target);
+    else if (e.target === nodeId) out.add(e.source);
+  }
+  return [...out];
 }
 
 /** Direct load-path neighbours of one element. */
@@ -308,6 +319,7 @@ export function withMappingSatellites(
         parent: anchor.id,
         elementId: el.id,
         ifcType: el.ifcType,
+        elementKind: el.elementKind,
         storey: el.storey,
         link,
         r: satR,

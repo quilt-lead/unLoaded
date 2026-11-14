@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import re
 
-from .ifc_ingest import norm_profile, profile_from
 from .pdf_ingest import rects_for_span
 from .segment import CAT_WORDS
 
@@ -28,6 +27,26 @@ _RANGE = re.compile(r"\b([A-Z]{0,3}\d{0,2}[A-Z]{1,3})(\d{1,4})\s*(?:-|–|—|TO
 _TOK = re.compile(r"[A-Z0-9]+(?:[-./][A-Z0-9]+)*")
 _PROF = re.compile(r"\b(?:W|HSS|WT|MC|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:/\d+)?(?:\.\d+)?)?\b"
                    r"|\b\d{3,4}X\d{3,4}\b")
+_PROFILE_RE = re.compile(
+    r"\b(?:W|HSS|WT|MC|C|L|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:\.\d+)?)?\b"
+    r"|\b\d{3,4}X\d{3,4}\b")
+
+
+def norm_profile(s: str) -> str:
+    """Section designation as one comparable string (calc text side; element profiles arrive
+    normalised the same way by packages/ifc-parser: upper case, no spaces, x / × -> X)."""
+    return s.upper().replace(" ", "").replace("×", "X") if s else ""
+
+
+def profile_from(*strs: str | None) -> str:
+    """First section designation found in the given strings (port of the mockup's profileFrom())."""
+    for s in strs:
+        if not s:
+            continue
+        m = _PROFILE_RE.search(str(s).upper().replace("×", "X"))
+        if m:
+            return norm_profile(m.group(0))
+    return ""
 
 
 def norm_mark(s: str | None) -> str:

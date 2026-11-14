@@ -4,8 +4,13 @@
 # frontend (Vite app at the repo root)
 node_modules/
 dist/
-# web-ifc wasm, copied from node_modules by scripts/copy-wasm.mjs on every dev / build
+*.tsbuildinfo
+.vite/
+coverage/
+# web-ifc wasm, copied from node_modules by scripts/copy-assets.mjs on install / dev / build
 public/wasm/
+# sample files copied by scripts/copy-assets.mjs
+public/samples/
 
 # python
 __pycache__/

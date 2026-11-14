@@ -557,7 +557,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
               })}
             </g>
 
-            {/* Traced load path: the backend's directed edges, drawn only while traced */}
+            {/* Traced load path: the element graph's directed supports edges, drawn only while traced */}
             {activeLoadChainLinkKeys && activeLoadChainLinkKeys.size > 0 && !overlay && (
               <g pointerEvents="none">
                 {loadPath.map((e, idx) => {
