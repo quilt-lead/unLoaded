@@ -331,6 +331,16 @@ def doc_file(doc: str):
     return FileResponse(os.path.join(V2, f), media_type="application/pdf")
 
 
+@router.get("/revisions/{rev_id}/{name}/pages/{n}.png")
+def revision_page(rev_id: str, name: str, n: int, hl: str = "", w: int = 1400):
+    if name not in ("calc_revision", "rerun_sheets"):
+        raise HTTPException(404)
+    p = os.path.join(V2, "revisions", os.path.basename(rev_id), f"{name}.pdf")
+    if not os.path.exists(p):
+        raise HTTPException(404, f"no {name}.pdf for this revision")
+    return _render(p, n, hl, w)
+
+
 @router.get("/docs/{doc}/pages/{n}.png")
 def doc_page(doc: str, n: int, hl: str = "", w: int = 1400):
     """Page n (1-based) of a v2 document; hl = 'x0,y0,x1,y1;...' PDF points drawn as highlights."""
@@ -338,6 +348,10 @@ def doc_page(doc: str, n: int, hl: str = "", w: int = 1400):
     p = os.path.join(V2, f) if f else ""
     if not f or not os.path.exists(p):
         raise HTTPException(404, f"no {doc} document yet")
+    return _render(p, n, hl, w)
+
+
+def _render(p: str, n: int, hl: str, w: int) -> Response:
     with _LOCK:
         dd = pymupdf.open(p)
         if not 1 <= n <= len(dd):
