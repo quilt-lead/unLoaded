@@ -81,10 +81,10 @@ def _registry():
     return _CACHE["registry_view"]
 
 
-def _status_fn():
+def _status_fn(ads=None):
     try:
         from .platforms import construction_status
-        ads = _adapters()
+        ads = ads if ads is not None else _adapters()
         d = _design()
         return lambda eid: construction_status(eid, ads, d)
     except Exception:
@@ -98,6 +98,18 @@ class Move(BaseModel):
     remove: bool = False
     records: list[str] | None = None
     label: str | None = None
+    as_of: str | None = None    # approval date (as_of.py): today | +1w | +2w | +1m | YYYY-MM-DD; None = today
+
+
+def _adapters_as_of(as_of: str | None):
+    """(adapters, as-of date) for an approval date: the ONE projection (platforms.get_adapters(as_of=...)),
+    today's cached adapters when the date reads today's state."""
+    from . import as_of as asof
+    try:
+        d_as_of = asof.parse(as_of)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    return asof.adapters(_design(), d_as_of, _adapters), d_as_of
 
 
 def _col(c: str) -> str:
@@ -194,10 +206,19 @@ def registry_file(which: str):
 def impact(m: Move):
     """Stale calc records with reason chains, screened estimates (labelled), health meter,
     affected occurrences, construction status and the potential change order."""
+    return JSONResponse(_safe(impact_result(m)))
+
+
+def impact_result(m: Move) -> dict:
+    """/impact's body as a dict, at the move's approval date (m.as_of; default today): health, construction
+    status and the change order all read the same projected adapters. Also used by the inbox (inbox.py)."""
+    from . import as_of as asof
     d = _design()
-    res = _impact(d, m, platform_status=_status_fn())
-    res["change_order"] = _change_order(d, res)
-    return JSONResponse(_safe(res))
+    ads, d_as_of = _adapters_as_of(m.as_of)
+    res = _impact(d, m, platform_status=_status_fn(ads))
+    res["change_order"] = _change_order(d, res, ads)
+    res["as_of"] = asof.describe(ads, d_as_of)
+    return res
 
 
 def _impact(d: dict, m: Move, platform_status=None) -> dict:
@@ -209,11 +230,21 @@ def _impact(d: dict, m: Move, platform_status=None) -> dict:
         raise HTTPException(404, f"no column {m.column!r}") from None
 
 
-def _change_order(d: dict, res: dict) -> dict:
+def _change_order(d: dict, res: dict, adapters=None) -> dict:
+    """The change-order estimate for an impact result, over `adapters` (default: today's)."""
     try:
         from .platforms import estimate
     except Exception as e:
         return {"error": f"platform adapters unavailable: {e}"}
+    imp = _change_order_input(d, res)
+    try:
+        return estimate(imp, adapters if adapters is not None else _adapters(), d)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}", "input": imp}
+
+
+def _change_order_input(d: dict, res: dict) -> dict:
+    """The estimator's input (change_order.estimate `impact`) built from an impact result."""
     els = {e["id"]: e for e in d["elements"]}
     resized, conns, ftgs = [], [], []
     for k, v in res["estimates"].items():
@@ -231,12 +262,8 @@ def _change_order(d: dict, res: dict) -> dict:
     specs = sorted({o["ref"] for o in d.get("occurrences", []) if o.get("doc") == "specs" and o["ref"].startswith("SPEC:")
                     and any(r["src"] in {els.get(e, {}).get("size") and f"TYPE:{els[e]['size']}" for e in touched}
                             and r["dst"] == o["ref"] for r in d["relations"] if r["kind"] == "specified-by")})
-    imp = {"elements": touched, "resized": resized, "connections_changed": conns, "footings_changed": ftgs,
-           "records": [s["record"] for s in res["stale"] if s["screened"]], "sheets": sheets, "spec_articles": specs}
-    try:
-        return estimate(imp, _adapters(), d)
-    except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}", "input": imp}
+    return {"elements": touched, "resized": resized, "connections_changed": conns, "footings_changed": ftgs,
+            "records": [s["record"] for s in res["stale"] if s["screened"]], "sheets": sheets, "spec_articles": specs}
 
 
 def d_rec(d: dict, rid: str) -> dict:
@@ -595,8 +622,8 @@ def platform_record_by_link(url: str):
 
 
 @router.get("/construction-status/{eid:path}")
-def construction_status(eid: str):
-    fn = _status_fn()
+def construction_status(eid: str, as_of: str | None = None):
+    fn = _status_fn(_adapters_as_of(as_of)[0])
     if not fn:
         raise HTTPException(503, "platform adapters unavailable")
     return _safe(fn(eid))
@@ -606,7 +633,7 @@ def construction_status(eid: str):
 def change_order(m: Move):
     d = _design()
     res = _impact(d, m)
-    return _safe(_change_order(d, res))
+    return _safe(_change_order(d, res, _adapters_as_of(m.as_of)[0]))
 
 
 # ------------------------------------------------------------------ analysis software (mock ETABS)

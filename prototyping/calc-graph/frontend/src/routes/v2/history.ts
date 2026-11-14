@@ -22,6 +22,8 @@ export interface Setup {
   step: number;
   /** the move Check impact ran for (null = nothing checked) */
   committed: Move | null;
+  /** approval date of the impact (as_of.py): "today" | "+1w" | "+2w" | "+1m" | "YYYY-MM-DD" */
+  asOf: string;
 }
 
 export const EMPTY_SETUP: Setup = {
@@ -31,6 +33,7 @@ export const EMPTY_SETUP: Setup = {
   remove: false,
   step: 1,
   committed: null,
+  asOf: "today",
 };
 
 export type HistoryEntry =

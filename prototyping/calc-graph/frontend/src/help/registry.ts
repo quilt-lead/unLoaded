@@ -11,6 +11,7 @@
 // evidence. home. and term. for glossary terms. Keep `short` to one or two plain sentences.
 
 import { V2_HELP } from "./entries/v2";
+import { ASOF_HELP } from "./entries/asof";
 
 export interface HelpEntry {
   /** label shown as the popover heading and the glossary entry name */
@@ -265,6 +266,7 @@ export const HELP = {
 
   // ---------------------------------------------------------------- per-feature entry files (src/help/entries/*.ts)
   ...V2_HELP,
+  ...ASOF_HELP,
   // ---------------------------------------------------------------- R2: synthetic IFC app (/ifc)
   "page.ifc": {
     title: "Synthetic IFC app",

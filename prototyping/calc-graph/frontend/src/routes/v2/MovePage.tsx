@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { InfoTip } from "../../help/InfoTip";
 import { Panel } from "../../components/Panel";
 import { StatPill, StatRow } from "../../components/StatPill";
@@ -30,6 +30,7 @@ import { PlanView, bandOf } from "./PlanView";
 import { StalePanel } from "./StalePanel";
 import { RerunPanel } from "./RerunPanel";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
+import { AsOfControl, AsOfTimeline } from "./AsOfPanel";
 import { RevisionPanel } from "./RevisionPanel";
 import { EtabsPanel } from "./EtabsPanel";
 import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
@@ -92,7 +93,18 @@ export default function MovePage() {
   const { selected, remove, step, committed } = setup;
   const draft = { dx: setup.dx, dy: setup.dy };
 
-  const impactQ = useMoveImpact(committed);
+  const asOf = setup.asOf ?? "today";
+  // opened from the inbox (or a shared link): ?col=COL-2B&dx=2&dy=0&remove=0&as_of=YYYY-MM-DD -> one history step
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const col = params.get("col");
+    if (!col) return;
+    const dx = Number(params.get("dx") ?? 0), dy = Number(params.get("dy") ?? 0), rm = params.get("remove") === "1";
+    const ao = params.get("as_of") || "today";
+    record(`Open ${col} ${rm ? "remove" : `(${dx}, ${dy}) ft`} as of ${ao} from a link`, (cur) => ({ ...cur, selected: col, dx, dy, remove: rm, asOf: ao, committed: { column: col, dx, dy, remove: rm } }));
+    setParams({}, { replace: true });
+  }, [params, record, setParams]);
+  const impactQ = useMoveImpact(committed, asOf);
   const impact = committed && impactQ.data && impactQ.data.column === committed.column ? impactQ.data : undefined;
   const rerun = useRerun();
   const apply = useApply();
@@ -100,7 +112,7 @@ export default function MovePage() {
   useEffect(() => {
     if (loaded.data) setRerunRev(loaded.data);
   }, [loaded.data]);
-  const cstat = useConstructionStatus(selected);
+  const cstat = useConstructionStatus(selected, asOf);
 
   const pendingDraft = !!selected && (remove !== (committed?.remove ?? false) || draft.dx !== (committed?.dx ?? 0) || draft.dy !== (committed?.dy ?? 0) || committed?.column !== selected);
 
@@ -512,6 +524,7 @@ export default function MovePage() {
             <Tabs items={tabs} value={tab} onChange={(t) => setTab(t as SideTab)} info="tab.move-side" label="Impact views" size="sm" />
           }
         >
+          <AsOfControl value={asOf} onChange={(v, label) => record(`Approval date: ${label}`, { asOf: v })} />
           {tab === "health" && (
             <div>
               {selected && h ? (
@@ -563,6 +576,7 @@ export default function MovePage() {
               onLoadRev={setLoadRev}
             />
           )}
+          {tab === "co" && <AsOfTimeline move={committed} asOf={asOf} onPick={(d) => record(`Approval date: ${d}`, { asOf: d })} />}
           {tab === "co" && co && (
             <ChangeOrderPanel idx={idx} co={co} openPdf={(src) => setDock({ kind: "pdf", src, title: String(src.label ?? "Document") })} openMock={setMock} showCalcs={() => setTab("calcs")} />
           )}

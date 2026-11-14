@@ -1,0 +1,199 @@
+/* As-of control + timeline (AsOfPanel.tsx) and the inbound inbox (InboxPage.tsx). */
+.ai-asof {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+.ai-asof-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+.ai-asof-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ai-tl {
+  margin-bottom: 12px;
+}
+.ai-approve {
+  margin: 6px 0;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ai-chart {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  display: block;
+  margin: 4px 0 6px;
+}
+.ai-axis {
+  stroke: var(--line);
+}
+.ai-tick {
+  font-size: 9px;
+  fill: var(--muted);
+}
+.ai-cost {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2;
+}
+.ai-slip {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.ai-cost-t {
+  fill: var(--warn);
+}
+.ai-slip-t {
+  fill: var(--accent);
+}
+.ai-dot {
+  fill: var(--panel);
+  stroke: var(--warn);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.ai-dot.on {
+  fill: var(--warn);
+}
+.ai-tl-table tr.on td {
+  background: var(--accent-soft);
+}
+.v2-link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+}
+
+/* inbox */
+.ai-inbox-work {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .ai-inbox-work {
+    grid-template-columns: 1fr;
+  }
+}
+.ai-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.ai-item {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ai-item.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.ai-item-top {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ai-item-title {
+  font-size: 12.5px;
+}
+.ai-detail {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.ai-title {
+  font-size: 15px;
+  margin: 0 0 6px;
+}
+.ai-body {
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 6px;
+}
+.ai-summary {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.ai-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0;
+}
+.ai-wide input {
+  width: min(520px, 100%);
+}
+.ai-why {
+  margin: 6px 0;
+}
+.ai-unres {
+  margin-top: 6px;
+}
+.ai-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.ai-row .spacer {
+  flex: 1;
+}
+.ai-reply {
+  width: 100%;
+  min-height: 260px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--ink);
+  box-sizing: border-box;
+}
+.ai-post {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ai-impact {
+  margin-top: 8px;
+}
+.ai-hist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}

@@ -309,6 +309,7 @@ def set_page_png(sid: str, doc: str, n: int, request: Request, clip: str = "", w
 
 
 from .move_api import router as _v2_router; app.include_router(_v2_router)  # synthetic v2: move/registry/platforms/ETABS (move_api.py)
+from .as_of import router as _asof_router; app.include_router(_asof_router)  # as-of date on impact: presets + cost/slip timeline (as_of.py)
 
 from .store_api import router as _store_router; app.include_router(_store_router)  # schema-shaped store endpoints (store_api.py)
 

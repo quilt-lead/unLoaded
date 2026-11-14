@@ -436,21 +436,22 @@ export const useHealthHeat = (probe = 2) =>
   });
 
 /** POST /impact as a query keyed by the move (the call is read-only on the server). */
-export const useMoveImpact = (m: Move | null) =>
+/** asOf = the approval date (as_of.py): "today" (default, current behaviour), "+1w", "+2w", "+1m" or a date */
+export const useMoveImpact = (m: Move | null, asOf = "today") =>
   useQuery({
-    queryKey: ["v2", "impact", m?.column, m?.dx, m?.dy, m?.remove],
+    queryKey: ["v2", "impact", m?.column, m?.dx, m?.dy, m?.remove, asOf],
     enabled: !!m && (m.remove || m.dx !== 0 || m.dy !== 0),
     staleTime: 5 * 60_000,
-    queryFn: () => post<Impact>("/api/v2/impact", moveBody(m!)),
+    queryFn: () => post<Impact>("/api/v2/impact", { ...moveBody(m!), as_of: asOf }),
   });
 
-export const useConstructionStatus = (eid: string | null | undefined) =>
+export const useConstructionStatus = (eid: string | null | undefined, asOf = "today") =>
   useQuery({
-    queryKey: ["v2", "construction", eid],
+    queryKey: ["v2", "construction", eid, asOf],
     enabled: !!eid,
     queryFn: ({ signal }) =>
       get<ConstructionStatus>(
-        `/api/v2/construction-status/${enc(eid!)}`,
+        `/api/v2/construction-status/${enc(eid!)}${asOf === "today" ? "" : `?as_of=${enc(asOf)}`}`,
         signal,
       ),
   });

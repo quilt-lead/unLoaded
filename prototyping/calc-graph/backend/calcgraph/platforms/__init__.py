@@ -31,6 +31,7 @@ REGISTRY: dict[str, type[PlatformAdapter]] = {
 }
 DEFAULT_DESIGN = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "synthetic_v2", "design.json"))
 _STATE_CACHE: dict[int, tuple[dict, ConstructionState]] = {}
+_ASOF_CACHE: dict[tuple, tuple[dict, ConstructionState]] = {}
 
 
 def load_design(path: str | None = None) -> dict:
@@ -38,8 +39,19 @@ def load_design(path: str | None = None) -> dict:
         return json.load(fh)
 
 
-def get_state(design: dict) -> ConstructionState:
-    """One ConstructionState per design dict (cached by identity)."""
+def get_state(design: dict, as_of=None) -> ConstructionState:
+    """One ConstructionState per design dict (cached by identity). as_of (date / ISO string): the state
+    PROJECTED to close of business that day (synthetic.build_state) - the one projection every as-of
+    consumer reads (as_of.py); None = today's state."""
+    if as_of is not None:
+        from .synthetic import as_of_date, next_workday
+        k = (id(design), next_workday(as_of_date(as_of)))   # same next workday = same state
+        hit = _ASOF_CACHE.get(k)
+        if hit is None or hit[0] is not design:
+            if len(_ASOF_CACHE) > 48:
+                _ASOF_CACHE.clear()
+            hit = _ASOF_CACHE[k] = (design, build_state(design, as_of=as_of))
+        return hit[1]
     hit = _STATE_CACHE.get(id(design))
     if hit is None or hit[0] is not design:
         hit = (design, build_state(design))
@@ -48,20 +60,20 @@ def get_state(design: dict) -> ConstructionState:
     return hit[1]
 
 
-def get_mock_adapters(design: dict, names: list[str] | None = None) -> list[PlatformAdapter]:
+def get_mock_adapters(design: dict, names: list[str] | None = None, as_of=None) -> list[PlatformAdapter]:
     """The bare synthetic adapters (no live selection, no source labels) - what get_adapters wraps.
     For code that builds its own live.SourcedAdapter (the contract checks)."""
-    state = get_state(design)
+    state = get_state(design, as_of)
     return [REGISTRY[n](state) for n in (names or list(REGISTRY))]
 
 
-def get_adapters(design: dict, names: list[str] | None = None) -> list[PlatformAdapter]:
+def get_adapters(design: dict, names: list[str] | None = None, as_of=None) -> list[PlatformAdapter]:
     """Every platform, each wrapped so config (CALCGRAPH_PLATFORM_<NAME>=live) can swap in its live
     connector; with no env set these are the synthetic mocks, labelled source=mock. The ONLY place
     adapters are built, so every consumer (routes, health meter, change order) sees the same source."""
     from .live import wrap_selected
-    state = get_state(design)
-    return [wrap_selected(m, state) for m in get_mock_adapters(design, names)]
+    state = get_state(design, as_of)
+    return [wrap_selected(m, state) for m in get_mock_adapters(design, names, as_of)]
 
 
 def adapters_fingerprint() -> tuple:
