@@ -1,0 +1,74 @@
+/* Re-run calc sheets (recalc_pages.py): Mathcad Prime style worksheet on a firm calc pad. */
+@page {
+  size: letter;
+  margin: 92pt 30pt 40pt 30pt;
+  @top-center { content: element(pagehead); width: 100%; vertical-align: bottom; }
+  @bottom-left { font: 6pt Helvetica, Arial, sans-serif; color: #555; width: 75%; }
+
+}
+html { font-family: Helvetica, Arial, sans-serif; font-size: 8pt; color: #111; background: #fff; }
+body { margin: 0; }
+section.calc { break-before: auto; }
+section.calc.first { break-before: auto; }
+.pagehead { position: running(pagehead); width: 100%; }
+table.tb { width: 100%; border-collapse: collapse; border: 0.9pt solid #000; margin-bottom: 6pt; }
+table.tb td { border: 0.4pt solid #000; padding: 1.5pt 4pt; font-size: 7.2pt; vertical-align: middle; }
+table.tb td.k { color: #666; font-size: 5.2pt; text-transform: lowercase; width: 34pt; border-right: none; }
+table.tb td.v { border-left: none; }
+table.tb td.logo { width: 150pt; }
+table.tb .firm { color: #0d5461; font-weight: bold; font-size: 8.4pt; letter-spacing: 0.3pt; }
+table.tb .addr { color: #777; font-size: 5pt; margin-top: 2pt; }
+table.tb td.sheet { width: 70pt; text-align: center; }
+table.tb .sn { font-weight: bold; font-size: 14pt; }
+table.tb .rv { color: #c40d0d; font-size: 6pt; font-weight: bold; }
+.banner { border: 1.2pt solid #c40d0d; color: #8a0b0b; background: #fff4f2; padding: 2pt 5pt; margin: 0 0 5pt 0; font-size: 6.6pt; }
+.banner b { font-size: 7.6pt; letter-spacing: 0.2pt; }
+.blk { border: 0.6pt solid #9aa7b0; border-left: 3pt solid #c40d0d; margin: 0 0 9pt 0; padding: 4pt 6pt 3pt 6pt; break-inside: avoid; }
+.bh { font-size: 8pt; border-bottom: 0.5pt solid #ccd; padding-bottom: 2pt; margin-bottom: 2pt; }
+.bh .delta { display: inline-block; color: #c40d0d; border: 0.8pt solid #c40d0d; font-weight: bold; font-size: 6.4pt; padding: 0 2pt; margin-right: 4pt; }
+.bh .rid { font-weight: bold; font-size: 9pt; margin-right: 6pt; }
+.bh .el { color: #333; margin-right: 6pt; }
+.bh .kind { color: #0d5461; margin-right: 6pt; }
+.chip { display: inline-block; font-size: 6.4pt; padding: 0.5pt 3pt; border-radius: 2pt; margin-right: 3pt; }
+.chip.st { background: #eef1f4; color: #333; border: 0.4pt solid #aab; }
+.chip.ngok { background: #0f7a3a; color: #fff; font-weight: bold; }
+.chip.ng { background: #c40d0d; color: #fff; font-weight: bold; }
+.method { color: #555; font-size: 6.2pt; margin-bottom: 3pt; }
+.inputs { background: #fffbe0; border: 0.5pt solid #e2d48a; padding: 2pt 4pt; margin-bottom: 3pt; }
+.rh, .sh { font-size: 6.4pt; color: #0d5461; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3pt; }
+table.defs { border-collapse: collapse; width: 100%; }
+table.defs td { padding: 0 3pt; vertical-align: middle; }
+table.defs td.def { width: 25%; }
+table.defs td.was { width: 25%; color: #c40d0d; font-style: italic; font-size: 6.4pt; line-height: 1.05; }
+table.defs .src { color: #777; font-style: normal; font-size: 5.6pt; }
+.sec { margin: 3pt 0 2pt 0; }
+.katex { font-size: 0.93em; }
+.katex-display { margin: 0 0 0 8pt; text-align: left; }
+.ln { margin: 0.5pt 0; }
+.katex-display > .katex { text-align: left; }
+table.defs .katex-display { margin: 0; }
+.notes { font-size: 6.8pt; color: #333; margin: 1pt 0 3pt 8pt; font-style: italic; }
+table.checks { border-collapse: collapse; width: 100%; margin: 2pt 0; border-top: 0.6pt solid #0d5461; border-bottom: 0.6pt solid #0d5461; }
+table.checks td { padding: 0 3pt; vertical-align: middle; border-bottom: 0.3pt dotted #bbb; }
+table.checks td.cl { width: 13%; font-weight: bold; font-size: 7pt; }
+table.checks td.ct { width: 42%; }
+table.checks td.ct .katex-display { margin: 0; }
+table.checks td.cu { width: 12%; font-size: 7.2pt; }
+table.checks td.cu .was { color: #c40d0d; font-style: italic; font-size: 6.2pt; }
+table.checks td.co { width: 6%; text-align: center; }
+table.checks td.cr { font-size: 6.4pt; color: #444; }
+.ok { color: #fff; background: #0f7a3a; font-weight: bold; padding: 0.5pt 3pt; font-size: 7pt; }
+.ngc { color: #fff; background: #c40d0d; font-weight: bold; padding: 0.5pt 3pt; font-size: 7pt; }
+table.sum, table.vals { border-collapse: collapse; margin: 3pt 0 1pt 0; font-size: 6.8pt; }
+table.sum th, table.vals th { text-align: left; color: #666; font-weight: normal; font-size: 6pt; padding: 0 8pt 0 0; border-bottom: 0.4pt solid #999; }
+table.sum td, table.vals td { padding: 0 8pt 0 0; }
+table.sum tr.chg td, table.vals tr.chg td { color: #c40d0d; font-weight: bold; }
+table.sum tr.chg td:first-child, table.vals tr.chg td:first-child { color: #111; font-weight: normal; }
+.mism { color: #fff; background: #c40d0d; font-weight: bold; padding: 2pt 4pt; margin-top: 2pt; font-size: 7pt; }
+.verified { color: #0f7a3a; font-size: 6.4pt; margin-top: 2pt; }
+.endmark { color: #bbb; font-size: 4.5pt; text-align: right; }
+code.katex-err { color: #c40d0d; font-size: 6pt; }
+table.sum { width: 100%; }
+table.sum td.lab { color: #666; width: 5%; }
+table.sum tr td.chg { color: #c40d0d; font-weight: bold; }
+table.tb td.nw { white-space: nowrap; }

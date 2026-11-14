@@ -1,0 +1,8 @@
+{
+  "name": "calcgraph-recalc-pages-katex",
+  "private": true,
+  "description": "Server-side KaTeX for backend/calcgraph/recalc_pages.py (LaTeX from handcalcs -> HTML for WeasyPrint)",
+  "dependencies": {
+    "katex": "0.19.1"
+  }
+}
