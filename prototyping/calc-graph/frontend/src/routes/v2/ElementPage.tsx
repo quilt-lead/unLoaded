@@ -12,6 +12,7 @@ import { urls } from "../../api/client";
 import type { V2Occurrence } from "../../api/types";
 import { useConstructionStatus } from "./api";
 import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
+import { InboxHistory } from "./InboxHistory";
 import { howLabel, occSource, recordSource, useDesignIndex, type DesignIndex } from "./util";
 
 type Group = "ifc" | "drawings" | "specs" | "calcs" | "etabs" | "platforms";
@@ -208,6 +209,7 @@ export default function ElementPage() {
                       </li>
                     ))}
                   </ul>
+                  <InboxHistory eid={eid} />
                 </section>
               );
             }

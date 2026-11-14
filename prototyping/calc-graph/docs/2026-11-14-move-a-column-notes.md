@@ -122,3 +122,30 @@ BG-1..3 gussets, BP-1..4 base plates; each end gets the lightest typical that wo
 UI by this agent (the React port builds it on these routes). Live connectors (all platform and
 ETABS data is mock unless the Windows bridge adapter is selected). The two health rules noted above
 were added after a first evaluation, so the design-path band score is in-sample for them.
+
+## As-of date and the inbound inbox (2026-11-14)
+
+**As-of (approval) date.** `POST /api/v2/impact`, `/change-order` and `GET /construction-status/{id}` take
+`as_of` (`today` | `+1w` | `+2w` | `+1m` | `YYYY-MM-DD`; default today = unchanged). One projection:
+`platforms.get_adapters(design, as_of=D)` builds the adapters over `synthetic.build_state(design, as_of=D)`,
+the construction state at close of business on D read off the same CPM schedule (current forecast assumed
+to hold). Health, construction status and the change order all read those adapters; none has date logic.
+`GET /api/v2/as-of` = presets (today in US Eastern). `POST /api/v2/impact/timeline` (body = the /impact
+body) = cost + forecast slip at the presets, the selected date and every stage boundary / package or
+downstream activity finish of the affected elements within 120 days, plus `approve_by_line`. The
+every-column heat view stays at today (by design, labelled in the UI). A live platform source has no
+schedule logic and is served as it is today.
+
+**Inbox** (`backend/calcgraph/inbox.py`, `/api/v2/inbox`, UI `/v2/inbox`). Lists the selected adapter's
+open RFIs, pending change events and pending change order requests (8 synthetic incoming items come from
+`platforms/inbox_synth.py`, unlinked to elements). `POST /{key}/read` = the AI step
+(`calcgraph.ai.extract`, task `inbound_item_reading`, Pydantic schema, provider anthropic / the step's
+default model, content-hash cache, budget cap from `CALCGRAPH_AI_MAX_RUN_USD`). `PUT /{key}/reading` =
+the engineer's confirmed reading. `POST /{key}/impact` maps it onto the engine: move / remove a column ->
+`move_api.impact_result` at the item's required-by date (or today); a substitution -> change-order
+estimator only (structural recheck not run, said so); anything else -> no number, the reason and the
+elements' construction status. `POST /{key}/reply` drafts the reply (template, no LLM), `PUT` saves edits,
+`POST /{key}/post` is refused unless the adapter is a live sandbox that implements `post_reply` (none does
+yet). `GET /history/{element}` feeds the element page's Platforms tab. State: `data/store/inbox/state.json`.
+Score the readings against the generator's answer key: `uv run --with anthropic python scripts/read_inbox.py`
+(cache first; real calls need `CALCGRAPH_AI_ENABLE_REAL=1`, a key and a run cap).

@@ -241,6 +241,9 @@ export default function MovePage() {
           {idx.building.name} <InfoTip id="stat.v2-synthetic" />
         </span>
         <span className="spacer" />
+        <Link className="btn sm" to="/v2/inbox">
+          Inbox
+        </Link>
         <Link className="btn sm" to="/v2/etabs">
           ETABS
         </Link>

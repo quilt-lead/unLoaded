@@ -6,6 +6,7 @@ import "./v2.css";
 
 const ElementPage = lazy(() => import("./ElementPage"));
 const EtabsPage = lazy(() => import("./EtabsPage"));
+const InboxPage = lazy(() => import("./InboxPage"));
 
 const wait = (el: ReactElement) => <Suspense fallback={<div className="page muted">Loading...</div>}>{el}</Suspense>;
 
@@ -15,6 +16,7 @@ export default function V2Routes() {
       <Route index element={<MovePage />} />
       <Route path="element/:eid" element={wait(<ElementPage />)} />
       <Route path="etabs" element={wait(<EtabsPage />)} />
+      <Route path="inbox" element={wait(<InboxPage />)} />
     </Routes>
   );
 }

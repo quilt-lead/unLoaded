@@ -12,6 +12,7 @@
 
 import { V2_HELP } from "./entries/v2";
 import { ASOF_HELP } from "./entries/asof";
+import { INBOX_HELP } from "./entries/inbox";
 
 export interface HelpEntry {
   /** label shown as the popover heading and the glossary entry name */
@@ -267,6 +268,7 @@ export const HELP = {
   // ---------------------------------------------------------------- per-feature entry files (src/help/entries/*.ts)
   ...V2_HELP,
   ...ASOF_HELP,
+  ...INBOX_HELP,
   // ---------------------------------------------------------------- R2: synthetic IFC app (/ifc)
   "page.ifc": {
     title: "Synthetic IFC app",
