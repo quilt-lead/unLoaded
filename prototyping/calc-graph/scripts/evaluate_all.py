@@ -10,6 +10,8 @@ v1 and Dana Point stages are DEPRECATED (retiring once v2 documents ingest end t
                    no clashes, every member has a design record); generates data/synthetic_v2 if absent
   v2_ifc           v2 model.ifc through the production ifc_ingest + loadpath vs design.json: element P/R,
                    profile + storey accuracy, load-path P/R (frames-into + bears-on), directed and not
+  ifc_contract     scripts/validate_ifc.py --fresh-only: a freshly written v2 base + move revision against
+                   our IDS (ifctester), schema validation, GlobalId stability, analytical model (pass/fail)
   v2_documents     scripts/evaluate_v2_docs.py when it exists (v2 drawings / calc package / specs through
                    the generic pipeline); else lists which v2 PDFs exist
   synthetic_v1     [deprecated] scripts/evaluate.py on the v1 synthetic package (segmentation, design-mapping P/R,
@@ -181,6 +183,16 @@ def st_ai_step(a) -> dict:
 def st_copyright(a) -> dict:
     c = _check([PY, "scripts/check_no_copyrighted.py", "--tracked"], "copyright")
     return {"checks": {"no_copyrighted_in_head": c[0]}, "notes": [c[1]]}
+
+
+def st_ifc_contract(a) -> dict:
+    """The IFC writers' contract: a freshly written v2 base + move revision against our IDS
+    (backend/calcgraph/ids/calc-graph-v2.ids, ifctester), schema validation, GlobalId stability,
+    profile consistency and the analytical model links (scripts/validate_ifc.py --fresh-only)."""
+    if not os.path.exists(os.path.join(ROOT, "scripts", "validate_ifc.py")):
+        raise Skip("scripts/validate_ifc.py not present")
+    c = _check([PY, "scripts/validate_ifc.py", "--fresh-only"], "ifc contract")
+    return {"checks": {"v2_ifc_contract": c[0]}, "notes": [c[1]]}
 
 
 def _optional_eval(script: str) -> dict:
@@ -383,7 +395,8 @@ def st_slice_links(a) -> dict:
     return {"metrics": m, "gated": ["link_precision", "correct_links_retained"], "notes": notes}
 
 
-STAGES = [("v2_design", st_v2_design), ("v2_ifc", st_v2_ifc), ("v2_documents", st_v2_documents),
+STAGES = [("v2_design", st_v2_design), ("v2_ifc", st_v2_ifc), ("ifc_contract", st_ifc_contract),
+          ("v2_documents", st_v2_documents),
           ("move_answer_key", st_move_answer_key), ("registry", st_registry),
           ("ai_step", st_ai_step), ("copyright", st_copyright),
           ("synthetic_v1", st_synthetic_v1), ("set_coverage", st_set_coverage),

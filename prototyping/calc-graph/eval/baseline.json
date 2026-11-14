@@ -18,6 +18,11 @@
     "no_copyrighted_in_head": true
    }
   },
+  "ifc_contract": {
+   "checks": {
+    "v2_ifc_contract": true
+   }
+  },
   "move_answer_key": {
    "metrics": {
     "health_band_exact": 1.0,

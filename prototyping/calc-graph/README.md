@@ -35,6 +35,14 @@ removed on top. For frontend work: `uv run calc-graph serve` plus `cd frontend &
   `eval/baseline.json` (numbers only) or a check fails. `--synthetic-only` is what CI runs;
   `--update-baseline` accepts the current numbers. Hand labels for drawing-set slices live in the
   gitignored `data/labels/` (procedure: `scripts/label_slice.py`) and never enter git.
+- **IFC writers** - every IFC calc-graph writes (synth v2, plans-to-IFC, synth v1) goes through
+  `backend/calcgraph/ifc_common.py` on `ifcopenshell.api`; the v2 file also carries the structural
+  analysis model (`ifc_structural.py`, from the ETABS-style analysis objects). Contracts are IDS files
+  in `backend/calcgraph/ids/`; `scripts/validate_ifc.py` checks every IFC we produce against them
+  (ifctester + schema validation + GlobalId stability; evaluate_all stage `ifc_contract`).
+  `scripts/check_ifc_parity.py A.ifc B.ifc` is the before/after gate for a writer change (elements,
+  GlobalIds, psets, storeys, bounding boxes within 1 mm). `calcgraph.ifc_diff` is the ifcdiff revision
+  diff; `scripts/compare_revision_diffs.py` runs it against the store's key-join diff.
 - **Copyright guard** - install once per clone, from the repo root:
   `git config core.hooksPath prototyping/calc-graph/scripts/git-hooks`. The pre-commit hook runs
   `scripts/check_no_copyrighted.py --staged` (blocks PDFs, images not pinned in

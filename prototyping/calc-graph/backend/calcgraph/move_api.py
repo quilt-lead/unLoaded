@@ -296,12 +296,12 @@ def apply(m: Move):
             pipeline.ingest_model(st, pid, os.path.join(V2, "model.ifc"), "model.ifc", "Synthetic v2 - base design")
         prev = st.project(pid)["head_model_rev"]
         L = recalc.layout_from_change(_change(m))
-        _, exp = build(L, keep={e["id"]: e for e in d["elements"]})
+        dd, exp = build(L, keep={e["id"]: e for e in d["elements"]})
         label = m.label or (f"Remove {m.column}" if m.remove else f"Move {m.column} ({m.dx:+g}, {m.dy:+g}) ft")
         fd, path = tempfile.mkstemp(suffix=".ifc")
         os.close(fd)
         try:
-            ifc_v2.write(exp, path, label=label)
+            ifc_v2.write(exp, path, dd, label=label)
             rid = pipeline.ingest_model(st, pid, path, f"{label}.ifc", label)
         finally:
             os.unlink(path)
@@ -310,7 +310,15 @@ def apply(m: Move):
 
 
 @router.get("/compare")
-def compare(a: int, b: int):
+def compare(a: int, b: int, engine: str = "store"):
+    """Element diff of two model revisions: engine=store (key join over the ingested elements) or
+    engine=ifcdiff (ifcdiff on the two revision IFCs, analytical items included; the store diff is
+    returned alongside under "store")."""
+    if engine == "ifcdiff":
+        from . import ifc_diff
+        return _safe(ifc_diff.diff_revisions(_store(), a, b))
+    if engine != "store":
+        raise HTTPException(400, "engine must be 'store' or 'ifcdiff'")
     return _store().compare_models(a, b)
 
 

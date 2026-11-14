@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>calc-graph synthetic v2 model contract</title>
+    <copyright>calc-graph contributors (Apache-2.0)</copyright>
+    <version>1.0</version>
+    <description>What every IFC written by synth/v2/ifc_v2.py (base design and every /api/v2/apply revision) must contain: calc-graph identity and calc record ids on every designed element, marks, AISC sections with material grades on linear steel, the five storeys with every element contained in one, IFC GlobalIds, and the structural analysis model. GlobalId STABILITY across revisions is not expressible in IDS (one file at a time): scripts/validate_ifc.py checks it.</description>
+    <author>calc-graph@example.org</author>
+    <date>2026-11-14</date>
+    <purpose>Gate for the calc-graph IFC writers (scripts/validate_ifc.py, evaluate_all stage ifc_contract).</purpose>
+  </info>
+  <specifications>
+    <specification name="Designed elements carry calc-graph identity and their calc record ids" ifcVersion="IFC4" identifier="CG-V2-01"
+                   description="Pset_CalcGraph.ElementId is the registry id; CalcRecords lists the calc record ids that design the element (the link the whole product is about)."
+                   instructions="Every structural element except the deck slabs (no design record designs a deck).">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><xs:restriction base="xs:string">
+          <xs:enumeration value="IFCBEAM"/><xs:enumeration value="IFCCOLUMN"/><xs:enumeration value="IFCMEMBER"/>
+          <xs:enumeration value="IFCFOOTING"/><xs:enumeration value="IFCPLATE"/>
+        </xs:restriction></name></entity>
+      </applicability>
+      <requirements>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Pset_CalcGraph</simpleValue></propertySet>
+          <baseName><simpleValue>ElementId</simpleValue></baseName>
+          <value><xs:restriction base="xs:string"><xs:pattern value="[A-Z][A-Z0-9]*-\S+"/></xs:restriction></value>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Pset_CalcGraph</simpleValue></propertySet>
+          <baseName><simpleValue>CalcRecords</simpleValue></baseName>
+          <value><xs:restriction base="xs:string"><xs:pattern value="[A-Z][A-Z0-9]*-[A-Z]+:\S+(;[A-Z][A-Z0-9]*-[A-Z]+:\S+)*"/></xs:restriction></value>
+        </property>
+      </requirements>
+    </specification>
+    <specification name="Every element has a mark and an IFC GlobalId and sits in a storey" ifcVersion="IFC4" identifier="CG-V2-02"
+                   description="Identity Data.Mark for drawings and schedules; a 22-character IFC GlobalId; contained in an IfcBuildingStorey.">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><xs:restriction base="xs:string">
+          <xs:enumeration value="IFCBEAM"/><xs:enumeration value="IFCCOLUMN"/><xs:enumeration value="IFCMEMBER"/>
+          <xs:enumeration value="IFCFOOTING"/><xs:enumeration value="IFCPLATE"/><xs:enumeration value="IFCSLAB"/>
+        </xs:restriction></name></entity>
+      </applicability>
+      <requirements>
+        <partOf relation="IFCRELCONTAINEDINSPATIALSTRUCTURE" cardinality="required">
+          <entity><name><simpleValue>IFCBUILDINGSTOREY</simpleValue></name></entity>
+        </partOf>
+        <attribute cardinality="required">
+          <name><simpleValue>GlobalId</simpleValue></name>
+          <value><xs:restriction base="xs:string"><xs:pattern value="[0-9A-Za-z_$]{22}"/></xs:restriction></value>
+        </attribute>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Identity Data</simpleValue></propertySet>
+          <baseName><simpleValue>Mark</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Pset_CalcGraph</simpleValue></propertySet>
+          <baseName><simpleValue>ElementId</simpleValue></baseName>
+        </property>
+      </requirements>
+    </specification>
+    <specification name="Linear steel members have an AISC section and a material grade" ifcVersion="IFC4" identifier="CG-V2-03"
+                   description="Structural.Section is an AISC designation (W or HSS) and the member has an IfcMaterialProfileSetUsage whose material is an ASTM grade. scripts/validate_ifc.py also checks the material profile names the same section.">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><xs:restriction base="xs:string">
+          <xs:enumeration value="IFCBEAM"/><xs:enumeration value="IFCCOLUMN"/><xs:enumeration value="IFCMEMBER"/>
+        </xs:restriction></name></entity>
+        <property>
+          <propertySet><simpleValue>Structural</simpleValue></propertySet>
+          <baseName><simpleValue>Section</simpleValue></baseName>
+        </property>
+      </applicability>
+      <requirements>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Structural</simpleValue></propertySet>
+          <baseName><simpleValue>Section</simpleValue></baseName>
+          <value><xs:restriction base="xs:string"><xs:pattern value="W\d+X\d+(\.\d+)?|HSS\d+(\.\d+)?X\d+(\.\d+)?X\d+(/\d+)?"/></xs:restriction></value>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>Structural</simpleValue></propertySet>
+          <baseName><simpleValue>Grade</simpleValue></baseName>
+        </property>
+        <material cardinality="required">
+          <value><xs:restriction base="xs:string"><xs:pattern value="ASTM .+"/></xs:restriction></value>
+        </material>
+      </requirements>
+    </specification>
+    <specification name="The five storeys" ifcVersion="IFC4" identifier="CG-V2-04"
+                   description="Foundation, Level 1, Level 2, Level 3 and Roof - and no other storey.">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><simpleValue>IFCBUILDINGSTOREY</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>Name</simpleValue></name>
+          <value><xs:restriction base="xs:string">
+            <xs:enumeration value="Foundation"/><xs:enumeration value="Level 1"/><xs:enumeration value="Level 2"/>
+            <xs:enumeration value="Level 3"/><xs:enumeration value="Roof"/>
+          </xs:restriction></value>
+        </attribute>
+        <partOf relation="IFCRELAGGREGATES" cardinality="required">
+          <entity><name><simpleValue>IFCBUILDING</simpleValue></name></entity>
+        </partOf>
+      </requirements>
+    </specification>
+    <specification name="One 3D structural analysis model" ifcVersion="IFC4" identifier="CG-V2-05"
+                   description="The analytical model of the design travels in the same file as the physical model.">
+      <applicability minOccurs="1" maxOccurs="1">
+        <entity><name><simpleValue>IFCSTRUCTURALANALYSISMODEL</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>PredefinedType</simpleValue></name>
+          <value><simpleValue>LOADING_3D</simpleValue></value>
+        </attribute>
+      </requirements>
+    </specification>
+    <specification name="Analytical members belong to the model, name their element and carry a section" ifcVersion="IFC4" identifier="CG-V2-06"
+                   description="Every IfcStructuralCurveMember is in the analysis model, carries CalcGraph_Analytical.ElementId (the physical element it idealizes) and a material profile.">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><simpleValue>IFCSTRUCTURALCURVEMEMBER</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <partOf relation="IFCRELASSIGNSTOGROUP" cardinality="required">
+          <entity><name><simpleValue>IFCSTRUCTURALANALYSISMODEL</simpleValue></name></entity>
+        </partOf>
+        <attribute cardinality="required">
+          <name><simpleValue>PredefinedType</simpleValue></name>
+          <value><simpleValue>RIGID_JOINED_MEMBER</simpleValue></value>
+        </attribute>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Analytical</simpleValue></propertySet>
+          <baseName><simpleValue>ElementId</simpleValue></baseName>
+        </property>
+        <material cardinality="required"/>
+      </requirements>
+    </specification>
+    <specification name="Analytical nodes belong to the model" ifcVersion="IFC4" identifier="CG-V2-07">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><simpleValue>IFCSTRUCTURALPOINTCONNECTION</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <partOf relation="IFCRELASSIGNSTOGROUP" cardinality="required">
+          <entity><name><simpleValue>IFCSTRUCTURALANALYSISMODEL</simpleValue></name></entity>
+        </partOf>
+      </requirements>
+    </specification>
+    <specification name="Load cases name their action type" ifcVersion="IFC4" identifier="CG-V2-08">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><simpleValue>IFCSTRUCTURALLOADCASE</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <attribute cardinality="required">
+          <name><simpleValue>ActionType</simpleValue></name>
+          <value><xs:restriction base="xs:string">
+            <xs:enumeration value="PERMANENT_G"/><xs:enumeration value="VARIABLE_Q"/><xs:enumeration value="EXTRAORDINARY_A"/>
+          </xs:restriction></value>
+        </attribute>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

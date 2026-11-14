@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ids xmlns="http://standards.buildingsmart.org/IDS" xmlns:xs="http://www.w3.org/2001/XMLSchema"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://standards.buildingsmart.org/IDS http://standards.buildingsmart.org/IDS/1.0/ids.xsd">
+  <info>
+    <title>calc-graph plans-to-IFC model contract</title>
+    <copyright>calc-graph contributors (Apache-2.0)</copyright>
+    <version>1.0</version>
+    <description>What every IFC written by backend/calcgraph/plans_to_ifc.py (structure rebuilt from a drawing set, no BIM model) must contain: per element the drawing evidence it was placed from (sheet, tag, placement rule, position / elevation / profile sources), the calc link status, an IFC GlobalId, and containment in a storey.</description>
+    <author>calc-graph@example.org</author>
+    <date>2026-11-14</date>
+    <purpose>Gate for plans_to_ifc (scripts/validate_ifc.py).</purpose>
+  </info>
+  <specifications>
+    <specification name="Every placed element carries its drawing provenance" ifcVersion="IFC4" identifier="CG-PL-01"
+                   description="CalcGraph_Drawing: the element id, the sheet and tag it was read from, and how its position, elevation and profile were derived.">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><xs:restriction base="xs:string">
+          <xs:enumeration value="IFCBEAM"/><xs:enumeration value="IFCCOLUMN"/><xs:enumeration value="IFCFOOTING"/>
+        </xs:restriction></name></entity>
+      </applicability>
+      <requirements>
+        <partOf relation="IFCRELCONTAINEDINSPATIALSTRUCTURE" cardinality="required">
+          <entity><name><simpleValue>IFCBUILDINGSTOREY</simpleValue></name></entity>
+        </partOf>
+        <attribute cardinality="required">
+          <name><simpleValue>GlobalId</simpleValue></name>
+          <value><xs:restriction base="xs:string"><xs:pattern value="[0-9A-Za-z_$]{22}"/></xs:restriction></value>
+        </attribute>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>ElementId</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>Sheet</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>Tag</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>Size</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>PlacementRule</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>PositionSource</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>ElevationSource</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>ProfileSource</simpleValue></baseName>
+        </property>
+        <property dataType="IFCLABEL" cardinality="required">
+          <propertySet><simpleValue>CalcGraph_Drawing</simpleValue></propertySet><baseName><simpleValue>CalcLinkStatus</simpleValue></baseName>
+          <value><xs:restriction base="xs:string">
+            <xs:enumeration value="linked"/><xs:enumeration value="size mismatch"/><xs:enumeration value="no calc found"/>
+          </xs:restriction></value>
+        </property>
+      </requirements>
+    </specification>
+    <specification name="Storeys belong to the building" ifcVersion="IFC4" identifier="CG-PL-02">
+      <applicability minOccurs="1" maxOccurs="unbounded">
+        <entity><name><simpleValue>IFCBUILDINGSTOREY</simpleValue></name></entity>
+      </applicability>
+      <requirements>
+        <partOf relation="IFCRELAGGREGATES" cardinality="required">
+          <entity><name><simpleValue>IFCBUILDING</simpleValue></name></entity>
+        </partOf>
+      </requirements>
+    </specification>
+  </specifications>
+</ids>

@@ -1,8 +1,14 @@
-"""Write the v2 design to IFC4 (IfcOpenShell, shared helpers in calcgraph.ifc_common).
+"""Write the v2 design to IFC4 through ifcopenshell.api (shared builder: calcgraph.ifc_common).
 
 Metres in the file (model is in feet). GlobalId = uuid5(NS, element id), so an element keeps
 its GlobalId in every layout / revision (what the revision store diffs on). Every element
-carries Pset_CalcGraph: ElementId, Roles, Frame, CalcRecords (the record ids that design it).
+carries Pset_CalcGraph: ElementId, Roles, Frame, CalcRecords (the record ids that design it),
+and its material from the registry (instance-of -> type -> material): linear steel members as
+an IfcMaterialProfileSetUsage (section profile + grade), everything else as an IfcMaterial.
+
+The same file carries the structural analysis model (calcgraph.ifc_structural): the analytical
+nodes / members / supports / releases / load groups, cases, combinations and member line loads
+of the design, linked to the physical elements by IfcRelAssignsToProduct.
 """
 from __future__ import annotations
 
@@ -11,6 +17,8 @@ import uuid
 
 import numpy as np
 
+from calcgraph import ifc_structural
+from calcgraph.analysis import etabs
 from calcgraph.ifc_common import IfcBuilder
 
 from . import aisc
@@ -23,7 +31,26 @@ STOREYS = [("Foundation", -3.0 * FT), ("Level 1", 0.0), ("Level 2", 14 * FT), ("
 LV_STOREY = {"L1": "Level 1", "L2": "Level 2", "L3": "Level 3", "RF": "Roof"}
 
 
-def write(exp: dict, path: str, label: str = "Base design", timestamp: str = "2026-11-14T09:00:00") -> dict[str, str]:
+LINEAR = ("beam", "girder", "column", "brace")
+
+
+def _materials(exp: dict) -> dict[str, tuple[str, str]]:
+    """{element id: (material name, IFC material category)} from the registry relations."""
+    types = {t["id"]: t for t in exp.get("types", [])}
+    out = {}
+    for r in exp["relations"]:
+        if r["kind"] != "instance-of" or r["src"] in out:
+            continue
+        mat = r["dst"] if r["dst"].startswith("MAT:") else types.get(r["dst"], {}).get("material")
+        if mat in types:
+            out[r["src"]] = (types[mat]["name"], "concrete" if "CONC" in mat else "steel")
+    return out
+
+
+def write(exp: dict, path: str, design: dict, label: str = "Base design",
+          timestamp: str = "2026-11-14T09:00:00") -> dict[str, str]:
+    """exp = records.export(design) (+ building); design = synth.v2.design.run(...) output, read
+    for the analysis model's member line loads (framing w, kip/ft, for every member incl. SMF beams)."""
     B = IfcBuilder(path, namespace=NS, project_name="Harbor View Office (synthetic)",
                    project_description="Synthetic 3-storey steel office - calc-graph v2", project_phase=label,
                    building_name="Harbor View Office", storeys=STOREYS, author="calc-graph synth v2",
@@ -58,6 +85,8 @@ def write(exp: dict, path: str, label: str = "Base design", timestamp: str = "20
         return B.ax((cx * FT, cy * FT, z0 * FT)), B.solid(B.rect_profile(sx * FT, sy * FT), sz * FT)
 
     gids = {}
+    insts = {}
+    mats = _materials(exp)
     els = {e["id"]: e for e in exp["elements"]}
     support = {}
     for r in exp["relations"]:
@@ -95,7 +124,14 @@ def write(exp: dict, path: str, label: str = "Base design", timestamp: str = "20
         if extra:
             ps["Structural"] = {k: str(v) for k, v in extra.items()}
         B.psets(inst, e["id"], ps)
+        if e["id"] in mats:
+            mname, cat = mats[e["id"]]
+            if e["type"] in LINEAR:
+                B.assign_profile_material(inst, placement[1].profile, mname, cat)
+            else:
+                B.assign_material(inst, mname, cat)
         gids[e["id"]] = gid
+        insts[e["id"]] = inst
 
     for e in exp["elements"]:
         t = e["type"]
@@ -163,5 +199,11 @@ def write(exp: dict, path: str, label: str = "Base design", timestamp: str = "20
             th = 6.25 / 12 if e["level"] != "RF" else 1.5 / 12
             emit("IfcSlab", e, e["id"], e["name"], box(60, 42.5, z, 120.5, 85.5, th), LV_STOREY[e["level"]],
                  "ROOF" if e["level"] == "RF" else "FLOOR", {"Deck": e["name"]})
+
+    objs, labels = etabs.build_objects(exp)
+    loads = {k: {"Dead": r["w"][0], "Live": r["w"][1], "Lr": r["w"][2]} for k, r in design["framing"].items()}
+    steel = {e["size"]: mats[e["id"]][0] for e in exp["elements"] if e["type"] in LINEAR and e["id"] in mats}
+    ifc_structural.add_analysis_model(B, objs, labels, insts, iprof, steel.__getitem__, loads,
+                                      name=f"Analysis model - {label}")
     B.write(path)
     return gids

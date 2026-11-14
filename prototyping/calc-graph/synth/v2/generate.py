@@ -51,7 +51,7 @@ def generate(out: str = OUT) -> dict:
     os.makedirs(out, exist_ok=True)
     t = time.time()
     d, exp = build()
-    gids = ifc_v2.write(exp, os.path.join(out, "model.ifc"))
+    gids = ifc_v2.write(exp, os.path.join(out, "model.ifc"), d)
     for e in exp["elements"]:
         if e["id"] in gids:
             e["global_id"] = gids[e["id"]]
