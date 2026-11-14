@@ -11,3 +11,4 @@ data/eval/
 .DS_Store
 data/sets/
 data/labels/
+data/synthetic_v2/
