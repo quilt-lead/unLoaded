@@ -75,6 +75,8 @@ export interface GraphViewProps<N = unknown, E = unknown> {
   height?: number | string;
   /** drawn under the graph, e.g. a Legend */
   footer?: ReactNode;
+  /** the initial fit never zooms out below this (large graphs open readable and pan instead of shrinking to fit) */
+  fitMinZoom?: number;
 }
 
 const NW = 176, NH = 44, LANE_GAP = 90, ROW_GAP = 12, HEAD = 34, PAD = 14;
@@ -179,6 +181,7 @@ export function GraphView<N, E>({
   onEdgeClick,
   height = 420,
   footer,
+  fitMinZoom,
 }: GraphViewProps<N, E>) {
   const { resolved } = useTheme();
   const dir = lanes?.length ? "LR" : direction;
@@ -241,7 +244,7 @@ export function GraphView<N, E>({
           nodeTypes={nodeTypes}
           colorMode={resolved}
           fitView
-          fitViewOptions={{ padding: 0.08 }}
+          fitViewOptions={{ padding: 0.08, minZoom: fitMinZoom }}
           minZoom={0.1}
           maxZoom={2.5}
           nodesConnectable={false}
