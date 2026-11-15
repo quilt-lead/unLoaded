@@ -32,18 +32,18 @@
    "metrics": {
     "health_band_exact": 1.0,
     "health_band_within_one": 1.0,
-    "stale_screened_precision": 0.83,
-    "stale_screened_recall": 0.922,
-    "stale_topological_precision": 0.563,
+    "stale_screened_precision": 0.81,
+    "stale_screened_recall": 0.913,
+    "stale_topological_precision": 0.54,
     "stale_topological_recall": 0.992,
     "uc_abs_err_p90": 0.0008000000000000229,
-    "uc_over_flag_agreement": 1.0,
+    "uc_over_flag_agreement": 0.999,
     "uc_within_0_05": 0.998
    }
   },
   "registry": {
    "metrics": {
-    "node_precision": 0.9888451443569554,
+    "node_precision": 0.991304347826087,
     "node_recall_detail": 1.0,
     "node_recall_drawn": 1.0,
     "node_recall_element_beam": 1.0,
@@ -59,36 +59,36 @@
     "node_recall_element_level": 1.0,
     "node_recall_element_pier": 1.0,
     "node_recall_material": 1.0,
-    "node_recall_record": 0.9896449704142012,
+    "node_recall_record": 0.9890560875512996,
     "node_recall_spec": 1.0,
     "node_recall_type": 1.0,
-    "occ_calcs_precision": 0.9772058823529411,
-    "occ_calcs_recall": 0.9881040892193309,
-    "occ_drawings_precision": 0.9189944134078212,
-    "occ_drawings_recall": 0.9683590875643856,
+    "occ_calcs_precision": 0.981020942408377,
+    "occ_calcs_recall": 0.9894389438943895,
+    "occ_drawings_precision": 0.9137931034482759,
+    "occ_drawings_recall": 0.9629878869448183,
     "occ_etabs_precision": 0.0,
     "occ_etabs_recall": 0.0,
     "occ_ifc_precision": 1.0,
     "occ_ifc_recall": 1.0,
-    "occ_specs_precision": 0.7275362318840579,
-    "occ_specs_recall": 0.6729222520107239,
+    "occ_specs_precision": 0.723943661971831,
+    "occ_specs_recall": 0.6675324675324675,
     "rel_bears-on_precision": 1.0,
     "rel_bears-on_recall": 1.0,
-    "rel_connected-by_precision": 0.9679144385026738,
+    "rel_connected-by_precision": 1.0,
     "rel_connected-by_recall": 1.0,
-    "rel_designed-by_precision": 0.9762611275964391,
-    "rel_designed-by_recall": 0.9924585218702866,
+    "rel_designed-by_precision": 0.9820689655172414,
+    "rel_designed-by_recall": 0.9916434540389972,
     "rel_detailed-by_precision": 1.0,
     "rel_detailed-by_recall": 1.0,
     "rel_feeds_precision": 0.8551292090837901,
-    "rel_feeds_recall": 0.7918781725888325,
+    "rel_feeds_recall": 0.7653668208856577,
     "rel_frames-into_precision": 1.0,
     "rel_frames-into_recall": 1.0,
-    "rel_instance-of_precision": 0.9952456418383518,
-    "rel_instance-of_recall": 0.9952456418383518,
-    "rel_member-of_precision": 1.0,
+    "rel_instance-of_precision": 0.9954819277108434,
+    "rel_instance-of_recall": 0.9954819277108434,
+    "rel_member-of_precision": 0.9899749373433584,
     "rel_member-of_recall": 1.0,
-    "rel_specified-by_precision": 0.5648148148148148,
+    "rel_specified-by_precision": 0.5663716814159292,
     "rel_specified-by_recall": 0.5
    }
   },
@@ -148,10 +148,10 @@
     "no_infeasible_members": true
    },
    "metrics": {
-    "calc_records": 676,
-    "elements": 647,
-    "members_with_design_record": 0.9883268482490273,
-    "relations": 4649
+    "calc_records": 731,
+    "elements": 681,
+    "members_with_design_record": 0.9887218045112782,
+    "relations": 4997
    }
   },
   "v2_ifc": {
@@ -162,10 +162,10 @@
     "load_path_recall": 1.0,
     "load_path_undirected_precision": 1.0,
     "load_path_undirected_recall": 1.0,
-    "profile_accuracy": 0.9390862944162437,
+    "profile_accuracy": 1.0,
     "storey_accuracy": 1.0
    }
   }
  },
- "updated": "2026-11-14 16:21 EST"
+ "updated": "2026-11-14 19:46 EST"
 }
