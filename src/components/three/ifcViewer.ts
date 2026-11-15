@@ -423,7 +423,13 @@ export class IfcViewer {
       m.visible = s.visible;
       mat.color.set(s.color);
       mat.opacity = s.opacity;
-      mat.transparent = s.opacity < 1;
+      const transparent = s.opacity < 1;
+      if (mat.transparent !== transparent) {
+        mat.transparent = transparent;
+        // Re-select the shader variant: a cached OPAQUE shader forces alpha to 1,
+        // so opacity alone cannot dim a previously solid element.
+        mat.needsUpdate = true;
+      }
       mat.depthWrite = s.opacity >= 0.5;
       mat.emissive.set(s.glow ?? '#000000');
       mat.emissiveIntensity = s.glow ? 0.55 : 0;
