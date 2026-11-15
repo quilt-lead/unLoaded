@@ -20,8 +20,11 @@ interface RadialGraphCanvasProps {
   matchingNodeIds: Set<string>;
   isFilterActive: boolean;
   heatmapMode: boolean;
+  diffMode?: boolean;
   resetTrigger: number;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean; skipZoomFit?: boolean }) => void;
+  onSelectGroup?: (groupId: string, opts?: { toggleMulti?: boolean }) => void;
+  onRenameGroup?: (groupId: string, newName: string) => void;
   onClearSelection: () => void;
   onMoveNodes: (movedIds: Set<string>, dx: number, dy: number) => void;
   onGroupSelection: () => void;
@@ -47,12 +50,17 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   matchingNodeIds,
   isFilterActive,
   heatmapMode,
+  diffMode = false,
   resetTrigger,
   onSelectNode,
+  onSelectGroup,
+  onRenameGroup,
   onClearSelection,
   onMoveNodes,
   onGroupSelection,
 }) => {
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState<string>('');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [camera, setCamera] = useState({ panX: 0, panY: 0, scale: 0.74 });
   const cameraRef = useRef(camera);
@@ -350,6 +358,19 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         }}
         className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"
       >
+        {nodes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="bg-[#2d3139]/90 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-6 py-5 text-center max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
+              <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+                No BIM / IFC Model Loaded
+              </p>
+              <h3 className="text-sm font-semibold text-white">Import an IFC or JSON Graph</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                Click <span className="text-zinc-200 font-medium">Import IFC / DB</span> in the top-right bar to load a raw <code className="text-indigo-300">.ifc</code> STEP file or <code className="text-indigo-300">.json</code> structural graph.
+              </p>
+            </div>
+          </div>
+        )}
         <svg id="graphSvg" className="w-full h-full">
           <g id="viewport" transform={`translate(${camera.panX}, ${camera.panY}) scale(${camera.scale})`}>
             {/* Subtle Polar Reference Rings */}
@@ -368,7 +389,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
               ))}
             </g>
 
-            {/* Group Hulls */}
+            {/* Group Hulls (Click hull or group name to select all members; double-click or click pencil to rename) */}
             <g>
               {groups.map((grp) => {
                 const members = grp.nodeIds.map((id) => nodeById.get(id)).filter((n): n is BimNode => Boolean(n));
@@ -391,22 +412,49 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const h = maxY - minY + pad * 2;
                 const cornerR = Math.min(22, Math.min(w, h) * 0.25);
 
+                const isGroupSelected = members.every((m) => selectedNodeIds.has(m.id));
+                const badgeLabel = `${grp.name} (${members.length})`;
+                const badgeWidth = Math.max(76, badgeLabel.length * 6.2 + 24);
+                const badgeHeight = 18;
+                const badgeX = x + 6;
+                const badgeY = y - badgeHeight - 4;
+
+                const handleSelectWholeGroup = (e: React.PointerEvent) => {
+                  if (e.button === 1 || e.button === 2) return;
+                  e.stopPropagation();
+                  if (containerRef.current) {
+                    const rect = containerRef.current.getBoundingClientRect();
+                    const ix = interactionRef.current;
+                    ix.draggedNodeId = members[0].id;
+                    ix.lastDragGraphX = (e.clientX - rect.left - camera.panX) / camera.scale;
+                    ix.lastDragGraphY = (e.clientY - rect.top - camera.panY) / camera.scale;
+                  }
+                  if (onSelectGroup) {
+                    onSelectGroup(grp.id, { toggleMulti: e.shiftKey });
+                  } else {
+                    members.forEach((m, i) =>
+                      onSelectNode(m.id, { preserveMulti: i > 0 || e.shiftKey, skipZoomFit: true })
+                    );
+                  }
+                };
+
+                const startRename = (e: React.MouseEvent | React.PointerEvent) => {
+                  e.stopPropagation();
+                  setEditingGroupId(grp.id);
+                  setEditingGroupName(grp.name);
+                };
+
+                const commitRename = () => {
+                  const trimmed = editingGroupName.trim();
+                  if (trimmed && onRenameGroup) {
+                    onRenameGroup(grp.id, trimmed);
+                  }
+                  setEditingGroupId(null);
+                };
+
                 return (
-                  <g
-                    key={grp.id}
-                    className="cursor-pointer"
-                    onPointerDown={(e) => {
-                      if (e.button === 1 || e.button === 2) return;
-                      e.stopPropagation();
-                      if (!containerRef.current) return;
-                      const rect = containerRef.current.getBoundingClientRect();
-                      const ix = interactionRef.current;
-                      ix.draggedNodeId = members[0].id;
-                      ix.lastDragGraphX = (e.clientX - rect.left - camera.panX) / camera.scale;
-                      ix.lastDragGraphY = (e.clientY - rect.top - camera.panY) / camera.scale;
-                      onSelectNode(members[0].id, { preserveMulti: true, skipZoomFit: true });
-                    }}
-                  >
+                  <g key={grp.id}>
+                    {/* Dashed Hull Boundary */}
                     <rect
                       x={x}
                       y={y}
@@ -414,21 +462,85 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       height={h}
                       rx={cornerR}
                       ry={cornerR}
-                      fill="rgba(255, 255, 255, 0.035)"
-                      stroke="rgba(255, 255, 255, 0.55)"
-                      strokeWidth={1.4}
+                      onPointerDown={handleSelectWholeGroup}
+                      className="cursor-pointer"
+                      fill={isGroupSelected ? 'rgba(99, 102, 241, 0.11)' : 'rgba(255, 255, 255, 0.035)'}
+                      stroke={isGroupSelected ? '#818cf8' : 'rgba(255, 255, 255, 0.55)'}
+                      strokeWidth={isGroupSelected ? 2.0 : 1.4}
                       strokeDasharray="6 4"
                     />
-                    <text
-                      x={x + 10}
-                      y={y - 5}
-                      fill="#ffffff"
-                      fontFamily="'IBM Plex Mono', monospace"
-                      fontSize="9px"
-                      fontWeight={600}
-                    >
-                      {grp.name} ({members.length})
-                    </text>
+
+                    {/* Clickable & Namable Group Header Pill */}
+                    {editingGroupId === grp.id ? (
+                      <foreignObject
+                        x={badgeX}
+                        y={badgeY - 2}
+                        width={Math.max(150, badgeWidth + 40)}
+                        height={24}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingGroupName}
+                          onChange={(e) => setEditingGroupName(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            e.stopPropagation();
+                            if (e.key === 'Enter') commitRename();
+                            if (e.key === 'Escape') setEditingGroupId(null);
+                          }}
+                          className="w-full h-5 px-2 rounded bg-[#181b20] text-white mono text-[10px] font-semibold border border-indigo-400 focus:outline-none shadow-lg"
+                        />
+                      </foreignObject>
+                    ) : (
+                      <g
+                        onPointerDown={handleSelectWholeGroup}
+                        onDoubleClick={startRename}
+                        className="cursor-pointer"
+                      >
+                        <rect
+                          x={badgeX}
+                          y={badgeY}
+                          width={badgeWidth}
+                          height={badgeHeight}
+                          rx={5}
+                          ry={5}
+                          fill={isGroupSelected ? '#4f46e5' : '#2d3139'}
+                          stroke={isGroupSelected ? '#a5b4fc' : 'rgba(255, 255, 255, 0.35)'}
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={badgeX + 8}
+                          y={badgeY + 12.2}
+                          fill="#ffffff"
+                          fontFamily="'IBM Plex Mono', monospace"
+                          fontSize="9.5px"
+                          fontWeight={600}
+                        >
+                          {badgeLabel}
+                        </text>
+                        {/* Rename Edit Trigger */}
+                        <g
+                          transform={`translate(${badgeX + badgeWidth - 15}, ${badgeY + 3})`}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={startRename}
+                        >
+                          <title>Rename Group</title>
+                          <rect width={12} height={12} rx={3} fill="rgba(255,255,255,0.12)" />
+                          <text
+                            x={6}
+                            y={9.2}
+                            textAnchor="middle"
+                            fill="#e0e7ff"
+                            fontSize="8px"
+                            fontFamily="'Apercu Pro', 'Apercu', sans-serif"
+                          >
+                            ✎
+                          </text>
+                        </g>
+                      </g>
+                    )}
                   </g>
                 );
               })}
@@ -470,7 +582,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const isProj = isProjectNode(node);
                 const isCategory = isElementTypeNode(node);
                 const isStack = isColumnStackNode(node);
-                const fillHex = getEffectiveNodeColor(node, heatmapMode);
+                const fillHex = getEffectiveNodeColor(node, heatmapMode, diffMode);
                 const textStyle = getContrastingTextStyle(fillHex);
                 const displayLabel = isStack ? node.colNumber || node.label : node.label;
 
@@ -508,12 +620,13 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                           : 'rgba(255,255,255,0.72)'
                       }
                       strokeWidth={isSelected ? 2.6 : isProj ? 2.2 : isCategory ? 1.75 : 1.25}
+                      strokeDasharray={diffMode && node.diffStatus === 'removed' ? '3 2' : undefined}
                     />
                     <text
                       textAnchor="middle"
                       dy="0.34em"
                       fill={textStyle.fill}
-                      fontFamily="'IBM Plex Sans', sans-serif"
+                      fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                       fontWeight={isProj || isCategory || isStack ? 600 : 500}
                       fontSize={getFittedFontSize(displayLabel, node.r)}
                       pointerEvents="none"

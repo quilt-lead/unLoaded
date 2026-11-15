@@ -34,7 +34,35 @@ export interface FlattenedDocument extends BimDocument {
   mappedElementIds: string[];
 }
 
+
+export type DiffStatus = 'added' | 'removed' | 'modified' | 'unchanged';
+
+export interface NodeDiffFieldChange {
+  field: string;
+  before: string;
+  after: string;
+}
+
+export interface NodeDiffMeta {
+  status: DiffStatus;
+  changes: NodeDiffFieldChange[];
+  beforeNode?: BimNode;
+  afterNode?: BimNode;
+}
+
+export interface DatabaseDiffSummary {
+  baseName: string;
+  compareName: string;
+  addedCount: number;
+  removedCount: number;
+  modifiedCount: number;
+  unchangedCount: number;
+}
+
 export interface BimNode {
+  diffStatus?: DiffStatus;
+  diffChanges?: NodeDiffFieldChange[];
+  diffBefore?: Partial<BimNode>;
   id: string;
   label: string;
   type: string;

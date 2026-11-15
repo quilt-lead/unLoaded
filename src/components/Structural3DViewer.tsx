@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { BimNode } from '../types/bim';
-import { getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
+import { DIFF_PALETTE, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 import { isColumnStackNode, isElementTypeNode, isInstanceNode, isProjectNode } from '../utils/graphEngine';
 
 interface Structural3DViewerProps {
@@ -12,6 +12,7 @@ interface Structural3DViewerProps {
   matchingNodeIds: Set<string>;
   isFilterActive: boolean;
   heatmapMode: boolean;
+  diffMode?: boolean;
   fitTrigger: number;
   resetTrigger: number;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean }) => void;
@@ -97,6 +98,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   matchingNodeIds,
   isFilterActive,
   heatmapMode,
+  diffMode = false,
   fitTrigger,
   resetTrigger,
   onSelectNode,
@@ -435,21 +437,53 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         const mat = mesh.material as THREE.MeshStandardMaterial;
         const wf = mesh.userData.wireframe as THREE.LineSegments;
         const wfMat = wf.material as THREE.LineBasicMaterial;
-        const activeColor = heatmapMode ? mesh.userData.heatColor : mesh.userData.baseColor;
+        const nodeObj = mesh.userData.node as BimNode;
+        const diffStatus = diffMode ? nodeObj.diffStatus : undefined;
+        const activeColor = diffStatus
+          ? new THREE.Color(DIFF_PALETTE[diffStatus])
+          : heatmapMode
+          ? mesh.userData.heatColor
+          : mesh.userData.baseColor;
         const matchesFilter = !isFilterActive || matchingNodeIds.has(id);
         const isSlab = mesh.userData.isSlab;
 
         if (matchesFilter) {
-          mat.transparent = isSlab;
-          mat.depthWrite = !isSlab;
-          mesh.renderOrder = isSlab ? 1 : 2;
+          const isUnchangedDiff = diffStatus === 'unchanged';
+          const isRemovedDiff = diffStatus === 'removed';
+          mat.transparent = isSlab || isUnchangedDiff || isRemovedDiff;
+          mat.depthWrite = !(isSlab || isUnchangedDiff);
+          mesh.renderOrder = isSlab ? 1 : isUnchangedDiff ? 0 : 2;
           mat.color.copy(activeColor);
           mat.emissive.copy(activeColor);
-          mat.emissiveIntensity = heatmapMode ? (isSlab ? 0.24 : 0.52) : isSlab ? 0.12 : 0.22;
-          mat.opacity = heatmapMode ? (isSlab ? 0.3 : 1.0) : isSlab ? 0.26 : 1.0;
+          mat.emissiveIntensity = diffStatus
+            ? isUnchangedDiff
+              ? 0.06
+              : 0.65
+            : heatmapMode
+            ? isSlab
+              ? 0.24
+              : 0.52
+            : isSlab
+            ? 0.12
+            : 0.22;
+          mat.opacity = diffStatus
+            ? isUnchangedDiff
+              ? 0.11
+              : isRemovedDiff
+              ? 0.45
+              : isSlab
+              ? 0.42
+              : 1.0
+            : heatmapMode
+            ? isSlab
+              ? 0.3
+              : 1.0
+            : isSlab
+            ? 0.26
+            : 1.0;
           mat.needsUpdate = true;
-          wfMat.color.setHex(0xffffff);
-          wfMat.opacity = isSlab ? 0.55 : 0.85;
+          wfMat.color.setHex(isRemovedDiff ? 0xfca5a5 : 0xffffff);
+          wfMat.opacity = isUnchangedDiff ? 0.18 : isSlab ? 0.55 : 0.9;
         } else {
           mat.transparent = true;
           mat.depthWrite = false;
@@ -531,7 +565,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         wfMat.opacity = 0.18;
       }
     });
-  }, [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds, matchingNodeIds, isFilterActive, heatmapMode]);
+  }, [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds, matchingNodeIds, isFilterActive, heatmapMode, diffMode]);
 
   const zoomFitToSelection = useCallback(() => {
     const st = stateRef.current;
