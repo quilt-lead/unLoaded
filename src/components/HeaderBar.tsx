@@ -42,6 +42,8 @@ interface HeaderBarProps {
   onExportBundle?: (() => void) | null;
   onLoadSample: () => void;
   onLoadDemo: () => void;
+  /** The Harborview tower with a real IFC and calc PDFs (synthetic), rev 1 and rev 2. */
+  onLoadHarborview: () => void;
   onUploadModel: (file: File) => void;
   /** One or more calc PDFs (one large package, one per calc, or new revisions): each is placed in a calc document. */
   onUploadCalcs: (files: File[]) => void;
@@ -311,6 +313,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
               {menuItem(<Sparkles className="w-3.5 h-3.5 text-indigo-300" aria-hidden="true" />, 'Load sample', 'Synthetic office building + its calc package, as a new project', () => {
                 setMenuOpen(false);
                 p.onLoadSample();
+              }, p.busy)}
+              {menuItem(<Sparkles className="w-3.5 h-3.5 text-emerald-300" aria-hidden="true" />, 'Harborview sample', 'The Harborview tower as IFC + calc PDFs, rev 1 and rev 2, as a new project', () => {
+                setMenuOpen(false);
+                p.onLoadHarborview();
               }, p.busy)}
               {menuItem(<Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Harborview A/B demo', 'Two model bundle revisions with invented calcs (demo data)', () => {
                 setMenuOpen(false);

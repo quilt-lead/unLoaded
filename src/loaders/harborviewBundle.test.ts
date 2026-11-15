@@ -12,8 +12,8 @@ import { mergeProject } from '../data/mergeProject';
 // diff is unchanged by the conversion.
 const root = new URL('../../', import.meta.url);
 const bytes = (f: string) => new Uint8Array(readFileSync(new URL(f, root)));
-const A = 'data/harborview-tower-rev1-base.bundle.json';
-const B = 'data/harborview-tower-rev2-compare.bundle.json';
+const A = 'data/harborview/harborview-tower-rev1-base.bundle.json';
+const B = 'data/harborview/harborview-tower-rev2-compare.bundle.json';
 const bundle = (f: string) => parseBundle(new TextDecoder().decode(bytes(f)));
 
 describe('Harborview demo model bundles', () => {

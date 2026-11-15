@@ -11,8 +11,8 @@ from pathlib import Path
 import pymupdf
 
 ROOT = Path(__file__).resolve().parents[3]
-BUNDLE_PATH = ROOT / "data" / "harborview-tower-rev1-base.bundle.json"
-DEFAULT_OUTPUT = ROOT / "data" / "harborview-demo-calcs-preview.pdf"
+BUNDLE_PATH = ROOT / "data" / "harborview" / "harborview-tower-rev1-base.bundle.json"
+DEFAULT_OUTPUT = ROOT / "data" / "harborview" / "harborview-demo-calcs-preview.pdf"
 
 NAVY = (0.12, 0.18, 0.25)
 BLUE = (0.24, 0.39, 0.50)

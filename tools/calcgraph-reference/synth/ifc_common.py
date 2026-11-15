@@ -14,6 +14,7 @@ fixed order, so a writer that calls these helpers in a fixed order produces byte
 """
 from __future__ import annotations
 
+import os
 import uuid
 from dataclasses import dataclass
 
@@ -68,7 +69,8 @@ class IfcBuilder:
         self.ns = namespace
         self._keyed: set[str] = set()
         f = self.f = api.project.create_file(version="IFC4")
-        f.header.file_name.name = path.rsplit("/", 1)[-1]
+        # basename, not rsplit("/"): a Windows path would put its directory in the header (not byte-stable)
+        f.header.file_name.name = os.path.basename(path)
         f.header.file_name.time_stamp = timestamp
         f.header.file_name.author = (author,)
         f.header.file_name.organization = ("calc-graph",)

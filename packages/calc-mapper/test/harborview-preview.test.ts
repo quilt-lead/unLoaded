@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { calcText, extractPdf, mapElements, segmentCalcs, type ElementRow, type PdfjsLike } from "../src/index.ts";
 
-const previewPdf = new URL("../../../data/harborview-demo-calcs-preview.pdf", import.meta.url);
-const harborviewBundle = new URL("../../../data/harborview-tower-rev1-base.bundle.json", import.meta.url);
+const previewPdf = new URL("../../../data/harborview/harborview-demo-calcs-preview.pdf", import.meta.url);
+const harborviewBundle = new URL("../../../data/harborview/harborview-tower-rev1-base.bundle.json", import.meta.url);
 
 describe("Harborview synthetic PDF preview", () => {
   it("segments four sheets and matches their marks to the Harborview model", async () => {

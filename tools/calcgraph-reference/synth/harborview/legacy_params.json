@@ -1,0 +1,6365 @@
+{
+ "source": "Legacy demo JSON at 410a100 (data/harborview-tower-rev{1-base,2-compare}.json): per-element fields the model bundles do not keep. kn = axial/design load (kN), uc = utilisation, fy = rated strength.",
+ "revs": {
+  "1": {
+   "pcap-A1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "slab-L01": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L01": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 16800,
+    "uc": 0.75,
+    "fy": 55
+   },
+   "wall-S-L01": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 16800,
+    "uc": 0.75,
+    "fy": 55
+   },
+   "brace-A-L01": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L01": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L01": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A2-L01": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A3-L01": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A4-L01": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B1-L01": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B2-L01": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B3-L01": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B4-L01": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C1-L01": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C2-L01": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C3-L01": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C4-L01": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D1-L01": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D2-L01": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D3-L01": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D4-L01": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E1-L01": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E2-L01": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E3-L01": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E4-L01": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "girder-A1-B1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L02": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L02": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 14000,
+    "uc": 0.7,
+    "fy": 55
+   },
+   "wall-S-L02": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 14000,
+    "uc": 0.7,
+    "fy": 55
+   },
+   "brace-A-L02": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L02": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L02": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A2-L02": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A3-L02": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A4-L02": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B1-L02": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B2-L02": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B3-L02": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B4-L02": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C1-L02": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C2-L02": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C3-L02": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C4-L02": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D1-L02": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D2-L02": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D3-L02": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D4-L02": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E1-L02": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E2-L02": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E3-L02": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E4-L02": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "girder-A1-B1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L03": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L03": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 11200,
+    "uc": 0.65,
+    "fy": 55
+   },
+   "wall-S-L03": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 11200,
+    "uc": 0.65,
+    "fy": 55
+   },
+   "brace-A-L03": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L03": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L03": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A2-L03": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A3-L03": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A4-L03": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B1-L03": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B2-L03": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B3-L03": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B4-L03": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C1-L03": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C2-L03": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C3-L03": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C4-L03": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D1-L03": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D2-L03": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D3-L03": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D4-L03": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E1-L03": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E2-L03": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E3-L03": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E4-L03": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "girder-A1-B1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L04": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L04": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 8400,
+    "uc": 0.6,
+    "fy": 55
+   },
+   "wall-S-L04": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 8400,
+    "uc": 0.6,
+    "fy": 55
+   },
+   "brace-A-L04": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L04": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L04": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A2-L04": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A3-L04": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A4-L04": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B1-L04": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B2-L04": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B3-L04": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B4-L04": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C1-L04": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C2-L04": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C3-L04": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C4-L04": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D1-L04": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D2-L04": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D3-L04": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D4-L04": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E1-L04": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E2-L04": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E3-L04": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E4-L04": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "girder-A1-B1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L05": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L05": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 5600,
+    "uc": 0.55,
+    "fy": 55
+   },
+   "wall-S-L05": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 5600,
+    "uc": 0.55,
+    "fy": 55
+   },
+   "brace-A-L05": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L05": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L05": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A2-L05": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A3-L05": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A4-L05": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B1-L05": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B2-L05": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B3-L05": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B4-L05": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C1-L05": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C2-L05": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C3-L05": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C4-L05": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D1-L05": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D2-L05": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D3-L05": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D4-L05": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E1-L05": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E2-L05": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E3-L05": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E4-L05": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "girder-A1-B1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   }
+  },
+  "2": {
+   "pcap-A1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-A4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-A4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-A4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 6552,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 6612,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 6372,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-B4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-B4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-B4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 6552,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 6612,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 6372,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-C4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-C4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-C4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 5580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 5640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 5400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-D4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-D4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-D4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E1": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E1": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E1": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E2": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E2": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E2": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E3": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E3": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E3": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "pcap-E4": {
+    "parent": "cat-pcap",
+    "role": null,
+    "kn": 3580,
+    "uc": 0.69,
+    "fy": 35
+   },
+   "pile-E4": {
+    "parent": "cat-pile",
+    "role": null,
+    "kn": 3640,
+    "uc": 0.66,
+    "fy": 40
+   },
+   "conn-bp-E4": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 3400,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "slab-L01": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L01": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 16800,
+    "uc": 0.75,
+    "fy": 55
+   },
+   "wall-S-L01": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 16800,
+    "uc": 0.75,
+    "fy": 55
+   },
+   "brace-A-L01": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1890,
+    "uc": 0.82,
+    "fy": 345
+   },
+   "brace-E-L01": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L01": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A2-L01": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A3-L01": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-A4-L01": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B1-L01": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B2-L01": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 6734,
+    "uc": 0.9,
+    "fy": 345
+   },
+   "col-B3-L01": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-B4-L01": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C1-L01": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C2-L01": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 6734,
+    "uc": 0.9,
+    "fy": 345
+   },
+   "col-C3-L01": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-C4-L01": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D1-L01": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D2-L01": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D3-L01": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 5520,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-D4-L01": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E1-L01": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E2-L01": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E3-L01": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "col-E4-L01": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 3480,
+    "uc": 0.81,
+    "fy": 345
+   },
+   "girder-A1-B1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-A2-B2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-B2-C2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-B2-C2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-C2-D2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-C2-D2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-D2-E2-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-D2-E2-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-A3-B3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L01": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L01": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L01": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L02": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L02": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 14000,
+    "uc": 0.7,
+    "fy": 55
+   },
+   "wall-S-L02": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 14000,
+    "uc": 0.7,
+    "fy": 55
+   },
+   "brace-A-L02": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1890,
+    "uc": 0.82,
+    "fy": 345
+   },
+   "brace-E-L02": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L02": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A2-L02": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A3-L02": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-A4-L02": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B1-L02": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B2-L02": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 5612,
+    "uc": 0.83,
+    "fy": 345
+   },
+   "col-B3-L02": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-B4-L02": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C1-L02": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C2-L02": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 5612,
+    "uc": 0.83,
+    "fy": 345
+   },
+   "col-C3-L02": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-C4-L02": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D1-L02": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D2-L02": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D3-L02": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 4600,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-D4-L02": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E1-L02": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E2-L02": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E3-L02": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "col-E4-L02": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 2900,
+    "uc": 0.74,
+    "fy": 345
+   },
+   "girder-A1-B1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L02": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L02": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L02": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L03": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L03": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 11200,
+    "uc": 0.65,
+    "fy": 55
+   },
+   "wall-S-L03": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 11200,
+    "uc": 0.65,
+    "fy": 55
+   },
+   "brace-A-L03": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L03": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L03": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A2-L03": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A3-L03": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-A4-L03": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B1-L03": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B2-L03": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 4489,
+    "uc": 0.77,
+    "fy": 345
+   },
+   "col-B3-L03": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-B4-L03": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C1-L03": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C2-L03": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 4489,
+    "uc": 0.77,
+    "fy": 345
+   },
+   "col-C3-L03": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-C4-L03": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D1-L03": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D2-L03": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D3-L03": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 3680,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-D4-L03": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E1-L03": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E2-L03": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E3-L03": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "col-E4-L03": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 2320,
+    "uc": 0.68,
+    "fy": 345
+   },
+   "girder-A1-B1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-A2-B2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-B2-C2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-C2-D2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-D2-E2-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L03": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L03": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L03": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L04": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 4200,
+    "uc": 0.74,
+    "fy": 35
+   },
+   "wall-N-L04": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 8400,
+    "uc": 0.6,
+    "fy": 55
+   },
+   "wall-S-L04": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 8400,
+    "uc": 0.6,
+    "fy": 55
+   },
+   "brace-A-L04": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L04": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L04": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A2-L04": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A3-L04": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-A4-L04": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B1-L04": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B2-L04": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B3-L04": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-B4-L04": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C1-L04": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C2-L04": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C3-L04": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-C4-L04": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D1-L04": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D2-L04": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D3-L04": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 2760,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-D4-L04": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E1-L04": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E2-L04": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E3-L04": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "col-E4-L04": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 1740,
+    "uc": 0.61,
+    "fy": 345
+   },
+   "girder-A1-B1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-A2-B2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-B2-C2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-B2-C2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-C2-D2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-C2-D2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-D2-E2-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1680,
+    "uc": 0.85,
+    "fy": 345
+   },
+   "conn-D2-E2-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 840,
+    "uc": 0.86,
+    "fy": 620
+   },
+   "girder-A3-B3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L04": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L04": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L04": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L05": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L05": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 5600,
+    "uc": 0.55,
+    "fy": 55
+   },
+   "wall-S-L05": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 5600,
+    "uc": 0.55,
+    "fy": 55
+   },
+   "brace-A-L05": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "brace-E-L05": {
+    "parent": "cat-brace",
+    "role": null,
+    "kn": 1320,
+    "uc": 0.67,
+    "fy": 345
+   },
+   "col-A1-L05": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A2-L05": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A3-L05": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-A4-L05": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B1-L05": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B2-L05": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B3-L05": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-B4-L05": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C1-L05": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C2-L05": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C3-L05": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-C4-L05": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D1-L05": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D2-L05": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D3-L05": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 1840,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-D4-L05": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E1-L05": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E2-L05": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E3-L05": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "col-E4-L05": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 1160,
+    "uc": 0.55,
+    "fy": 345
+   },
+   "girder-A1-B1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L05": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L05": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L05": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "slab-L06": {
+    "parent": "cat-slab",
+    "role": null,
+    "kn": 3100,
+    "uc": 0.56,
+    "fy": 35
+   },
+   "wall-N-L06": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 2800,
+    "uc": 0.5,
+    "fy": 55
+   },
+   "wall-S-L06": {
+    "parent": "cat-wall",
+    "role": null,
+    "kn": 2800,
+    "uc": 0.5,
+    "fy": 55
+   },
+   "col-A1-L06": {
+    "parent": "stack-A1",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-A2-L06": {
+    "parent": "stack-A2",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-A3-L06": {
+    "parent": "stack-A3",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-A4-L06": {
+    "parent": "stack-A4",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-B1-L06": {
+    "parent": "stack-B1",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-B2-L06": {
+    "parent": "stack-B2",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-B3-L06": {
+    "parent": "stack-B3",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-B4-L06": {
+    "parent": "stack-B4",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-C1-L06": {
+    "parent": "stack-C1",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-C2-L06": {
+    "parent": "stack-C2",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-C3-L06": {
+    "parent": "stack-C3",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-C4-L06": {
+    "parent": "stack-C4",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-D1-L06": {
+    "parent": "stack-D1",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-D2-L06": {
+    "parent": "stack-D2",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-D3-L06": {
+    "parent": "stack-D3",
+    "role": null,
+    "kn": 920,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-D4-L06": {
+    "parent": "stack-D4",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-E1-L06": {
+    "parent": "stack-E1",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-E2-L06": {
+    "parent": "stack-E2",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-E3-L06": {
+    "parent": "stack-E3",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "col-E4-L06": {
+    "parent": "stack-E4",
+    "role": null,
+    "kn": 580,
+    "uc": 0.48,
+    "fy": 345
+   },
+   "girder-A1-B1-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A1-B1-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B1-C1-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B1-C1-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C1-D1-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C1-D1-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D1-E1-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D1-E1-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A2-B2-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A2-B2-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B2-C2-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B2-C2-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C2-D2-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C2-D2-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D2-E2-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D2-E2-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A3-B3-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-A3-B3-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B3-C3-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-B3-C3-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C3-D3-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-C3-D3-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D3-E3-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 1240,
+    "uc": 0.71,
+    "fy": 345
+   },
+   "conn-D3-E3-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 620,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-A4-B4-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-A4-B4-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-B4-C4-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-B4-C4-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-C4-D4-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-C4-D4-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "girder-D4-E4-L06": {
+    "parent": "cat-beam",
+    "role": null,
+    "kn": 860,
+    "uc": 0.59,
+    "fy": 345
+   },
+   "conn-D4-E4-L06": {
+    "parent": "cat-conn",
+    "role": null,
+    "kn": 430,
+    "uc": 0.68,
+    "fy": 480
+   },
+   "infill-A1-A2-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A2-A3-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-A3-A4-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B1-B2-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B2-B3-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-B3-B4-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C1-C2-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C2-C3-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-C3-C4-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D1-D2-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D2-D3-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-D3-D4-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E1-E2-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E2-E3-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   },
+   "infill-E3-E4-L06": {
+    "parent": "cat-beam",
+    "role": "InfillBeam",
+    "kn": 520,
+    "uc": 0.57,
+    "fy": 345
+   }
+  }
+ }
+}

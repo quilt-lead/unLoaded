@@ -366,8 +366,8 @@ export class IfcViewer {
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const sz = Math.max(box.getSize(new THREE.Vector3()).length(), minSize);
-    // keep the current view direction; move the target and distance only
-    this.controls.moveTo({ target: { x: c.x, y: c.y, z: c.z }, radius: sz * 1.15 }, animateCamera());
+    // Keep the current view direction and leave room around the selection for nearby structure.
+    this.controls.moveTo({ target: { x: c.x, y: c.y, z: c.z }, radius: sz * 1.8 }, animateCamera());
     this.camera.near = Math.max(0.01, sz / 1000);
     this.camera.far = Math.max(1000, sz * 40);
     this.camera.updateProjectionMatrix();

@@ -34,6 +34,7 @@ import {
   useImpact,
   useInitialProject,
   useLoadDemo,
+  useLoadHarborview,
   useLoadSample,
   useLoadSupplement,
   useProjectList,
@@ -140,6 +141,7 @@ export const App: React.FC = () => {
   const decide = useDecide(pid);
   const sample = useLoadSample(setBusyText);
   const demo = useLoadDemo(setBusyText);
+  const harborview = useLoadHarborview(setBusyText);
   const supplement = useLoadSupplement(setBusyText);
   // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
   const uploadModel = useUploadModel(setBusyText);
@@ -700,6 +702,18 @@ export const App: React.FC = () => {
       return 'Harborview demo loaded as two model revisions, compared A → B';
     });
 
+  const handleLoadHarborview = () =>
+    run('Loading the Harborview sample (IFC + calc PDFs)…', async () => {
+      let out: { projectId: string; a: number; b: number };
+      try {
+        out = await harborview.mutateAsync();
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      enterScope({ projectId: out.projectId }, { a: out.a, b: out.b });
+      return 'Harborview sample loaded: IFC rev 1 and 2 with their calc PDFs, compared A → B';
+    });
+
   /**
    * The one path a chosen file becomes a revision of the store project (header menu, empty state,
    * revision panel, Open file). The revision goes to the project open when the action started (also
@@ -1190,6 +1204,14 @@ export const App: React.FC = () => {
         <button
           type="button"
           disabled={Boolean(busyText)}
+          onClick={handleLoadHarborview}
+          className="mt-2 w-full text-[11px] text-zinc-300 hover:text-white py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
+        >
+          Load the Harborview tower sample <span className="text-emerald-300/90">(IFC + calc PDFs, rev 1 and 2)</span>
+        </button>
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
           onClick={handleLoadDemo}
           className="mt-2 w-full text-[11px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
         >
@@ -1225,6 +1247,7 @@ export const App: React.FC = () => {
         onExportBundle={pid && view?.source === 'project' ? handleExportBundle : null}
         onLoadSample={handleLoadSample}
         onLoadDemo={handleLoadDemo}
+        onLoadHarborview={handleLoadHarborview}
         onUploadModel={(f) => handleUpload('model', f)}
         onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
