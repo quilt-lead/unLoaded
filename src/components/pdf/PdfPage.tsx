@@ -18,6 +18,8 @@ export interface PdfSource {
   page: number;
   /** evidence boxes to highlight */
   rects?: readonly Box[];
+  /** calc regions on this page, outlined (a calc can start / end mid-page) */
+  regions?: readonly Box[];
   /** box to zoom to on open (defaults to the union of rects, else the whole page) */
   focus?: Box | null;
   label?: React.ReactNode;
@@ -53,7 +55,7 @@ export function unionBox(rs: readonly Box[] | undefined): Box | null {
 }
 
 const toolBtn =
-  'h-7 min-w-7 px-1.5 rounded-lg bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] text-zinc-300 hover:text-white hover:bg-white/[0.1] flex items-center justify-center gap-1 transition text-[10px] mono shadow-[0_4px_12px_rgba(0,0,0,0.5)]';
+  'h-7 min-w-7 px-1.5 rounded-lg bg-[#2d3139] border border-white/[0.14] text-zinc-300 hover:text-white hover:bg-[#3a3f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 flex items-center justify-center gap-1 transition text-[10px] mono shadow-[0_4px_12px_rgba(0,0,0,0.5)]';
 
 export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage({ source, emptyText, className, bare }, ref) {
   const stage = useRef<HTMLDivElement>(null);
@@ -242,7 +244,7 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
   }, [url, pageNo]);
 
   // (re)focus when the page size is known or the evidence changes
-  const rectKey = JSON.stringify([source?.rects ?? [], source?.focus ?? null]);
+  const rectKey = JSON.stringify([source?.rects ?? [], source?.focus ?? null, source?.regions ?? []]);
   useEffect(() => {
     if (size) requestAnimationFrame(refocus);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -355,6 +357,19 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
               height={size.ph}
               aria-hidden="true"
             >
+              {(source?.regions ?? []).map((r, i) => (
+                <rect
+                  key={`region-${i}`}
+                  x={r[0] + pad}
+                  y={r[1] + pad}
+                  width={Math.max(0, r[2] - r[0] - 2 * pad)}
+                  height={Math.max(0, r[3] - r[1] - 2 * pad)}
+                  fill="rgba(99, 102, 241, 0.04)"
+                  stroke="#6366f1"
+                  strokeWidth={hlWidth}
+                  strokeDasharray={`${hlWidth * 4} ${hlWidth * 3}`}
+                />
+              ))}
               {(source?.rects ?? []).map((r, i) => (
                 <rect
                   key={i}

@@ -14,7 +14,9 @@
  *   decisions = addDecision(decisions, { global_id, calc_key, action: "confirm" });
  */
 export * from "./types.ts";
-export { extractPdf, rectsForSpan, buildPage, SCANNED_MAX_CHARS, type PdfjsLike, type PdfWord } from "./pdf.ts";
+export {
+  extractPdf, extractPdfWords, rectsForSpan, buildPage, SCANNED_MAX_CHARS, type PdfjsLike, type PdfWord, type PdfWordsPage,
+} from "./pdf.ts";
 export { segment, segmentCalcs, packageSha256, titleOf, titleBox, catOfText, calcText, calcRegions, pageParts, CAT_WORDS, TITLE_BOX_RULE, HEADING_RATIO, TITLE_HEIGHT_RATIO } from "./segment.ts";
 export {
   runMapping, mapElements, typicalGroups, groupId, bandOf, CONF, XREF_CAP, WEIGHTS, BANDS, normMark, dashless, normProfile, profileFrom,

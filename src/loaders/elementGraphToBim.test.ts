@@ -48,6 +48,10 @@ describe('elementGraphToBim on simple-frame', () => {
     expect(markFamily('')).toBeNull();
   });
 
+  it('carries element-graph boxes for the 3D fallback', () => {
+    expect(byId.get('F1')!.bbox).toBeDefined();
+  });
+
   it('lays out every node', () => {
     expect(topo.elementNodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))).toBe(true);
   });
@@ -81,6 +85,12 @@ describe('elementGraphToBim on simple-frame', () => {
       matchedText: 'B101',
       review: 'auto',
       evidence: { page: 3, rects: [[1, 2, 3, 4]], snippet: null },
+      role: 'design',
+      band: 'high',
+      reasons: [{ kind: 'tier', weight: 0.97, note: 'Mark named in calc', page: 3, rects: [[1, 2, 3, 4]] }],
+      caveats: [],
+      provenance: { producer: 'calc-mapper@0.1.0/matcher', rule: 'matcher.tier.exact', method: 'rule', inputs: [], actor: null, at: null },
+      reviewProvenance: null,
     };
     const calc: CalcData = {
       projectName: null,
@@ -89,15 +99,31 @@ describe('elementGraphToBim on simple-frame', () => {
       calcPackageName: 'calcs.pdf',
       calcRevisionId: 2,
       engine: 'test',
-      calcs: [],
+      calcs: [
+        {
+          key: 'beam-calc',
+          title: 'BEAM DESIGN',
+          software: '',
+          elementType: 'Beam',
+          pages: [3],
+          scanned: false,
+          frontMatter: false,
+          titleBox: null,
+          color: '#4e79a7',
+          regions: [{ page: 3, rect: [0, 0, 612, 792] }],
+        },
+      ],
       calcDependencies: [],
       calcNodes: [],
       calcLinks: [],
       calcToElementIds: new Map([['beam-calc', ['B1']]]),
       linksByElement: new Map([['B1', [link]]]),
       statusByElement: new Map([['B1', 'confirmed']]),
+      groups: [],
+      findings: [],
+      producers: null,
     };
-    const view = mergeProject(topo, calc, { source: 'api', projectId: 1, modelFileUrl: null });
+    const view = mergeProject(topo, calc, { source: 'project', projectId: 'p1', modelFileUrl: null });
     const b1 = view.elementNodes.find((n) => n.id === 'B1')!;
     expect(b1.calcLinks).toEqual([link]);
     expect(b1.mappingStatus).toBe('confirmed');
@@ -106,7 +132,7 @@ describe('elementGraphToBim on simple-frame', () => {
     expect(view.counts.confirmed).toBe(1);
     expect(view.counts.unmapped).toBe(simpleFrame.elements.length - 1);
     // without calc data there is no mapping status at all
-    const local = mergeProject(topo, null, { source: 'local', projectId: null, modelFileUrl: null });
+    const local = mergeProject(topo, null, { source: 'project', projectId: 'p1', modelFileUrl: null });
     expect(local.elementNodes.find((n) => n.id === 'B1')!.mappingStatus).toBeUndefined();
   });
 });

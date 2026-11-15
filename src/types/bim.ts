@@ -1,8 +1,8 @@
 // The VIEW MODEL every component consumes. Two adapters feed it and one function merges them:
 //   ElementGraph (packages/element-graph) -> src/loaders/elementGraphToBim.ts -> ElementTopology
-//   backend /export (+ /state)            -> src/data/loadProject.ts          -> CalcData
+//   calc-mapper Export (Web Worker)       -> src/data/loadProject.ts          -> CalcData
 //   mergeProject(topology, calc)          -> src/data/mergeProject.ts         -> ProjectViewModel
-// Neither a backend shape (src/api/types.ts) nor an ElementGraph ever reaches a component.
+// Neither a calc-engine type (@unloaded/calc-mapper) nor an ElementGraph ever reaches a component.
 
 export type WorkspaceView = 'element-graph' | 'calculation-graph' | '3d' | 'docs';
 export type TraceDirection = 'down' | 'up' | 'both';
@@ -46,6 +46,88 @@ export interface CalcLink {
   matchedText: string;
   review: LinkReview;
   evidence: LinkEvidence;
+  /** does the calc size the element ('design') or only take loads from / mention it ('loads')? */
+  role: LinkRole;
+  band: ConfidenceBand;
+  /** the weighted evidence the confidence is the sum of (first item = the matching tier) */
+  reasons: LinkReason[];
+  /** plain-language reasons to doubt the link */
+  caveats: string[];
+  /** set when the link comes through the element's typical group (a size-only calc) */
+  viaGroup?: string;
+  /** who / which rule made the link, on which input documents */
+  provenance: ProvenanceView | null;
+  /** the human decision behind its review state (confirm / reject / by hand), when there is one */
+  reviewProvenance: ProvenanceView | null;
+}
+
+/** Why a record exists: the producing code, its rule, the method, and the sha256 of each input document. */
+export interface ProvenanceView {
+  producer: string;
+  rule: string;
+  method: 'rule' | 'human' | 'estimate';
+  inputs: string[];
+  actor: string | null;
+  at: string | null;
+}
+
+/** Who produced the inputs of the mapping, and the sha256 of each input document. */
+export interface ProducerRecords {
+  engine: string;
+  engineProducer: string | null;
+  graph: { producer: string; source: string; sha256: string } | null;
+  calcPackage: { name: string | null; sha256: string; pages: number } | null;
+}
+
+export type LinkRole = 'design' | 'loads';
+export type ConfidenceBand = 'high' | 'medium' | 'low';
+
+/** One weighted item of evidence behind a link (negative weight = evidence against). */
+export interface LinkReason {
+  kind: string; // tier | storey-match | storey-conflict | size-match | size-mismatch | loads-context | group | human ...
+  weight: number;
+  note: string;
+  page: number | null;
+  rects: PdfRect[];
+}
+
+/** Elements of one size on one storey, of one kind: what a size-only ("W12X19 typ.") calc links to. */
+export interface TypicalGroupView {
+  id: string;
+  category: string;
+  storey: string;
+  profile: string;
+  title: string;
+  members: string[];
+  links: {
+    calcKey: string;
+    confidence: number;
+    band: ConfidenceBand;
+    role: LinkRole;
+    rule: string;
+    page: number | null;
+    rects: PdfRect[];
+    caveats: string[];
+  }[];
+}
+
+/** Something the evidence says is wrong: today, the calc designs a different size than the model has. */
+export interface FindingView {
+  kind: 'size-mismatch';
+  elementId: string;
+  calcKey: string;
+  modelSize: string;
+  calcSize: string;
+  page: number;
+  rects: PdfRect[];
+  snippet: { before: string; match: string; after: string } | null;
+  note: string;
+}
+
+/** A region of one page that belongs to a calc (can start or end mid-page). */
+export interface CalcRegionView {
+  page: number;
+  rect: PdfRect;
 }
 
 export interface CalcPackage {
@@ -58,6 +140,8 @@ export interface CalcPackage {
   frontMatter: boolean;
   titleBox: { page: number; rects: PdfRect[] } | null;
   color: string;
+  /** the calc as ordered regions of pages (a calc can start half way down a sheet); [] when unknown */
+  regions: CalcRegionView[];
 }
 
 /** calc -> calc: the source calc's output feeds the target calc's input. */
@@ -73,6 +157,18 @@ export interface LoadPathEdge {
   source: string;
   target: string;
   rule: string;
+}
+
+/** A document attached to an element by a legacy demo JSON. Invented; not a calc, never matched. */
+export interface DemoDocument {
+  id: string;
+  title: string;
+  type: string;
+  code: string;
+  rev: string;
+  pages: number | null;
+  date: string;
+  summary: string;
 }
 
 export interface BimNode {
@@ -101,6 +197,10 @@ export interface BimNode {
   params?: Record<string, string>;
   mappingStatus?: MappingStatus;
   calcLinks?: CalcLink[]; // strongest first, rejected included
+  /** world bbox from the element graph (metres, Z up): the 3D fallback when there is no IFC to mesh */
+  bbox?: { min: [number, number, number]; max: [number, number, number] };
+  /** invented documents carried by legacy demo JSON - shown labelled "demo data", never as calc links */
+  demoDocuments?: DemoDocument[];
   /** demand / capacity, 0..1. No source provides it yet, so it is always undefined today. */
   utilization?: number;
   // calc / mapped-element nodes
@@ -134,6 +234,8 @@ export interface RevisionInfo {
   createdAt: string;
   count: number | null;
   isHead: boolean;
+  /** model revisions: the source file is an IFC (real meshes) rather than a JSON model (boxes) */
+  isIfc: boolean;
 }
 
 /** physical connectivity between two elements (element-graph `connects` / `part_of`), undirected */
@@ -170,17 +272,20 @@ export interface CalcData {
   /** element GlobalId -> its links, strongest first (rejected included) */
   linksByElement: Map<string, CalcLink[]>;
   statusByElement: Map<string, MappingStatus>;
+  groups: TypicalGroupView[];
+  findings: FindingView[];
+  producers: ProducerRecords | null;
 }
 
 /**
- * Where the open project came from: the backend ('api'), a calc-graph export JSON opened from disk
- * ('file', read-only), or a model opened in the browser without the backend ('local', topology only).
+ * Where the open view came from: a project in the local store ('project', writable), or a plain
+ * calc-graph export JSON opened from disk ('file', read-only).
  */
-export type ProjectSource = 'api' | 'file' | 'local';
+export type ProjectSource = 'project' | 'file';
 
 export interface ProjectViewModel {
   source: ProjectSource;
-  projectId: number | null;
+  projectId: string | null;
   projectName: string;
   modelName: string | null;
   modelRevisionId: number | null;
@@ -191,7 +296,7 @@ export interface ProjectViewModel {
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
-  /** IFC file for the 3D view (a backend revision URL or a local object URL), null when there is none */
+  /** IFC file for the 3D view (an object URL of the model revision's IFC), null when there is none */
   modelFileUrl: string | null;
   calcs: CalcPackage[];
   calcDependencies: CalcDependency[];
@@ -199,8 +304,13 @@ export interface ProjectViewModel {
   calcLinks: BimLink[];
   /** calc key -> element ids it is linked to (rejected links excluded) */
   calcToElementIds: Map<string, string[]>;
+  groups: TypicalGroupView[];
+  findings: FindingView[];
+  producers: ProducerRecords | null;
   counts: Record<MappingStatus, number>;
   hasUtilization: boolean;
+  /** some elements carry legacy demo documents (invented data, labelled as such) */
+  hasDemoData: boolean;
 }
 
 export interface ImpactView {
@@ -251,6 +361,8 @@ export interface ModelDiff {
   onlyInB: { elementId: string; mark: string; category: string }[];
   edgesAdded: number;
   edgesRemoved: number;
+  /** element-graph boxes of the elements only one side has (ghost geometry when there is no IFC) */
+  ghostBoxes?: Map<string, { min: [number, number, number]; max: [number, number, number] }>;
 }
 
 /** Elements that are not in the head model but are part of the diff, drawn as ghosts from their own revision. */
@@ -271,6 +383,8 @@ export interface PdfTarget {
   page: number;
   rects: PdfRect[];
   caption?: string;
+  /** a calc region on this page: zoomed to and outlined */
+  region?: PdfRect;
 }
 
 export interface NodeGroup {

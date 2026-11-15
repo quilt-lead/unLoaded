@@ -2,12 +2,12 @@
 // selected element's linked calcs ranked by confidence; the original PDF page with the matched
 // evidence highlighted; and the calc -> calc dependencies with their evidence side by side.
 import React, { useMemo, useState } from 'react';
-import { ArrowRight, Box, Calculator, CircleDot, FileQuestion, FilterX, FolderOpen, ScanLine, Search } from 'lucide-react';
-import type { BimNode, CalcDependency, CalcLink, CalcPackage, DiffStatus, PdfTarget, WorkspaceView } from '../types/bim';
+import { AlertTriangle, ArrowRight, Box, Calculator, ChevronLeft, ChevronRight, CircleDot, FileQuestion, FilterX, FolderOpen, ScanLine, Search, Users } from 'lucide-react';
+import type { BimNode, CalcDependency, CalcLink, CalcPackage, DiffStatus, FindingView, PdfTarget, TypicalGroupView, WorkspaceView } from '../types/bim';
 import { getEffectiveNodeColor } from '../utils/colors';
 import { PdfPage, unionBox } from './pdf/PdfPage';
 import { EvidenceCompare } from './pdf/EvidenceCompare';
-import { Chip, ConfidenceChip, DiffBadge, TierChip } from './ui/Chips';
+import { Chip, ConfidenceChip, DiffBadge, RoleChip, TierChip } from './ui/Chips';
 
 interface DocumentBrowserProps {
   calcs: CalcPackage[];
@@ -17,6 +17,8 @@ interface DocumentBrowserProps {
   elementNodes: BimNode[];
   calcToElementIds: Map<string, string[]>;
   calcDependencies: CalcDependency[];
+  groups: TypicalGroupView[];
+  findings: FindingView[];
   selectedElement: BimNode | null;
   filterBySelectedElement: boolean;
   onClearElementFilter: () => void;
@@ -25,15 +27,24 @@ interface DocumentBrowserProps {
   diffMode: boolean;
   onLocateElement: (nodeId: string, view: WorkspaceView) => void;
   onLocateCalc: (calcKey: string) => void;
+  /** select a typical group's members in the graphs and 3D */
+  onSelectElements: (ids: string[]) => void;
 }
 
 const pageRange = (c: CalcPackage) =>
   c.pages.length === 0 ? 'no pages' : c.pages.length > 1 ? `pp. ${c.pages[0]}–${c.pages[c.pages.length - 1]}` : `p. ${c.pages[0]}`;
 
-/** Where to open a calc: its title box page when known, else its first page. */
+/** Where to open a calc: its first region (it can start mid-page), with the title box highlighted. */
 export function calcTarget(c: CalcPackage): PdfTarget {
-  const page = c.titleBox?.page ?? c.pages[0] ?? 1;
-  return { calcKey: c.key, page, rects: c.titleBox && c.titleBox.page === page && !c.frontMatter ? c.titleBox.rects : [], caption: 'Calc title' };
+  const first = c.regions[0];
+  const page = first?.page ?? c.titleBox?.page ?? c.pages[0] ?? 1;
+  return {
+    calcKey: c.key,
+    page,
+    rects: c.titleBox && c.titleBox.page === page && !c.frontMatter ? c.titleBox.rects : [],
+    caption: 'Calc title',
+    region: first?.rect,
+  };
 }
 
 export function linkTarget(l: CalcLink, c: CalcPackage | undefined): PdfTarget {
@@ -60,9 +71,13 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   diffMode,
   onLocateElement,
   onLocateCalc,
+  groups,
+  findings,
+  onSelectElements,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [compareDep, setCompareDep] = useState<CalcDependency | null>(null);
+  const [tab, setTab] = useState<'calcs' | 'groups' | 'findings'>('calcs');
   const calcByKey = useMemo(() => new Map(calcs.map((c) => [c.key, c])), [calcs]);
   const nodeById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
 
@@ -115,13 +130,15 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
     const linked = calcToElementIds.get(c.key)?.length ?? 0;
     const badge = diffBadgeOf(c.key);
     return (
-      <div
+      <button
+        type="button"
         key={c.key}
+        aria-pressed={isActive}
         onClick={() => {
           setCompareDep(null);
           onChangeTarget(extra ? linkTarget(extra.link, c) : calcTarget(c));
         }}
-        className={`p-3 rounded-xl cursor-pointer transition border ${
+        className={`block w-full text-left p-3 rounded-xl cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
           isActive
             ? 'bg-indigo-500/15 border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
             : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
@@ -141,6 +158,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           <div className="mt-2 space-y-1.5">
             <div className="flex items-center gap-1 flex-wrap">
               <ConfidenceChip link={extra.link} />
+              <RoleChip role={extra.link.role} />
               <TierChip tier={extra.link.tier} />
               {extra.link.evidence.page != null && <Chip>p. {extra.link.evidence.page}</Chip>}
             </div>
@@ -156,7 +174,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
             </span>
           </div>
         )}
-      </div>
+      </button>
     );
   };
 
@@ -172,12 +190,23 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           url: pdfUrl,
           page: target.page,
           rects: target.rects,
+          regions: target.region ? [target.region] : [],
           focus: (() => {
             const u = unionBox(target.rects);
-            return u ? [Math.max(0, u[0] - 300), Math.max(0, u[1] - 220), u[2] + 300, u[3] + 260] : null;
+            if (u) return [Math.max(0, u[0] - 160), Math.max(0, u[1] - 110), u[2] + 160, u[3] + 130];
+            return target.region ?? null;
           })(),
         }
       : null;
+
+  // step through the calc's regions (a calc can start or end mid-page)
+  const regions = activeCalc?.regions ?? [];
+  const regionIdx = target ? regions.findIndex((r) => r.page === target.page && (!target.region || r.rect.join() === target.region.join())) : -1;
+  const goRegion = (i: number) => {
+    const r = regions[i];
+    if (!activeCalc || !r) return;
+    onChangeTarget({ calcKey: activeCalc.key, page: r.page, rects: target && target.page === r.page ? target.rects : [], region: r.rect, caption: target?.caption });
+  };
 
   return (
     <section className="w-full h-full overflow-hidden flex flex-col bg-[#282c34]/95">
@@ -229,7 +258,115 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden min-h-0">
         <div className="lg:col-span-5 xl:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
-          {elementLinks ? (
+          {!elementLinks && (groups.length > 0 || findings.length > 0) && (
+            <div role="tablist" aria-label="Calc package lists" className="flex items-center gap-1 bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.12] mb-1">
+              {(
+                [
+                  { id: 'calcs', label: `Calcs (${calcs.length})` },
+                  { id: 'groups', label: `Typical groups (${groups.length})` },
+                  { id: 'findings', label: `Findings (${findings.length})` },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-1 mono text-[10px] px-2 py-1 rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+                    tab === t.id ? 'bg-indigo-500/25 text-indigo-100 border border-indigo-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  } ${t.id === 'findings' && findings.length > 0 && tab !== t.id ? 'text-rose-300' : ''}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {!elementLinks && tab === 'groups' ? (
+            groups.length === 0 ? (
+              <p className="text-[11px] text-zinc-500 text-center py-8">No typical groups: no calc designs elements by size only.</p>
+            ) : (
+              groups.map((g) => (
+                <div key={g.id} className="p-3 rounded-xl border bg-white/[0.02] border-white/[0.06]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-zinc-100 truncate">{g.title}</p>
+                      <p className="mono text-[10px] text-zinc-500 mt-0.5">
+                        {g.category} · {g.storey || 'no storey'} · {g.profile}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onSelectElements(g.members)}
+                      className="mono text-[9px] px-1.5 py-0.5 rounded border border-white/[0.14] text-zinc-300 hover:text-white hover:border-indigo-400/40 flex items-center gap-1 flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                      title="Select the members in the graph and 3D"
+                    >
+                      <Users className="w-2.5 h-2.5" aria-hidden="true" />
+                      {g.members.length} members
+                    </button>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {g.links.map((gl) => {
+                      const c = calcByKey.get(gl.calcKey);
+                      return (
+                        <li key={gl.calcKey}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCompareDep(null);
+                              onChangeTarget({ calcKey: gl.calcKey, page: gl.page ?? c?.pages[0] ?? 1, rects: gl.rects, caption: `Typical size ${g.profile}` });
+                            }}
+                            className="w-full text-left flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/20 hover:bg-black/35 border border-white/[0.05] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} aria-hidden="true" />
+                            <span className="text-[11px] text-zinc-200 truncate flex-1">{c?.title ?? gl.calcKey}</span>
+                            <Chip tone={gl.band === 'high' ? 'good' : gl.band === 'medium' ? 'warn' : 'bad'}>{Math.round(gl.confidence * 100)}%</Chip>
+                            <RoleChip role={gl.role} />
+                          </button>
+                          {gl.caveats.length > 0 && <p className="text-[10px] text-amber-200/90 mt-0.5 pl-2">{gl.caveats.join(' · ')}</p>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))
+            )
+          ) : !elementLinks && tab === 'findings' ? (
+            findings.length === 0 ? (
+              <p className="text-[11px] text-zinc-500 text-center py-8">No findings: every calc that sizes an element agrees with the model's size.</p>
+            ) : (
+              findings.map((f, i) => {
+                const el = nodeById.get(f.elementId);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setCompareDep(null);
+                      onChangeTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize} (model ${f.modelSize})` });
+                      onSelectElements([f.elementId]);
+                    }}
+                    className="block w-full text-left p-3 rounded-xl border bg-rose-500/[0.06] hover:bg-rose-500/[0.12] border-rose-400/25 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3 h-3 text-rose-300" aria-hidden="true" />
+                        {el?.label ?? f.elementId}
+                        {el?.storey && <span className="mono text-[10px] text-zinc-500 font-normal">{el.storey}</span>}
+                      </span>
+                      <span className="mono text-[10px] text-rose-200">
+                        {f.modelSize} ≠ {f.calcSize}
+                      </span>
+                    </span>
+                    <span className="block text-[10px] text-zinc-400 mt-1 leading-snug">{f.note}</span>
+                    <span className="block mono text-[9px] text-zinc-500 mt-0.5 truncate">
+                      {calcByKey.get(f.calcKey)?.title ?? f.calcKey} · p. {f.page}
+                    </span>
+                  </button>
+                );
+              })
+            )
+          ) : elementLinks ? (
             filteredLinks.length === 0 ? (
               <div className="text-center py-12 text-zinc-500">
                 <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
@@ -284,21 +421,50 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       </Chip>
                     )}
                     {activeCalc.frontMatter && <Chip>front matter</Chip>}
-                    <span className="mono text-[9px] text-zinc-500 ml-1">Pages</span>
-                    {activeCalc.pages.map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => onChangeTarget({ calcKey: activeCalc.key, page: p, rects: p === target.page ? target.rects : [] })}
-                        className={`mono text-[9px] px-1.5 py-0.5 rounded border transition ${
-                          p === target.page
-                            ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'
-                            : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                    {regions.length > 0 ? (
+                      <span className="flex items-center gap-1 ml-1" role="group" aria-label="Calc regions">
+                        <button
+                          type="button"
+                          onClick={() => goRegion(Math.max(0, regionIdx - 1))}
+                          disabled={regionIdx <= 0}
+                          aria-label="Previous region"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                        >
+                          <ChevronLeft className="w-3 h-3" aria-hidden="true" />
+                        </button>
+                        <span className="mono text-[9px] text-zinc-400 tabular-nums">
+                          Region {regionIdx >= 0 ? regionIdx + 1 : '–'} / {regions.length} · p. {target.page}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => goRegion(Math.min(regions.length - 1, regionIdx + 1))}
+                          disabled={regionIdx >= regions.length - 1}
+                          aria-label="Next region"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                        >
+                          <ChevronRight className="w-3 h-3" aria-hidden="true" />
+                        </button>
+                      </span>
+                    ) : (
+                      <>
+                        <span className="mono text-[9px] text-zinc-500 ml-1">Pages</span>
+                        {activeCalc.pages.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => onChangeTarget({ calcKey: activeCalc.key, page: p, rects: p === target.page ? target.rects : [] })}
+                            aria-pressed={p === target.page}
+                            className={`mono text-[9px] px-1.5 py-0.5 rounded border transition-colors ${
+                              p === target.page
+                                ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'
+                                : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -342,7 +508,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       sub: target.rects.length ? `${target.caption ?? 'Evidence'} — highlighted` : calcPackageName ?? undefined,
                     }
                   }
-                  emptyText="The calc package PDF is not available (no calc revision on the backend)."
+                  emptyText="The calc package PDF is not available here (an export JSON carries no PDF; open the project file instead)."
                 />
               </div>
 

@@ -1,7 +1,7 @@
 // THE ONE PLACE the two halves of the view model meet, by GlobalId:
 //   ElementTopology (src/loaders/elementGraphToBim.ts, from the element graph)
-//   CalcData        (src/data/loadProject.ts, from the backend calc engine)
-// plus applyModelDiff, which lays a backend revision diff over a merged view.
+//   CalcData        (src/data/loadProject.ts, from the calc engine)
+// plus applyModelDiff, which lays the engine's revision diff (diffGraphs) over a merged view.
 import type {
   BimLink,
   BimNode,
@@ -20,18 +20,18 @@ import { computeRadialLayout } from '../utils/graphEngine';
 
 export interface MergeOptions {
   source: ProjectSource;
-  projectId: number | null;
-  /** IFC for the 3D view: a backend revision URL or a local object URL */
+  projectId: string | null;
+  /** IFC for the 3D view: an object URL of the model revision's IFC */
   modelFileUrl: string | null;
 }
 
 /**
- * Join topology and calc data by GlobalId (= element-graph node id = backend global_id).
+ * Join topology and calc data by GlobalId (= element-graph node id = engine global_id).
  * Elements the calc engine has no row for are "unmapped" when a calc package is loaded, and carry
- * no mapping status when there is no calc data at all (a model opened without the backend).
+ * no mapping status when there is no calc data at all (a model revision without a calc package).
  */
 export function mergeProject(topology: ElementTopology, calc: CalcData | null, opts: MergeOptions): ProjectViewModel {
-  const hasCalcs = Boolean(calc && calc.calcRevisionId != null);
+  const hasCalcs = Boolean(calc && calc.calcs.length > 0);
   const counts: Record<MappingStatus, number> = { confirmed: 0, review: 0, unmapped: 0 };
   const elementNodes: BimNode[] = topology.elementNodes.map((n) => {
     if (n.kind !== 'element') return n;
@@ -59,15 +59,19 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
     calcNodes: calc?.calcNodes ?? [],
     calcLinks: calc?.calcLinks ?? [],
     calcToElementIds: calc?.calcToElementIds ?? new Map(),
+    groups: calc?.groups ?? [],
+    findings: calc?.findings ?? [],
+    producers: calc?.producers ?? null,
     counts,
     hasUtilization: elementNodes.some((n) => typeof n.utilization === 'number'),
+    hasDemoData: elementNodes.some((n) => Boolean(n.demoDocuments?.length)),
   };
 }
 
 const GHOST_CATEGORY_ID = 'cat:not-in-head';
 
 /**
- * Lay a backend diff over the head-model view: every element gets its diff status and field
+ * Lay a revision diff over the head-model view: every element gets its diff status and field
  * changes, and elements of the diff that the head model does not have (removed ones when B is the
  * head, added ones when A is) become ghost nodes placed in their mark family, with their geometry
  * to be drawn from the revision that has them.
@@ -91,7 +95,7 @@ export function applyModelDiff(
 
   const addGhost = (g: { elementId: string; mark: string; category: string }, status: DiffStatus, rid: number) => {
     if (present.has(g.elementId)) return;
-    // its mark family if the head has it, else its kind's category (the backend's `cat` is the
+    // its mark family if the head has it, else its kind's category (the engine's `cat` is the
     // element-graph kind), else a "Not in head" category
     const fam = markFamily(g.mark);
     const famNode = fam ? families.find((f) => f.label === fam && f.kind === 'family') : undefined;
@@ -115,6 +119,7 @@ export function applyModelDiff(
       desc: `${g.category || 'Element'} · only in revision ${rid}`,
       diffStatus: status,
       diffChanges: diff.meta.get(g.elementId)?.changes ?? [],
+      bbox: diff.ghostBoxes?.get(g.elementId),
       isGhost: true,
     });
     links.push({ source: parent, target: g.elementId, relation: 'hierarchy' });

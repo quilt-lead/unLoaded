@@ -133,6 +133,33 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
+  // element-graph boxes for every element the IFC (and its ghosts) did not mesh: the whole model
+  // when there is no IFC (ModelInput / legacy JSON), else only stragglers such as legacy diff ghosts
+  const [boxVersion, setBoxVersion] = useState(0);
+  const [boxCount, setBoxCount] = useState(0);
+  const boxKey = useMemo(
+    () =>
+      nodes
+        .filter((n) => n.kind === 'element' && n.bbox)
+        .map((n) => n.id)
+        .join('|'),
+    [nodes],
+  );
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    if (modelUrl && !loadedUrl) return; // wait for the IFC: it decides what still needs a box
+    v.clearBoxes();
+    const boxes = nodes
+      .filter((n) => n.kind === 'element' && n.bbox && !v.meshes.has(n.id))
+      .map((n) => ({ gid: n.id, min: n.bbox!.min, max: n.bbox!.max }));
+    v.setBoxes(boxes, !modelUrl);
+    setBoxCount(boxes.length);
+    setBoxVersion((x) => x + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxKey, modelUrl, loadedUrl, ghostVersion]);
+  const hasGeometry = Boolean(modelUrl) || boxCount > 0;
+
   // the set an active selection lights up: selected elements, everything under a selected
   // category / family / project, and the traced load path
   const litIds = useMemo(() => {
@@ -145,7 +172,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   // restyle every mesh
   useEffect(() => {
     const v = viewer.current;
-    if (!v || !loadedUrl) return;
+    if (!v || (!loadedUrl && boxCount === 0)) return;
     for (const gid of v.meshes.keys()) {
       const node = nodeById.get(gid);
       const isGhost = v.ghostIds.has(gid);
@@ -190,7 +217,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       }
       v.style(gid, s);
     }
-  }, [loadedUrl, ghostVersion, nodeById, colorMode, diffMode, overlay, litIds, isFilterActive, matchingNodeIds]);
+  }, [loadedUrl, ghostVersion, boxVersion, boxCount, nodeById, colorMode, diffMode, overlay, litIds, isFilterActive, matchingNodeIds]);
 
   // zoom to the selection (or the whole model)
   const selRef = useRef({ selectedNodeId, litIds });
@@ -215,7 +242,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   return (
     <div className="relative w-full h-full bg-[#282c34] overflow-hidden">
       <div ref={host} style={{ touchAction: 'none' }} className="absolute inset-0 cursor-grab active:cursor-grabbing" aria-label="3D model view" role="img" />
-      {!modelUrl && (
+      {!hasGeometry && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center pointer-events-none">
           <div className="flex flex-col items-center gap-2 max-w-xs">
             <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-500 flex items-center justify-center">
