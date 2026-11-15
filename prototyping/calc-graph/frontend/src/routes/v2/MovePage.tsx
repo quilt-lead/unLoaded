@@ -36,7 +36,7 @@ import { EtabsPanel } from "./EtabsPanel";
 import { DesignScenarioCard } from "./DesignScenarioCard";
 import { Updating } from "./Updating";
 import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
-import { BAND_COLOR, BAND_LABEL, BAND_TONE, UC_COLOR, colShort, fmtUc, fmtUsd, recordSource, rerunSheetUnavailable, ucTone, useDesignIndex } from "./util";
+import { BAND_COLOR, BAND_LABEL, BAND_TONE, LATERAL_COLOR, UC_COLOR, colShort, lateralStyle, fmtUc, fmtUsd, recordSource, rerunSheetUnavailable, ucTone, useDesignIndex } from "./util";
 
 type SideTab = "health" | "calcs" | "rerun" | "co" | "revision" | "etabs";
 type Dock =
@@ -162,13 +162,13 @@ export default function MovePage() {
         const est = impact.estimates[e.id];
         if (est) return { color: fmtColor(est.uc_new), opacity: 1 };
         if (staleEls.has(e.id)) return { color: UC_COLOR.stale, opacity: 0.85 };
-        return { color: UC_COLOR.faded, opacity: 0.14 };
+        return lateralStyle(e, 0.5) ?? { color: UC_COLOR.faded, opacity: 0.14 };
       }
       if (e.type === "column") {
         const b = bandOf(heat.data?.[e.id], bandMode);
         return b ? { color: BAND_COLOR[b], opacity: 1 } : undefined;
       }
-      return FADED;
+      return lateralStyle(e) ?? FADED;
     },
     [idx, mode, impact, staleEls, heat.data, bandMode],
   );
@@ -226,6 +226,7 @@ export default function MovePage() {
     { label: BAND_LABEL.moderate, color: BAND_COLOR.moderate, info: "legend.band-moderate" as const },
     { label: BAND_LABEL.hard, color: BAND_COLOR.hard, info: "legend.band-hard" as const },
     { label: BAND_LABEL["do-not-move"], color: BAND_COLOR["do-not-move"], info: "legend.band-dnm" as const },
+    { label: "Braced / moment frame", color: LATERAL_COLOR, info: "legend.lateral-frame" as const },
   ];
   const ucLegend = [
     { label: "UC up to 0.90", color: UC_COLOR.ok, info: "legend.uc-ok" as const },
