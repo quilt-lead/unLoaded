@@ -27,7 +27,9 @@ def test_every_aisc_shape_reads_back_whole():
 
 
 def _page(rows, sizes):
-    """rows: [(y, [cells])]; sizes: font size per row (same order)."""
+    """rows: [(y, [cells])]; sizes: font size per row (same order). A cell is ONE word, as
+    calcpkg_ingest._rows builds them; a multi-word cell is a fixture the reader never sees."""
+    assert all(" " not in c for _, cells in rows for c in cells), "cells are single words (calcpkg_ingest._rows)"
     lines, out = [], []
     for (y, cells), sz in zip(rows, sizes):
         r = [40.0, y, 500.0, y + 9]
@@ -51,8 +53,8 @@ def test_one_record_per_subject_per_page():
 
 def test_heading_block_stops_at_next_heading():
     known = {"SCBF-1": "FRAME:SCBF-1"}
-    rows = [(100, ["Joint", "Level"]), (110, ["1", "L2"]), (377, ["SCBF-1 Story Drift"]), (394, ["Story", "Ratio"]),
-            (403, ["L2", "0.26"]), (453, ["Load Combinations"]), (470, ["Label", "Combination"]), (480, ["S1", "1.4D"])]
+    rows = [(100, ["Joint", "Level"]), (110, ["1", "L2"]), (377, ["SCBF-1", "Story", "Drift"]), (394, ["Story", "Ratio"]),
+            (403, ["L2", "0.26"]), (453, ["Load", "Combinations"]), (470, ["Label", "Combination"]), (480, ["S1", "1.4D"])]
     res = calc_rows.read_records([_page(rows, [6.4, 6.4, 8.6, 6.4, 6.4, 8.6, 6.4, 6.4])], known)
     (rec,) = res["records"]
     assert rec["bbox"][3] < 453, rec["bbox"]

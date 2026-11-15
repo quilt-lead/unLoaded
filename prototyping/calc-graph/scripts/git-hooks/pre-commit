@@ -1,5 +1,5 @@
 #!/bin/sh
-# calc-graph pre-commit: copyright guard on every commit; AI-step ratchets when calc-graph Python changes.
+# calc-graph pre-commit: copyright guard + staged-blob parse check on every commit; AI-step ratchets when calc-graph Python changes.
 # Install once per clone, from the repo root:
 #   git config core.hooksPath prototyping/calc-graph/scripts/git-hooks
 set -e
@@ -8,6 +8,8 @@ py="$proj/.venv/bin/python"
 [ -x "$py" ] || py=python3
 
 "$py" "$proj/scripts/check_no_copyrighted.py" --staged
+# the STAGED blobs (not the working tree) of every staged .py / .ts / .tsx must parse
+"$py" "$proj/scripts/check_staged_parse.py"
 
 if git diff --cached --name-only | grep -q '^prototyping/calc-graph/.*\.py$'; then
   (cd "$proj" && "$py" scripts/check_llm_imports.py >/dev/null) || {

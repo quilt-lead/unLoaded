@@ -16,9 +16,9 @@ def el(gid, cat, mark, profile="", storey="Level 2"):
     return {"global_id": gid, "cat": cat, "mark": mark, "profile": profile, "storey": storey}
 
 
-def head(n, title, group="calcs:B1-1", software=""):
+def head(n, title, group="calcs:B1-1", software="", toc=False):
     """A calcpkg_ingest page head (the fields segment reads)."""
-    return {"page": n, "title": title, "group": group, "software": software, "toc": False, "tables": [],
+    return {"page": n, "title": title, "group": group, "software": software, "toc": toc, "tables": [],
             "sheet_rect": [500, 20, 540, 30], "title_rect": [72, 40, 300, 52]}
 
 
@@ -53,6 +53,7 @@ def test_size_tier_only_where_the_calc_names_no_mark_of_that_type():
 
 def test_scanned_and_front_never_mapped():
     pages = [page(1, "Design criteria .... 2\nBeams .... 3\nColumns .... 4"), page(2, "")]
-    calcs = segment(pages)
+    # the contents flag comes from calcpkg_ingest's page head (the profile's dot-leader rule), not from segment
+    calcs = segment(pages, [head(1, "Contents", toc=True), head(2, "")])
     assert calcs[0]["front"] and calcs[1]["scanned"]
     assert run_mapping([el("a", "Beam", "B1")], calcs, pages) == []
