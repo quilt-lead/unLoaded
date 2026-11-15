@@ -62,8 +62,13 @@ write into the source dir (and `evaluate_all.py` fails `source_data_unchanged` i
   strings from the copyrighted (retired) Dana Point permit set outside the per-file term allowlist), plus
   `scripts/check_llm_imports.py` and `scripts/check_ai_step.py` when calc-graph Python is staged.
   `--history` / `--range A..B` / `--tracked` scan commits or HEAD; `--self-test` proves each rule.
-- **CI**: `.github/workflows/ci.yml` at the repo root (uv sync, copyright guard, AI-step ratchets,
-  backend pytest, `evaluate_all --synthetic-only`, frontend build; actions pinned to SHAs).
+- **CI**: `.github/workflows/ci.yml` at the repo root, on PRs and pushes to main / issy-prototype (uv sync,
+  copyright guard, AI-step ratchets, type check, backend pytest, `evaluate_all --synthetic-only`, frontend
+  build; actions pinned to SHAs).
+- **Type check**: `scripts/check_types.py` runs pyright (`pyrightconfig.json`, standard mode, version pinned in
+  the script) as a ratchet - the merge-base's errors are the baseline (or `eval/pyright_baseline.json`,
+  `--write-baseline`), a new (file, rule, message) fails - and requires `scripts/typecheck_canary.py`'s
+  dict-where-a-Move-is-required calls to stay errors. CI only (type checkers are blocked on the dev Mac).
 
 ## Layout
 

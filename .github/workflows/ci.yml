@@ -7,7 +7,7 @@ on:
   pull_request:
     paths: ["prototyping/calc-graph/**", ".github/workflows/ci.yml"]
   push:
-    branches: [main]
+    branches: [main, issy-prototype]   # issy-prototype: the calc-graph working branch (no PR yet)
     paths: ["prototyping/calc-graph/**", ".github/workflows/ci.yml"]
   workflow_dispatch:
 
@@ -45,6 +45,17 @@ jobs:
         run: |
           uv run python scripts/check_llm_imports.py
           uv run python scripts/check_ai_step.py
+      - name: Type check (pyright ratchet + dict-for-model canary)
+        # baseline = pyright on the merge-base (PR base / the pushed range's previous tip); a NEW error fails,
+        # and scripts/typecheck_canary.py must still be reported (scripts/check_types.py)
+        run: |
+          base=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            base="${{ github.event.before }}"
+          fi
+          uv run python scripts/check_types.py ${base:+--base "$base"}
       - name: Backend tests
         run: uv run --extra dev pytest backend/tests -q
       - name: Evaluate (synthetic only, regression vs eval/baseline.json)
@@ -54,7 +65,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: scorecard
-          path: prototyping/calc-graph/data/eval/scorecard.json
+          path: |
+            prototyping/calc-graph/data/eval/scorecard.json
+            prototyping/calc-graph/data/eval/pyright_current.json
           if-no-files-found: ignore
 
   frontend:

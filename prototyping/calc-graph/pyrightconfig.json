@@ -1,0 +1,21 @@
+{
+  // Type check for calc-graph. CI runs it through scripts/check_types.py (pyright version pinned there).
+  // A ratchet, not a clean slate: errors already present on the base commit are the baseline and a NEW
+  // error fails CI. scripts/typecheck_canary.py proves on every run that passing a dict where a pydantic
+  // model is required (a410607: inbox -> impact_timeline, AttributeError at runtime) is reported.
+  "include": ["backend/calcgraph", "backend/tests", "scripts", "synth"],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/generated",
+    "backend/calcgraph/recalc_pages_assets",
+    ".venv",
+    "data",
+    "frontend",
+    "windows-bridge"
+  ],
+  "extraPaths": ["backend", "."],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard",
+  "reportMissingModuleSource": "none"
+}
