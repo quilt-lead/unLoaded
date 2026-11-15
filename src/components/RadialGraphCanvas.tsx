@@ -382,7 +382,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
               </p>
               <h3 className="text-sm font-semibold text-white">Import an IFC or JSON Graph</h3>
               <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Click <span className="text-zinc-200 font-medium">Import IFC / DB</span> in the top-right bar to load a raw <code className="text-indigo-300">.ifc</code> STEP file or <code className="text-indigo-300">.json</code> structural graph.
+                Click <span className="text-zinc-200 font-medium">Import IFC / DB</span> in the top-right bar to load a raw <code className="text-indigo-300">.ifc</code> STEP file or <code className="text-indigo-300">.json</code> structural graph, or drop the file anywhere on the window.
               </p>
             </div>
           </div>
