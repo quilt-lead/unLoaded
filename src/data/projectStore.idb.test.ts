@@ -62,7 +62,7 @@ describe('IdbBackend.run', () => {
         const got = await t.get<ProjectRecord>('projects', 'a');
         await t.put('projects', { ...got!, name: 'renamed' });
         await t.byProject('decisions', 'a');
-        await t.put('decisions', { projectId: 'a', globalId: 'C1', calcKey: 'k', action: 'confirm', actor: 'r', note: null, at: 't', modelRev: null, calcRev: null });
+        await t.put('decisions', { projectId: 'a', globalId: 'C1', calcKey: 'd1#k', action: 'confirm', actor: 'r', note: null, at: 't', modelRev: null, calcRev: null });
         throw new Error('late');
       }),
     ).rejects.toThrow('late');
@@ -88,7 +88,7 @@ describe('IdbBackend.run', () => {
     __testing.useBackend(backend);
     const p = await createProject('P');
     expect((await getProject(p.id))?.name).toBe('P');
-    const d = await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'k', action: 'reject', actor: 'r', note: null, modelRev: null, calcRev: null });
+    const d = await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'd1#k', action: 'reject', actor: 'r', note: null, modelRev: null, calcRev: null });
     expect(await decisionLog(p.id)).toEqual([d]);
   });
 });
