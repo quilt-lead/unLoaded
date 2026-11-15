@@ -390,7 +390,13 @@ def rerun_progress() -> RerunProgress:
 
 @router.get("/revisions")
 def revisions():
-    return {"calc_revisions": recalc.list_revisions(), "model_revisions": _store_revs()}
+    """calc_revisions (recalc.list_revisions) and the Synthetic v2 MODEL revisions split by design, newest
+    first: model_revisions = the current design's history (the base revision of the current model.ifc and
+    every revision descended from it), earlier_model_revisions = revisions of earlier designs (their
+    root is another base), base_revision = the current base (None until the first apply ingests it)."""
+    cur, earlier, base = _model_revs_by_design()
+    return {"calc_revisions": recalc.list_revisions(), "model_revisions": cur, "earlier_model_revisions": earlier,
+            "base_revision": base}
 
 
 @router.get("/revisions/{rev_id}")
@@ -417,10 +423,41 @@ def _store():
     return st
 
 
-def _store_revs() -> list[dict]:
+def _model_revs_by_design() -> tuple[list[dict], list[dict], int | None]:
+    """(current design's model revisions, earlier designs' model revisions, current base id), each list
+    newest first. A revision belongs to the design of the root its parent chain ends at; the current
+    design's roots are the base revisions holding the current model.ifc's bytes (never ingested here)."""
     st = _store()
     pid = _v2_project(st)
-    return st.revisions(pid)
+    models = [r for r in st.revisions(pid) if r["kind"] == "model"]
+    parent = {r["id"]: r["parent_id"] for r in models}
+
+    def root(i: int) -> int:
+        seen = set()
+        while parent.get(i) is not None and i not in seen:
+            seen.add(i)
+            i = parent[i]
+        return i
+
+    base = _find_base_rev(st, pid)
+    base_sha = next((r["sha256"] for r in models if r["id"] == base), None)
+    # every root holding the current model.ifc's bytes (the generator re-run unchanged makes a second one)
+    roots = {r["id"] for r in models if r["parent_id"] is None and base_sha and r["sha256"] == base_sha}
+    newest = sorted(models, key=lambda r: r["id"], reverse=True)
+    cur = [r for r in newest if root(r["id"]) in roots]
+    return cur, [r for r in newest if root(r["id"]) not in roots], base
+
+
+def _find_base_rev(st, pid: int) -> int | None:
+    """The model revision holding the current base design (data/synthetic_v2/model.ifc), by content hash;
+    None when the store has no copy yet."""
+    from .store import sha256_file
+    p = os.path.join(V2, "model.ifc")
+    if not os.path.exists(p):
+        return None
+    row = st.db.execute("SELECT MIN(id) FROM revision WHERE project_id=? AND kind='model' AND sha256=?",
+                        (pid, sha256_file(p))).fetchone()
+    return row[0] if row and row[0] else None
 
 
 def _v2_project(st) -> int:
@@ -442,13 +479,10 @@ def _base_rev(st, pid: int) -> int:
     move is computed from), found by content hash; ingested as a new root revision when the store
     has no copy (first apply, or the generator was re-run)."""
     from . import pipeline
-    from .store import sha256_file
-    p = os.path.join(V2, "model.ifc")
-    row = st.db.execute("SELECT MIN(id) FROM revision WHERE project_id=? AND kind='model' AND sha256=?",
-                        (pid, sha256_file(p))).fetchone()
-    if row and row[0]:
-        return row[0]
-    return pipeline.ingest_model(st, pid, p, "model.ifc", "Synthetic v2 - base design", parent=None)
+    found = _find_base_rev(st, pid)
+    if found is not None:
+        return found
+    return pipeline.ingest_model(st, pid, os.path.join(V2, "model.ifc"), "model.ifc", "Synthetic v2 - base design", parent=None)
 
 
 @router.post("/apply")

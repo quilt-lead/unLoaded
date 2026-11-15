@@ -512,7 +512,8 @@ export const V2_HELP = {
   "panel.rev-list": {
     title: "Model revisions",
     short:
-      "Every stored model revision of the synthetic v2 project. Show loads one into the 3D view (colours still follow the current move).",
+      "Model revisions of the current design, newest first. Revisions of earlier designs (another base model) are collapsed below. Show loads one into the 3D view (colours still follow the current move).",
+    source: "GET /api/v2/revisions: a revision belongs to the design whose base revision its parent chain ends at.",
     read: "'from N' is the revision a revision's content was derived from: the base design for an applied move, the restored revision for an undo or redo.",
   },
   "panel.rev-diff": {

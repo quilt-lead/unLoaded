@@ -282,6 +282,16 @@ export interface ModelRevision {
   count?: number;
 }
 
+/** GET /revisions: model revisions split by design at the source, each list newest first. */
+export interface RevisionsList {
+  calc_revisions: CalcRevision[];
+  /** the current design's history (its base revision and everything descended from it) */
+  model_revisions: ModelRevision[];
+  /** revisions of earlier designs (another base) */
+  earlier_model_revisions: ModelRevision[];
+  base_revision: number | null;
+}
+
 export interface ModelDiff {
   a: number;
   b: number;
@@ -561,10 +571,7 @@ export const useRevisions = () =>
   useQuery({
     queryKey: ["v2", "revisions"],
     queryFn: ({ signal }) =>
-      get<{ calc_revisions: CalcRevision[]; model_revisions: ModelRevision[] }>(
-        "/api/v2/revisions",
-        signal,
-      ),
+      get<RevisionsList>("/api/v2/revisions", signal),
   });
 
 export const useCalcRevision = (rev: string | null) =>

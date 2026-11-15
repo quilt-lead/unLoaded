@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { InfoTip } from "../../help/InfoTip";
 import { StatPill, StatRow } from "../../components/StatPill";
-import type { ApplyResult, ModelDiff, Move, RestoreResult } from "./api";
+import type { ApplyResult, ModelDiff, ModelRevision, Move, RestoreResult } from "./api";
 import { useCompare, useRevisions } from "./api";
 import { colShort } from "./util";
 
@@ -84,10 +84,48 @@ function DiffTable({ diff }: { diff: ModelDiff }) {
   );
 }
 
+function RevTable({ revs, viewRev, onViewRev }: { revs: ModelRevision[]; viewRev: number | null; onViewRev: (rid: number | null) => void }) {
+  if (!revs.length) return null;
+  return (
+    <div className="v2-table-wrap">
+      <table className="v2-table">
+        <thead>
+          <tr>
+            <th>Rev</th>
+            <th>Label</th>
+            <th>Created</th>
+            <th>Show in 3D</th>
+          </tr>
+        </thead>
+        <tbody>
+          {revs.map((m) => (
+            <tr key={m.id}>
+              <td className="mono">
+                {m.id}
+                {m.parent_id != null && <span className="muted"> (from {m.parent_id})</span>}
+              </td>
+              <td>{m.label}</td>
+              <td className="muted">{m.created_at.replace("T", " ").slice(0, 16)}</td>
+              <td>
+                <button type="button" className={`btn sm${viewRev === m.id ? " on" : ""}`} onClick={() => onViewRev(viewRev === m.id ? null : m.id)}>
+                  {viewRev === m.id ? "Showing" : "Show"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /** Apply the move as a new model revision (the store never overwrites) and diff any two revisions. */
 export function RevisionPanel({ move, applying, applyError, applied, onApply, viewRev, onViewRev }: RevisionPanelProps) {
   const revs = useRevisions();
+  // split and ordered at the source (GET /revisions): this design's history newest first, earlier designs apart
   const models = revs.data?.model_revisions ?? [];
+  const earlier = revs.data?.earlier_model_revisions ?? [];
+  const pickable = [...models, ...earlier];
   const [label, setLabel] = useState("");
   const [a, setA] = useState<number | null>(null);
   const [b, setB] = useState<number | null>(null);
@@ -136,35 +174,14 @@ export function RevisionPanel({ move, applying, applyError, applied, onApply, vi
       <h3 className="v2-h3">
         Model revisions <InfoTip id="panel.rev-list" />
       </h3>
-      <div className="v2-table-wrap">
-        <table className="v2-table">
-          <thead>
-            <tr>
-              <th>Rev</th>
-              <th>Label</th>
-              <th>Created</th>
-              <th>Show in 3D</th>
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((m) => (
-              <tr key={m.id}>
-                <td className="mono">
-                  {m.id}
-                  {m.parent_id != null && <span className="muted"> (from {m.parent_id})</span>}
-                </td>
-                <td>{m.label}</td>
-                <td className="muted">{m.created_at.replace("T", " ").slice(0, 16)}</td>
-                <td>
-                  <button type="button" className={`btn sm${viewRev === m.id ? " on" : ""}`} onClick={() => onViewRev(viewRev === m.id ? null : m.id)}>
-                    {viewRev === m.id ? "Showing" : "Show"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <RevTable revs={models} viewRev={viewRev} onViewRev={onViewRev} />
+      {!models.length && <p className="muted v2-small">No revision of the current design yet. Apply a move to make one.</p>}
+      {!!earlier.length && (
+        <details className="v2-small" data-testid="earlier-revisions">
+          <summary>Show {earlier.length} from earlier designs</summary>
+          <RevTable revs={earlier} viewRev={viewRev} onViewRev={onViewRev} />
+        </details>
+      )}
       <h3 className="v2-h3">
         Before / after diff <InfoTip id="panel.rev-diff" />
       </h3>
@@ -173,7 +190,7 @@ export function RevisionPanel({ move, applying, applyError, applied, onApply, vi
           Before{" "}
           <select value={a ?? ""} onChange={(e) => setA(e.target.value ? Number(e.target.value) : null)}>
             <option value="">-</option>
-            {models.map((m) => (
+            {pickable.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id} {m.label}
               </option>
@@ -184,7 +201,7 @@ export function RevisionPanel({ move, applying, applyError, applied, onApply, vi
           After{" "}
           <select value={b ?? ""} onChange={(e) => setB(e.target.value ? Number(e.target.value) : null)}>
             <option value="">-</option>
-            {models.map((m) => (
+            {pickable.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.id} {m.label}
               </option>
