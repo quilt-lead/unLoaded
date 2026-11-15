@@ -1,4 +1,4 @@
-# active — branch `feat/current-ui-integration`
+# blocked — branch `feat/current-ui-integration`
 
 ## Files
 
@@ -24,6 +24,10 @@ The obsolete `buildCalculationGraph` assertion was removed from `documents.test.
 - `git diff --check`: clean.
 - Full `npm test` reaches all workspaces but the MCP server's `get_page_image` test fails on Node 20.9.0. That package requires Node `>=22.18`; other workspace tests pass. The synthetic sample build assets are also absent, so the build reports that the optional “Load sample” dataset was not generated.
 
+## Blocker
+
+The branch is pushed, but the PR is not open: the available GitHub integration is read-only and the browser session is signed out. Open the comparison page while authenticated to create the PR against `prod`: https://github.com/quilt-lead/unLoaded/compare/prod...feat/current-ui-integration?expand=1
+
 ## Working files
 
-None after the integration PR is opened.
+None.
