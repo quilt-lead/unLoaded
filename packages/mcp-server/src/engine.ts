@@ -9,10 +9,11 @@
  *
  * No logic of its own lives here: every function is a direct call into the engine packages, made
  * the way the app makes it (src/loaders/parsers.ts for models, src/engine/projectService.ts and
- * src/engine/ops.ts for calc packages, runs and decisions). Two thin compositions, both documented
- * where they are: `crossReferenceEdges` (inferCalcEdges with the page-reference rule switched off,
- * for edges between two PDFs) and `projectFileDecisions` (the project file's log as DecisionFields,
- * numbered in file order).
+ * src/engine/ops.ts for calc packages, runs and decisions). Three thin compositions, each documented
+ * where it is: `calcEdgesOfPdf` (inferCalcEdges on one PDF, the designer chosen over every PDF's
+ * links), `crossReferenceEdges` (inferCalcEdges with the page-reference rule switched off, for edges
+ * between two PDFs) and `projectFileDecisions` (the project file's log as DecisionFields, numbered in
+ * file order).
  */
 import { parseIfc, hasStepHeader } from "@unloaded/ifc-parser";
 import {
@@ -370,6 +371,33 @@ export function buildExport(
   info: cm.ExportInfo,
 ): cm.Export {
   return cm.buildExport(graph, pkg, run, decisions, info);
+}
+
+/**
+ * `inferCalcEdges` on ONE PDF (its calcs, its pages, its effective links), with the designer of each
+ * element chosen by the engine's `designerOf` over the links of EVERY PDF (`otherLinks`: the other
+ * PDFs' effective links). The other PDFs' links take part only as designer candidates: their page is
+ * nulled, so none of them is read as a mention on one of this PDF's pages (designerOf never reads a
+ * page). The page-reference rule sees only this PDF. With no other PDF this is exactly the engine's
+ * own call in `buildState`.
+ */
+export function calcEdgesOfPdf(
+  calcs: cm.Calc[],
+  pages: cm.CalcPage[],
+  links: cm.Link[],
+  otherLinks: readonly cm.Link[],
+): cm.CalcEdge[] {
+  return cm.inferCalcEdges(calcs, pages, otherLinks.length ? [...links, ...otherLinks.map((l) => ({ ...l, page: null }))] : links);
+}
+
+/** The calc that designs each element (`designerOf`: design role first, then tier confidence, then calc key). */
+export function designerOf(links: readonly cm.Link[]): Map<string, cm.Link> {
+  return cm.designerOf(links);
+}
+
+/** The [start, end) regions of a page's text that belong to a calc (`calcRegions`: its spans, else its whole pages). */
+export function calcRegions(calc: cm.Calc, pages: cm.CalcPage[]): { page: number; start: number; end: number }[] {
+  return cm.calcRegions(calc, pages);
 }
 
 /**

@@ -6,15 +6,32 @@
  * an entry without provenance (it states it from the entry's own fields).
  *
  * Append-only: the server never rewrites or drops an entry (entries are written back exactly as they
- * were read; nothing is added to an old entry). An append re-reads the file first when it changed on
- * disk since it was last read (size, mtime or sha256), so a decision someone else recorded meanwhile
- * is kept, then writes the whole array to a temp file in the same directory and renames it over the
- * original (atomic on POSIX file systems).
+ * were read; nothing is added to an old entry).
+ *
+ * Several writers (two MCP servers on the same file, e.g. Claude Desktop and Claude Code): every
+ * append takes an exclusive cross-process lock, `<real file>.lock` (created with O_EXCL; it holds the
+ * writer's pid, host, a token and the time). Under the lock the append re-reads the file, validates
+ * against what is really there, writes the whole array to a temp file next to the real file, fsyncs
+ * it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. A lock
+ * whose owner is gone (same host, pid not running) or older than LOCK_STALE_MS is broken; a live one
+ * is waited for up to LOCK_WAIT_MS, then the append fails with a message naming the lock file.
+ *
+ * Within one process every read (load, refresh) and every append goes through one queue, so a slow
+ * read can never land after an append and roll the in-memory log back.
+ *
+ * A symlinked --decisions path is resolved once (realpath): the real file is read, written and
+ * locked, so the link is never replaced by a regular file. The file's mode is kept.
+ *
+ * A file that cannot be read as a decision log (not JSON, a bad entry, empty) is a PROBLEM, not a
+ * crash: reads keep serving the last good log (none, if it was never good) and every result carries
+ * the problem as a warning; appends are refused until the file is fixed, and the file is never
+ * overwritten.
  */
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync } from "node:fs";
-import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
+import { link, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { hostname } from "node:os";
+import { basename, dirname, join, resolve } from "node:path";
 import { DECISION_ACTIONS, decisionFrom, type Decision, type DecisionAction, type DecisionFields } from "./engine.ts";
 
 export class DecisionsFileError extends Error {
@@ -79,15 +96,71 @@ interface Snapshot {
   sha256: string | null;
 }
 
-export class DecisionsFile {
-  readonly path: string;
-  /** The log as last read from disk (or [] if the file does not exist yet), entries as stored. */
-  log: DecisionFields[] = [];
-  private snap: Snapshot | null = null;
-  private queue: Promise<unknown> = Promise.resolve();
+/** How long an append waits for another writer's lock before giving up. */
+export const LOCK_WAIT_MS = 10_000;
+/** A lock older than this is taken to be left behind by a crashed writer (an append holds it for milliseconds). */
+export const LOCK_STALE_MS = 30_000;
 
-  constructor(path: string) {
+type DiskRead =
+  | { state: "missing" }
+  | { state: "ok"; log: DecisionFields[]; snap: Snapshot }
+  | { state: "bad"; reason: string; snap: Snapshot };
+
+interface LockInfo {
+  pid: number;
+  host: string;
+  token: string;
+  at: string;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM"; // exists, owned by someone else
+  }
+}
+
+/**
+ * The real file a --decisions path names: a symlink (even a dangling one) is followed; a path that
+ * does not exist yet is the real directory + the name.
+ */
+export function realTarget(path: string, depth = 0): string {
+  const abs = resolve(path);
+  if (existsSync(abs)) return realpathSync(abs);
+  try {
+    if (lstatSync(abs).isSymbolicLink()) {
+      if (depth >= 40) throw new DecisionsFileError(`decisions file ${path}: too many levels of symbolic links`);
+      return realTarget(resolve(dirname(abs), readlinkSync(abs)), depth + 1);
+    }
+  } catch (e) {
+    if (e instanceof DecisionsFileError) throw e;
+    // does not exist at all
+  }
+  const dir = dirname(abs);
+  return existsSync(dir) ? join(realpathSync(dir), basename(abs)) : abs;
+}
+
+export class DecisionsFile {
+  /** The path as given (--decisions). */
+  readonly path: string;
+  /** The log as last read from disk (the last GOOD read; [] if the file does not exist yet), entries as stored. */
+  log: DecisionFields[] = [];
+  /** Why the file on disk cannot be used, or null. Reads go on with `log`; appends are refused. */
+  problem: string | null = null;
+  private snap: Snapshot | null = null;
+  private target: string | null = null;
+  private queue: Promise<unknown> = Promise.resolve();
+  private readonly lockWaitMs: number;
+  private readonly lockStaleMs: number;
+
+  constructor(path: string, opts: { lockWaitMs?: number; lockStaleMs?: number } = {}) {
     this.path = path;
+    this.lockWaitMs = opts.lockWaitMs ?? LOCK_WAIT_MS;
+    this.lockStaleMs = opts.lockStaleMs ?? LOCK_STALE_MS;
   }
 
   get name(): string {
@@ -97,44 +170,104 @@ export class DecisionsFile {
     return this.snap !== null;
   }
   get sha256(): string | null {
-    return this.snap?.sha256 ?? null;
+    return this.problem ? null : (this.snap?.sha256 ?? null);
+  }
+  /** The real file (symlinks resolved once, on the first read). */
+  get realPath(): string {
+    return (this.target ??= realTarget(this.path));
+  }
+  /** Is the --decisions path a symbolic link (to the real file)? */
+  get isSymlink(): boolean {
+    try {
+      return lstatSync(resolve(this.path)).isSymbolicLink();
+    } catch {
+      return false;
+    }
+  }
+  get lockPath(): string {
+    return `${this.realPath}.lock`;
+  }
+
+  /** Run `fn` after everything queued before it (reads and appends alike). */
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const p = this.queue.then(fn, fn);
+    this.queue = p.catch(() => {});
+    return p;
   }
 
   /** Read (or re-read) the file. A missing file is an empty log; the first append creates it. */
-  async load(): Promise<void> {
-    if (!existsSync(this.path)) {
-      if (!existsSync(dirname(this.path))) {
-        throw new DecisionsFileError(`decisions file ${this.path}: its directory does not exist`);
-      }
+  load(): Promise<void> {
+    return this.serial(async () => {
+      this.apply(await this.readDisk());
+    });
+  }
+
+  /** Re-read when changed on disk. Returns true when the file was read again. */
+  refresh(): Promise<boolean> {
+    return this.serial(async () => {
+      if (!(await this.changedOnDisk())) return false;
+      this.apply(await this.readDisk());
+      return true;
+    });
+  }
+
+  private async readDisk(): Promise<DiskRead> {
+    const path = this.realPath;
+    if (!existsSync(path)) {
+      if (!existsSync(dirname(path))) throw new DecisionsFileError(`decisions file ${this.path}: its directory does not exist`);
+      return { state: "missing" };
+    }
+    const st = await stat(path);
+    if (!st.isFile()) throw new DecisionsFileError(`decisions file ${this.path} is not a file`);
+    const raw = await readFile(path);
+    const snap = { size: raw.length, mtimeMs: st.mtimeMs, sha256: sha256(raw) };
+    const text = raw.toString("utf8").replace(/^\uFEFF/, "");
+    if (!text.trim()) {
+      return {
+        state: "bad",
+        snap,
+        reason: `${this.name} is empty (${raw.length} bytes). A decisions file is a JSON array: write [] into it, or delete it and the server creates it on the first decision`,
+      };
+    }
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return { state: "bad", snap, reason: `${this.name} is not valid JSON: ${(e as Error).message}` };
+    }
+    try {
+      return { state: "ok", snap, log: parseDecisions(data, this.name) };
+    } catch (e) {
+      return { state: "bad", snap, reason: (e as Error).message };
+    }
+  }
+
+  private apply(r: DiskRead): void {
+    if (r.state === "missing") {
       this.log = [];
       this.snap = null;
-      return;
+      this.problem = null;
+    } else if (r.state === "ok") {
+      this.log = r.log;
+      this.snap = r.snap;
+      this.problem = null;
+    } else {
+      // keep the last good log; remember the bad bytes so they are not re-parsed on every call
+      this.snap = r.snap;
+      this.problem =
+        `the decisions file cannot be read: ${r.reason}. Answers use the last good copy of the log (${this.log.length} ` +
+        `entr${this.log.length === 1 ? "y" : "ies"}); recording decisions is refused until the file is fixed. The server never overwrites it.`;
     }
-    const st = await stat(this.path);
-    if (!st.isFile()) throw new DecisionsFileError(`decisions file ${this.path} is not a file`);
-    const raw = await readFile(this.path);
-    const text = raw.toString("utf8").replace(/^﻿/, "");
-    let data: unknown;
-    if (!text.trim()) data = [];
-    else {
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new DecisionsFileError(`${this.name} is not valid JSON: ${(e as Error).message}`);
-      }
-    }
-    this.log = parseDecisions(data, this.name);
-    this.snap = { size: st.size, mtimeMs: st.mtimeMs, sha256: sha256(raw) };
   }
 
   /** Has the file changed on disk since it was last read? (size / mtime first, then sha256.) */
-  async changedOnDisk(): Promise<boolean> {
-    const exists = existsSync(this.path);
-    if (!exists) return this.snap !== null;
+  private async changedOnDisk(): Promise<boolean> {
+    const path = this.realPath;
+    if (!existsSync(path)) return this.snap !== null;
     if (!this.snap) return true;
-    const st = await stat(this.path);
+    const st = await stat(path);
     if (st.size === this.snap.size && st.mtimeMs === this.snap.mtimeMs) return false;
-    const h = sha256(await readFile(this.path));
+    const h = sha256(await readFile(path));
     if (h === this.snap.sha256) {
       this.snap = { ...this.snap, size: st.size, mtimeMs: st.mtimeMs };
       return false;
@@ -142,41 +275,147 @@ export class DecisionsFile {
     return true;
   }
 
-  /** Re-read when changed on disk. Returns true when the log was reloaded. */
-  async refresh(): Promise<boolean> {
-    if (!(await this.changedOnDisk())) return false;
-    await this.load();
-    return true;
-  }
-
   /**
-   * Append decisions. `build(currentLog)` runs after the on-disk log has been re-read (when it
-   * changed), so validation sees what is actually in the file; it returns the entries to append (made
-   * with the engine's `addDecision` on that log) or throws. Writes are serialised.
+   * Append decisions. Under the cross-process lock, the file is re-read and `build(currentLog)` runs
+   * on what is actually in it; it returns the entries to append (made with the engine's `addDecision`
+   * on that log) or throws. `reloaded` is true when the file held changes this server had not seen.
    */
   append(build: (current: readonly DecisionFields[]) => Decision[]): Promise<{ appended: Decision[]; reloaded: boolean }> {
-    const run = async () => {
-      const reloaded = await this.refresh();
-      const add = build(this.log);
-      if (!add.length) return { appended: [], reloaded };
-      const next: DecisionFields[] = [...this.log, ...add];
-      const body = JSON.stringify(next, null, 2) + "\n";
-      const tmp = join(dirname(this.path), `.${basename(this.path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+    return this.serial(() =>
+      this.withLock(async () => {
+        const seen = this.snap?.sha256 ?? null;
+        const r = await this.readDisk();
+        const reloaded = (r.state === "missing" ? null : r.snap.sha256) !== seen;
+        this.apply(r);
+        if (this.problem) throw new DecisionsFileError(`nothing was written: ${this.problem}`);
+        const add = build(this.log);
+        if (!add.length) return { appended: [], reloaded };
+        const next: DecisionFields[] = [...this.log, ...add];
+        const body = Buffer.from(JSON.stringify(next, null, 2) + "\n", "utf8");
+        const snap = await this.writeAtomic(body, r.state === "ok" ? (await stat(this.realPath)).mode & 0o7777 : null);
+        this.log = next;
+        this.snap = snap;
+        return { appended: add, reloaded };
+      }),
+    );
+  }
+
+  /** temp file next to the real file -> fsync -> rename over it -> fsync the directory. Returns the snapshot of the bytes written. */
+  private async writeAtomic(body: Buffer, mode: number | null): Promise<Snapshot> {
+    const target = this.realPath;
+    const dir = dirname(target);
+    const tmp = join(dir, `.${basename(target)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
+    let mtimeMs: number;
+    try {
+      const fh = await open(tmp, "wx");
       try {
-        await writeFile(tmp, body, { flag: "wx" });
-        await rename(tmp, this.path);
-      } catch (e) {
-        await unlink(tmp).catch(() => {});
-        throw new DecisionsFileError(`could not write ${this.path}: ${(e as Error).message}`);
+        if (mode !== null) await fh.chmod(mode);
+        await fh.writeFile(body);
+        await fh.sync();
+        mtimeMs = (await fh.stat()).mtimeMs; // rename keeps it
+      } finally {
+        await fh.close();
       }
-      const st = await stat(this.path);
-      this.log = next;
-      this.snap = { size: st.size, mtimeMs: st.mtimeMs, sha256: sha256(body) };
-      return { appended: add, reloaded };
-    };
-    const p = this.queue.then(run, run);
-    this.queue = p.catch(() => {});
-    return p;
+      await rename(tmp, target);
+    } catch (e) {
+      await unlink(tmp).catch(() => {});
+      throw new DecisionsFileError(`could not write ${target}: ${(e as Error).message}`);
+    }
+    try {
+      const dh = await open(dir, "r");
+      try {
+        await dh.sync();
+      } finally {
+        await dh.close();
+      }
+    } catch {
+      // directories cannot be opened / fsynced on every platform (Windows); the rename is still atomic
+    }
+    return { size: body.length, mtimeMs, sha256: sha256(body) };
+  }
+
+  /** Run `fn` holding `<real file>.lock` (O_EXCL), breaking a stale lock, waiting up to LOCK_WAIT_MS for a live one. */
+  private async withLock<T>(fn: () => Promise<T>): Promise<T> {
+    const lock = this.lockPath;
+    const info: LockInfo = { pid: process.pid, host: hostname(), token: randomBytes(8).toString("hex"), at: new Date().toISOString() };
+    const deadline = Date.now() + this.lockWaitMs;
+    let delay = 5;
+    for (;;) {
+      try {
+        const fh = await open(lock, "wx");
+        try {
+          await fh.writeFile(JSON.stringify(info));
+        } finally {
+          await fh.close();
+        }
+        break;
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
+          throw new DecisionsFileError(`could not create the lock file ${lock}: ${(e as Error).message}`);
+        }
+      }
+      const held = await readLock(lock);
+      if (!held) continue; // released meanwhile
+      if (isStale(held, this.lockStaleMs)) {
+        await breakLock(lock, held.raw);
+        continue;
+      }
+      if (Date.now() >= deadline) {
+        const who = held.info ? `pid ${held.info.pid} on ${held.info.host}, since ${held.info.at}` : "an unknown writer";
+        throw new DecisionsFileError(
+          `nothing was written: ${this.name} is locked by another writer (${who}) for more than ${this.lockWaitMs / 1000} s. ` +
+            `If no other unLoaded server or tool is writing it, delete ${lock} and try again.`,
+        );
+      }
+      await sleep(delay);
+      delay = Math.min(delay * 2, 100);
+    }
+    try {
+      return await fn();
+    } finally {
+      const held = await readLock(lock);
+      if (held?.info?.token === info.token) await unlink(lock).catch(() => {});
+    }
+  }
+}
+
+async function readLock(lock: string): Promise<{ raw: string; info: LockInfo | null; mtimeMs: number } | null> {
+  try {
+    const [raw, st] = await Promise.all([readFile(lock, "utf8"), stat(lock)]);
+    let info: LockInfo | null = null;
+    try {
+      const o = JSON.parse(raw) as Partial<LockInfo>;
+      if (typeof o.pid === "number" && typeof o.host === "string" && typeof o.token === "string") info = o as LockInfo;
+    } catch {
+      // being written, or not ours
+    }
+    return { raw, info, mtimeMs: st.mtimeMs };
+  } catch {
+    return null;
+  }
+}
+
+function isStale(held: { info: LockInfo | null; mtimeMs: number }, staleMs: number): boolean {
+  if (held.info && held.info.host === hostname() && !pidAlive(held.info.pid)) return true;
+  return Date.now() - held.mtimeMs > staleMs;
+}
+
+/**
+ * Remove a stale lock without removing a fresh one another process took meanwhile: move it aside
+ * (atomic), and if what was moved is not the stale lock we judged, put it back (link fails if a
+ * third lock appeared, which then stands).
+ */
+async function breakLock(lock: string, staleRaw: string): Promise<void> {
+  const aside = `${lock}.${process.pid}.${randomBytes(4).toString("hex")}.stale`;
+  try {
+    await rename(lock, aside);
+  } catch {
+    return; // already gone
+  }
+  try {
+    if ((await readFile(aside, "utf8")) !== staleRaw) await link(aside, lock).catch(() => {});
+  } finally {
+    await unlink(aside).catch(() => {});
   }
 }
 

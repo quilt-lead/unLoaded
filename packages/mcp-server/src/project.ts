@@ -18,16 +18,23 @@
  * prefix is put on the package's calc keys before mapCalcs, so every record the engine makes carries
  * it). Across PDFs:
  *   - element status: the engine's `statusOf` over the element's links from every PDF;
- *   - calc edges within one PDF: that PDF's `buildState` (inferCalcEdges on its effective links);
+ *   - ONE designer per element for every cross-reference edge: the engine's `designerOf` over the
+ *     effective links of EVERY PDF (an element designed in two PDFs still has one designer);
+ *   - calc edges within one PDF: `calcEdgesOfPdf` (inferCalcEdges on that PDF's calcs, pages and
+ *     effective links, the designer chosen over every PDF's links), keeping the edges whose two calcs
+ *     are both in that PDF. Page-reference edges are always these: the rule only ever sees one PDF;
  *   - calc edges across PDFs: `crossReferenceEdges` (inferCalcEdges with the page-reference rule
  *     switched off) on a combined view - every calc, every page with its page number offset so numbers
  *     are unique, every effective link - keeping only edges whose two calcs are in different PDFs,
  *     with evidence page numbers mapped back to their own PDF;
  *   - impact: the engine's `propagate` over the load path, every effective link and every calc edge.
+ * With one PDF the calc edges are exactly `buildState`'s.
  *
  * Decisions: the decisions file (calc-mapper's decision log, written by the server) and, with a
  * project file, the file's own log (read-only here) before it. Calc edges, statuses and findings are
- * recomputed from the effective links whenever the log changes.
+ * recomputed from the effective links whenever the log changes. Decision ids are per origin (see
+ * `DecisionRef`): the engine is handed one log with the decisions file's ids shifted past the project
+ * file's, but no tool ever shows a shifted id.
  */
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -35,6 +42,7 @@ import { userInfo } from "node:os";
 import {
   ENGINE_VERSION,
   buildState,
+  calcEdgesOfPdf,
   crossReferenceEdges,
   effectiveDecisions,
   headRevision,
@@ -118,6 +126,30 @@ export interface CalcEdgeView extends CalcEdge {
   cross_pdf: boolean;
 }
 
+/**
+ * Where a decision is recorded, and its id THERE: "decisions_file" = the --decisions file (its own
+ * ids, the ids record_decision returns), "project_file" = the project file's decision log (numbered
+ * 1..n in file order). Every tool and the decisions resource name decisions this way.
+ */
+export type DecisionOrigin = "decisions_file" | "project_file";
+export interface DecisionRef {
+  origin: DecisionOrigin;
+  id: number;
+}
+
+/** The largest of `xs` (and `init`), without spreading them into Math.max's arguments (a RangeError past ~100k). */
+export function maxOf(xs: Iterable<number>, init = -Infinity): number {
+  let m = init;
+  for (const x of xs) if (x > m) m = x;
+  return m;
+}
+/** The smallest of `xs` (and `init`), without spreading. */
+export function minOf(xs: Iterable<number>, init = Infinity): number {
+  let m = init;
+  for (const x of xs) if (x < m) m = x;
+  return m;
+}
+
 /** Deterministic file-stem slug used as the calc-key prefix of a non-main PDF. */
 export function stemSlug(fileName: string): string {
   const stem = basename(fileName).replace(/\.[^.]+$/, "");
@@ -178,8 +210,14 @@ export class Project {
   findings: Finding[] = [];
   groupLinks: GroupLink[] = [];
   effective = new Map<string, DecisionFields>();
+  /** The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's, ids shifted past them. */
+  log: DecisionFields[] = [];
+  /** Each entry of `log` -> its origin and its id there. */
+  private refs = new Map<DecisionFields, DecisionRef>();
   /** Decisions whose element or calc is not in this project (carried, but not applied). */
   unappliedDecisions = 0;
+  /** Warnings about the decision logs as they stand (recomputed with them). */
+  decisionWarnings: string[] = [];
   /** The decisions file log the derived state was computed from (identity), to tell when it is stale. */
   computedLog: readonly DecisionFields[] | null = null;
 
@@ -223,19 +261,43 @@ export class Project {
     return this.decisions?.log ?? [];
   }
 
+  /** A decision of `log` (or of `effective`) as its origin and its id there. */
+  decisionRef(d: DecisionFields): DecisionRef {
+    const r = this.refs.get(d);
+    if (!r) throw new ProjectError(`internal: decision ${d.id} is not in the applied log`);
+    return r;
+  }
+
+  /** Every warning as things stand: the load-time ones, then the decision logs' (they change when the files do). */
+  get allWarnings(): string[] {
+    return [...this.warnings, ...this.decisionWarnings, ...(this.decisions?.problem ? [`decisions: ${this.decisions.problem}`] : [])];
+  }
+
   /**
-   * The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's,
-   * ids shifted past them so they come later (an id only orders decisions; the latest per pair wins).
+   * Build the log the engine applies: the project file's decisions (ids 1..n), then the decisions
+   * file's, ids shifted past them so they come later (an id only orders decisions; the latest per
+   * pair wins). The shifted ids live only here: `decisionRef` maps every entry back.
    */
-  get log(): DecisionFields[] {
+  private buildLog(): void {
     const n = this.baseLog.length;
-    if (!n) return [...this.fileLog];
-    return [...this.baseLog, ...this.fileLog.map((d) => ({ ...d, id: d.id + n }))];
+    this.refs = new Map();
+    const log: DecisionFields[] = [];
+    for (const d of this.baseLog) {
+      log.push(d);
+      this.refs.set(d, { origin: "project_file", id: d.id });
+    }
+    for (const d of this.fileLog) {
+      const e = n ? { ...d, id: d.id + n } : d;
+      log.push(e);
+      this.refs.set(e, { origin: "decisions_file", id: d.id });
+    }
+    this.log = log;
   }
 
   /** Apply the decision log: per-PDF state, statuses, calc edges, findings. */
   recompute(): void {
     this.computedLog = this.fileLog;
+    this.buildLog();
     const log = this.log;
     this.states = this.pdfs.map((pdf) => buildState(this.graph.graph, pdf.pkg, pdf.run, log));
     this.links = this.states.flatMap((s) => s.links);
@@ -256,8 +318,16 @@ export class Project {
     this.groupLinks = this.states.flatMap((s) => s.group_links);
     this.effective = effectiveDecisions(log);
     this.unappliedDecisions = log.filter((d) => !this.gids.has(d.global_id) || !this.calcKeys.has(d.calc_key)).length;
+    this.decisionWarnings = this.checkDecisionKeys();
 
-    const edges: CalcEdgeView[] = this.states.flatMap((s) => s.calc_edges.map((e) => ({ ...e, cross_pdf: false })));
+    // within one PDF: that PDF's calcs / pages / links, the designer chosen over every PDF's links
+    const edges: CalcEdgeView[] = [];
+    for (const [i, pdf] of this.pdfs.entries()) {
+      const others = this.states.flatMap((s, j) => (j === i ? [] : s.links));
+      for (const e of calcEdgesOfPdf(pdf.calcs, pdf.pages, this.states[i]!.links, others)) {
+        if (this.pdfOfCalc.get(e.src) === pdf && this.pdfOfCalc.get(e.dst) === pdf) edges.push({ ...e, cross_pdf: false });
+      }
+    }
     if (this.pdfs.length > 1) {
       // combined view: page numbers offset per PDF so they are unique; links' pages offset to match
       const pages = this.pdfs.flatMap((p) => p.pages.map((pg) => ({ ...pg, n: pg.n + p.offset })));
@@ -282,10 +352,43 @@ export class Project {
     this.calcEdges = edges;
   }
 
+  /**
+   * Decisions that name a calc key or element this project does not have: kept, not applied, and
+   * said loudly with the likely cause (calc keys depend on the PDFs' order and file names).
+   */
+  private checkDecisionKeys(): string[] {
+    const out: string[] = [];
+    const missing = new Map<string, number>();
+    for (const d of this.log) if (!this.calcKeys.has(d.calc_key)) missing.set(d.calc_key, (missing.get(d.calc_key) ?? 0) + 1);
+    if (missing.size) {
+      const prefixes = new Set(this.pdfs.map((p) => p.prefix).filter(Boolean));
+      const lines = [...missing].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 20).map(([key, n]) => {
+        const slash = key.indexOf("/");
+        const prefix = slash > 0 ? key.slice(0, slash + 1) : "";
+        let why: string;
+        if (prefix && !prefixes.has(prefix)) {
+          why = `no loaded calc PDF has the key prefix "${prefix}" (the prefix is a non-main PDF's file stem): was that PDF renamed, dropped, or moved to first place in --calcs?`;
+        } else if (prefix) {
+          why = `${this.pdfs.find((p) => p.prefix === prefix)!.name} has no calc with this key: did that PDF change (calcs renamed, split or reordered)?`;
+        } else {
+          why = `the main PDF (${this.pdfs[0]!.name}, the first --calcs, plain keys) has no calc with this key: was the --calcs order changed, or the main PDF replaced?`;
+        }
+        return `"${key}" (${n} decision${n === 1 ? "" : "s"}): ${why}`;
+      });
+      out.push(
+        `decisions: ${[...missing.values()].reduce((a, b) => a + b, 0)} decision(s) name ${missing.size} calc key(s) that are not in this project; they are kept but NOT applied. ` +
+          lines.join("; ") + (missing.size > 20 ? `; and ${missing.size - 20} more` : ""),
+      );
+    }
+    const noEl = this.log.filter((d) => this.calcKeys.has(d.calc_key) && !this.gids.has(d.global_id)).length;
+    if (noEl) out.push(`decisions: ${noEl} decision(s) name an element that is not in the current model; they are kept but not applied`);
+    return out;
+  }
+
   /** Pick up decisions written by someone else since the last read. */
   async refresh(): Promise<boolean> {
     if (this.decisions && (await this.decisions.refresh())) {
-      this.recompute();
+      this.recompute(); // also when the file turned malformed: the warnings change
       return true;
     }
     return false;
@@ -350,6 +453,7 @@ export class Project {
         revision: this.current.revision,
       },
       calc_pdfs: pdfs.map((p) => ({ file: p.name, sha256: p.sha256, key_prefix: p.prefix })),
+      ...(this.decisions?.problem ? { decisions_warning: this.decisions.problem } : {}),
       ...(opts.decisions
         ? {
             decisions: this.decisions
@@ -442,7 +546,7 @@ async function loadPdfs(sources: PdfSource[], model: Model, warnings: string[], 
       pages: pkg.pages, calcs: pkg.calcs, noTextPages, offset, extraction, extractionNote,
       revision: src.stored?.revision ?? null, readMs, mapMs,
     });
-    offset += Math.max(pkg.pages.length, ...pkg.pages.map((p) => p.n), 0);
+    offset += maxOf(pkg.pages.map((p) => p.n), pkg.pages.length);
     timings[`pdf_${i}_read_ms`] = readMs;
     timings[`pdf_${i}_map_ms`] = mapMs;
   }
@@ -525,11 +629,6 @@ export async function loadProject(inputs: ProjectInputs): Promise<Project> {
   const project = new Project({ inputs, models, pdfs, projectFile, baseLog, decisions, warnings, timings });
   timings.review_ms = Math.round(performance.now() - t3);
   timings.total_ms = Math.round(performance.now() - t0);
-  if (project.unappliedDecisions) {
-    warnings.push(
-      `decisions: ${project.unappliedDecisions} decision(s) name an element or calc that is not in this project; they are kept but not applied`,
-    );
-  }
   return project;
 }
 

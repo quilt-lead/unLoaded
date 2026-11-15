@@ -3,7 +3,7 @@
  * move-impact called directly: the same check the parity script makes over stdio, here in-process
  * so CI runs it.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { ElementGraph, type SerializedElementGraph } from "@unloaded/element-graph";
@@ -12,7 +12,7 @@ import {
   type CalcPackage, type MappingRun, type PdfjsLike, type ProjectState,
 } from "@unloaded/calc-mapper";
 import { impact as moveImpact } from "@unloaded/move-impact";
-import type { Project } from "../src/project.ts";
+import { maxOf, minOf, type PdfDoc, type Project } from "../src/project.ts";
 import * as tools from "../src/tools.ts";
 import { MODEL, MODEL_REV2, PDF, inputs, loadProject, plain } from "./helpers.ts";
 
@@ -159,4 +159,40 @@ describe("two model revisions", () => {
     );
     expect(() => tools.compareRevisions(p2, { a: 9 })).toThrow(/no model revision "9"/);
   }, 120_000);
+});
+
+describe("text offsets, calc ownership, large inputs", () => {
+  it("search_calc_text spans index the ORIGINAL page text, even where lowercasing changes a character's length", () => {
+    const pdf = p.pdfs[0]!;
+    const text = "İ " + pdf.pages[0]!.text; // "İ".toLowerCase() is two UTF-16 units: offsets of a lowercased copy drift by one
+    const q = Object.assign(Object.create(p) as Project, { pdfs: [{ ...pdf, pages: [{ ...pdf.pages[0]!, text }, ...pdf.pages.slice(1)] }] });
+    const hits = tools.searchCalcText(q, { query: "b-101" }).items.filter((h) => h.page === 1);
+    expect(hits).toHaveLength(1);
+    expect(text.slice(hits[0]!.span[0], hits[0]!.span[1])).toBe("B-101");
+    expect(hits[0]!.snippet.match).toBe("B-101");
+  });
+
+  it("calcAt names a calc only when exactly one region fits: never the first calc on the page as a guess", () => {
+    const region = (page: number, start: number, end: number) => ({ page, start, end, rect: [0, 0, 1, 1] });
+    const calc = (key: string, regions: ReturnType<typeof region>[]) => ({ key, pages: [...new Set(regions.map((r) => r.page))], spans: [{ regions }] });
+    const pdf = {
+      pages: [{ n: 1, text: "x".repeat(40) }, { n: 2, text: "x".repeat(40) }],
+      calcs: [calc("a", [region(1, 0, 10), region(2, 5, 10)]), calc("b", [region(1, 20, 30), region(2, 20, 30)])],
+    } as unknown as PdfDoc;
+    expect(tools.calcAt(pdf, 1, 5)?.key).toBe("a");
+    expect(tools.calcAt(pdf, 1, 25)?.key).toBe("b");
+    expect(tools.calcAt(pdf, 1, 15)).toBeNull(); // between the two calcs' regions
+    expect(tools.calcAt(pdf, 1, null)?.key).toBe("a"); // a starts page 1
+    expect(tools.calcAt(pdf, 2, null)).toBeNull(); // two calcs on page 2 and neither starts it
+  });
+
+  it("maxOf / minOf handle more values than Math.max(...spread) can take, and src/ never spreads into Math.max / Math.min", () => {
+    const big = Array.from({ length: 1_000_000 }, (_, i) => i);
+    expect(() => Math.max(...big)).toThrow(RangeError); // the defect: a large load path or page set
+    expect([maxOf(big), minOf(big), maxOf([], 0)]).toEqual([999_999, 0, 0]);
+    const dir = new URL("../src/", import.meta.url);
+    const spread = /Math\.(max|min)\([^)]*\.\.\./;
+    const offenders = readdirSync(dir).filter((f) => f.endsWith(".ts") && spread.test(readFileSync(new URL(f, dir), "utf8")));
+    expect(offenders).toEqual([]);
+  });
 });

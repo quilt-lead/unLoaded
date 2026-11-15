@@ -74,7 +74,7 @@ describe("loadModel (JSON models)", () => {
   });
   it("refuses a graph the calc engine cannot read (units other than metres)", async () => {
     const g = { format: "unloaded.element-graph", version: 1, meta: { version: 1, units: "mm" }, levels: [], nodes: [], edges: [] };
-    await expect(loadModel(json(g), "mm.json")).rejects.toThrow(/calc engine cannot read .* units must be "m"/);
+    await expect(loadModel(json(g), "mm.json")).rejects.toThrow(/calc engine cannot read .*units must be "m" \(got "mm"\)/);
   });
   it("loads a ModelInput and a serialized element graph like the app, as calc-mapper element rows", async () => {
     const mi = { meta: { version: 1, units: "m", source: { format: "test" } }, levels: [], warnings: [], relations: [],
