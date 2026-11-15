@@ -1,0 +1,20 @@
+{
+  "name": "@unloaded/calc-parser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Calc package PDF -> calcs, element <-> calc links, calc dependency graph and change impact. TypeScript port of prototyping/calc-graph (pdf.js instead of PyMuPDF).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pdfjs-dist": "4.10.38"
+  },
+  "devDependencies": {
+    "@unloaded/ifc-parser": "0.1.0"
+  }
+}
