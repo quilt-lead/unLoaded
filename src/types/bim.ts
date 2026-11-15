@@ -416,6 +416,18 @@ export interface NodeGroup {
   nodeIds: string[];
 }
 
+/** Which graph workspace a comment sits on. */
+export type CommentGraph = 'element' | 'calc';
+
+/** A free text note placed on a graph workspace; (x, y) is its top-left corner in graph coordinates. */
+export interface GraphComment {
+  id: string;
+  graph: CommentGraph;
+  x: number;
+  y: number;
+  text: string;
+}
+
 export interface FilterState {
   search: string;
   type: string;

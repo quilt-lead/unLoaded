@@ -18,6 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-graph-comments.md](2026-11-15-graph-comments.md) | done | Sticky-note comments on the Element and Calculation Graphs: add (button / C), edit, select, box-select, drag with nodes, arrow nudge, delete with Undo; not yet persisted |
 | [2026-11-15-default-panel-docking.md](2026-11-15-default-panel-docking.md) | done | Inspector defaults to the left dock and 3D model to the right dock; navbar shadow no longer overlaps filters |
 | [2026-11-15-theme-aware-favicon.md](2026-11-15-theme-aware-favicon.md) | done | Adds light/dark SVG favicons selected by the operating system color preference |
 | [2026-11-15-graph-controls-and-upward-trace.md](2026-11-15-graph-controls-and-upward-trace.md) | done | Restores type/review/confidence coloring and the data-gated utilization heatmap, removes the top-right reset control, and makes upward traces exhaustive |

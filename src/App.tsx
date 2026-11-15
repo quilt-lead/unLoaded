@@ -19,6 +19,7 @@ import type {
   DecisionAction,
   DockSide,
   FilterState,
+  GraphComment,
   HighlightOverlay,
   HighlightTone,
   NodeGroup,
@@ -81,6 +82,11 @@ import { ACCEPTED_EXTENSIONS } from './loaders/parsers';
 const DROP_EXTENSIONS = [...new Set([...ACCEPTED_EXTENSIONS, '.pdf'])];
 
 const EMPTY_SET = new Set<string>();
+
+interface ToastAction {
+  label: string;
+  run: () => void;
+}
 const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
 
 /**
@@ -180,6 +186,9 @@ export const App: React.FC = () => {
 
   // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
+  // comments on the two graph workspaces; project-scoped like groups and moved nodes
+  const [comments, setComments] = useState<GraphComment[]>([]);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(new Set());
   const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
@@ -208,6 +217,8 @@ export const App: React.FC = () => {
     if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
       setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
     }
+    // each graph has its own comments; a selection on the hidden one must not be deletable
+    if (next !== activeViewRef.current) setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
     setActiveView(next);
   }, []);
 
@@ -217,7 +228,39 @@ export const App: React.FC = () => {
     setSelectedCalcNodeId(null);
     setSelectedCalcNodeIds(new Set());
     setCalcAnchorKey(null);
+    setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
   }, []);
+
+  const handleSelectComments = useCallback((ids: string[], opts?: { additive?: boolean }) => {
+    setSelectedCommentIds((prev) => {
+      if (!opts?.additive) return new Set(ids);
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const makeAddComment = useCallback(
+    (graph: GraphComment['graph']) => (x: number, y: number) => {
+      const id = `cmt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      setComments((prev) => [...prev, { id, graph, x, y, text: '' }]);
+      return id;
+    },
+    [],
+  );
+  const handleAddElementComment = useMemo(() => makeAddComment('element'), [makeAddComment]);
+  const handleAddCalcComment = useMemo(() => makeAddComment('calc'), [makeAddComment]);
+
+  const handleMoveComments = useCallback((ids: Set<string>, dx: number, dy: number) => {
+    setComments((prev) => prev.map((c) => (ids.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c)));
+  }, []);
+
+  const handleEditComment = useCallback((id: string, text: string) => {
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, text } : c)));
+  }, []);
+
+  const elementComments = useMemo(() => comments.filter((c) => c.graph === 'element'), [comments]);
+  const calcComments = useMemo(() => comments.filter((c) => c.graph === 'calc'), [comments]);
 
   /**
    * The one way the open project changes (picker, sample, demo, new project, project or export
@@ -248,6 +291,7 @@ export const App: React.FC = () => {
         setCompareOpen(false);
         setDocFilterBySelected(false);
         setGroups([]);
+        setComments([]);
         setMoved(new Map());
         handleClearSelection();
         setImpactReq(null);
@@ -263,15 +307,50 @@ export const App: React.FC = () => {
   );
   const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
-  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
+  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean; action?: ToastAction }>({
+    message: '',
+    isError: false,
+    visible: false,
+  });
   // one timer: a newer toast restarts the countdown; cleared on unmount
   const toastTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-  const showToast = useCallback((message: string, isError = false) => {
-    setToast({ message, isError, visible: true });
+  const showToast = useCallback((message: string, isError = false, action?: ToastAction) => {
+    setToast({ message, isError, visible: true, action });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
+    toastTimer.current = window.setTimeout(
+      () => setToast((prev) => (prev.message === message ? { ...prev, visible: false, action: undefined } : prev)),
+      isError ? 7000 : action ? 6000 : 3400,
+    );
   }, []);
+
+  /** Deleting comments that have text offers Undo; an empty new comment just disappears. */
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+  const handleDeleteComments = useCallback(
+    (ids: string[]) => {
+      const gone = new Set(ids);
+      const removed = commentsRef.current.filter((c) => gone.has(c.id));
+      setComments((prev) => prev.filter((c) => !gone.has(c.id)));
+      setSelectedCommentIds((prev) => {
+        if (![...prev].some((id) => gone.has(id))) return prev;
+        return new Set([...prev].filter((id) => !gone.has(id)));
+      });
+      const withText = removed.filter((c) => c.text);
+      if (withText.length === 0) return;
+      const scopeAtDelete = scopeRef.current.epoch;
+      showToast(withText.length === 1 ? 'Comment deleted' : `${withText.length} comments deleted`, false, {
+        label: 'Undo',
+        run: () => {
+          // a project change in between has its own comments; don't bring these back into it
+          if (scopeRef.current.epoch !== scopeAtDelete) return;
+          setComments((prev) => [...prev, ...withText.filter((c) => !prev.some((p) => p.id === c.id))]);
+          setSelectedCommentIds(new Set(withText.map((c) => c.id)));
+        },
+      });
+    },
+    [showToast],
+  );
 
   // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
   // the head, which has its own view) with the reason, rather than leaving an empty workspace.
@@ -1373,6 +1452,13 @@ export const App: React.FC = () => {
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveNodes}
               onGroupSelection={handleGroupSelection}
+              comments={elementComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddElementComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
@@ -1394,6 +1480,13 @@ export const App: React.FC = () => {
               onClearSelection={handleClearSelection}
               onMoveNodes={() => {}}
               onGroupSelection={() => {}}
+              comments={calcComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddCalcComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
@@ -1494,6 +1587,18 @@ export const App: React.FC = () => {
           <CheckCircle2 className="w-4 h-4 text-calcmap flex-shrink-0" />
         )}
         <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
+        {!busyText && !viewBusy && toast.visible && toast.action && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action?.run();
+              setToast((prev) => ({ ...prev, visible: false, action: undefined }));
+            }}
+            className="ml-1 px-2 py-0.5 rounded-md text-xs font-semibold text-calcmap border border-calcmap/40 bg-calcmap/10 hover:bg-calcmap/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-calcmap/70"
+          >
+            {toast.action.label}
+          </button>
+        )}
       </div>
     </div>
   );
