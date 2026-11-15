@@ -61,6 +61,13 @@ export interface PdfWord {
   y0: number;
   x1: number;
   y1: number;
+  /**
+   * Reading direction on the page in degrees, counter-clockwise (0 = left to right, 90 = bottom to
+   * top, as rotated tags on drawings). Set by extractPdfWords only.
+   */
+  rot?: number;
+  /** Font size in points. Set by extractPdfWords only. */
+  size?: number;
 }
 
 const round = (v: number, nd: number): number => {
@@ -72,18 +79,25 @@ function isTextItem(it: unknown): it is TextItem {
   return typeof (it as TextItem)?.str === "string" && Array.isArray((it as TextItem).transform);
 }
 
-/** Words of one page, in content order, glued across item breaks inside a word. */
+/**
+ * Words of one page, in content order, glued across item breaks inside a word.
+ * `rotated` (extractPdfWords): boxes follow each item's real direction and words carry rot/size;
+ * rotated words are never glued. Without it (extractPdf) every box is laid out left to right from
+ * the item origin, as the reference reader did, so calc page text stays unchanged.
+ */
 function pageWords(
   items: unknown[],
   styles: Record<string, { ascent?: number; descent?: number }>,
   vp: { convertToViewportPoint(x: number, y: number): number[] },
+  rotated = false,
 ): PdfWord[] {
   const words: PdfWord[] = [];
   let prev: { word: PdfWord; base: number; size: number; endsWithSpace: boolean } | null = null;
   for (const it of items) {
     if (!isTextItem(it) || it.str.length === 0) continue;
-    const [a = 1, b = 0, , , e = 0, f = 0] = it.transform;
+    const [a = 1, b = 0, c = 0, d = 1, e = 0, f = 0] = it.transform;
     const size = Math.hypot(a, b) || 1;
+    const frame = rotated ? itemFrame(vp, a, b, c, d, e, f) : null;
     const st = styles[it.fontName] ?? {};
     const ascent = typeof st.ascent === "number" && st.ascent > 0 ? st.ascent : 0.8;
     const descent = typeof st.descent === "number" && st.descent < 0 ? st.descent : -0.2;
@@ -95,8 +109,11 @@ function pageWords(
     while ((m = re.exec(it.str))) {
       const x0 = px + perChar * m.index;
       const x1 = px + perChar * (m.index + m[0].length);
-      const w: PdfWord = { s: m[0], x0, x1, y0: base - ascent * size, y1: base - descent * size };
+      const w: PdfWord = frame
+        ? frameBox(m[0], frame, perChar * m.index, perChar * (m.index + m[0].length), ascent * size, descent * size, size)
+        : { s: m[0], x0, x1, y0: base - ascent * size, y1: base - descent * size };
       const glue =
+        (!frame || (frame.rot === 0 && prev?.word.rot === 0)) &&
         first && m.index === 0 && prev && !prev.endsWithSpace &&
         Math.abs(prev.base - base) <= BASELINE_TOL &&
         x0 - prev.word.x1 <= GLUE_GAP * Math.max(size, prev.size) && x0 - prev.word.x1 >= -GLUE_GAP * size;
@@ -114,6 +131,47 @@ function pageWords(
     if (prev) prev.endsWithSpace = /\s$/.test(it.str) || (first && /\s/.test(it.str));
   }
   return words;
+}
+
+interface ItemFrame {
+  ox: number;
+  oy: number;
+  /** unit reading direction, viewport (y down) */
+  ux: number;
+  uy: number;
+  /** unit "up" (towards ascent), viewport */
+  vx: number;
+  vy: number;
+  rot: number;
+}
+
+function itemFrame(
+  vp: { convertToViewportPoint(x: number, y: number): number[] },
+  a: number, b: number, c: number, d: number, e: number, f: number,
+): ItemFrame {
+  const [ox = e, oy = f] = vp.convertToViewportPoint(e, f);
+  const unit = (x: number, y: number): [number, number] => {
+    const [px = ox, py = oy] = vp.convertToViewportPoint(x, y);
+    const n = Math.hypot(px - ox, py - oy) || 1;
+    return [(px - ox) / n, (py - oy) / n];
+  };
+  const [ux, uy] = unit(e + a, f + b);
+  const [vx, vy] = unit(e + c, f + d);
+  const deg = Math.round((Math.atan2(-uy, ux) * 180) / Math.PI);
+  return { ox, oy, ux, uy, vx, vy, rot: ((deg % 360) + 360) % 360 };
+}
+
+/** Axis-aligned box of the span [s0, s1] along the reading direction, descent..ascent across it. */
+function frameBox(s: string, fr: ItemFrame, s0: number, s1: number, asc: number, desc: number, size: number): PdfWord {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const t of [s0, s1]) {
+    for (const h of [desc, asc]) {
+      xs.push(fr.ox + fr.ux * t + fr.vx * h);
+      ys.push(fr.oy + fr.uy * t + fr.vy * h);
+    }
+  }
+  return { s, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), rot: fr.rot, size };
 }
 
 /** Page text + word boxes from words (the reference reader's row rebuild). `docSha256`: sha256 of the PDF's bytes. */
@@ -165,6 +223,43 @@ export async function extractPdf(data: Uint8Array, opts: { pdfjs?: PdfjsLike } =
     return {
       pages, meta: { page_count: doc.numPages, title: typeof info.Title === "string" ? info.Title : "", sha256: docSha256 },
     };
+  } finally {
+    await doc.destroy();
+  }
+}
+
+/** One page of extractPdfWords: words with their real boxes, direction and size (PDF points, top-left origin). */
+export interface PdfWordsPage {
+  n: number;
+  width: number;
+  height: number;
+  words: PdfWord[];
+}
+
+/**
+ * Every page's words with rotation-aware boxes, `rot` and `size` - for documents whose text is not
+ * all left to right (drawings: rotated member tags, dimension strings). extractPdf is unchanged.
+ */
+export async function extractPdfWords(
+  data: Uint8Array,
+  opts: { pdfjs?: PdfjsLike } = {},
+): Promise<{ pages: PdfWordsPage[]; meta: PdfText["meta"] }> {
+  const pdfjs = opts.pdfjs ?? (await (defaultPdfjs ??= import("pdfjs-dist") as unknown as Promise<PdfjsLike>));
+  const docSha256 = await sha256(data);
+  const doc = await pdfjs.getDocument({ data: data.slice(), verbosity: 0, isEvalSupported: false }).promise;
+  try {
+    const pages: PdfWordsPage[] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const vp = page.getViewport({ scale: 1 });
+      const tc = await page.getTextContent();
+      const words = pageWords(tc.items, tc.styles, vp, true).map((w) => ({
+        ...w, x0: round(w.x0, 2), y0: round(w.y0, 2), x1: round(w.x1, 2), y1: round(w.y1, 2),
+      }));
+      pages.push({ n, width: vp.width, height: vp.height, words });
+    }
+    const info = ((await doc.getMetadata().catch(() => ({ info: {} }))).info ?? {}) as { Title?: unknown };
+    return { pages, meta: { page_count: doc.numPages, title: typeof info.Title === "string" ? info.Title : "", sha256: docSha256 } };
   } finally {
     await doc.destroy();
   }
