@@ -18,6 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-default-panel-docking.md](2026-11-15-default-panel-docking.md) | done | Inspector defaults to the left dock and 3D model to the right dock; navbar shadow no longer overlaps filters |
 | [2026-11-15-theme-aware-favicon.md](2026-11-15-theme-aware-favicon.md) | done | Adds light/dark SVG favicons selected by the operating system color preference |
 | [2026-11-15-graph-controls-and-upward-trace.md](2026-11-15-graph-controls-and-upward-trace.md) | done | Restores type/review/confidence coloring and the data-gated utilization heatmap, removes the top-right reset control, and makes upward traces exhaustive |
 | [2026-11-15-harborview-synthetic-calcs.md](2026-11-15-harborview-synthetic-calcs.md) | active | Planning a full synthetic package; includes a small four-calculation PDF preview for Harborview
