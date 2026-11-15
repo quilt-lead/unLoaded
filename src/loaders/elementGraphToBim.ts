@@ -299,7 +299,10 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
   const rules = (e: { evidence: { rule: string }[] }) => [...new Set(e.evidence.map((v) => v.rule))].join('; ');
   for (const e of graph.edges()) {
     if (e.kind === 'supports') loadPath.push({ source: e.a, target: e.b, rule: rules(e) });
-    else if (e.kind === 'connects' || e.kind === 'part_of') connectivity.push({ source: e.a, target: e.b, kind: e.kind, rule: rules(e) });
+    // RelationKind is an open set (`(string & {})`), so a literal comparison doesn't narrow it: map explicitly.
+    else if (e.kind === 'connects' || e.kind === 'part_of') {
+      connectivity.push({ source: e.a, target: e.b, kind: e.kind === 'connects' ? 'connects' : 'part_of', rule: rules(e) });
+    }
   }
 
   return { projectName, elementNodes: computeRadialLayout(nodes), hierarchyLinks: links, loadPath, connectivity };
