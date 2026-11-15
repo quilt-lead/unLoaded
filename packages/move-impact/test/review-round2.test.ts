@@ -37,8 +37,8 @@ function beam(nodes: ElementNode[], edges: GraphEdge[], id: string, a: V3, b: V3
   }
 }
 const src = (calcKey: string) => ({ calcKey, page: 1, rects: [], documentSha256: DOC_SHA });
-const kip = (value: number) => ({ value, unit: "kip" });
-const klf = (value: number) => ({ value, unit: "klf" });
+const kip = (value: number) => ({ value, unit: "kip" as const });
+const klf = (value: number) => ({ value, unit: "klf" as const });
 const changesOf = (r: ImpactResult, e: string, quantity: string) =>
   (r.screened.find((x) => x.element === e)?.changes ?? []).filter((c) => c.quantity === quantity);
 const delta = (r: ImpactResult, e: string, quantity: string) => {
