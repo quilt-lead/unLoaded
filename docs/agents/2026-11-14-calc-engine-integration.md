@@ -1,10 +1,10 @@
 # Calc engine integration: main + hackathon engine + extraction
 
 - **Status:** active
-- **Branch:** `issy/integrate-calc-graph-engine` (owner: Issy). Not pushed, no PR yet.
+- **Branch:** `issy/integrate-calc-graph-engine` (owner: Issy). Draft PR #4 to `prod` (https://github.com/quilt-lead/unLoaded/pull/4), review requested from Carl (`cslotboom`). `prod` has no branch protection, so his review is requested, not enforced. This branch is pushed; `prod` is never pushed to directly.
 - **Owned files:** `backend/`, `.github/workflows/ci.yml`, `src/api/`, `src/data/`, `src/components/pdf/`,
   `src/components/three/`, `src/components/RevisionPanel.tsx`, and the merge of these into main's components.
-- **Working files (in flight):** the `prod` merge (PR #3 + c69ef3d) across `src/`, `package.json`; `backend/calcgraph/{api,pipeline,store}.py`.
+- **Working files (in flight):** `packages/calc-mapper/` (new), `backend/` → `tools/calcgraph-reference/`, `.github/workflows/ci.yml`, `src/engine/`, `src/data/`, `src/loaders/legacyBimJson.ts`, `docs/ARCHITECTURE.md`.
 
 
 Cut from `prod`.
@@ -199,6 +199,43 @@ fixed in `packages/element-graph`, not by keeping a second engine.
 **Also:** 3D keeps real IFC meshes rather than Carl's axis-aligned boxes (diagonal members, his open item);
 one web-ifc asset pipeline (his `copy-assets.mjs`). `legacyBimJson.ts` and `sample-data/` are removed (D10).
 Project rules from `prod`'s CLAUDE.md now apply: vendored UI skills, and these notes live in `docs/agents/`.
+
+### D17. Frontend only: the calc engine moves into the browser; Python becomes offline test tooling
+**Decided by:** Issy, 2026-11-14 ~7:25 PM ET, after Claude laid out the trade-offs and recommended it.
+**Why:** with D16 the backend's only remaining job was the calc engine (PDF text, segmentation, matcher,
+calc graph, impact, revision store). None of it needs a server: pdf.js gives text and word boxes in the
+browser, the matching logic is ~500 lines, storage can be IndexedDB. Gains: calc packages and models never
+leave the engineer's machine (confidential / copyrighted calcs), no server to host or secure, and it fits the
+team's direction (Carl's packages and Noah's diff are client-side). Loss: projects are per-browser until a
+sync layer exists; mitigated by exporting / importing a whole project as one file.
+**What changes:**
+- new workspace package `packages/calc-mapper` (TS port: pdf.js extraction, segment, matcher with identical
+  tiers, calc deps, impact, and the single graph diff `diffGraphs`), run in a Web Worker;
+- `src/data/projectStore.ts` on IndexedDB: revisions, mapping runs, append-only decision log;
+- `backend/` → `tools/calcgraph-reference/`: the synthetic generator and the scorer stay (Python, dev only);
+  FastAPI, the SQLite store, the Python schema and the schema-drift CI job are deleted. This **supersedes D2,
+  D5 and the store parts of D3/D15**; the concurrency fix goes with the store.
+**Guard:** CI runs the TS pipeline on the synthetic model and gates on the same baseline the Python engine set
+(mapping P/R/F1 0.9324/0.9956/0.9630, per-tier counts, xref, calc edges, segmentation, diff, impact). A one-off
+link-level comparison of Python vs TS output is recorded below once measured. The baseline is not lowered.
+**Noah's samples** stay and are ported onto the new view model, routed through the same `diffGraphs`;
+their invented documents are shown labelled as demo data, never mixed with real calc links.
+
+### D18. Pull back four pieces of the hackathon that the pivots had dropped
+**Decided by:** Issy, 2026-11-14 ~7:35 PM ET, after Claude listed what survived the pivots (the core
+matcher, segmentation, calc deps, impact, diff semantics, decision log, evidence UI and the synthetic gate)
+and what didn't. Claude had dropped the schema with the backend without flagging it; this corrects that.
+1. **Schema contract** in `packages/calc-mapper/src/types.ts`: provenance required on every link, calc,
+   edge, impact result and finding (producer module@version, method, evidence); units on every quantity
+   (`Quantity`, fixed unit set, `convert()`); branded coordinate frames (sheet / model metres / building
+   feet); producer records with input document hashes per mapping run.
+2. **Move-a-column impact screening**, rebuilt on uploaded data (the v2 engine read the generator's
+   design file). Unity checks only where a calc states them, labelled as estimates; gated on the v2
+   synthetic answer key.
+3. **Drawing-set ingest** as another parser producing Carl's `ModelInput`, so plans with no IFC flow
+   through the same element graph (also enables extraction idea #6, two-sided evidence).
+4. **MCP server** as a local stdio CLI over an exported project file, so an engineer can point their own
+   AI at a project without the app gaining a server (consistent with D17).
 
 ## Upstream merges
 
