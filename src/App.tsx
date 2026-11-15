@@ -72,6 +72,12 @@ import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
 import { RevisionPanel } from './components/RevisionPanel';
 import { useEscapeFallback } from './components/escapeStack';
+import { FileDropOverlay } from './components/FileDropOverlay';
+import { useFileDrop, type DropSlot } from './hooks/useFileDrop';
+import { ACCEPTED_EXTENSIONS } from './loaders/parsers';
+
+/** What a window drop accepts: every model format, calc package PDFs and project files (.json). */
+const DROP_EXTENSIONS = [...new Set([...ACCEPTED_EXTENSIONS, '.pdf'])];
 
 const EMPTY_SET = new Set<string>();
 const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
@@ -97,8 +103,6 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<WorkspaceView>('element-graph');
-  /** the inspector panel's own visibility: closing it keeps the selection; the header toggle and Reset reopen it */
-  const [inspectorVisible, setInspectorVisible] = useState(true);
   /** bumped by every explicit "open this in the PDF view": remounts the browser so its search / comparison cannot hide the target */
   const [documentOpenRequest, setDocumentOpenRequest] = useState(0);
   const [colorMode, setColorMode] = useState<ColorMode>('type');
@@ -737,6 +741,26 @@ export const App: React.FC = () => {
       return removed ? `${name} withdrawn from the calc set (kept; restore it from Revisions)` : `${name} restored to the calc set`;
     });
 
+  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. Calc PDFs dropped together
+  // are one upload (placed per document, like "Add calc PDFs"); anything else opens one file at a time. The
+  // "compare" zone (shown once a model is loaded) adds a model revision and diffs it against the current head.
+  const handleDropFiles = (files: File[], slot: DropSlot) => {
+    const pdfs = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (slot !== 'compare' && pdfs.length > 0 && pdfs.length === files.length) {
+      void handleUpload('calcs', pdfs);
+      return;
+    }
+    const file = files.find((f) => DROP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
+    if (!file) {
+      showToast(`Can't open ${files.map((f) => f.name).join(', ')}. Drop a ${DROP_EXTENSIONS.join(' / ')} file.`, true);
+      return;
+    }
+    if (files.length > 1) showToast(`Opening ${file.name}; drop one file at a time (${files.length - 1} ignored).`, true);
+    if (slot === 'compare' && headModelRev != null) void addRevisionFile('model', file, { compareWithHead: true });
+    else void handleOpenFile(file);
+  };
+  const { isDragging, hoverSlot } = useFileDrop(handleDropFiles);
+
   const handleSaveProject = () =>
     run('Packing the project…', async () => {
       if (!pid) throw new Error('No project to save.');
@@ -801,7 +825,6 @@ export const App: React.FC = () => {
     setMoved(new Map());
     setViewer3dDock('float');
     setInspectorDock('float');
-    setInspectorVisible(true);
     setLeftDockWidth(340);
     setRightDockWidth(360);
     setDocFilterBySelected(false);
@@ -894,7 +917,7 @@ export const App: React.FC = () => {
   );
 
   const showViewer3d = hasProject && (activeView === 'element-graph' || activeView === 'calculation-graph');
-  const showInspector = hasProject && inspectorVisible && activeView !== 'docs';
+  const showInspector = hasProject && activeView !== 'docs';
   const leftDockedHasItems = (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
   const rightDockedHasItems = (showViewer3d && viewer3dDock === 'right') || (showInspector && inspectorDock === 'right');
 
@@ -1036,12 +1059,6 @@ export const App: React.FC = () => {
       onFocus={() => setTopHudZ((z) => ({ v3d: z.v3d, insp: Math.max(z.v3d, z.insp) + 1 }))}
       onChangeDockSide={setInspectorDock}
       onDragHoverEdge={setHoverEdge}
-      onCloseAction={() => {
-        // closing hides the panel; the selection stays (Escape or Clear All clears it)
-        setInspectorVisible(false);
-        document.getElementById('inspectorToggle')?.focus();
-      }}
-      closeTitle="Close Inspector"
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
@@ -1157,7 +1174,7 @@ export const App: React.FC = () => {
 
   const subtitle = view
     ? `${view.modelName ?? 'no model'} ⇄ ${view.calcPackageName ?? 'no calc package'}${view.engine ? ` · ${view.engine}` : ''}`
-    : 'ELEMENT TOPOLOGY ↔ CALCULATION GRAPH ↔ 3D MODEL ↔ PDF CALCS';
+    : '';
 
   return (
     <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
@@ -1166,8 +1183,6 @@ export const App: React.FC = () => {
         subtitle={subtitle}
         activeView={activeView}
         onChangeView={changeView}
-        inspectorVisible={showInspector}
-        onToggleInspector={() => setInspectorVisible(!showInspector)}
         calcCount={view?.calcs.length ?? 0}
         colorMode={colorMode}
         onChangeColorMode={setColorMode}
@@ -1195,6 +1210,12 @@ export const App: React.FC = () => {
         onResetAll={handleResetAll}
       />
 
+      <FileDropOverlay
+        visible={isDragging}
+        hoverSlot={hoverSlot}
+        hasBaseModel={headModelRev != null}
+        acceptedExtensions={DROP_EXTENSIONS}
+      />
       {compareOpen && (
         <RevisionPanel
           key={scope.epoch}

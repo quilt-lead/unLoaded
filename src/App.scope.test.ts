@@ -10,8 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-// line endings normalised: a Windows checkout (core.autocrlf) has CRLF, and the slices below look for "\n"
-const app = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+const app = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n'); // CRLF checkouts (core.autocrlf on Windows)
 
 /** The source of `const <name> = ...` up to the next line at the same indentation that closes it. */
 function body(name: string): string {

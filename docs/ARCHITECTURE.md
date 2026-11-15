@@ -29,7 +29,7 @@ connection records (`IfcRelConnects*`). The graph is the single source of truth 
 
 Other inputs reach the same graph:
 - a serialized element graph or a `ModelInput` JSON;
-- legacy BIM JSON (`{ projectName, nodes, links }`, Noah's demo files in `sample-data/`), converted by
+- legacy BIM JSON (`{ projectName, nodes, links }`, Noah's demo files in `data/`), converted by
   `src/loaders/legacyBimJson.ts` into a `ModelInput` (boxes from `pos3d`/`size3d`) so it is built, laid out and
   diffed exactly like an IFC. Its invented `documents` become node links of kind `demo-document`, shown in the
   inspector labelled **demo data**, never as calc links. Invented utilisation / loads are dropped.

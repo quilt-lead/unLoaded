@@ -1,7 +1,7 @@
 # Phase 2: calc sets (many PDFs) and per-document revisions
 
-- **Status:** done (steps 1-5); not pushed, no PR. Follow-ups below.
-- **Branch:** `cs/phase2-calc-sets`, cut from `cs/phase1-calc-engine` (PR #4 + `prod`). Rebase onto `prod` once Phase 1 merges.
+- **Status:** done (steps 1-5); PR open to `prod`. Follow-ups below.
+- **Branch:** `cs/phase2-calc-sets`, cut from `cs/phase1-calc-engine`; `prod` (with PR #9 merged) merged in on 2026-11-15.
 - **Owned files:** `packages/calc-mapper/src/{types,project,package,calcset}.ts` (calcset.ts new), `packages/project-file/`,
   `src/engine/{ops,projectService,hooks}.ts`, `src/data/{projectStore,loadProject,mergeProject}.ts`, `src/components/RevisionPanel.tsx`,
   the calc-upload path in `src/loaders/parsers.ts` / `HeaderBar.tsx`.
@@ -156,6 +156,9 @@ move / withdraw / calc diff clicks (store + engine tests cover them).
 
 - Calc diff badges on the calc graph nodes (the diff shows in the revision panel only).
 - Rename a calc document from the UI (`updateDocument({ name })` exists; no control yet).
-- A synthetic one-PDF-per-calc case in the Python gate (tools/calcgraph-reference): today the equivalence is a TS test.
-- `generator_byte_stable` fails on this Windows checkout (pre-existing; likely CRLF).
-- Rebase onto `prod` after Phase 1 merges; `f7eedc4` and `563feaf` belong in Phase 1.
+- `generator_byte_stable` fails on Windows checkouts only (Linux CI passes it; CRLF).
+- Done 2026-11-15: merged `prod` after PR #9. The only conflicts were the duplicate CRLF test fix and `App.tsx`, where drag & drop
+  met the calc-document handlers. A drop of calc PDFs alone is now one calc-set upload (`handleUpload('calcs', pdfs)`,
+  placed per document like **Add calc PDFs**). Anything else still opens one file at a time.
+- Direction (Carl, 2026-11-15): TypeScript is the reference, not the Python prototype. Equivalence checks belong in
+  TS tests (the one-PDF-per-calc test is one), not in the Python gate.
