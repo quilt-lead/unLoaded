@@ -1,232 +1,358 @@
 /**
- * A project file loaded for querying: the revisions decoded, and, per (model revision, calc
- * revision) pair, the engine's output computed in-process by @unloaded/calc-mapper - the same
- * package, the same calls and the same order the app's worker makes (src/engine/ops.ts,
- * src/engine/projectService.ts):
+ * A loaded project: the model's element graph and one or more calc PDFs, mapped by the engine,
+ * with the review decisions applied. Everything is computed in-process through ./engine.ts.
  *
- *   graph   = the model revision's stored element graph (parseGraph; never re-parsed from the IFC)
- *   pkg     = the calc revision's stored extraction when `storedExtractionFor` (@unloaded/project-file,
- *             the rule the app uses too) accepts it against the sha256 of the PDF in the file;
- *             otherwise extractPdf + segmentCalcs on that PDF, so every provenance hash names the PDF
- *             actually in the file
- *   run     = mapCalcs(graph, pkg)
- *   state   = buildState(graph, pkg, run, decisions)
- *   exp     = buildExport(graph, pkg, run, decisions, info)   (info: the labels the app passes)
- *
- * Nothing here writes: the file is read, hashed and decoded; all results live in memory.
- * `ProjectSource` caches a loaded project per sha256 of the file's bytes and re-reads the file only
- * when its size or mtime changes (so saving a new version from the app is picked up on the next call).
+ * Multiple PDFs: `mapCalcs` runs PER PDF, so page numbers always stay within their own PDF. The first
+ * PDF (the main package) keeps the engine's plain calc keys, so a single-PDF decisions file is
+ * exactly calc-parser's format; every further PDF's keys are prefixed "<file-stem>/". Calc edges:
+ *   - within one PDF: `calcDependencies` (inferCalcDeps) on that PDF's calcs, pages and effective links,
+ *     exactly what the engine computes for that PDF alone;
+ *   - across PDFs: `crossReferenceDeps` on a combined view (all calcs, all pages with page numbers
+ *     offset so they are unique, all effective links), keeping only edges whose two calcs are in
+ *     different PDFs, with evidence page numbers mapped back to their own PDF. Only the engine's
+ *     cross-reference rule can produce them ("page 7" is never resolved across files).
+ * Like the Python reference (pipeline.state), calc edges are computed from the EFFECTIVE links,
+ * so a rejected cross-reference stops feeding an edge and a manual link counts as a designer.
  */
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { userInfo } from "node:os";
 import {
-  ENGINE_VERSION, buildExport, buildState, extractPdf, mapCalcs, parseGraph, segmentCalcs, sha256, sha256Json,
-  type CalcPackage, type DecisionFields, type Export, type MappingRun, type PdfjsLike, type ProjectState,
-  type SerializedElementGraph,
-} from "@unloaded/calc-mapper";
-import {
-  ProjectFileError, decodeBase64, headOf, parseProjectFile, storedExtractionFor, type ProjectFile, type ProjectFileRevision,
-} from "@unloaded/project-file";
-import { decisionsOf } from "./decisionLog.ts";
+  ENGINE_VERSION,
+  calcDependencies,
+  crossReferenceDeps,
+  effectiveDecisions,
+  effectiveLinks,
+  loadModel,
+  mapCalcs,
+  mappingStatuses,
+  readPdf,
+  type Calc,
+  type CalcEdge,
+  type CalcLink,
+  type CalcPage,
+  type Decision,
+  type EngineElement,
+  type MappingStatus,
+  type Model,
+  type ModelNode,
+} from "./engine.ts";
+import { DecisionsFile, sha256 } from "./decisions.ts";
+import type { ProjectInputs } from "./inputs.ts";
 
-let pdfjsPromise: Promise<PdfjsLike> | null = null;
-/** pdf.js's legacy build: what pdf.js documents for Node, and what calc-mapper's own Node CLI uses. */
-export function nodePdfjs(): Promise<PdfjsLike> {
-  return (pdfjsPromise ??= import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<PdfjsLike>);
-}
-
-/** How the calc package of a calc revision was obtained. */
-export type ExtractionSource = "stored" | "re-extracted";
-
-export interface CalcRevision {
-  rev: ProjectFileRevision;
+export interface PdfDoc {
+  /** 0 = main package. */
+  index: number;
+  path: string;
+  name: string;
+  sha256: string;
+  /** "" for the main PDF, "<stem>/" for the others. */
+  prefix: string;
   bytes: Uint8Array;
-  pkg: CalcPackage;
-  extraction: ExtractionSource;
-  /** Why the stored extraction was not used (when re-extracted). */
-  extractionNote: string | null;
+  pages: CalcPage[];
+  title: string;
+  /** Calcs with prefixed keys; `pages` are page numbers within this PDF. */
+  calcs: Calc[];
+  /** Raw (automatic) links with prefixed calc keys; `page` is within this PDF. */
+  links: CalcLink[];
+  /** Pages with no text layer (pages of the calcs the engine marked `scanned`). */
+  noTextPages: number[];
+  /** page number -> calc key (prefixed). */
+  pageOwner: Map<number, string>;
+  /** Offset of this PDF's pages in the combined view used for cross-PDF edges. */
+  offset: number;
+  readMs: number;
+  mapMs: number;
 }
 
-export interface ModelRevision {
-  rev: ProjectFileRevision;
-  graph: SerializedElementGraph;
+export interface CalcEdgeView extends CalcEdge {
+  cross_pdf: boolean;
 }
 
-/** The engine's view of one (model revision, calc revision) pair. */
-export interface View {
-  model: ModelRevision;
-  calcs: CalcRevision | null;
-  graphSha256: string;
-  run: MappingRun | null;
-  state: ProjectState;
-  exp: Export;
-  decisions: DecisionFields[];
+/** Deterministic file-stem slug used as the calc-key prefix of a non-main PDF. */
+export function stemSlug(fileName: string): string {
+  const stem = basename(fileName).replace(/\.[^.]+$/, "");
+  const s = stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return s || "pdf";
 }
 
-export class LoadedProject {
-  readonly decisions: DecisionFields[];
-  private models = new Map<number, Promise<ModelRevision>>();
-  private calcRevs = new Map<number, Promise<CalcRevision>>();
-  private views = new Map<string, Promise<View>>();
+const pairKey = (gid: string, key: string) => `${gid}\u0000${key}`;
 
-  readonly path: string;
-  readonly sha256: string;
-  readonly bytes: number;
-  readonly file: ProjectFile;
+export class ProjectError extends Error {
+  override name = "ProjectError";
+}
 
-  constructor(path: string, sha256: string, bytes: number, file: ProjectFile) {
-    this.path = path;
-    this.sha256 = sha256;
-    this.bytes = bytes;
-    this.file = file;
-    this.decisions = decisionsOf(file);
+export class Project {
+  readonly inputs: ProjectInputs;
+  readonly actor: string;
+  readonly model: { path: string; name: string; sha256: string; format: string; project: string | null; schema: string | null };
+  readonly graph: Model;
+  readonly elements: EngineElement[];
+  readonly elementById: Map<string, EngineElement>;
+  readonly gids: Set<string>;
+  readonly pdfs: PdfDoc[];
+  readonly calcs: Calc[];
+  readonly calcByKey: Map<string, Calc>;
+  readonly pdfOfCalc: Map<string, PdfDoc>;
+  readonly calcKeys: Set<string>;
+  readonly rawLinks: CalcLink[];
+  readonly decisions: DecisionsFile | null;
+  readonly warnings: string[];
+  readonly timings: Record<string, number>;
+
+  // derived from the decisions (recompute)
+  links: CalcLink[] = [];
+  linksByElement = new Map<string, CalcLink[]>();
+  linksByCalc = new Map<string, CalcLink[]>();
+  status = new Map<string, MappingStatus>();
+  counts: Record<MappingStatus, number> = { confirmed: 0, review: 0, unmapped: 0 };
+  calcEdges: CalcEdgeView[] = [];
+  effective = new Map<string, Decision>();
+  /** Decisions whose element or calc is not in this project (carried, but not applied). */
+  unappliedDecisions = 0;
+  /** The log the derived state was computed from (identity), to tell when it is stale. */
+  computedLog: readonly Decision[] | null = null;
+
+  constructor(init: {
+    inputs: ProjectInputs;
+    model: Project["model"];
+    graph: Model;
+    pdfs: PdfDoc[];
+    decisions: DecisionsFile | null;
+    warnings: string[];
+    timings: Record<string, number>;
+  }) {
+    this.inputs = init.inputs;
+    this.actor = init.inputs.actor ?? safeUser();
+    this.model = init.model;
+    this.graph = init.graph;
+    this.elements = init.graph.elements();
+    this.elementById = new Map(this.elements.map((e) => [e.global_id, e]));
+    this.gids = new Set(this.elementById.keys());
+    this.pdfs = init.pdfs;
+    this.calcs = init.pdfs.flatMap((p) => p.calcs);
+    this.calcByKey = new Map(this.calcs.map((c) => [c.key, c]));
+    this.pdfOfCalc = new Map(init.pdfs.flatMap((p) => p.calcs.map((c) => [c.key, p] as const)));
+    this.calcKeys = new Set(this.calcByKey.keys());
+    this.rawLinks = init.pdfs.flatMap((p) => p.links);
+    this.decisions = init.decisions;
+    this.warnings = init.warnings;
+    this.timings = init.timings;
+    this.recompute();
   }
 
-  get revisions(): ProjectFileRevision[] {
-    return [...this.file.revisions].sort((a, b) => a.id - b.id);
+  get log(): readonly Decision[] {
+    return this.decisions?.log ?? [];
   }
 
-  revision(id: number): ProjectFileRevision {
-    const r = this.file.revisions.find((x) => x.id === id);
-    if (!r) {
-      const ids = this.revisions.map((x) => `${x.id} (${x.kind})`).join(", ") || "none";
-      throw new ProjectFileError(`no revision ${id} in this project (revisions: ${ids})`);
+  /** Apply the decision log: effective links, statuses, calc edges. */
+  recompute(): void {
+    const log = this.log;
+    this.computedLog = log;
+    this.links = effectiveLinks(this.rawLinks, log, this.gids, this.calcKeys);
+    this.linksByElement = new Map();
+    this.linksByCalc = new Map();
+    for (const l of this.links) {
+      push(this.linksByElement, l.global_id, l);
+      push(this.linksByCalc, l.calc_key, l);
     }
-    return r;
-  }
+    const st = mappingStatuses(this.elements, this.links);
+    this.status = st.byElement;
+    this.counts = st.counts;
+    this.effective = effectiveDecisions(log);
+    this.unappliedDecisions = log.filter((d) => !this.gids.has(d.global_id) || !this.calcKeys.has(d.calc_key)).length;
 
-  head(kind: "model" | "calcs"): ProjectFileRevision | null {
-    return headOf(this.file.revisions, kind);
-  }
-
-  model(id: number): Promise<ModelRevision> {
-    let p = this.models.get(id);
-    if (!p) {
-      p = (async () => {
-        const rev = this.revision(id);
-        if (rev.kind !== "model") throw new ProjectFileError(`revision ${id} is a calc package, not a model revision`);
-        if (!rev.graph) throw new ProjectFileError(`model revision ${id} (${rev.sourceName}) has no element graph in the project file`);
-        return { rev, graph: parseGraph(rev.graph) };
-      })();
-      this.models.set(id, p);
+    const edges: CalcEdgeView[] = [];
+    for (const pdf of this.pdfs) {
+      const own = new Set(pdf.calcs.map((c) => c.key));
+      const links = this.links.filter((l) => own.has(l.calc_key));
+      for (const e of calcDependencies(pdf.calcs, pdf.pages, links)) edges.push({ ...e, cross_pdf: false });
     }
-    return p;
-  }
-
-  calcRevision(id: number): Promise<CalcRevision> {
-    let p = this.calcRevs.get(id);
-    if (!p) {
-      p = (async () => {
-        const rev = this.revision(id);
-        if (rev.kind !== "calcs") throw new ProjectFileError(`revision ${id} is a model revision, not a calc package`);
-        // parseProjectFile refuses an empty blob, so this is the PDF
-        const bytes = decodeBase64(rev.blob);
-        const stored = storedExtractionFor(rev.extraction, await sha256(bytes));
-        if (stored.pkg) return { rev, bytes, pkg: stored.pkg, extraction: "stored" as const, extractionNote: null };
-        const text = await extractPdf(bytes, { pdfjs: await nodePdfjs() });
-        const pkg = segmentCalcs(text.pages, rev.sourceName);
-        return { rev, bytes, pkg, extraction: "re-extracted" as const, extractionNote: stored.reason };
-      })();
-      this.calcRevs.set(id, p);
-    }
-    return p;
-  }
-
-  /** Resolve the (model, calc) pair a tool asked for, defaulting to the heads (what the app shows). */
-  pair(modelRev?: number | null, calcRev?: number | null): { model: number; calcs: number | null } {
-    const m = modelRev ?? this.head("model")?.id ?? null;
-    if (m == null) throw new ProjectFileError("this project has no model revision yet (add an IFC in the app, then save the project again)");
-    const c = calcRev ?? this.head("calcs")?.id ?? null;
-    return { model: m, calcs: c };
-  }
-
-  view(modelRev?: number | null, calcRev?: number | null): Promise<View> {
-    const { model: m, calcs: c } = this.pair(modelRev, calcRev);
-    const key = `${m}:${c ?? "-"}`;
-    let p = this.views.get(key);
-    if (!p) {
-      p = (async () => {
-        const model = await this.model(m);
-        const calcs = c == null ? null : await this.calcRevision(c);
-        const graphSha256 = await sha256Json(model.graph);
-        const run = calcs ? await mapCalcs(model.graph, calcs.pkg) : null;
-        const pkg = calcs?.pkg ?? null;
-        const state = buildState(model.graph, pkg, run, this.decisions);
-        // the same header labels the app's projectSnapshot passes
-        const exp = buildExport(model.graph, pkg, run, this.decisions, {
-          model: model.rev.sourceName, model_revision: model.rev.id,
-          calc_package: calcs?.rev.sourceName ?? null, calc_revision: calcs?.rev.id ?? null,
+    if (this.pdfs.length > 1) {
+      // combined view: page numbers offset per PDF so they are unique; links' pages offset to match
+      const pages = this.pdfs.flatMap((p) => p.pages.map((pg) => ({ n: pg.n + p.offset, text: pg.text, words: pg.words })));
+      const links = this.links.map((l) => {
+        const p = this.pdfOfCalc.get(l.calc_key)!;
+        return l.page === null ? l : { ...l, page: l.page + p.offset };
+      });
+      for (const e of crossReferenceDeps(this.calcs, pages, links)) {
+        const a = this.pdfOfCalc.get(e.src);
+        const b = this.pdfOfCalc.get(e.dst);
+        if (!a || !b || a === b) continue;
+        edges.push({
+          ...e,
+          evidence: e.evidence.map((ev) => {
+            const p = this.pdfOfCalc.get(ev.calc);
+            return { ...ev, page: ev.page === null || !p ? ev.page : ev.page - p.offset };
+          }),
+          cross_pdf: true,
         });
-        return { model, calcs, graphSha256, run, state, exp, decisions: this.decisions };
-      })();
-      p.catch(() => this.views.delete(key));
-      this.views.set(key, p);
+      }
     }
-    return p;
+    this.calcEdges = edges;
   }
 
-  /** Where a result came from: the file, the revisions, the engine and its producer records. */
-  async source(v: View): Promise<Record<string, unknown>> {
+  /** Pick up decisions written by someone else since the last read. */
+  async refresh(): Promise<boolean> {
+    if (this.decisions && (await this.decisions.refresh())) {
+      this.recompute();
+      return true;
+    }
+    return false;
+  }
+
+  node(gid: string): ModelNode | undefined {
+    return this.graph.node(gid);
+  }
+
+  decisionFor(gid: string, key: string): Decision | undefined {
+    return this.effective.get(pairKey(gid, key));
+  }
+
+  pdfByName(name: string | undefined | null): PdfDoc {
+    if (name === undefined || name === null || name === "") return this.pdfs[0]!;
+    const n = name.replace(/\/$/, "");
+    const hit =
+      this.pdfs.find((p) => p.name === name) ??
+      this.pdfs.find((p) => p.name.toLowerCase() === name.toLowerCase()) ??
+      this.pdfs.find((p) => p.prefix && p.prefix.slice(0, -1) === n) ??
+      this.pdfs.find((p) => p.sha256 === name);
+    if (!hit) {
+      throw new ProjectError(`no calc PDF "${name}" in this project (PDFs: ${this.pdfs.map((p) => p.name).join(", ")})`);
+    }
+    return hit;
+  }
+
+  /** The `source` block every result carries. */
+  source(opts: { pdfs?: Iterable<PdfDoc> | "all"; decisions?: boolean } = {}): Record<string, unknown> {
+    const pdfs = opts.pdfs === "all" || opts.pdfs === undefined ? this.pdfs : [...new Set(opts.pdfs)].sort((a, b) => a.index - b.index);
     return {
-      project_file: basename(this.path),
-      project_file_sha256: this.sha256,
-      model_revision: { id: v.model.rev.id, label: v.model.rev.label, source_name: v.model.rev.sourceName, graph_sha256: v.graphSha256 },
-      calc_revision: v.calcs
+      model: { file: this.model.name, sha256: this.model.sha256 },
+      calc_pdfs: pdfs.map((p) => ({ file: p.name, sha256: p.sha256, key_prefix: p.prefix })),
+      ...(opts.decisions
         ? {
-          id: v.calcs.rev.id, label: v.calcs.rev.label, source_name: v.calcs.rev.sourceName, pdf_sha256: v.calcs.pkg.source_sha256,
-          extraction: v.calcs.extraction, ...(v.calcs.extractionNote ? { extraction_note: v.calcs.extractionNote } : {}),
-        }
-        : null,
+            decisions: this.decisions
+              ? { file: this.decisions.name, sha256: this.decisions.sha256, entries: this.decisions.log.length, exists: this.decisions.exists }
+              : null,
+          }
+        : {}),
       engine: ENGINE_VERSION,
-      producers: v.exp.producers,
     };
   }
 }
 
-/** Read and validate a project file into a LoadedProject (no engine work yet: views compute lazily). */
-export async function loadProject(path: string, bytes?: Uint8Array): Promise<LoadedProject> {
-  const raw = bytes ?? new Uint8Array(await readFile(path));
-  const hash = await sha256(raw);
-  let data: unknown;
-  try {
-    data = JSON.parse(new TextDecoder().decode(raw));
-  } catch (e) {
-    throw new ProjectFileError(`${basename(path)} is not valid JSON: ${(e as Error).message}`);
-  }
-  return new LoadedProject(path, hash, raw.length, parseProjectFile(data));
+function push<K, V>(m: Map<K, V[]>, k: K, v: V): void {
+  const a = m.get(k);
+  if (a) a.push(v);
+  else m.set(k, [v]);
 }
 
-/**
- * The project file a server serves, cached per sha256 of its bytes. Each call checks the file's size
- * and mtime; a changed file is re-read and re-hashed, and a new hash gets a fresh LoadedProject (so
- * nothing computed from the old bytes is reused).
- */
-export class ProjectSource {
-  private current: { size: number; mtimeMs: number; project: LoadedProject } | null = null;
-  private loading: Promise<LoadedProject> | null = null;
+function safeUser(): string {
+  try {
+    return userInfo().username;
+  } catch {
+    return "unknown";
+  }
+}
 
-  readonly path: string;
+const prefixed = (prefix: string, key: string) => (prefix ? `${prefix}${key}` : key);
 
-  constructor(path: string) {
-    this.path = path;
+/** Read, validate and map everything. Throws with a user-facing message on bad input. */
+export async function loadProject(inputs: ProjectInputs): Promise<Project> {
+  const timings: Record<string, number> = {};
+  const warnings: string[] = [];
+  const t0 = performance.now();
+
+  const modelBytes = new Uint8Array(await readFile(inputs.model));
+  const modelName = basename(inputs.model);
+  const graph = await loadModel(modelBytes, modelName);
+  timings.model_ms = Math.round(performance.now() - t0);
+  warnings.push(...graph.warnings.map((w) => `model: ${w}`));
+  const elements = graph.elements();
+  if (!elements.length) warnings.push(`model: ${modelName} has no structural elements; nothing can be mapped`);
+  else if (!elements.some((e) => e.mark)) warnings.push(`model: no element in ${modelName} has a mark, so only size / type tiers can link calcs`);
+
+  // prefixes: main = "", others = "<stem>/" (must be unique)
+  const prefixes = inputs.calcs.map((p, i) => (i === 0 ? "" : `${stemSlug(p)}/`));
+  const dup = prefixes.find((p, i) => p && prefixes.indexOf(p) !== i);
+  if (dup) {
+    const who = inputs.calcs.filter((_, i) => prefixes[i] === dup).map((p) => basename(p));
+    throw new ProjectError(`calc PDFs ${who.join(" and ")} give the same calc-key prefix "${dup}". Rename one of them (the prefix is the file stem).`);
   }
 
-  async get(): Promise<LoadedProject> {
-    const st = await stat(this.path);
-    const cur = this.current;
-    if (cur && cur.size === st.size && cur.mtimeMs === st.mtimeMs) return cur.project;
-    if (this.loading) return this.loading;
-    this.loading = (async () => {
-      try {
-        const raw = new Uint8Array(await readFile(this.path));
-        const hash = await sha256(raw);
-        const project = cur && cur.project.sha256 === hash ? cur.project : await loadProject(this.path, raw);
-        this.current = { size: st.size, mtimeMs: st.mtimeMs, project };
-        return project;
-      } finally {
-        this.loading = null;
-      }
-    })();
-    return this.loading;
+  const pdfs: PdfDoc[] = [];
+  let offset = 0;
+  for (const [i, path] of inputs.calcs.entries()) {
+    const name = basename(path);
+    const bytes = new Uint8Array(await readFile(path));
+    const hash = sha256(bytes);
+    const twin = pdfs.find((p) => p.sha256 === hash);
+    if (twin) warnings.push(`calcs: ${name} has the same content as ${twin.name} (sha256 ${hash.slice(0, 12)})`);
+    const t1 = performance.now();
+    let text: Awaited<ReturnType<typeof readPdf>>;
+    try {
+      text = await readPdf(bytes);
+    } catch (e) {
+      throw new ProjectError(`calc PDF ${name} could not be read: ${(e as Error).message}`);
+    }
+    const readMs = Math.round(performance.now() - t1);
+    const t2 = performance.now();
+    const m = mapCalcs(elements, text.pages);
+    const mapMs = Math.round(performance.now() - t2);
+    const prefix = prefixes[i]!;
+    const calcs = m.calcs.map((c) => ({ ...c, key: prefixed(prefix, c.key) }));
+    const links = m.links.map((l) => ({ ...l, calc_key: prefixed(prefix, l.calc_key) }));
+    // the engine's own scanned rule (segment): pages of calcs it flagged as having no text layer
+    const noTextPages = calcs.filter((c) => c.scanned).flatMap((c) => c.pages);
+    if (noTextPages.length === text.pages.length) {
+      warnings.push(`calcs: ${name} has NO text layer on any of its ${text.pages.length} page(s) (scanned?). Nothing in it can be mapped: OCR it first.`);
+    } else if (noTextPages.length) {
+      warnings.push(`calcs: ${name} page(s) ${compactRanges(noTextPages)} have no text layer (scanned / handwritten); calcs on them are never mapped`);
+    }
+    const pageOwner = new Map<number, string>();
+    for (const c of calcs) for (const n of c.pages) pageOwner.set(n, c.key);
+    pdfs.push({
+      index: i, path, name, sha256: hash, prefix, bytes, pages: text.pages, title: text.meta.title,
+      calcs, links, noTextPages, pageOwner, offset, readMs, mapMs,
+    });
+    offset += Math.max(text.pages.length, ...text.pages.map((p) => p.n), 0);
+    timings[`pdf_${i}_read_ms`] = readMs;
+    timings[`pdf_${i}_map_ms`] = mapMs;
   }
+
+  let decisions: DecisionsFile | null = null;
+  if (inputs.decisions) {
+    decisions = new DecisionsFile(inputs.decisions);
+    await decisions.load();
+  }
+  const t3 = performance.now();
+  const project = new Project({
+    inputs,
+    model: { path: inputs.model, name: modelName, sha256: sha256(modelBytes), format: graph.format, project: graph.project, schema: graph.schema },
+    graph,
+    pdfs,
+    decisions,
+    warnings,
+    timings,
+  });
+  timings.review_ms = Math.round(performance.now() - t3);
+  timings.total_ms = Math.round(performance.now() - t0);
+  if (project.unappliedDecisions) {
+    warnings.push(
+      `decisions: ${project.unappliedDecisions} decision(s) name an element or calc that is not in this project; they are kept in the file but not applied`,
+    );
+  }
+  return project;
+}
+
+export function compactRanges(ns: number[]): string {
+  const out: string[] = [];
+  const s = [...ns].sort((a, b) => a - b);
+  for (let i = 0; i < s.length; ) {
+    let j = i;
+    while (j + 1 < s.length && s[j + 1] === s[j]! + 1) j++;
+    out.push(i === j ? `${s[i]}` : `${s[i]}-${s[j]}`);
+    i = j + 1;
+  }
+  return out.join(", ");
 }
