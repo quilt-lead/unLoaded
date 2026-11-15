@@ -78,9 +78,86 @@ def ftin(ft: float) -> str:
 
 
 # ======================================================================= package core
+class _PendingShape(pymupdf.Shape):
+    """A page's one Shape: commit() keeps the content in order instead of writing the page (flush does)."""
+
+    def commit(self, overlay: bool = True) -> None:
+        if not overlay:
+            raise ValueError("calc_pdf_v2 pages draw in the foreground only (overlay=True)")
+        self.totalcont += self.text_cont   # text stays in call order with the drawings around it
+        self.text_cont = ""
+        self.last_point = None
+        self.rect = None
+
+    def flush(self) -> None:
+        if self.totalcont:
+            pymupdf.Shape.commit(self, True)
+
+
+class Page:
+    """A package page. PyMuPDF's page.insert_text / draw_* each make a Shape and commit it, and every
+    commit re-scans the page's whole content stream (wrap_contents -> count_q_balance) and adds another
+    content object: quadratic in the drawing calls on a page, 15,243 commits = 10 of the 17 s of a
+    184-record write_revision (profiled 2026-11-14). Here every drawing call goes, through PyMuPDF's
+    own Page method, into ONE Shape per page, in call order, written to the page once (flush: before
+    any other use of the page, and by Pkg.save). Same operators in the same order, so the page renders
+    and extracts the same. Pages are reached only through Pkg.new_page / Pkg.page (Pkg has no public
+    document), so nothing can draw on a page behind its pending content."""
+
+    def __init__(self, doc: pymupdf.Document, index: int):
+        self._doc = doc
+        self._index = index
+        self._page: pymupdf.Page | None = None
+        self._shape: _PendingShape | None = None
+
+    def _live(self) -> tuple[pymupdf.Page, _PendingShape]:
+        if self._page is None or self._shape is None or self._page.parent is None:
+            # PyMuPDF orphans every Page object when the document gains a page (Pkg.new_page flushes first)
+            if self._shape is not None and self._shape.totalcont:
+                raise RuntimeError(f"calc_pdf_v2: page {self._index + 1} lost unflushed content")
+            self._page = self._doc[self._index]
+            self._shape = _PendingShape(self._page)
+        return self._page, self._shape
+
+    def new_shape(self) -> _PendingShape:
+        return self._live()[1]
+
+    def flush(self) -> None:
+        if self._shape is not None and self._shape.totalcont:
+            self._live()[1].flush()
+
+    def _draw(self, name: str, *args, **kwargs):
+        shape = self._live()[1]
+        rc = getattr(pymupdf.Page, name)(self, *args, **kwargs)   # its page.new_shape() is `shape`
+        shape.draw_cont = ""   # anything the call did not commit is dropped, as PyMuPDF drops it
+        shape.text_cont = ""
+        return rc
+
+    def insert_text(self, *args, **kwargs):
+        return self._draw("insert_text", *args, **kwargs)
+
+    def draw_line(self, *args, **kwargs):
+        return self._draw("draw_line", *args, **kwargs)
+
+    def draw_rect(self, *args, **kwargs):
+        return self._draw("draw_rect", *args, **kwargs)
+
+    def draw_circle(self, *args, **kwargs):
+        return self._draw("draw_circle", *args, **kwargs)
+
+    def draw_polyline(self, *args, **kwargs):
+        return self._draw("draw_polyline", *args, **kwargs)
+
+    def __getattr__(self, name: str):
+        # any other page use (insert_image, insert_font, rect, ...) sees the drawings made before it
+        self.flush()
+        return getattr(self._live()[0], name)
+
+
 class Pkg:
     def __init__(self, ctx: dict, rev_label: str | None = None):
-        self.doc = pymupdf.open()
+        self._doc = pymupdf.open()
+        self._pages: list[Page] = []
         self.ctx = ctx
         self.meta: list[dict] = []
         self.places: list[dict] = []
@@ -92,7 +169,11 @@ class Pkg:
     # -------- pages
     def new_page(self, calc: str, style: str, landscape=False, text_layer=True, header=True):
         w, h = (PH, PW) if landscape else (PW, PH)
-        pg = self.doc.new_page(width=w, height=h)
+        for p in self._pages:   # a new page orphans the Page objects of the others
+            p.flush()
+        self._doc.new_page(width=w, height=h)
+        pg = Page(self._doc, len(self._pages))
+        self._pages.append(pg)
         if calc in ("COVER", "TOC"):
             sheet = calc
         else:
@@ -107,6 +188,10 @@ class Pkg:
     @property
     def pno(self) -> int:
         return len(self.meta)
+
+    def page(self, n: int) -> Page:
+        """Page n (1-based)."""
+        return self._pages[n - 1]
 
     def place(self, rid: str, rect, text: str, elements=(), how="calc_row", page: int | None = None,
               text_layer: bool | None = None):
@@ -126,7 +211,7 @@ class Pkg:
         for fn in self.deferred:
             fn(total)
         for m in self.meta:
-            pg = self.doc[m["page"] - 1]
+            pg = self.page(m["page"])
             if m["header"]:
                 txt = f"Page {m['page']} of {total}"
                 pg.insert_text((m["w"] - 36 - tl(txt, size=6.5), m["h"] - 14), txt, fontname="helv", fontsize=6.5, color=GREY)
@@ -134,12 +219,14 @@ class Pkg:
                                fontsize=6.5, color=GREY)
             if m["page"] in self.revs:
                 draw_revisions(pg, m, self.revs[m["page"]], self.rev_label or "1")
-        self.doc.set_metadata({"title": title, "author": FIRM_FULL + " (synthetic)", "subject": f"{PROJECT} - job {JOB}",
+        self._doc.set_metadata({"title": title, "author": FIRM_FULL + " (synthetic)", "subject": f"{PROJECT} - job {JOB}",
                                "creator": "calc-graph synth v2", "producer": "PyMuPDF", "keywords": "",
                                "creationDate": "D:20261114090000-05'00'", "modDate": "D:20261114090000-05'00'"})
 
     def save(self, path: str):
-        self.doc.save(path, garbage=3, deflate=True, no_new_id=True)
+        for pg in self._pages:
+            pg.flush()
+        self._doc.save(path, garbage=3, deflate=True, no_new_id=True)
 
 
 def pad_header(pg, sheet: str, w: float, subject: str, rev: str | None = None):
@@ -1580,7 +1667,7 @@ def calc_D3(pkg, ctx):
         angle = float(np.random.default_rng(seed).normal(0, 0.45))
 
         def render(total, pno=pno, sheet=sheet, blocks=blocks, seed=seed, angle=angle, text_layer=text_layer):
-            pg = pkg.doc[pno - 1]
+            pg = pkg.page(pno)
             png = _hand_png(sheet, blocks, seed, angle, pno, total)
             pg.insert_image(R(0, 0, PW, PH), stream=png)
             if text_layer:
@@ -2006,7 +2093,7 @@ def toc(pkg, ctx, sections):
     tno = pkg.pno
 
     def fill(total):
-        pg = pkg.doc[tno - 1]
+        pg = pkg.page(tno)
         y = 100
         pg.insert_text((306 - tl("TABLE OF CONTENTS", "hebo", 13) / 2, y), "TABLE OF CONTENTS", fontname="hebo", fontsize=13)
         y += 26
@@ -2089,7 +2176,7 @@ def write(exp: dict, d: dict, path: str) -> dict:
         # revised sheet: rev field in the pad header
         for p, items in pkg.revs.items():
             m = pkg.meta[p - 1]
-            pkg.doc[p - 1].insert_text((m["w"] - 30 - 61, 56), "rev 1", fontname="helv", fontsize=5.5, color=RED)
+            pkg.page(p).insert_text((m["w"] - 30 - 61, 56), "rev 1", fontname="helv", fontsize=5.5, color=RED)
         pkg.finalize(f"Structural calculations - {PROJECT} (synthetic)")
         pkg.save(path)
     # record evidence into exp
@@ -2155,7 +2242,7 @@ def write_revision(exp: dict, d: dict, record_ids, path: str, rev_label: str = "
             pkg.revise(pl["page"], pymupdf.Rect(pl["bbox"]), note)
         for p in pkg.revs:
             m = pkg.meta[p - 1]
-            pkg.doc[p - 1].insert_text((m["w"] - 30 - 61, 56), f"rev {lab}", fontname="helv", fontsize=5.5, color=RED)
+            pkg.page(p).insert_text((m["w"] - 30 - 61, 56), f"rev {lab}", fontname="helv", fontsize=5.5, color=RED)
         pkg.finalize(f"Structural calculations - {PROJECT} - revised sheets ({rev_label})")
         pkg.save(path)
     out = {}
