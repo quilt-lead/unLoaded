@@ -347,7 +347,8 @@ def run_impact(item: dict, reading: dict, as_of_value: str | None) -> dict:
     prim = [e["element_id"] for e in reading.get("elements", []) if e.get("role") == "primary"]
     ids = prim or [e["element_id"] for e in reading.get("elements", [])]
     if plan["engine"] == "move":
-        res = mv.impact_result(mv.Move(**plan["move"], as_of=as_of_value))
+        move = mv.Move(**plan["move"], as_of=as_of_value)
+        res = mv.impact_result(move)
         co = res.get("change_order") or {}
         out["impact"] = {"column": res["column"], "stale": len(res["stale"]), "health": {
             k: res["health"].get(k) for k in ("band", "score", "band_construction", "score_construction", "worst_uc")},
@@ -356,7 +357,7 @@ def run_impact(item: dict, reading: dict, as_of_value: str | None) -> dict:
         out["links"] = {"move_page": f"/v2?col={plan['move']['column']}&dx={plan['move']['dx']:g}&dy={plan['move']['dy']:g}"
                                      f"&remove={int(plan['move']['remove'])}&as_of={(d_as_of or asof.today()).isoformat()}"}
         try:
-            out["timeline"] = asof.impact_timeline({**plan["move"], "as_of": as_of_value})
+            out["timeline"] = asof.impact_timeline(move)
         except HTTPException as e:
             out["timeline_error"] = e.detail
     elif plan["engine"] == "resize":
