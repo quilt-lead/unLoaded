@@ -1,86 +1,57 @@
-/**
- * The MCP surface, through the official client over an in-memory transport: the tool list and its
- * read-only annotations, the JSON envelope, image content, errors as tool errors, the file never
- * written, and the per-hash cache picking up a re-saved file.
- */
-import { readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { sha256 } from "@unloaded/calc-mapper";
-import { ProjectSource } from "../src/project.ts";
-import { SERVER_VERSION, TOOL_NAMES, createServer } from "../src/server.ts";
-import { buildProjectFile, writeTemp } from "./fixtures.ts";
-
-type Content = { type: string; text?: string; data?: string; mimeType?: string };
+/** The MCP surface and the package's own invariants. */
+import { readdirSync, readFileSync } from "node:fs";
+import { beforeAll, describe, expect, it } from "vitest";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { SERVER_VERSION, TOOL_NAMES, WRITE_TOOLS } from "../src/server.ts";
+import { MODEL, MODEL_REV2, PDF, SUPPLEMENT, call, connect, inputs, loadProject } from "./helpers.ts";
 
 describe("MCP server", () => {
-  let path: string;
-  let before: string;
   let client: Client;
-
   beforeAll(async () => {
-    path = writeTemp((await buildProjectFile()).file);
-    before = await sha256(new Uint8Array(readFileSync(path)));
-    const [ct, st] = InMemoryTransport.createLinkedPair();
-    await createServer(new ProjectSource(path)).connect(st);
-    client = new Client({ name: "test", version: "0" });
-    await client.connect(ct);
-  });
-  afterAll(async () => {
-    await client?.close();
-  });
+    client = await connect(await loadProject(inputs({ models: [MODEL, MODEL_REV2], calcs: [PDF, SUPPLEMENT] })));
+  }, 120_000);
 
-  async function call(name: string, args: Record<string, unknown> = {}) {
-    const r = await client.callTool({ name, arguments: args });
-    return { isError: r.isError === true, content: r.content as Content[] };
-  }
-  const json = (c: Content[]) => JSON.parse(c.find((x) => x.type === "text")!.text!);
-
-  it("lists every tool, each annotated read-only and non-destructive", async () => {
+  it("lists every tool with annotations: reads read-only, writes not read-only and not idempotent", async () => {
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name)).toEqual([...TOOL_NAMES]);
     for (const t of tools) {
-      expect(t.annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });
-      expect(t.description?.length).toBeGreaterThan(40);
+      const write = (WRITE_TOOLS as readonly string[]).includes(t.name);
+      expect(t.annotations).toMatchObject(write ? { readOnlyHint: false, idempotentHint: false, destructiveHint: false } : { readOnlyHint: true });
+      expect(t.description!.length).toBeGreaterThan(60);
     }
   });
 
-  it("answers every tool, and never writes the project file", async () => {
+  it("answers every read tool with a source block naming the model and the engine", async () => {
     const calls: [string, Record<string, unknown>][] = [
-      ["project_summary", {}], ["search_elements", { kind: "column" }], ["get_element", { id: "B-101" }],
-      ["get_calc", { key: "beam-design-check", include_text: true }], ["impact_of_change", { id: "C-1", mode: "remove" }],
-      ["list_revisions", {}], ["compare_revisions", {}], ["list_findings", {}], ["list_typical_groups", {}],
-      ["move_column", { column: "C-2", dx: 1 }],
+      ["project_summary", {}], ["search_elements", { category: "Column" }], ["get_element", { id: "C-1" }], ["list_calcs", {}],
+      ["get_calc", { key: "column-design-check", include_text: true }], ["search_calc_text", { query: "W12X53" }],
+      ["trace_load_path", { id: "C-1", direction: "up" }], ["calc_dependencies", {}], ["impact_of_change", { id: "C-1", mode: "remove" }],
+      ["review_status", {}], ["list_findings", {}], ["list_typical_groups", {}], ["compare_revisions", {}],
+      ["move_column", { column: "C-1", dx: 1 }], ["export_mapping", { element_limit: 5 }],
     ];
     for (const [name, args] of calls) {
-      const r = await call(name, args);
-      expect(r.isError, `${name}: ${r.content[0]?.text}`).toBe(false);
-      expect(json(r.content).source).toBeTruthy();
+      const r = await call(client, name, args);
+      expect(r.isError, `${name}: ${r.text}`).toBe(false);
+      expect(r.json.source.engine).toBeTruthy();
+      expect(r.json.source.model.sha256).toMatch(/^[0-9a-f]{64}$/);
+      expect(r.json.source.model.graph_sha256).toMatch(/^[0-9a-f]{64}$/);
     }
-    expect(await sha256(new Uint8Array(readFileSync(path)))).toBe(before);
   });
 
-  it("get_page_image returns PNG image content plus the frame and the PDF's hash", async () => {
-    const s = json((await call("project_summary")).content);
-    const r = await call("get_page_image", { page: 1, rect: [40, 40, 400, 120], highlight: [[48, 50, 200, 70]], width: 600 });
-    expect(r.isError).toBe(false);
-    const img = r.content.find((c) => c.type === "image")!;
+  it("get_page_image returns PNG image content and its frame", async () => {
+    const r = await client.callTool({ name: "get_page_image", arguments: { page: 2, width: 600, crop: false } });
+    const content = r.content as { type: string; data?: string; mimeType?: string; text?: string }[];
+    const img = content.find((c) => c.type === "image")!;
     expect(img.mimeType).toBe("image/png");
-    const png = Buffer.from(img.data!, "base64");
-    expect(png.subarray(1, 4).toString()).toBe("PNG");
-    expect(png.readUInt32BE(16)).toBe(600);
-    const meta = json(r.content);
-    expect(meta.area_pt).toEqual([40, 40, 400, 120]);
-    expect(meta.source.pdf_sha256).toBe(s.source.calc_revision.pdf_sha256);
-    expect((await call("get_page_image", { page: 9 })).content[0]!.text).toMatch(/page 9 is not in this PDF \(pages 1-2\)/);
+    expect(Buffer.from(img.data!, "base64").readUInt32BE(16)).toBe(600);
+    expect(JSON.parse(content.find((c) => c.type === "text")!.text!).source.calc_pdfs[0].file).toBe("test_calcs.pdf");
   });
 
-  it("bad input comes back as a tool error, not a crash", async () => {
-    const r = await call("get_element", { id: "does-not-exist" });
-    expect(r.isError).toBe(true);
-    expect(r.content[0]!.text).toMatch(/ToolInputError: no element/);
-    expect((await call("project_summary", { model_revision: 99 })).content[0]!.text).toMatch(/no revision 99/);
+  it("exposes the summary and decisions as resources", async () => {
+    const { resources } = await client.listResources();
+    expect(resources.map((r) => r.uri).sort()).toEqual(["unloaded://project/decisions", "unloaded://project/summary"]);
+    const s = await client.readResource({ uri: "unloaded://project/summary" });
+    expect(JSON.parse((s.contents[0] as { text: string }).text).model.elements).toBe(6); // rev 2: footing F-2 removed
   });
 
   it("SERVER_VERSION is package.json's version", () => {
@@ -89,22 +60,21 @@ describe("MCP server", () => {
   });
 });
 
-describe("ProjectSource (cache per file hash)", () => {
-  it("reuses the loaded project while the bytes are the same, and reloads when the file changes", async () => {
-    const { file } = await buildProjectFile();
-    const path = writeTemp(file);
-    const src = new ProjectSource(path);
-    const a = await src.get();
-    expect(await src.get()).toBe(a);
-    // same bytes, new mtime: re-hashed, same project kept
-    const t = statSync(path).mtime;
-    utimesSync(path, t, new Date(t.getTime() + 5000));
-    expect(await src.get()).toBe(a);
-    // re-saved with different content: a new project
-    writeFileSync(path, JSON.stringify({ ...file, project: { ...file.project, name: "Renamed" } }));
-    const b = await src.get();
-    expect(b).not.toBe(a);
-    expect(b.file.project.name).toBe("Renamed");
-    expect(b.sha256).not.toBe(a.sha256);
+describe("engine boundary", () => {
+  it("only src/engine.ts imports the engine packages", () => {
+    const dir = new URL("../src/", import.meta.url);
+    const offenders = readdirSync(dir)
+      .filter((f) => f.endsWith(".ts") && f !== "engine.ts")
+      .filter((f) => /from\s+["']@unloaded\//.test(readFileSync(new URL(f, dir), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the server depends on the engine packages it imports, and not on the retired calc-parser", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { dependencies: Record<string, string> };
+    const engine = readFileSync(new URL("../src/engine.ts", import.meta.url), "utf8");
+    const imported = [...new Set([...engine.matchAll(/from\s+["'](@unloaded\/[a-z-]+)["']/g)].map((m) => m[1]!))].sort();
+    expect(imported).toEqual(["@unloaded/calc-mapper", "@unloaded/element-graph", "@unloaded/ifc-parser", "@unloaded/move-impact", "@unloaded/project-file"]);
+    for (const name of imported) expect(pkg.dependencies[name]).toBeTruthy();
+    expect(pkg.dependencies["@unloaded/calc-parser"]).toBeUndefined();
   });
 });

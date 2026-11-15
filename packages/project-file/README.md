@@ -6,7 +6,7 @@ is the only place the format is declared. Every reader and writer goes through i
 | | writes | reads |
 |---|---|---|
 | app | `src/data/projectStore.ts` `exportProject` | `src/loaders/parsers.ts` (`parseProjectFile`) → `importProject` |
-| MCP server | `packages/mcp-server/src/makeProjectFile.ts` (tooling, tests) | `packages/mcp-server/src/project.ts` `loadProject` |
+| MCP server | `packages/mcp-server/scripts/makeProjectFile.ts` (tooling, CI parity, tests) | `packages/mcp-server/src/project.ts` `loadProject` (through `src/engine.ts`) |
 
 What it holds: every revision's original file base64-encoded (`blob`), each model revision's element graph
 (`graph`, required), each calc revision's extraction (`extraction`, optional: readers re-extract from the PDF
@@ -25,7 +25,7 @@ when `storedExtractionFor` refuses it), and the append-only decision log, oldest
   `SEGMENTER_VERSION`, so a segmenter fix reaches existing projects), has the full shape the engine reads
   (calc-mapper `calcPackageProblem`: page text and word boxes, unique calc keys, regions, title boxes,
   provenance), and every document hash names that PDF. The app (`src/engine/projectService.ts`) and the
-  MCP server (`packages/mcp-server/src/project.ts`) both call it.
+  MCP server (`packages/mcp-server/src/engine.ts`, its only engine importer) both call it.
 - `isProjectFileFormat(data)`: routing only ("does this JSON claim to be a project file?").
 - `encodeBase64` / `decodeBase64`: one codec for the browser and Node.
 - `headOf(revisions, kind)`: the head of a kind is the highest id, which is what importing leaves as head.

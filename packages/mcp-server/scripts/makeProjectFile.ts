@@ -4,14 +4,17 @@
  * extraction the app's worker makes (extractPdf + segmentCalcs), in the order given (ids 1, 2, ...),
  * so the last model is the head, as in the app. Each PDF is a revision of the calc document `docId`
  * names (default LEGACY_DOC_ID, so PDFs given without one are successive revisions of one document and
- * the last is its head). A decision's bare calc key names a calc of LEGACY_DOC_ID. For trying the server and for
- * tests; the app itself remains the way engineers make these files.
+ * the last is its head). A decision's bare calc key names a calc of LEGACY_DOC_ID. Tooling for trying
+ * the server, the CI parity run and the tests; the app itself remains the way engineers make these
+ * files. It lives in scripts/, outside the server's src/ (whose only engine importer is src/engine.ts).
  */
-import { extractPdf, parseGraph, segmentCalcs } from "@unloaded/calc-mapper";
-import { nodePdfjs } from "./project.ts";
+import { extractPdf, parseGraph, segmentCalcs, type PdfjsLike } from "@unloaded/calc-mapper";
 import {
-  LEGACY_DOC_ID, PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, documentName, encodeBase64, legacyCalcRef, type ProjectFile, type ProjectFileDecision,
+  LEGACY_DOC_ID, PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, documentName, encodeBase64, legacyCalcRef,
+  type ProjectFile, type ProjectFileDecision,
 } from "@unloaded/project-file";
+
+const nodePdfjs = () => import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<PdfjsLike>;
 
 export interface InputRevision {
   kind: "model" | "calcs";
