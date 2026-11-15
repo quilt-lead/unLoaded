@@ -41,17 +41,17 @@ export interface SpanResult {
 
 /** Simple-span reactions per component - statics, exact. */
 export function reactions(L: number, w: Vec3, pts: [number, Vec3][]): [Vec3, Vec3] {
-  const ri: Vec3 = [0, 0, 0];
-  const rj: Vec3 = [0, 0, 0];
-  for (let k = 0; k < 3; k++) {
-    ri[k] += (w[k]! * L) / 2;
-    rj[k] += (w[k]! * L) / 2;
+  // Per component: half the UDL to each end, point loads split by lever arm (half each on a zero span).
+  const end = (k: 0 | 1 | 2, atI: boolean): number => {
+    let r = (w[k] * L) / 2;
     for (const [a0, p] of pts) {
       const a = Math.min(Math.max(a0, 0), L);
-      ri[k] += L > 0 ? (p[k]! * (L - a)) / L : p[k]! / 2;
-      rj[k] += L > 0 ? (p[k]! * a) / L : p[k]! / 2;
+      r += L > 0 ? (p[k] * (atI ? L - a : a)) / L : p[k] / 2;
     }
-  }
+    return r;
+  };
+  const ri: Vec3 = [end(0, true), end(1, true), end(2, true)];
+  const rj: Vec3 = [end(0, false), end(1, false), end(2, false)];
   return [ri, rj];
 }
 

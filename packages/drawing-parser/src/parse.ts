@@ -109,7 +109,6 @@ export function parseDrawingPages(pages: DrawingPage[], opts: { files?: string[]
   for (const { ctx, callouts } of ctxs) attributeCallouts(ctx, callouts, sheetKinds);
 
   return assemble({ facts, sheets: read.map((r) => r.sheet), ...(grid ? { grid } : {}), files: opts.files ?? [...new Set(pages.map((p) => p.file))], calibration });
-  return model;
 }
 
 /** Sheets of a parsed set (title-block reading only), e.g. to show what was recognised. */
