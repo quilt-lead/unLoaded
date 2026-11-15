@@ -6,14 +6,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ElementGraph } from '@unloaded/element-graph';
 import type { DecisionAction, ProjectViewModel } from '../types/bim';
-import { toCalcData, toImpactView, toModelDiff, toRevisionList } from '../data/loadProject';
+import { toCalcData, toCalcDocuments, toCalcRevisionDiff, toImpactView, toModelDiff, toRevisionList } from '../data/loadProject';
 import { mergeProject } from '../data/mergeProject';
 import { elementGraphToBim } from '../loaders/elementGraphToBim';
 import { createProject, deleteProject, listProjects, storeInfo } from '../data/projectStore';
 import {
   addCalcRevision,
   addModelRevision,
+  changeDocument,
+  compareCalcRevisions,
   compareRevisions,
+  moveCalcRevision,
   decide,
   impactOf,
   openActiveProject,
@@ -65,6 +68,8 @@ async function projectView(projectId: string, onProgress: Progress, modelRev: nu
   return {
     project: { id: snap.project.id, name: snap.project.name },
     revisions,
+    /** calc documents in set order, each with its revisions (the revision panel) */
+    calcDocuments: toCalcDocuments(snap.documents, snap.revisions, counts),
     hasCalcPackage: Boolean(snap.calcRev),
     /** the head calc package could not be read: the model is shown without calc data, and this says why */
     calcError: snap.calcError,
@@ -140,6 +145,32 @@ export function useDecide(projectId: string | null) {
   });
 }
 
+/** Calc revision diff: what changed between two revisions of one calc document. */
+export const useCalcCompare = (projectId: string | null, a: number | null, b: number | null) =>
+  useQuery({
+    queryKey: ['projects', projectId, 'calc-compare', a, b],
+    enabled: projectId != null && a != null && b != null && a !== b,
+    queryFn: async () => toCalcRevisionDiff(await compareCalcRevisions(projectId!, a!, b!), a!, b!),
+  });
+
+/** Move a calc revision to another document ('new': a document of its own), overriding where an upload was placed. */
+export function useMoveCalcRevision(projectId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { revisionId: number; docId: string | 'new' }) => moveCalcRevision(projectId!, v.revisionId, v.docId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects', projectId] }),
+  });
+}
+
+/** Rename a calc document, or withdraw it from / restore it to the calc set. */
+export function useChangeDocument(projectId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { docId: string; name?: string; removed?: boolean }) => changeDocument(projectId!, v.docId, { name: v.name, removed: v.removed }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects', projectId] }),
+  });
+}
+
 /** A model file as a new revision of `projectId` (named per call: the project the upload started in). */
 export function useUploadModel(onProgress: Progress) {
   const qc = useQueryClient();
@@ -196,13 +227,14 @@ export function useLoadSample(onProgress: Progress) {
   });
 }
 
-/** The synthetic calc supplement (design vs loads roles, a typical group, a size mismatch) as a new calc revision. */
+/** The synthetic calc supplement (design vs loads roles, a typical group, a size mismatch), placed like any calc PDF. */
 export function useLoadSupplement(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (projectId: string) => {
       const pdf = await sampleFile('calc_supplement.pdf', 'calc_supplement.pdf');
-      await addCalcRevision(projectId, pdf, 'Sample calc supplement', onProgress);
+      // placed like any upload: a document of its own, joining the calc package in the calc set
+      return addCalcRevision(projectId, pdf, 'Sample calc supplement', onProgress);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });

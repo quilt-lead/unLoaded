@@ -102,6 +102,8 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   const hasTabs = groups.length > 0 || findings.length > 0;
   const tab = hasTabs ? tabPick : 'calcs';
   const calcByKey = useMemo(() => new Map(calcs.map((c) => [c.key, c])), [calcs]);
+  // several calc PDFs: each row says which document it is in
+  const multiDoc = useMemo(() => new Set(calcs.map((c) => c.docId)).size > 1, [calcs]);
   /** The PDF a calc's pages are pages of: its document's, else the one package's. */
   const urlOf = (calcKey: string | null | undefined): string | null => {
     const doc = calcKey ? calcByKey.get(calcKey)?.docId : null;
@@ -195,7 +197,10 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           </div>
         ) : (
           <div className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400 gap-2">
-            <span className="truncate">{c.software || (c.frontMatter ? 'Front matter' : 'No software named')}</span>
+            <span className="truncate">
+              {multiDoc && c.docName && <span className="text-rose-300/80" title="Calc document (PDF)">{c.docName} · </span>}
+              {c.software || (c.frontMatter ? 'Front matter' : 'No software named')}
+            </span>
             <span className="flex items-center gap-1 flex-shrink-0">
               {c.scanned && <Chip tone="warn" title="No text layer: nothing could be read">scanned</Chip>}
               {c.frontMatter && <Chip title="Front matter / contents: never mapped">front</Chip>}

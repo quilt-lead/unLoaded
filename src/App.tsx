@@ -41,6 +41,8 @@ import {
   useRevisionUrls,
   useStoreInfo,
   useUploadCalcs,
+  useMoveCalcRevision,
+  useChangeDocument,
   useUploadModel,
 } from './engine/hooks';
 import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
@@ -138,6 +140,8 @@ export const App: React.FC = () => {
   // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
   const uploadModel = useUploadModel(setBusyText);
   const uploadCalcs = useUploadCalcs(setBusyText);
+  const moveCalcRevision = useMoveCalcRevision(pid);
+  const changeDocument = useChangeDocument(pid);
   const createProject = useCreateProject();
   const revisions = projectQ.data?.revisions ?? null;
   /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
@@ -630,13 +634,14 @@ export const App: React.FC = () => {
   const handleLoadSupplement = () =>
     run('Adding the sample calc supplement…', async () => {
       if (!pid) throw new Error('Open a project first (Load sample).');
+      let placed;
       try {
-        await supplement.mutateAsync(pid);
+        placed = await supplement.mutateAsync(pid);
       } catch (e) {
         throw new Error(sampleError(e));
       }
       setCompareOpen(false);
-      return 'Calc supplement added as the head calc package';
+      return calcPlacementText('calc_supplement.pdf', placed.placement, placed.revision?.id ?? null);
     });
 
   const handleLoadDemo = () =>
@@ -718,6 +723,19 @@ export const App: React.FC = () => {
   const handleUpload = (kind: 'model' | 'calcs', file: File | File[]) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) => addRevisionFile('any', file);
+
+  const handleMoveCalcRevision = (revisionId: number, docId: string | 'new') =>
+    run('Moving the calc revision…', async () => {
+      const to = await moveCalcRevision.mutateAsync({ revisionId, docId });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === to)?.name;
+      return `Calc revision #${revisionId} moved to ${docId === 'new' ? 'a new document' : name ?? to}`;
+    });
+  const handleSetDocumentRemoved = (docId: string, removed: boolean) =>
+    run(removed ? 'Withdrawing the calc document…' : 'Restoring the calc document…', async () => {
+      await changeDocument.mutateAsync({ docId, removed });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === docId)?.name ?? docId;
+      return removed ? `${name} withdrawn from the calc set (kept; restore it from Revisions)` : `${name} restored to the calc set`;
+    });
 
   const handleSaveProject = () =>
     run('Packing the project…', async () => {
@@ -1180,7 +1198,12 @@ export const App: React.FC = () => {
       {compareOpen && (
         <RevisionPanel
           key={scope.epoch}
+          projectId={pid}
           revisions={revisions}
+          calcDocuments={projectQ.data?.calcDocuments ?? []}
+          onAddCalcs={(fs) => handleUpload('calcs', fs)}
+          onMoveCalcRevision={handleMoveCalcRevision}
+          onSetDocumentRemoved={handleSetDocumentRemoved}
           loading={projectQ.isLoading}
           active={diffRevs}
           busy={Boolean(busyText)}

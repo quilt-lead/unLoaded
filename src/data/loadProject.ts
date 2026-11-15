@@ -14,11 +14,15 @@
 // buildGraph -> elementGraphToBim path as an IFC.
 import { buildGraph, type ElementKind, type ModelInput, type ElementGraph } from '@unloaded/element-graph';
 import type { Compare, Export, ExportProducers, Impact, Provenance } from '@unloaded/calc-mapper/types';
+import type { CalcSetDiff } from '@unloaded/calc-mapper';
+import { docIdOf, type ProjectFileDocument } from '@unloaded/project-file';
 import type { RevisionRecord } from './projectStore';
 import type {
   BimLink,
   BimNode,
   CalcData,
+  CalcDocumentInfo,
+  CalcRevisionDiffView,
   CalcDependency,
   CalcLink,
   CalcPackage,
@@ -414,4 +418,26 @@ export function toRevisionList(revs: RevisionRecord[], heads: { model: number | 
       isIfc: x.mediaType === 'application/x-step',
     }))
     .sort((a, b) => b.id - a.id);
+}
+
+/** Calc documents with their revisions (newest first; `isHead` = the document's head, the revision the set maps). */
+export function toCalcDocuments(documents: ProjectFileDocument[], revs: RevisionRecord[], counts: Map<number, number>): CalcDocumentInfo[] {
+  const list = toRevisionList(revs, { model: null, calcs: null }, counts);
+  return documents.map((d) => {
+    const mine = list.filter((r) => r.kind === 'calcs' && docIdOf(revs.find((x) => x.id === r.id)!) === d.docId);
+    return { docId: d.docId, name: d.name, removed: d.removed, revisions: mine.map((r, i) => ({ ...r, isHead: i === 0 })) };
+  });
+}
+
+/** The engine's calc diff of two revisions of one document, as view data (keys bare: both are the same document). */
+export function toCalcRevisionDiff(d: CalcSetDiff, a: number, b: number): CalcRevisionDiffView {
+  return {
+    a,
+    b,
+    added: d.added.map((x) => ({ key: x.key, title: x.title })),
+    removed: d.removed.map((x) => ({ key: x.key, title: x.title })),
+    changed: d.changed.map((x) => ({ key: x.key, title: x.title, beforeTitle: x.before_title })),
+    moved: d.moved.map((x) => ({ key: x.key, title: x.title, beforePages: x.before_pages, afterPages: x.after_pages })),
+    unchanged: d.unchanged,
+  };
 }
