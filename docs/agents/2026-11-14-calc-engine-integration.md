@@ -513,6 +513,18 @@ otherwise. `prod` has since gained PR #5 (`a5176ad`): `prototyping/calc-viewer/`
 18 files including the protected terms and prototype screenshots. It is **not** merged here. PR #4 now conflicts
 with `prod`, so GitHub runs no PR checks on it. The last green CI was `bf22bd8`.
 
+### D32. The MCP server leaves PR #4 and gets its own PR, built on what is on `prod`
+**Decided by:** Issy, 2026-11-14 ~11:10 PM ET ("seperate the MCP from the rest of the PR and shape it to what is
+currently on main"). At 10:59 PM ET Carl pushed `@unloaded/calc-parser` to `prod`: his own TypeScript port of the
+same Python calc engine (pdf.js, segment, matcher, calcdeps, impact, review), with golden parity tests. The MCP is
+rebuilt on a new branch from `prod`, on `calc-parser` + `element-graph` + `ifc-parser`. Its input is what `prod` works
+with (an IFC plus calc PDFs), not this branch's project file. D27's design (read-only, local stdio, parity against
+the packages called directly) carries over; the old code is in this branch's history at `0fd9aa9`.
+Removed here: `packages/mcp-server`, the CI parity step, and the doc/comment references. `packages/project-file`
+stays: the app's Save/Open project still uses it.
+**Open for the team:** `calc-parser` (on `prod`) and this branch's `calc-mapper` are two ports of the same engine.
+Which one survives is for Issy, Carl and Noah to settle. Not touched here.
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |

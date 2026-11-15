@@ -80,17 +80,6 @@ jobs:
           node scripts/build_graph.mjs
           data/synthetic/model_rev1.ifc data/synthetic/model_rev1.graph.json
           data/synthetic/model_rev2.ifc data/synthetic/model_rev2.graph.json
-      - name: MCP server parity on the synthetic project file
-        # writes a *.calcgraph.json through @unloaded/project-file (the app's format), launches the real
-        # CLI over stdio with the MCP client, calls every tool and compares each result with calc-mapper /
-        # move-impact called directly on the same file; exits 1 on any mismatch
-        working-directory: .
-        run: |
-          node packages/mcp-server/scripts/make-project-file.ts --out "$RUNNER_TEMP/synthetic.calcgraph.json" --name "Synthetic" \
-            --model tools/calcgraph-reference/data/synthetic/model_rev1.graph.json \
-            --calcs tools/calcgraph-reference/data/synthetic/calc_package.pdf \
-            --model tools/calcgraph-reference/data/synthetic/model_rev2.graph.json
-          node packages/mcp-server/scripts/mcp-parity.ts "$RUNNER_TEMP/synthetic.calcgraph.json"
       - name: Calc engine CLI smoke run (the gate below runs the engine itself, through scripts/evaluate.py)
         # proves run-pipeline.ts runs end to end on the synthetic package; its output is not read by
         # anything, so it goes to the runner's temp dir
