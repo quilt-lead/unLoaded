@@ -69,6 +69,8 @@ export class IfcViewer {
   private disposed = false;
   private loadToken = 0;
   private ghostToken = 0;
+  /** the URL of the head model on screen, set when its load() finished; null while none is */
+  private headUrl: string | null = null;
 
   constructor(public el: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -209,6 +211,7 @@ export class IfcViewer {
   private invalidateLoads() {
     this.loadToken++;
     this.ghostToken++;
+    this.headUrl = null;
   }
 
   private emptyScene() {
@@ -305,20 +308,37 @@ export class IfcViewer {
       const c = box.getCenter(new THREE.Vector3());
       this.world.position.set(-c.x, -box.min.y, -c.z);
     }
+    this.headUrl = url;
     onProgress('', 100);
     this.fit();
     return true;
   }
 
-  /** Meshes of `gids` from another revision's IFC, in the same coordinates as the head model. */
-  async loadGhosts(sources: { url: string; gids: string[] }[]) {
+  /**
+   * Meshes of `gids` from another revision's IFC, in the same coordinates as the head model `headUrl`.
+   * Ghosts share that model's re-centring, so they load only once it is the finished head model on
+   * screen (else nothing happens and this resolves false), and they stop painting when it is replaced
+   * (a new load, clear, dispose), when loadGhosts is called again, or on cancelGhosts().
+   * Resolves true when every ghost was loaded for that head model.
+   */
+  async loadGhosts(headUrl: string, sources: { url: string; gids: string[] }[]): Promise<boolean> {
+    if (this.headUrl !== headUrl) return false;
+    const head = this.loadToken;
     const token = ++this.ghostToken;
+    const current = () => token === this.ghostToken && head === this.loadToken;
     this.clearGhosts();
     for (const s of sources) {
       if (!s.gids.length) continue;
-      await this.stream(s.url, this.ghostGroup, new Set(s.gids), true, () => token === this.ghostToken);
-      if (token !== this.ghostToken) return;
+      await this.stream(s.url, this.ghostGroup, new Set(s.gids), true, current);
+      if (!current()) return false;
     }
+    return true;
+  }
+
+  /** Stop any ghost load in flight and remove the ghosts (the head model stays). */
+  cancelGhosts() {
+    this.ghostToken++;
+    this.clearGhosts();
   }
 
   private boxOf(objs: THREE.Object3D[]): THREE.Box3 {

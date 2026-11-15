@@ -66,6 +66,8 @@ async function projectView(projectId: string, onProgress: Progress, modelRev: nu
     project: { id: snap.project.id, name: snap.project.name },
     revisions,
     hasCalcPackage: Boolean(snap.calcRev),
+    /** the head calc package could not be read: the model is shown without calc data, and this says why */
+    calcError: snap.calcError,
     view,
     pdfUrl: snap.calcRev ? await revisionFileUrl(snap.calcRev.id) : null,
   };
@@ -102,7 +104,7 @@ export const useRevisionUrls = (rids: number[]) =>
     },
   });
 
-/** Impact in a model revision (`modelRev`, default the head: pass the revision on screen). */
+/** Impact in a model revision (`modelRev`, default the head: pass the revision of the view on screen). */
 export const useImpact = (projectId: string | null, gid: string | null, mode: 'change' | 'remove', modelRev?: number | null) =>
   useQuery({
     queryKey: ['projects', projectId, 'impact', gid, mode, modelRev ?? null],
@@ -120,30 +122,39 @@ export const useCompare = (projectId: string | null, a: number | null, b: number
     },
   });
 
-/** Review decisions, recorded against `modelRev` (default the head: pass the revision on screen). */
-export function useDecide(projectId: string | null, modelRev?: number | null) {
+/**
+ * Review decisions. Each one names the model revision it was made on (`modelRev`: the revision of the
+ * view on screen when the reviewer clicked, never a revision still loading), so its provenance is
+ * what the reviewer saw.
+ */
+export function useDecide(projectId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { elementId: string; calcKey: string; action: DecisionAction }) => decide(projectId!, v.elementId, v.calcKey, v.action, modelRev),
+    mutationFn: (v: { elementId: string; calcKey: string; action: DecisionAction; modelRev: number | null }) =>
+      decide(projectId!, v.elementId, v.calcKey, v.action, v.modelRev),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects', projectId] }),
   });
 }
 
-export function useUploadModel(projectId: string | null, onProgress: Progress) {
+/** A model file as a new revision of `projectId` (named per call: the project the upload started in). */
+export function useUploadModel(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ file, label }: { file: File; label?: string }) => {
-      const { revision, warnings } = await addModelRevision(projectId!, file, label, onProgress);
+    mutationFn: async ({ projectId, file, label }: { projectId: string; file: File; label?: string }) => {
+      const { revision, warnings } = await addModelRevision(projectId, file, label, onProgress);
       return { revisionId: revision.id, warnings };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
 
-export function useUploadCalcs(projectId: string | null, onProgress: Progress) {
+/** A calc package PDF as a new revision of `projectId` (named per call, as useUploadModel). */
+export function useUploadCalcs(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ file, label }: { file: File; label?: string }) => ({ revisionId: (await addCalcRevision(projectId!, file, label, onProgress)).id }),
+    mutationFn: async ({ projectId, file, label }: { projectId: string; file: File; label?: string }) => ({
+      revisionId: (await addCalcRevision(projectId, file, label, onProgress)).id,
+    }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }

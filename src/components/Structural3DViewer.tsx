@@ -115,22 +115,25 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     };
   }, [modelUrl]);
 
-  // ghosts (diff elements from the other revision), after the head model so they share its offset
+  // ghosts (diff elements from the other revision), once the head model of THIS modelUrl has loaded
+  // so they share its offset (on a swap, loadedUrl is still the previous model's until the new one
+  // finishes); the cleanup cancels a ghost load still streaming, so it never paints into a later scene
   const ghostKey = JSON.stringify(ghostSources);
   useEffect(() => {
     const v = viewer.current;
-    if (!v || !loadedUrl) return;
+    if (!v || !modelUrl || loadedUrl !== modelUrl) return;
     let dead = false;
-    v.loadGhosts(ghostSources)
-      .then(() => !dead && setGhostVersion((n) => n + 1))
+    v.loadGhosts(modelUrl, ghostSources)
+      .then((done) => !dead && done && setGhostVersion((n) => n + 1))
       .catch(() => {
         /* a missing ghost revision only loses the ghosts, never the model */
       });
     return () => {
       dead = true;
+      v.cancelGhosts();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ghostKey, loadedUrl]);
+  }, [ghostKey, loadedUrl, modelUrl]);
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 

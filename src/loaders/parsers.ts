@@ -11,7 +11,9 @@
  *     calc-graph project file          -> validated (@unloaded/project-file parseProjectFile) for projectStore importProject
  *
  * A model's ElementGraph is stored with its revision in the local project store and goes through
- * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter).
+ * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter). The store refuses a
+ * serialized graph that calc-mapper's parseGraph (what reopens a saved project) rejects, so an
+ * imported model can always be saved and reopened (projectStore checkStorableRevision).
  * New formats (Revit, Tekla, ETABS, ...) should emit a ModelInput and reuse the element-graph
  * pipeline, so connectivity inference and load paths come for free.
  */

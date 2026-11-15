@@ -46,6 +46,7 @@ import {
 import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
 import { calcNodeId } from './data/loadProject';
 import { applyModelDiff } from './data/mergeProject';
+import { diffRevisionsError, keepWhatExists } from './data/viewState';
 import { exportFileView } from './data/openFile';
 import {
   computeLoadPathTrace,
@@ -119,13 +120,13 @@ export const App: React.FC = () => {
   const projectQ = useProjectView(pid, setViewProgress, diffRevs?.b ?? null);
   const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
   const projectsQ = useProjectList();
-  const decide = useDecide(pid, diffRevs?.b ?? null);
+  const decide = useDecide(pid);
   const sample = useLoadSample(setBusyText);
   const demo = useLoadDemo(setBusyText);
   const supplement = useLoadSupplement(setBusyText);
-  // revisions go to the store project, also when an export view is shown over it (as handleOpenFile)
-  const uploadModel = useUploadModel(projectId, setBusyText);
-  const uploadCalcs = useUploadCalcs(projectId, setBusyText);
+  // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
+  const uploadModel = useUploadModel(setBusyText);
+  const uploadCalcs = useUploadCalcs(setBusyText);
   const createProject = useCreateProject();
   const revisions = projectQ.data?.revisions ?? null;
   /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
@@ -133,11 +134,16 @@ export const App: React.FC = () => {
 
   const compareQ = useCompare(pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
 
-  const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
-  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change', diffRevs?.b ?? null);
-  const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
-
   const baseView: ProjectViewModel | null = exportView ?? projectQ.data?.view ?? null;
+  // The model revision ON SCREEN: while B's view loads, the previous revision's view is still shown
+  // (placeholder data), and impact and decisions must be about what the reviewer sees, not about the
+  // revision being loaded. Writes are disabled while the view is a placeholder (canWrite below).
+  const shownModelRev = exportView ? null : (baseView?.modelRevisionId ?? null);
+  const viewIsPlaceholder = !exportView && projectQ.isPlaceholderData;
+
+  const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
+  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change', shownModelRev);
+  const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
 
   const diffApplied = useMemo(() => {
     if (!baseView || !diffRevs || !compareQ.data) return null;
@@ -171,14 +177,23 @@ export const App: React.FC = () => {
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
 
+  const handleClearSelection = useCallback(() => {
+    setSelectedNodeId(null);
+    setSelectedNodeIds(new Set());
+    setSelectedCalcNodeId(null);
+    setSelectedCalcNodeIds(new Set());
+    setCalcAnchorKey(null);
+  }, []);
+
   /**
    * The one way the open project changes (picker, sample, demo, new project, project or export
-   * file). It resets every project-scoped piece of state here, synchronously, and bumps the epoch
-   * that remounts components holding project-local state. `diff` is applied as part of the same
-   * change, so a caller entering a project in diff mode (the demo) cannot have it reset away.
-   * Re-entering the scope already open changes nothing but the diff, when one is given.
-   * View-scoped state (selection, groups, impact, PDF target) resets on `projectKey` below, which
-   * also covers a new revision of the same project.
+   * file). It resets every project-scoped piece of state here, synchronously: groups, moved nodes,
+   * selection, impact, PDF target, the 3D camera, filters, diff mode. It also bumps the epoch that
+   * remounts components holding project-local state. `diff` is applied as part of the same change,
+   * so a caller entering a project in diff mode (the demo) cannot have it reset away. Re-entering
+   * the scope already open changes nothing but the diff, when one is given.
+   * A different revision of the SAME project on screen is not a project change: see keepWhatExists
+   * below (src/data/viewState.ts).
    */
   const scopeRef = useRef(scope);
   scopeRef.current = scope;
@@ -198,13 +213,19 @@ export const App: React.FC = () => {
         setFilters(NO_FILTERS);
         setCompareOpen(false);
         setDocFilterBySelected(false);
+        setGroups([]);
+        setMoved(new Map());
+        handleClearSelection();
+        setImpactReq(null);
+        setPdfTarget(null);
+        setResetTrigger((c) => c + 1);
       }
       if (diff) {
         setDiffRevs(diff);
         setDiffFilter('ALL');
       }
     },
-    [],
+    [handleClearSelection],
   );
   const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
@@ -214,15 +235,24 @@ export const App: React.FC = () => {
     window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
   }, []);
 
+  // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
+  // the head, which has its own view) with the reason, rather than leaving an empty workspace.
   useEffect(() => {
-    if (projectQ.error) showToast(`Could not load the project: ${errMsg(projectQ.error)}`, true);
-  }, [projectQ.error, showToast]);
+    const err = diffRevs ? (projectQ.error ?? compareQ.error) : projectQ.error;
+    if (!err) return;
+    if (diffRevs) {
+      setDiffRevs(null);
+      setDiffFilter('ALL');
+      showToast(`Left diff mode: could not compare #${diffRevs.a} with #${diffRevs.b} (${errMsg(err)})`, true);
+    } else {
+      showToast(`Could not load the project: ${errMsg(err)}`, true);
+    }
+  }, [diffRevs, projectQ.error, compareQ.error, showToast]);
   useEffect(() => {
     if (impactQ.error) showToast(`Impact check failed: ${errMsg(impactQ.error)}`, true);
   }, [impactQ.error, showToast]);
-  useEffect(() => {
-    if (compareQ.error) showToast(`Compare failed: ${errMsg(compareQ.error)}`, true);
-  }, [compareQ.error, showToast]);
+  // the head calc package could not be read: the model is shown without calc data (calcError banner)
+  const calcError = exportView ? null : (projectQ.data?.calcError ?? null);
   // once per diff entered (a scope's (A, B) pair), not per recomputation: every decision refetches
   // the base view and recomputes diffSummary
   const diffKey = diffRevs ? `${scope.epoch}:${diffRevs.a}:${diffRevs.b}` : null;
@@ -235,24 +265,27 @@ export const App: React.FC = () => {
     }
   }, [diffKey, diffSummary, showToast]);
 
-  const handleClearSelection = useCallback(() => {
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-    setCalcAnchorKey(null);
-  }, []);
-
-  // a different project / revision pair: drop layout tweaks, groups and selection
-  const projectKey = baseView ? `${baseView.source}:${baseView.projectId}:${baseView.modelRevisionId}:${baseView.calcRevisionId}` : 'none';
+  // The revision on screen changed within the project (a diff entered, swapped or left, a new head
+  // or calc package): groups and moved nodes stay; selection, impact and PDF target stay where their
+  // element / calc exists in the new view (src/data/viewState.ts). Applied once the view has settled:
+  // not to a placeholder of the previous revision, and in diff mode not before the diff's ghosts are
+  // laid over B (a selected removed element is still on screen, as a ghost).
+  const viewSettled = !viewIsPlaceholder && (!diffRevs || Boolean(diffApplied) || compareQ.isError);
+  const pointersRef = useRef({ selectedNodeId, selectedNodeIds, selectedCalcNodeId, selectedCalcNodeIds, calcAnchorKey, impactReq, pdfTarget });
+  pointersRef.current = { selectedNodeId, selectedNodeIds, selectedCalcNodeId, selectedCalcNodeIds, calcAnchorKey, impactReq, pdfTarget };
   useEffect(() => {
-    setGroups([]);
-    setMoved(new Map());
-    handleClearSelection();
-    setImpactReq(null);
-    setPdfTarget(null);
-    setResetTrigger((c) => c + 1);
-  }, [projectKey, handleClearSelection]);
+    if (!view || !viewSettled) return;
+    const cur = pointersRef.current;
+    const next = keepWhatExists(cur, view);
+    if (next === cur) return;
+    setSelectedNodeId(next.selectedNodeId);
+    setSelectedNodeIds(next.selectedNodeIds);
+    setSelectedCalcNodeId(next.selectedCalcNodeId);
+    setSelectedCalcNodeIds(next.selectedCalcNodeIds);
+    setCalcAnchorKey(next.calcAnchorKey);
+    setImpactReq(next.impactReq);
+    setPdfTarget(next.pdfTarget);
+  }, [view, viewSettled]);
 
   // ---------------------------------------------------------------- derived view data
   const elementNodes = useMemo<BimNode[]>(() => {
@@ -390,7 +423,9 @@ export const App: React.FC = () => {
 
   const handleSelectGroup = useCallback(
     (groupId: string, opts?: { toggleMulti?: boolean }) => {
-      const grp = groups.find((g) => g.id === groupId);
+      const found = groups.find((g) => g.id === groupId);
+      // a group outlives revisions; select the members this revision has
+      const grp = found && { ...found, nodeIds: found.nodeIds.filter((id) => elementById.has(id)) };
       if (!grp || grp.nodeIds.length === 0) return;
       if (opts?.toggleMulti) {
         setSelectedNodeIds((prev) => {
@@ -411,7 +446,7 @@ export const App: React.FC = () => {
       }
       setFit3dTrigger((c) => c + 1);
     },
-    [groups],
+    [groups, elementById],
   );
 
   const handleRenameGroup = useCallback(
@@ -527,18 +562,39 @@ export const App: React.FC = () => {
       return 'Sample loaded: model, calc package and links';
     });
 
+  /**
+   * After a revision was added to `target` by an action that started in scope epoch `startEpoch`:
+   * show it (back from an export view; into diff `diff`, else out of diff mode so the new head is
+   * shown), but only if the user is still in the scope the action started in. A project switched to
+   * meanwhile is never switched away from. Returns whether it was shown.
+   */
+  const showAddedRevision = useCallback(
+    (target: string, startEpoch: number, diff?: { a: number; b: number }) => {
+      if (scopeRef.current.epoch !== startEpoch) return false;
+      enterScope({ projectId: target }, diff);
+      if (!diff) {
+        setDiffRevs(null);
+        setDiffFilter('ALL');
+      }
+      setCompareOpen(false);
+      return true;
+    },
+    [enterScope],
+  );
+  const projectName = (id: string) => projectsQ.data?.find((x) => x.id === id)?.name ?? 'its project';
+
   const handleLoadSampleRev2 = () =>
     run('Adding sample model rev 2 (column C8 removed)…', async () => {
       const before = headModelRev;
+      const startEpoch = scopeRef.current.epoch;
       let out: { projectId: string; modelRevisionId: number };
       try {
         out = await sample.mutateAsync({ rev: 2, projectId: pid });
       } catch (e) {
         throw new Error(sampleError(e));
       }
-      setCompareOpen(false);
-      enterScope({ projectId: out.projectId }, before != null ? { a: before, b: out.modelRevisionId } : undefined);
-      return 'Model rev 2 added and made the head';
+      const shown = showAddedRevision(out.projectId, startEpoch, before != null ? { a: before, b: out.modelRevisionId } : undefined);
+      return shown ? 'Model rev 2 added and made the head' : `Model rev 2 added to ${projectName(out.projectId)}`;
     });
 
   const handleLoadSupplement = () =>
@@ -565,43 +621,50 @@ export const App: React.FC = () => {
       return 'Harborview demo loaded as two model revisions, compared A → B';
     });
 
-  const handleUpload = (kind: 'model' | 'calcs', file: File) =>
-    run(`Reading ${file.name}…`, async () => {
-      if (!projectId) throw new Error('The project store is still opening; try again in a moment.');
-      // a new revision of the store project: back from any export view, out of diff mode so the
-      // new head is what is shown
-      switchProject(projectId);
-      setDiffRevs(null);
-      if (kind === 'model') {
-        const out = await uploadModel.mutateAsync({ file });
-        if (out.warnings.length) console.warn(`${file.name}: ${out.warnings.length} import warnings`, out.warnings);
-        return `Model ${file.name} added as revision #${out.revisionId}`;
+  /**
+   * The one path a chosen file becomes a revision of the store project (header menu, empty state,
+   * revision panel, Open file). The revision goes to the project open when the action started (also
+   * when an export view is shown over it); once added it is shown through showAddedRevision. With
+   * `compareWithHead`, a new model revision is shown as the diff (previous head -> new revision).
+   * `kind: 'any'` dispatches by content (openAnyFile): a project file opens as a new project and an
+   * export JSON as a read-only view instead.
+   */
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', file: File, opts?: { compareWithHead?: boolean }) =>
+    run(`${kind === 'any' ? 'Opening' : 'Reading'} ${file.name}…`, async () => {
+      const target = projectId;
+      if (!target) throw new Error('The project store is still opening; try again in a moment.');
+      const startEpoch = scopeRef.current.epoch;
+      const before = headModelRev;
+      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[] };
+      if (kind === 'any') {
+        const opened = await openAnyFile(target, file, setBusyText);
+        if (opened.kind === 'export') {
+          const v = exportFileView(opened.export);
+          enterScope({ exportView: v });
+          return `Opened ${file.name}: ${v.elementNodes.filter((x) => x.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only export)`;
+        }
+        await queryClient.invalidateQueries({ queryKey: ['projects'] });
+        if (opened.kind === 'project') {
+          switchProject(opened.projectId);
+          return `Imported project from ${file.name}`;
+        }
+        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings };
+      } else if (kind === 'model') {
+        const out = await uploadModel.mutateAsync({ projectId: target, file });
+        added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
+      } else {
+        const out = await uploadCalcs.mutateAsync({ projectId: target, file });
+        added = { kind: 'calcs', id: out.revisionId, warnings: [] };
       }
-      await uploadCalcs.mutateAsync({ file });
-      return `Calc package ${file.name} added and mapped`;
+      if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
+      const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
+      const shown = showAddedRevision(target, startEpoch, diff);
+      const what = `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+      return shown ? what : `${what} of ${projectName(target)}`;
     });
-
+  const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
-  const handleOpenFile = (file: File) =>
-    run(`Opening ${file.name}…`, async () => {
-      if (!projectId) throw new Error('The project store is still opening; try again in a moment.');
-      const opened = await openAnyFile(projectId, file, setBusyText);
-      if (opened.kind === 'export') {
-        const v = exportFileView(opened.export);
-        enterScope({ exportView: v });
-        return `Opened ${file.name}: ${v.elementNodes.filter((x) => x.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only export)`;
-      }
-      await queryClient.invalidateQueries({ queryKey: ['projects'] });
-      if (opened.kind === 'project') {
-        switchProject(opened.projectId);
-        return `Imported project from ${file.name}`;
-      }
-      // a revision added to the store project: back from any export view, out of diff mode
-      switchProject(projectId);
-      setDiffRevs(null);
-      if (opened.warnings.length) console.warn(`${file.name}: ${opened.warnings.length} import warnings`, opened.warnings);
-      return `${file.name} added as ${opened.revision.kind === 'model' ? 'model' : 'calc'} revision #${opened.revision.id}`;
-    });
+  const handleOpenFile = (file: File) => addRevisionFile('any', file);
 
   const handleSaveProject = () =>
     run('Packing the project…', async () => {
@@ -618,7 +681,7 @@ export const App: React.FC = () => {
   const handleDecide = useCallback(
     (elementId: string, calcKey: string, action: DecisionAction) => {
       decide
-        .mutateAsync({ elementId, calcKey, action })
+        .mutateAsync({ elementId, calcKey, action, modelRev: shownModelRev })
         .then(() =>
           showToast(
             action === 'confirm' ? 'Link confirmed' : action === 'reject' ? 'Link rejected' : action === 'manual' ? 'Linked by hand' : 'Decision undone',
@@ -626,24 +689,36 @@ export const App: React.FC = () => {
         )
         .catch((e) => showToast(`Decision failed: ${errMsg(e)}`, true));
     },
-    [decide, showToast],
+    [decide, showToast, shownModelRev],
   );
 
-  const handleCompare = (a: number, b: number) => {
+  /**
+   * Enter diff mode on model revisions (A, B) of the open project, chosen in the panel or named by a
+   * deep link: checked against the project's revisions first (diffRevisionsError), so an id from
+   * another browser's store or a calc revision is refused with the reason instead of failing B's view.
+   */
+  const requestDiff = (a: number, b: number): boolean => {
+    const why = diffRevisionsError(revisions, a, b);
+    if (why) {
+      showToast(`Cannot compare #${a} with #${b}: ${why}`, true);
+      return false;
+    }
     setDiffRevs({ a, b });
     setDiffFilter('ALL');
-    setCompareOpen(false);
+    return true;
   };
+  const handleCompare = (a: number, b: number) => {
+    if (requestDiff(a, b)) setCompareOpen(false);
+  };
+  // swapping or leaving keeps the selection where its element exists in the new view (keepWhatExists)
   const handleSwapDatabases = () => {
     if (!diffRevs) return;
     setDiffRevs({ a: diffRevs.b, b: diffRevs.a });
-    handleClearSelection();
     showToast(`Swapped: A is now #${diffRevs.b}, B is now #${diffRevs.a}`);
   };
   const handleClearDiff = () => {
     setDiffRevs(null);
     setDiffFilter('ALL');
-    handleClearSelection();
     showToast('Exited diff mode');
   };
 
@@ -684,6 +759,14 @@ export const App: React.FC = () => {
     [elementById, view, handleSelectElementNode],
   );
 
+  const dropFromHash = (key: string) => {
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (!h.has(key)) return;
+    h.delete(key);
+    const rest = h.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ''}`);
+  };
+
   // the deep link belongs to the project the app opened with (scope epoch 0) and is applied once,
   // when that project's view has loaded; an empty or failed opening project, or a switch to another
   // project first, drops it rather than carrying it to whatever opens next
@@ -708,7 +791,8 @@ export const App: React.FC = () => {
     const imp = h.get('impact');
     if (el && (imp === 'change' || imp === 'remove')) setImpactReq({ gid: el, mode: imp });
     const cmp = h.get('compare')?.split(',').map(Number);
-    if (cmp && cmp.length === 2 && cmp.every(Number.isFinite)) setDiffRevs({ a: cmp[0], b: cmp[1] });
+    // a refused pair is dropped from the URL too, so a reload does not refuse it again
+    if (cmp && !(cmp.length === 2 && requestDiff(cmp[0], cmp[1]))) dropFromHash('compare');
     const color = h.get('color') as ColorMode | null;
     if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
   }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs]);
@@ -895,7 +979,7 @@ export const App: React.FC = () => {
           diffMode={diffMode}
           impact={impact}
           impactLoading={Boolean(impactReq) && impactQ.isFetching}
-          canWrite={view?.source === 'project'}
+          canWrite={view?.source === 'project' && !viewIsPlaceholder}
           busy={decide.isPending || Boolean(busyText)}
           onSelectNode={(id) => {
             if (activeView === 'calculation-graph') setActiveView('element-graph');
@@ -1016,6 +1100,7 @@ export const App: React.FC = () => {
         onUploadCalcs={(f) => handleUpload('calcs', f)}
         onOpenFile={handleOpenFile}
         diffSummary={diffSummary}
+        diffRevs={diffRevs}
         compareOpen={compareOpen}
         onToggleCompare={() => setCompareOpen((v) => !v)}
         onSwapDatabases={handleSwapDatabases}
@@ -1036,15 +1121,7 @@ export const App: React.FC = () => {
           onCompare={handleCompare}
           onLoadSampleRev2={handleLoadSampleRev2}
           onLoadSupplement={handleLoadSupplement}
-          onUploadModel={(f) => {
-            const before = headModelRev;
-            run(`Reading ${f.name}…`, async () => {
-              const out = await uploadModel.mutateAsync({ file: f });
-              setCompareOpen(false);
-              if (before != null) setDiffRevs({ a: before, b: out.revisionId });
-              return `${f.name} added as model revision #${out.revisionId}`;
-            });
-          }}
+          onUploadModel={(f) => addRevisionFile('model', f, { compareWithHead: true })}
           onClose={() => setCompareOpen(false)}
         />
       )}
@@ -1098,6 +1175,18 @@ export const App: React.FC = () => {
 
         <div className="flex-1 relative h-full flex flex-col overflow-hidden min-w-0">
           {!hasProject && emptyState}
+
+          {calcError && view && (
+            <div
+              role="alert"
+              className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[min(36rem,calc(100%-2rem))] flex items-start gap-2 bg-amber-500/12 backdrop-blur-xl border border-amber-400/35 text-amber-100 rounded-xl px-3 py-2 text-[11px] leading-snug shadow-[0_12px_32px_rgba(0,0,0,0.6)]"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-px" aria-hidden="true" />
+              <span>
+                <span className="font-semibold">Calc package unavailable; the model is shown without calc links.</span> {calcError}
+              </span>
+            </div>
+          )}
 
           {hasProject && activeView === 'element-graph' && (
             <RadialGraphCanvas

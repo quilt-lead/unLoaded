@@ -7,6 +7,8 @@
 //   projects    id (string)              { id, name, createdAt, updatedAt, headModelRev, headCalcRev }
 //   revisions   id (auto number)         { id, projectId, kind: 'model'|'calcs', seq, label, sourceName,
 //                                          mediaType, createdAt, meta }           index: projectId
+//                                          meta.fileSha256: sha256 of the blob, recorded by the store
+//                                          when the revision is added (absent on older records)
 //   blobs       revisionId               { revisionId, blob }   the original IFC / PDF / JSON file
 //   graphs      revisionId               { revisionId, graph }  model revisions: ElementGraph.serialize()
 //                                                               (built once at import; never re-parse to get it)
@@ -17,6 +19,7 @@
 //                                          modelRev, calcRev }   APPEND-ONLY; keyed by (globalId, calcKey),
 //                                                               latest wins, so they carry across revisions
 import type { SerializedElementGraph } from '@unloaded/element-graph';
+import { parseGraph, sha256 } from '@unloaded/calc-mapper';
 import {
   PROJECT_FILE_FORMAT,
   PROJECT_FILE_VERSION,
@@ -270,6 +273,8 @@ const read = <T,>(store: StoreName, fn: (tx: Tx) => Promise<T>) => run([store], 
 /** Tests only: put the store on a given backend (a memory one that says it persists, or fails on demand). */
 export const __testing = {
   MemoryBackend,
+  IdbBackend,
+  openIdb,
   useBackend(b: Backend) {
     backendPromise = Promise.resolve(b);
   },
@@ -335,20 +340,41 @@ export async function getRevision(id: number): Promise<RevisionRecord | undefine
 
 type NewRevision = Omit<RevisionRecord, 'id' | 'projectId' | 'seq' | 'createdAt'> & { createdAt?: string };
 const REVISION_STORES: StoreName[] = ['projects', 'revisions', 'blobs', 'graphs', 'extractions'];
+type RevisionPayload = { graph?: SerializedElementGraph; extraction?: unknown };
+
+/**
+ * The one gate every revision passes on its way into the store (addRevision, importProject). It
+ * refuses what the project file's reader (`parseProjectFile`, which reopens a saved project here and
+ * in the MCP server) would refuse, so whatever is stored can always be saved and reopened: an empty
+ * file, a model revision without an element graph or with one `parseGraph` rejects, a calc revision
+ * carrying a graph. Synchronous, so it runs inside the transaction before any write.
+ */
+export function checkStorableRevision(rev: Pick<NewRevision, 'kind' | 'sourceName'>, blob: Blob, extra: RevisionPayload): void {
+  if (blob.size === 0) throw new Error(`${rev.sourceName}: the file is empty`);
+  if (rev.kind === 'model') {
+    if (!extra.graph) throw new Error(`${rev.sourceName}: a model revision needs its element graph`);
+    try {
+      parseGraph(extra.graph);
+    } catch (e) {
+      throw new Error(`${rev.sourceName}: its element graph could not be reopened once saved (${(e as Error).message})`);
+    }
+  } else if (extra.graph !== undefined) {
+    throw new Error(`${rev.sourceName}: a calc revision must not carry an element graph`);
+  }
+}
+
+/** sha256 of a revision's file, recorded once when it is added (read before the transaction opens). */
+const fileSha256 = async (blob: Blob) => sha256(new Uint8Array(await blob.arrayBuffer()));
 
 /** The writes of one added revision, inside the caller's transaction (which must cover REVISION_STORES). */
-async function addRevisionIn(
-  t: Tx,
-  projectId: string,
-  rev: NewRevision,
-  blob: Blob,
-  extra: { graph?: SerializedElementGraph; extraction?: unknown },
-): Promise<RevisionRecord> {
+async function addRevisionIn(t: Tx, projectId: string, rev: NewRevision, blob: Blob, extra: RevisionPayload, sha: string): Promise<RevisionRecord> {
+  checkStorableRevision(rev, blob, extra);
   const p = await t.get<ProjectRecord>('projects', projectId);
   if (!p) throw new Error(`project ${projectId} not found`);
   // counted inside the transaction, so two adds can never take the same seq
   const seq = (await t.byProject<RevisionRecord>('revisions', projectId)).filter((r) => r.kind === rev.kind).length + 1;
-  const rec = { ...rev, projectId, seq, createdAt: rev.createdAt ?? nowEastern() } as Omit<RevisionRecord, 'id'>;
+  // the hash is the store's own, never a caller's (an imported file's meta could claim any value)
+  const rec = { ...rev, meta: { ...rev.meta, fileSha256: sha }, projectId, seq, createdAt: rev.createdAt ?? nowEastern() } as Omit<RevisionRecord, 'id'>;
   const id = Number(await t.put('revisions', rec));
   await t.put('blobs', { revisionId: id, blob });
   if (extra.graph) await t.put('graphs', { revisionId: id, graph: extra.graph });
@@ -361,9 +387,12 @@ async function addRevisionIn(
 /**
  * Add a revision with its source file (and, for a model, its element graph; for calcs, the
  * extraction), and make it the head of its kind. One transaction: it is all stored or none of it.
+ * Refused, with the reason, when it could not be saved and reopened (checkStorableRevision).
  */
-export async function addRevision(projectId: string, rev: NewRevision, blob: Blob, extra: { graph?: SerializedElementGraph; extraction?: unknown }): Promise<RevisionRecord> {
-  return run(REVISION_STORES, 'readwrite', (t) => addRevisionIn(t, projectId, rev, blob, extra));
+export async function addRevision(projectId: string, rev: NewRevision, blob: Blob, extra: RevisionPayload): Promise<RevisionRecord> {
+  checkStorableRevision(rev, blob, extra);
+  const sha = await fileSha256(blob);
+  return run(REVISION_STORES, 'readwrite', (t) => addRevisionIn(t, projectId, rev, blob, extra, sha));
 }
 
 export async function getBlob(revisionId: number): Promise<Blob | undefined> {
@@ -451,6 +480,8 @@ export async function exportProject(projectId: string): Promise<ProjectFile> {
  */
 export async function importProject(file: ProjectFile): Promise<ProjectRecord> {
   const blobs = new Map(file.revisions.map((r) => [r.id, new Blob([decodeBase64(r.blob)], { type: r.mediaType })]));
+  const shas = new Map<number, string>();
+  for (const [id, blob] of blobs) shas.set(id, await fileSha256(blob));
   return run([...REVISION_STORES, 'decisions'], 'readwrite', async (t) => {
     const p = newProject(file.project.name);
     await t.put('projects', p);
@@ -462,6 +493,7 @@ export async function importProject(file: ProjectFile): Promise<ProjectRecord> {
         { kind: r.kind, label: r.label, sourceName: r.sourceName, mediaType: r.mediaType, meta: r.meta, createdAt: r.createdAt },
         blobs.get(r.id)!,
         { graph: r.graph, extraction: r.extraction },
+        shas.get(r.id)!,
       );
       idMap.set(r.id, added.id);
     }

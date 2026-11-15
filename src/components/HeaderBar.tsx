@@ -49,7 +49,10 @@ interface HeaderBarProps {
   onUploadCalcs: (file: File) => void;
   /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
   onOpenFile: (file: File) => void;
+  /** the diff laid over the view; null while it loads (or when not in diff mode) */
   diffSummary: DatabaseDiffSummary | null;
+  /** diff mode is set (A, B), whether or not its diff has loaded: Swap and Exit are offered whenever it is */
+  diffRevs: { a: number; b: number } | null;
   compareOpen: boolean;
   onToggleCompare: () => void;
   onSwapDatabases: () => void;
@@ -288,7 +291,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         {fileInput(calcInput, '.pdf,application/pdf', p.onUploadCalcs)}
         {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', p.onOpenFile)}
 
-        {p.diffSummary && (
+        {p.diffRevs && (
           <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
             <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-300" />
             <span className="hidden xl:inline">Swap A↔B</span>
@@ -301,16 +304,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
           disabled={p.source !== 'project'}
           title={p.source === 'project' ? 'Compare two model revisions across the graph, 3D and calcs' : 'Revisions belong to a project; an export JSON has none'}
           className={
-            p.diffSummary || p.compareOpen
+            p.diffRevs || p.compareOpen
               ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/45 shadow-[0_0_14px_rgba(245,158,11,0.2)]'
               : `${chromeBtn} hover:border-amber-400/40`
           }
         >
           <GitCompareArrows className="w-3.5 h-3.5 text-amber-400" />
-          <span>{p.diffSummary ? `Rev ${p.diffSummary.baseRevisionId} → ${p.diffSummary.compareRevisionId}` : 'Revisions'}</span>
+          <span>{p.diffRevs ? `Rev ${p.diffRevs.a} → ${p.diffRevs.b}` : 'Revisions'}</span>
         </button>
 
-        {p.diffSummary && (
+        {p.diffRevs && (
           <button type="button" onClick={p.onClearDiff} title="Exit diff mode" className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-rose-400/35">
             <X className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">Exit Diff</span>

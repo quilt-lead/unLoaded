@@ -82,19 +82,28 @@ function revisionGraph(rid: number) {
 
 /**
  * A calc revision's calc package: the stored extraction when `storedExtractionFor` (the rule the MCP
- * server applies too) accepts it against the sha256 of the stored PDF; otherwise re-extracted from
- * that PDF once, and the new extraction kept.
+ * server applies too) accepts it against the sha256 of the revision's PDF; otherwise re-extracted from
+ * that PDF once, and the new extraction kept. The PDF's sha256 is the one the store recorded when the
+ * revision was added (meta.fileSha256), so a valid extraction is used without reading or hashing the
+ * PDF; records older than that hash the stored PDF instead. Rejects (with the revision named) when the
+ * package cannot be had: no usable extraction and no stored PDF to extract from.
  */
 function revisionPackage(rid: number) {
   let p = pkgCache.get(rid);
   if (!p) {
     p = (async () => {
-      const [blob, stored, rev] = await Promise.all([getBlob(rid), getExtraction<unknown>(rid), getRevision(rid)]);
-      if (!blob) throw new Error(`Calc revision #${rid} has no stored PDF.`);
-      const bytes = new Uint8Array(await blob.arrayBuffer());
-      const use = storedExtractionFor(stored, await sha256(bytes));
+      const [stored, rev] = await Promise.all([getExtraction<unknown>(rid), getRevision(rid)]);
+      const name = rev?.sourceName ?? 'calcs.pdf';
+      let bytes: Promise<Uint8Array> | null = null;
+      const pdf = (): Promise<Uint8Array> =>
+        (bytes ??= getBlob(rid).then(async (blob) => {
+          if (!blob) throw new Error(`Calc revision #${rid} (${name}) has no stored PDF, so its calc package cannot be read; re-add the PDF as a new calc revision.`);
+          return new Uint8Array(await blob.arrayBuffer());
+        }));
+      const recorded = rev?.meta.fileSha256;
+      const use = storedExtractionFor(stored, typeof recorded === 'string' && recorded ? recorded : await sha256(await pdf()));
       if (use.pkg) return use.pkg;
-      const fresh = await runEngine('extract', { bytes, sourceName: rev?.sourceName ?? 'calcs.pdf' });
+      const fresh = await runEngine('extract', { bytes: await pdf(), sourceName: name });
       await replaceExtraction(rid, fresh);
       return fresh;
     })();
@@ -226,8 +235,10 @@ export interface ProjectSnapshot {
   modelRev: RevisionRecord | null;
   calcRev: RevisionRecord | null;
   graph: SerializedElementGraph | null;
-  /** null until the project has both a model and a calc package */
+  /** null until the project has both a model and a calc package (or when the package failed: calcError) */
   exp: Export | null;
+  /** why the head calc package could not be read; the model is still shown, without calc data */
+  calcError: string | null;
 }
 
 /** A model revision of this project, or throw: a stale id (another project's, a deleted one) must fail, not answer. */
@@ -251,11 +262,19 @@ export async function projectSnapshot(projectId: string, onProgress: Progress = 
   // the revision asked for is checked before any engine work starts, so a refused snapshot never
   // leaves a PDF extraction running in the background
   const model = await chosenModelRev(project, modelRev);
-  const [revisions, calcRev, pkg] = await Promise.all([
+  // a calc package that cannot be read degrades the view (model without calc data, calcError says
+  // why) rather than failing it: the element graph does not depend on it
+  const [revisions, calcRev, calc] = await Promise.all([
     listRevisions(projectId),
     k != null ? getRevision(k).then((r) => r ?? null) : null,
-    k != null ? revisionPackage(k) : null,
+    k != null
+      ? revisionPackage(k).then(
+          (pkg) => ({ pkg, error: null }),
+          (e: unknown) => ({ pkg: null, error: e instanceof Error ? e.message : String(e) }),
+        )
+      : { pkg: null, error: null },
   ]);
+  const pkg = calc.pkg;
   const graph = model ? ((await revisionGraph(model.id)) ?? null) : null;
   let exp: Export | null = null;
   if (model && calcRev && graph && pkg) {
@@ -269,7 +288,7 @@ export async function projectSnapshot(projectId: string, onProgress: Progress = 
       info: { model: model.sourceName, model_revision: model.id, calc_package: calcRev.sourceName, calc_revision: calcRev.id },
     });
   }
-  return { project, revisions, modelRev: model, calcRev, graph, exp };
+  return { project, revisions, modelRev: model, calcRev, graph, exp, calcError: calc.error };
 }
 
 /** Record a review decision against the model revision on screen (default: the head) and the head calc package. */

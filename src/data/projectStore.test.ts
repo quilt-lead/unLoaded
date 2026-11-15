@@ -4,6 +4,7 @@
 // memory backend (no IndexedDB in Node).
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
+import { sha256 } from '@unloaded/calc-mapper';
 import { decodeBase64, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
 import {
   __testing,
@@ -73,9 +74,14 @@ describe('project file: app writer -> shared reader -> app importer', () => {
   });
 
   it('refuses to save a model revision whose graph is missing (no reader could open the file)', async () => {
+    const mem = new __testing.MemoryBackend();
+    __testing.useBackend(mem);
     const p = await createProject('No graph');
-    await addRevision(p.id, { kind: 'model', label: 'x', sourceName: 'x.ifc', mediaType: 'application/x-step', meta: {} }, new Blob(['x']), {});
+    // addRevision refuses this now (below); a record stored before that check is still refused on save
+    const r = await addRevision(p.id, { kind: 'model', label: 'x', sourceName: 'x.ifc', mediaType: 'application/x-step', meta: {} }, new Blob(['x']), { graph: graph('C-1') });
+    await mem.run(['graphs'], 'readwrite', (t) => t.remove('graphs', r.id));
     await expect(exportProject(p.id)).rejects.toThrow(/has no stored element graph/);
+    __testing.useBackend(new __testing.MemoryBackend());
   });
 });
 
@@ -167,5 +173,43 @@ describe('save / open refuse what they cannot round-trip', () => {
     const q = await importProject(hostile as ProjectFile);
     expect(await decisionLog(other.id)).toEqual([mine]);
     expect((await decisionLog(q.id)).map((d) => [d.action, d.id !== mine.id])).toEqual([['reject', true]]);
+  });
+});
+
+describe('the store refuses what a saved project could not reopen with', () => {
+  afterEach(() => __testing.useBackend(new __testing.MemoryBackend()));
+  const m = { kind: 'model' as const, label: 'm', sourceName: 'm.json', mediaType: 'application/json', meta: {} };
+
+  // round 1 stored any graph the importer produced; parseProjectFile (parseGraph) refused it only
+  // when the saved project was reopened, so the app could save a project it then could not open
+  it.each([
+    ['a model without its graph', m, new Blob(['x']), {}, /m\.json: a model revision needs its element graph/],
+    ['a graph parseGraph refuses', m, new Blob(['x']), { graph: { ...graph('C-1'), meta: { version: 1, units: 'mm' } } as unknown as SerializedElementGraph }, /could not be reopened once saved \(graph\.meta\.units/],
+    ['an edge to a missing node', m, new Blob(['x']), { graph: { ...graph('C-1'), edges: [{ id: 'e', kind: 'connects', a: 'C1', b: 'nope' }] } as unknown as SerializedElementGraph }, /references a node that is not in graph\.nodes/],
+    ['an empty file', m, new Blob([]), { graph: graph('C-1') }, /m\.json: the file is empty/],
+    ['a calc revision carrying a graph', calcs('c'), new Blob([pdfBytes]), { graph: graph('C-1') }, /must not carry an element graph/],
+  ])('refuses %s, and stores nothing', async (_what, rev, blob, extra, why) => {
+    const p = await createProject('Gate');
+    await expect(addRevision(p.id, rev, blob, extra)).rejects.toThrow(why);
+    expect(await listRevisions(p.id)).toEqual([]);
+  });
+
+  it('whatever it accepted saves and reopens', async () => {
+    const p = await createProject('Gate');
+    await addRevision(p.id, m, new Blob(['x']), { graph: graph('C-1') });
+    await addRevision(p.id, calcs('c'), new Blob([pdfBytes]), {});
+    const q = await importProject(parseProjectFile(JSON.parse(JSON.stringify(await exportProject(p.id)))));
+    expect((await listRevisions(q.id)).length).toBe(2);
+  });
+
+  // the recorded hash is the store's: an imported file's meta cannot plant one
+  it('an imported revision gets the sha256 of its own file, not the one its meta claims', async () => {
+    const p = await createProject('Hash');
+    await addRevision(p.id, calcs('c'), new Blob([pdfBytes]), {});
+    const file = await exportProject(p.id);
+    const forged = { ...file, revisions: file.revisions.map((r) => ({ ...r, meta: { ...r.meta, fileSha256: 'f'.repeat(64) } })) };
+    const q = await importProject(parseProjectFile(JSON.parse(JSON.stringify(forged))));
+    const [r] = await listRevisions(q.id);
+    expect(r?.meta.fileSha256).toBe(await sha256(pdfBytes));
   });
 });

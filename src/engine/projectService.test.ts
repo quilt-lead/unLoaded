@@ -2,9 +2,15 @@
 // records which ops reached it.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
-import { sha256 } from '@unloaded/calc-mapper';
-import { addRevision, createProject, getExtraction } from '../data/projectStore';
-import { compareRevisions, projectSnapshot } from './projectService';
+import { SEGMENTER_VERSION, sha256 } from '@unloaded/calc-mapper';
+import { __testing, addRevision, createProject, getExtraction, getRevision, listRevisions } from '../data/projectStore';
+import { addModelRevision, compareRevisions, projectSnapshot } from './projectService';
+
+// one memory backend for the whole file, set before any test: tests remove stored blobs through it.
+// (Swapping backends between tests would restart revision ids under projectService's per-id caches.)
+const mem = new __testing.MemoryBackend();
+__testing.useBackend(mem);
+const dropBlob = (rid: number) => mem.run(['blobs'], 'readwrite', (t) => t.remove('blobs', rid));
 
 const graph = (id: string): SerializedElementGraph =>
   ({
@@ -19,6 +25,18 @@ const graph = (id: string): SerializedElementGraph =>
 const model = (label: string) => ({ kind: 'model' as const, label, sourceName: `${label}.json`, mediaType: 'application/json', meta: {} });
 const calcs = { kind: 'calcs' as const, label: 'c', sourceName: 'c.pdf', mediaType: 'application/pdf', meta: {} };
 const pdf = new Uint8Array([37, 80, 68, 70, 45, 1, 2, 3]);
+
+/**
+ * The smallest calc package storedExtractionFor accepts as stored for a PDF of sha256 `h`: made by the
+ * current segmenter, every field calcPackageProblem checks present, every page hashed to `h`.
+ */
+const storedPkg = (h: string) => ({
+  source_name: 'c.pdf',
+  source_sha256: h,
+  segmenter: SEGMENTER_VERSION,
+  pages: [{ n: 1, text: '', words: [], width: 612, height: 792, scanned: false, doc_sha256: h }],
+  calcs: [],
+});
 
 const ops: string[] = [];
 const FRESH = { source_name: 'c.pdf', source_sha256: 'f'.repeat(64), pages: [{ n: 1, doc_sha256: 'f'.repeat(64) }], calcs: [] };
@@ -73,7 +91,7 @@ describe('the stored extraction is used only when storedExtractionFor accepts it
   it('a valid extraction of this PDF is used as stored', async () => {
     const p = await createProject('P');
     const h = await sha256(pdf);
-    const pkg = { source_name: 'c.pdf', source_sha256: h, pages: [{ n: 1, doc_sha256: h }], calcs: [] };
+    const pkg = storedPkg(h);
     await addRevision(p.id, calcs, new Blob([pdf]), { extraction: pkg });
     await projectSnapshot(p.id);
     expect(ops).not.toContain('extract');
@@ -94,5 +112,68 @@ describe('the stored extraction is used only when storedExtractionFor accepts it
     await addRevision(p.id, calcs, new Blob([pdf]), { extraction: { ...FRESH, source_name: 'other.pdf' } });
     await projectSnapshot(p.id);
     expect(ops).toEqual(['extract']);
+  });
+});
+
+describe('a calc revision whose package cannot be read degrades the view', () => {
+  // round 1 threw from revisionPackage when the PDF was missing, which rejected the whole snapshot:
+  // the element graph was not shown either
+  it('the model is still shown; calcError names the revision and why', async () => {
+    const p = await createProject('P');
+    await addRevision(p.id, model('a'), new Blob(['a']), { graph: graph('C1') });
+    const c = await addRevision(p.id, calcs, new Blob([pdf]), {});
+    await dropBlob(c.id);
+    const s = await projectSnapshot(p.id);
+    expect(s.graph?.nodes[0]?.id).toBe('C1');
+    expect(s.exp).toBeNull();
+    expect(s.calcError).toMatch(new RegExp(`Calc revision #${c.id} \\(c\\.pdf\\) has no stored PDF`));
+  });
+});
+
+describe("a calc revision's PDF is hashed once, when it is added", () => {
+  it('the store records the sha256 of the file it stores, whatever the caller claims', async () => {
+    const p = await createProject('P');
+    const c = await addRevision(p.id, { ...calcs, meta: { fileSha256: 'not-the-hash' } }, new Blob([pdf]), {});
+    expect((await getRevision(c.id))?.meta.fileSha256).toBe(await sha256(pdf));
+  });
+
+  // round 1 read and hashed the whole head PDF in every session before using a valid extraction; with
+  // the PDF gone, a read of it fails, so this passes only when the recorded hash is used instead
+  it('a valid stored extraction is used against the recorded hash, without reading the PDF', async () => {
+    const p = await createProject('P');
+    const h = await sha256(pdf);
+    const pkg = storedPkg(h);
+    const c = await addRevision(p.id, calcs, new Blob([pdf]), { extraction: pkg });
+    await dropBlob(c.id);
+    const s = await projectSnapshot(p.id);
+    expect(s.calcError).toBeNull();
+    expect(ops).not.toContain('extract');
+  });
+
+  it('a record without a recorded hash (stored before) falls back to hashing its PDF', async () => {
+    const p = await createProject('P');
+    const h = await sha256(pdf);
+    const pkg = storedPkg(h);
+    const c = await addRevision(p.id, calcs, new Blob([pdf]), { extraction: pkg });
+    await mem.run(['revisions'], 'readwrite', async (t) => {
+      const r = (await t.get<{ meta: Record<string, unknown> }>('revisions', c.id))!;
+      delete r.meta.fileSha256;
+      await t.put('revisions', r);
+    });
+    const s = await projectSnapshot(p.id);
+    expect(s.calcError).toBeNull();
+    expect(ops).not.toContain('extract');
+  });
+});
+
+describe('an imported model is stored only if it can be saved and reopened', () => {
+  // round 1 imported a serialized graph through ElementGraph.deserialize alone and stored it; only
+  // parseGraph on reopening the saved project refused it (here: units other than metres)
+  it('a serialized graph parseGraph refuses is refused at import, with the reason, and nothing is stored', async () => {
+    const p = await createProject('P');
+    const g = { ...graph('C1'), meta: { version: 1, units: 'mm' } };
+    const file = new File([JSON.stringify(g)], 'feet.json', { type: 'application/json' });
+    await expect(addModelRevision(p.id, file, undefined, () => {})).rejects.toThrow(/feet\.json: its element graph could not be reopened once saved \(graph\.meta\.units must be "m"/);
+    expect(await listRevisions(p.id)).toEqual([]);
   });
 });
