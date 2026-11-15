@@ -117,6 +117,36 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
     scbf, diaphragm = {}, {}
     kbr = {v.get("frame"): v["size"] for v in keep.values() if v.get("type") == "brace"}
     kbr_any = next(iter(kbr.values()), None)
+
+    def kept_pair(yl):
+        """(beam, column) the current design has on SMF line yl, or None (fresh design / new line)."""
+        L = lines_x[yl]
+        kc = [keep.get(f"COL-{c}") for c, _ in L["cols"]]
+        kb = [keep.get(k) for k, m in topo.members.items() if "smf_beam" in m.roles and m.line == yl]
+        if keep and all(kc) and all(kb) and kb:
+            return (max((b["size"] for b in kb), key=lambda z: aisc.get(z)["W"]),
+                    max((c["size"] for c in kc), key=lambda z: aisc.get(z)["W"]))
+        return None
+
+    if reviewed and keep:
+        # minimum-change re-design: start the rigid-diaphragm split from the stiffness of the CURRENT
+        # sizes (one analysis per line), not from k = 1. Starting from k = 1 let a crude first share
+        # upsize a line, and the stiffer line then kept attracting the share that justified it - a
+        # second fixed point, so a gravity-column move re-sized SMF A (scenario S01, 2026-11-14)
+        unit = {lv: ex["Fx"][lv] / 2 for lv in LV}
+        for yl, L in lines_x.items():
+            kp0 = kept_pair(yl)
+            if kp0:
+                kx[yl] = LAT.analyse_smf(yl, L["cols"], L["bl"], kp0[0], kp0[1], unit, {lv: 0.0 for lv in LV},
+                                         1.0, 3.0, shear_def=True)["k"]
+        for xl, L in lines_y.items():
+            if not L["braced"]:
+                continue
+            kg = {bk: keep[L["gid"][bk]]["size"] for bk in L["gid"] if L["gid"][bk] in keep}
+            r0 = LAT.design_scbf(L["cols"], L["bl"], {lv: ey["Fx"][lv] / 2 for lv in LV}, None, "W14X90", L["braced"],
+                                 keep=kbr.get(f"SCBF-{xl}", kbr_any), basis="etabs-reviewed", girder_sizes=L["gsz"],
+                                 girder_lb=L["glb"], keep_girders=kg)
+            ky[xl] = r0["k"]
     for _it in range(2 if not reviewed else 3):
         if reviewed:
             lx = {yl: (kx[yl], lines_x[yl]["y"]) for yl in lines_x}
@@ -132,12 +162,7 @@ def run(layout: Layout, keep: dict | None = None) -> dict:
             fe = {lv: ex["Fx"][lv] * shares[yl] for lv in LV}
             fw = {lv: wx["Fx"][lv] * shares[yl] for lv in LV}
             gp = {c: grav_p_seis(c) for c, _ in L["cols"]}
-            kp = None
-            kc = [keep.get(f"COL-{c}") for c, _ in L["cols"]]
-            kb = [keep.get(k) for k, m in topo.members.items() if "smf_beam" in m.roles and m.line == yl]
-            if keep and all(kc) and all(kb) and kb:
-                kp = (max((b["size"] for b in kb), key=lambda z: aisc.get(z)["W"]),
-                      max((c["size"] for c in kc), key=lambda z: aisc.get(z)["W"]))
+            kp = kept_pair(yl)
             smf[yl] = LAT.design_smf(yl, L["cols"], L["bl"], fe, fw, gp, keep=kp, shear_def=reviewed)
             smf[yl].update(share=shares[yl], fe=fe, fw=fw, gp=gp)
             kx[yl] = smf[yl]["analysis"]["k"]
