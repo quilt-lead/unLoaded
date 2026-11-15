@@ -30,7 +30,9 @@ Visualizes **structural engineering calculations (PDFs)** and maps them bidirect
 A new format (Revit, Tekla, ETABS, ...) only needs to emit a `ModelInput`. See `packages/*/README.md`.
 
 ## Quick Start
+Full setup, including Git LFS for PDFs: [setup.md](setup.md).
 ```bash
+git lfs install  # once per machine; PDFs are stored in Git LFS
 npm install      # npm workspaces; postinstall copies web-ifc.wasm into public/
 npm run dev
 npm test         # app adapter tests + package tests

@@ -13,6 +13,10 @@ UI quality is a core part of the mission, so the project vendors UI skills in [.
 - **react-best-practices** ([SKILL.md](.claude/skills/react-best-practices/SKILL.md)): load when writing or reviewing React code. This app is React + TypeScript on Vite, not Next.js, so skip the `server-*` rules and Next-specific advice.
 - **web-design-guidelines** ([SKILL.md](.claude/skills/web-design-guidelines/SKILL.md)): run as a review pass on finished UI code before calling UI work done.
 
+# Setup
+
+Before cloning, installing, running tests, or adding data files, read [setup.md](setup.md). PDFs are stored in Git LFS: a checkout without LFS has pointer stubs instead of PDFs, and the calc-parser tests fail.
+
 # Agent handoff notes
 
 Before starting work, read [docs/agents/](docs/agents/README.md): findings, decisions, gotchas and the files in flight from earlier sessions. Before handing off, add or update a note there, following its conventions.
