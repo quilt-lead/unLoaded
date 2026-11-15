@@ -234,8 +234,12 @@ export function typeColor(node: BimNode): string {
   return ifcTypeColor(node.ifcType, node.parent || node.id);
 }
 
+/** The Loading calc category (gravity / wind / seismic): a palette step no element kind uses. */
+export const LOADING_COLOR = GRAPH_NODE_PALETTE[3];
+
 function calcCategoryColor(node: BimNode): string {
   const label = `${node.id} ${node.label}`.toLowerCase();
+  if (/\bloading\b/.test(label)) return LOADING_COLOR;
   if (/beam|girder/.test(label)) return KIND_PALETTE.beam;
   if (/column/.test(label)) return KIND_PALETTE.column;
   if (/connection|fastener/.test(label)) return KIND_PALETTE.connection;

@@ -34,7 +34,7 @@ new field; no field of the export was renamed or removed.
   provenance does not type-check, and `inputList` throws on anything that is not a sha256.
   - Rule ids: `segment.calc-title | scanned-run | front-matter | untitled-start`, `matcher.tier.<tier>`,
     `matcher.typical-group`, `matcher.finding.size-mismatch`,
-    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference` (joined with "+" when an
+    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference`, `calcdeps.calc-reference` (joined with "+" when an
     edge has both), `impact.propagate.<mode>`, `decision.<action>`.
   - A link a person confirmed / rejected keeps the matcher's provenance and gains
     `review_provenance` (the decision's).
@@ -151,6 +151,12 @@ new field; no field of the export was renamed or removed.
     document). Every other page mention is a reference, cue word or not ("max end reaction: page 7").
   - A cross-reference points at the element's designer (`designerOf`): a design-role link beats a
     loads-role one, then the higher tier confidence, then the smaller calc key.
+  - A calc reference names another calc's sheet number ("Gravity loads per S-001"): the hyphenated
+    token its title starts with (`sheetOf`), resolved only when exactly one calc carries it. It works
+    across PDFs and needs no element, so it is how Loading calcs join the graph.
+- **Loading calcs** (`segment.ts` `calcCatOf`): a title naming no element type but a load criteria /
+  analysis ("Wind Load Analysis", "Load Combinations") gets the calc category `Loading`. It designs
+  no element; the Calculation Graph files it under its own Loading section.
 - **Impact** (`impact.ts`): walks the graph's `supports` edges. Connection nodes pass load through,
   so waves count depth the way `ElementGraph.loadPathDown` does.
 - **Diff** (`diff.ts`):

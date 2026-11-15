@@ -64,6 +64,7 @@ export const RULES = {
     pageInput: "calcdeps.page-reference.input",
     pageOutput: "calcdeps.page-reference.output",
     crossReference: "calcdeps.cross-reference",
+    calcReference: "calcdeps.calc-reference",
   },
   impact: {
     propagate: (mode: string) => `impact.propagate.${mode}`,

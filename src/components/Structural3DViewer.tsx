@@ -26,6 +26,8 @@ interface Structural3DViewerProps {
   resetTrigger: number;
   emptyText?: React.ReactNode;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean }) => void;
+  /** Ctrl / Cmd + click on an element: jump to its calculation (PDF) */
+  onOpenNode?: (id: string) => void;
 }
 
 const UNMAPPED_MESH = '#6b7280';
@@ -46,6 +48,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   resetTrigger,
   emptyText,
   onSelectNode,
+  onOpenNode,
 }) => {
   const host = useRef<HTMLDivElement | null>(null);
   const viewer = useRef<IfcViewer | null>(null);
@@ -55,6 +58,8 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   const [ghostVersion, setGhostVersion] = useState(0);
   const onSelectRef = useRef(onSelectNode);
   onSelectRef.current = onSelectNode;
+  const onOpenRef = useRef(onOpenNode);
+  onOpenRef.current = onOpenNode;
 
   useEffect(() => {
     // navigation, click-vs-drag (3 px from pointerdown) and stopping pointer / wheel events from
@@ -62,7 +67,10 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     const v: IfcViewer = new IfcViewer(host.current!, {
       onClick: (e) => {
         const gid = v.pick(e);
-        if (gid) onSelectRef.current(gid, { toggleMulti: e.shiftKey });
+        if (!gid) return;
+        // Ctrl / Cmd + click jumps to the element's calc, like the graphs; a plain click selects
+        if ((e.ctrlKey || e.metaKey) && onOpenRef.current) onOpenRef.current(gid);
+        else onSelectRef.current(gid, { toggleMulti: e.shiftKey });
       },
     });
     viewer.current = v;

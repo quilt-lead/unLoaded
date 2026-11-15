@@ -69,7 +69,7 @@ import { FilterBar, type DiffFilter } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
 import { Structural3DViewer } from './components/Structural3DViewer';
 import { PropertyInspector } from './components/PropertyInspector';
-import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
+import { DocumentBrowser, calcTarget, linkTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
 import { RevisionPanel } from './components/RevisionPanel';
 import { useEscapeFallback } from './components/escapeStack';
@@ -207,12 +207,56 @@ export const App: React.FC = () => {
    */
   const activeViewRef = useRef(activeView);
   activeViewRef.current = activeView;
-  const changeView = useCallback((next: WorkspaceView) => {
+  const applyView = useCallback((next: WorkspaceView) => {
     if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
       setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
     }
+    activeViewRef.current = next;
     setActiveView(next);
   }, []);
+
+  /**
+   * View history, browser style: every view change pushes the view being left onto `back` and clears
+   * `forward`; Alt+Left / Alt+Right step through it (e.g. back to the graph after a Ctrl+Click jump to
+   * the PDF). Views only: selection is shared across views and is not rewound.
+   */
+  const viewHistory = useRef<{ back: WorkspaceView[]; forward: WorkspaceView[] }>({ back: [], forward: [] });
+  const changeView = useCallback(
+    (next: WorkspaceView) => {
+      const cur = activeViewRef.current;
+      if (cur === next) return;
+      const h = viewHistory.current;
+      h.back.push(cur);
+      if (h.back.length > 50) h.back.shift();
+      h.forward = [];
+      applyView(next);
+    },
+    [applyView],
+  );
+  const stepView = useCallback(
+    (dir: 'back' | 'forward') => {
+      const h = viewHistory.current;
+      const from = dir === 'back' ? h.back : h.forward;
+      const to = dir === 'back' ? h.forward : h.back;
+      const next = from.pop();
+      if (!next) return false;
+      to.push(activeViewRef.current);
+      applyView(next);
+      return true;
+    },
+    [applyView],
+  );
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      // always swallow it: the browser's own Alt+Left would navigate away from the app
+      e.preventDefault();
+      stepView(e.key === 'ArrowLeft' ? 'back' : 'forward');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [stepView]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedNodeId(null);
@@ -474,7 +518,21 @@ export const App: React.FC = () => {
   );
 
   const handleSelectCalcNode = useCallback(
-    (id: string) => {
+    (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean }) => {
+      if (opts?.toggleMulti) {
+        // Shift + click: add to / remove from the calc selection (linked elements follow)
+        if (selectedCalcNodeIds.has(id)) {
+          handleSelectCalcNodes([...selectedCalcNodeIds].filter((x) => x !== id));
+        } else {
+          handleSelectCalcNodes([id], { additive: true });
+        }
+        return;
+      }
+      if (opts?.preserveMulti) {
+        // pressing on a node already in a multi-selection (to drag it): keep the selection as is
+        setSelectedCalcNodeId(id);
+        return;
+      }
       const node = calcGraph.nodes.find((n) => n.id === id);
       setSelectedCalcNodeId(id);
       setSelectedCalcNodeIds(new Set([id]));
@@ -495,7 +553,7 @@ export const App: React.FC = () => {
       }
       setCalcAnchorKey(null);
     },
-    [calcGraph.nodes, view],
+    [calcGraph.nodes, view, selectedCalcNodeIds, handleSelectCalcNodes],
   );
 
   const selectCalcByKey = useCallback(
@@ -926,6 +984,30 @@ export const App: React.FC = () => {
     [elementById, view, handleSelectElementNode, changeView],
   );
 
+  // Ctrl / Cmd + click on a graph node: jump to its calculation in the PDF view (Alt+Left comes back)
+  const handleOpenNode = useCallback(
+    (node: BimNode) => {
+      if (node.kind === 'element') {
+        if (node.calcLinks?.some((l) => l.review !== 'rejected')) showElementCalcs(node.id);
+        else showToast(`${node.label} has no linked calculation`, true);
+        return;
+      }
+      if (node.kind === 'calc' && node.calcKey) {
+        const c = view?.calcs.find((x) => x.key === node.calcKey);
+        if (!c) return;
+        handleSelectCalcNode(node.id);
+        openTarget(calcTarget(c));
+        return;
+      }
+      if (node.kind === 'mapped-element' && node.link && node.elementId) {
+        openTarget(linkTarget(node.link, view?.calcs.find((x) => x.key === node.link!.calcKey)), node.elementId);
+        return;
+      }
+      showToast('Ctrl+Click an element or a calc to open its calculation', true);
+    },
+    [view, showElementCalcs, handleSelectCalcNode, openTarget, showToast],
+  );
+
   const dropFromHash = (key: string) => {
     const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     if (!h.has(key)) return;
@@ -1044,6 +1126,10 @@ export const App: React.FC = () => {
       resetTrigger={resetTrigger}
       emptyText={model3dEmpty}
       onSelectNode={handleSelectElementNode}
+      onOpenNode={(id) => {
+        const n = elementById.get(id);
+        if (n) handleOpenNode(n);
+      }}
     />
   );
 
@@ -1399,6 +1485,7 @@ export const App: React.FC = () => {
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveNodes}
               onGroupSelection={handleGroupSelection}
+              onOpenNode={handleOpenNode}
             />
           )}
 
@@ -1415,7 +1502,8 @@ export const App: React.FC = () => {
               colorMode={colorMode}
               overlay={overlay}
               resetTrigger={resetTrigger}
-              onSelectNode={(id) => handleSelectCalcNode(id)}
+              onSelectNode={handleSelectCalcNode}
+              onOpenNode={handleOpenNode}
               onSelectNodes={handleSelectCalcNodes}
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveCalcNodes}

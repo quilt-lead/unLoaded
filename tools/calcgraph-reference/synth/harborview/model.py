@@ -192,6 +192,9 @@ def load(rev: int) -> Model:
             calcs = [Calc(id=c["key"], doc=c["key"], title=page_title(c["title"]), family=fam, cat=c["cat"],
                           elements=ids, **base)]
         docs.append(Document(key=c["key"], title=c["title"], rev=c["rev"], date=c["date"], calcs=calcs))
+    # the loading calcs (S-001..S-004) are not in the bundles: they design no element, other calcs cite them
+    from . import loading
+    docs = loading.documents(rev) + docs
     meta = b.get("meta", {})
     return Model(rev=rev, label=meta.get("label", f"Rev {rev}"), project=meta.get("project", "Harborview Corporate Center"),
                  levels=levels, elements=elements, by_id=by_id, edges=eg["edges"], documents=docs)

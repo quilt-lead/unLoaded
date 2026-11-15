@@ -11,7 +11,7 @@ auto-loaded, and the app starts with an empty workspace.
 | `simple-frame.json` | `ModelInput` | `packages/element-graph` tests, `src/loaders/elementGraphToBim.test.ts` |
 | `harborview/harborview-tower-rev1-base.bundle.json` | model bundle (`unloaded.model-bundle`): element graph + demo calc graph | **Harborview A/B demo** (rev A), `src/loaders/harborviewBundle.test.ts`, the Harborview sample generator |
 | `harborview/harborview-tower-rev2-compare.bundle.json` | model bundle | **Harborview A/B demo** (rev B), same test, same generator |
-| `harborview/harborview-rev{1,2}.ifc`, `harborview/calcs/**.pdf` | IFC4 + calc PDFs (generated, committed; PDFs in Git LFS) | **Harborview sample** (rev 1 IFC + 78 calc PDFs, rev 2 IFC + 19 reissued / new PDFs), listed in `harborview/manifest.json` |
+| `harborview/harborview-rev{1,2}.ifc`, `harborview/calcs/**.pdf` | IFC4 + calc PDFs (generated, committed; PDFs in Git LFS) | **Harborview sample** (rev 1 IFC + 82 calc PDFs incl. 4 loading calcs, rev 2 IFC + 23 reissued / new PDFs), listed in `harborview/manifest.json` |
 | `harborview/ground_truth.json` | what the calc engine should find in the sample | `tools/calcgraph-reference/scripts/evaluate_harborview.py` |
 | `harborview/harborview-demo-calcs-preview.pdf` | synthetic five-page calc preview (superseded by the Harborview sample) | `packages/calc-mapper/test/harborview-preview.test.ts` |
 

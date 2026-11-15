@@ -70,6 +70,21 @@ describe('calcs on the one model path', () => {
     expect(v.elementNodes.find((n) => n.id === 'B2')!.calcLinks).toEqual([]);
   });
 
+  it('files a load calc under a Loading section, joined to the calcs it feeds and to no element', async () => {
+    const v = await view({
+      source: { kind: 'demo' },
+      calcs: [{ key: 'gravity', title: 'S-001 Gravity Load Criteria', cat: 'Loading' }, beamCalc],
+      edges: [{ src: 'gravity', dst: 'beam-package' }],
+      links: [{ element: 'B1', calc: 'beam-package', role: 'design', review: 'auto' }],
+    });
+    const section = v.calcNodes.find((n) => n.id === 'calccat:Loading');
+    expect(section).toMatchObject({ kind: 'calc-category', label: 'Loading' });
+    expect(section!.desc).toMatch(/design no element/);
+    expect(v.calcNodes.find((n) => n.calcKey === 'gravity')!.parent).toBe('calccat:Loading');
+    expect(v.calcLinks).toContainEqual({ source: 'calc:gravity', target: 'calc:beam-package', relation: 'calc-dependency' });
+    expect(v.calcToElementIds.get('gravity')).toBeUndefined();
+  });
+
   it('keeps a shared calc on every element it is linked to', async () => {
     const v = await view({
       source: { kind: 'demo' },

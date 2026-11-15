@@ -22,6 +22,7 @@ import re
 import pymupdf
 
 from .. import shapes
+from . import loading
 from .model import Calc, Document, Element, Model, norm_size
 
 W_PT, H_PT = 612, 792
@@ -127,6 +128,7 @@ class Writer:
         self.m = m
         self.mismatch = mismatch or {}        # element id -> size written in its calc (planted finding)
         self.refs: dict[str, list[str]] = {}  # calc id -> element ids it takes loads from
+        self.calc_refs: set[tuple[str, str]] = set()  # (loading calc id, calc id citing its sheet number)
         self.explicit = self._adjacency(explicit_only=True)
         self.adjacent = self._adjacency(explicit_only=False)
 
@@ -154,6 +156,16 @@ class Writer:
             chunk = ", ".join(self.el(i).mark for i in ids[k:k + per_line])
             lay.line(f"{lead} from {chunk}" if k == 0 else f"{' ' * len(lead)} from {chunk}")
 
+    def cite_sheets(self, lay: Layout, calc: Calc, lead: str, families: list[str]):
+        """'<lead> S-001 Gravity Load Criteria and S-003 ...': the loading calcs this calc takes as input. The
+        engine reads each sheet number as a calc reference (calcdeps rule 3); the lead carries the cue word."""
+        if not families:
+            return
+        for f in families:
+            self.calc_refs.add((loading.calc_id(f), calc.id))
+        names = {s.family: f"{s.sheet} {s.name}" for s in loading.SPECS}
+        lay.line(f"{lead} {' and '.join(names[f] for f in families)}.")
+
     def basis(self, lay: Layout, calc: Calc, extra: list[str]):
         lay.heading("1. Basis")
         lay.line(f"Code: {calc.code}.   Issue: {calc.rev}, {calc.date}.")
@@ -162,8 +174,11 @@ class Writer:
         lay.line("Scope: " + SIZE.sub("the scheduled sections", calc.summary))
         for s in extra:
             lay.line(s)
+        for lead, fams in loading.CITES.get(calc.family, []):
+            self.cite_sheets(lay, calc, lead, fams)
         if self.m.rev == 2 and calc.rev != "Rev A":
-            lay.line(f"Revision {calc.rev[-1]}: demands updated for the L06 vertical addition (model Rev 2).")
+            what = "loads" if calc.cat == "Loading" else "demands"
+            lay.line(f"Revision {calc.rev[-1]}: {what} updated for the L06 vertical addition (model Rev 2).")
 
     # -- families
     def slab(self, lay: Layout, calc: Calc):
@@ -359,6 +374,8 @@ class Writer:
             self.corewall(lay, calc)
         elif fam == "brace":
             self.brace(lay, calc)
+        elif fam in loading.SHEET:
+            loading.write(self, lay, calc)
         else:
             raise ValueError(fam)
         return lay

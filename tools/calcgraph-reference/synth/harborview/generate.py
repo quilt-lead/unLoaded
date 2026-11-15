@@ -6,7 +6,7 @@ reissues and new L06 calcs) and ground truth, from the demo model bundles.
 
 Output (default data/harborview/, next to the bundles; committed, PDFs in Git LFS):
     harborview-rev1.ifc, harborview-rev2.ifc
-    calcs/rev1/<title> - Rev A.pdf           one PDF per calc document (78)
+    calcs/rev1/<title> - Rev A.pdf           one PDF per calc document (82: 78 design + 4 loading)
     calcs/harborview-calcs-rev1.pdf          the same pages as one package, in sheet order
     calcs/rev2/<title> - <rev>.pdf           documents whose revision changed in rev 2, and the new L06 ones
     ground_truth.json                        what the engine should find (scripts/evaluate_harborview.py scores it)
@@ -72,7 +72,9 @@ def generate(out: str = OUT) -> dict:
     for cid, ids in refs.items():
         for i in ids:
             ref_calcs.setdefault(i, []).append(cid)
-    edges = sorted({(design1[i], cid) for cid, ids in refs.items() for i in ids if i in design1 and design1[i] != cid})
+    # element "from" lines (cross-reference) + sheet-number citations of the loading calcs (calc reference)
+    edges = sorted({(design1[i], cid) for cid, ids in refs.items() for i in ids if i in design1 and design1[i] != cid}
+                   | w1.calc_refs)
     truth: dict = {
         "generator": "calc-graph synth harborview v1",
         "source": "data/harborview/*.bundle.json + synth/harborview/legacy_params.json",

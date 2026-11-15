@@ -16,6 +16,7 @@ export const RULE_NAMES = [
   "connectionContact",
   "slabBearing",
   "columnBase",
+  "footingOnPile",
   "beamOnColumn",
   "beamOnGirder",
   "braceEnds",
@@ -28,6 +29,7 @@ export const RULE_LABELS: Readonly<Record<RuleName, string>> = Object.freeze({
   connectionContact: "connection contact",
   slabBearing: "slab bears on support top",
   columnBase: "column bottom bears on support",
+  footingOnPile: "footing bears on pile",
   beamOnColumn: "beam end bears on column/wall",
   beamOnGirder: "beam frames into girder",
   braceEnds: "brace end",
@@ -213,6 +215,27 @@ export function inferConnectivity(graph: ElementGraph, opts: InferOptions = {}):
         for (const c of chosen) {
           connects(v.id, c.t.id, "columnBase", c.gap);
           supports(v.id, c.t.id, "columnBase", c.gap);
+        }
+      }
+    }
+
+    // ---- 3b. footing (pile cap) bears on the piles under it: the pile head sits at the footing
+    // underside or is embedded in it, and lies inside the footing in plan
+    if (rules.footingOnPile) {
+      for (const f of ofKind("footing")) {
+        const fb = box(f.id);
+        for (const [p, gap] of touchingOf(f.id)) {
+          if (p.kind !== "pile" || isJoined(f.id, p.id)) continue;
+          const pb = box(p.id);
+          const topZ = pb.max[2];
+          if (topZ < fb.min[2] - tol.contact || topZ > fb.max[2] + tol.contact || pb.min[2] >= fb.min[2]) continue;
+          const axis = memberAxis(p);
+          const head: Vec3 = axis
+            ? (axis.start[2] >= axis.end[2] ? axis.start : axis.end)
+            : ([...bboxCenter(pb).slice(0, 2), topZ] as Vec3);
+          if (planPointBoxDist(head, fb) > tol.contact) continue;
+          connects(f.id, p.id, "footingOnPile", gap);
+          supports(f.id, p.id, "footingOnPile", gap);
         }
       }
     }

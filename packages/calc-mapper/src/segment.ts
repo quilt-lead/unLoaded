@@ -32,7 +32,7 @@ import { sheetRect } from "./frames.ts";
 import { rectsForSpan } from "./pdf.ts";
 import { sha1Json } from "./hash.ts";
 import { RULES, inputList, ruleProvenance } from "./provenance.ts";
-import { SEGMENTER_VERSION, type Calc, type CalcPackage, type CalcPage, type CalcRegion, type CalcSpan, type ElementCategory, type TitleBox } from "./types.ts";
+import { SEGMENTER_VERSION, type Calc, type CalcPackage, type CalcPage, type CalcRegion, type CalcSpan, type CalcCategory, type ElementCategory, type TitleBox } from "./types.ts";
 
 const SOFTWARE: [RegExp, string][] = [
   [/RAM\s*CONCEPT/i, "RAM Concept"], [/RAM\s*(STRUCTURAL|STEEL|FRAME|ELEMENTS)/i, "RAM Structural System"],
@@ -69,6 +69,18 @@ export const TITLE_BOX_RULE = "segment.title_box";
 
 export function catOfText(s: string): ElementCategory | "" {
   return CAT_WORDS.find(([, rx]) => rx.test(s))?.[0] ?? "";
+}
+
+/**
+ * A load criteria / load analysis title ("Gravity Load Criteria", "Wind Load Analysis", "Load
+ * Combinations"). Read only from the title, and only when the title names no element type: "Column
+ * Load Takedown" designs columns, "Wind Load Analysis" designs nothing.
+ */
+export const LOADING_WORDS = /\b(?:gravity|wind|seismic|snow|lateral|dead|live|earthquake)\s+loads?\b|\bloads?\s+(?:criteria|combinations?|analysis|takedown|cases?)\b|\bloading\b/i;
+
+/** A calc's category from its title (and the line under it): an element type, else "Loading", else "". */
+export function calcCatOf(title: string, under = ""): CalcCategory | "" {
+  return catOfText(title) || (LOADING_WORDS.test(title) ? "Loading" : "") || catOfText(under);
 }
 
 export function titleOf(text: string): string | null {
@@ -130,7 +142,7 @@ interface Part {
 interface Building {
   title: string;
   software: string;
-  cat: ElementCategory | "";
+  cat: CalcCategory | "";
   parts: Part[];
   scanned: boolean;
   front: boolean;
@@ -287,7 +299,7 @@ export function segment(pages: CalcPage[]): Calc[] {
           break;
         }
       }
-      c.cat = catOfText(c.title) || catOfText(under);
+      c.cat = calcCatOf(c.title, under);
     }
     const first = c.parts[0]!;
     const rule = c.scanned ? RULES.segment.scanned : c.front ? RULES.segment.front : c.untitled ? RULES.segment.untitled : RULES.segment.calc;

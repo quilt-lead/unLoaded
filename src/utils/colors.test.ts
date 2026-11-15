@@ -3,6 +3,7 @@ import {
   DIFF_PALETTE,
   GRAPH_NODE_PALETTE,
   KIND_PALETTE,
+  LOADING_COLOR,
   NO_DATA_COLOR,
   NO_UTILIZATION_COLOR,
   PROJECT_COLOR,
@@ -52,6 +53,9 @@ describe('node colors', () => {
     expect(calcCategory('Slab & Punching Shear calcs')).toBe(KIND_PALETTE.slab);
     expect(calcCategory('Shear Wall & Lateral calcs')).toBe(KIND_PALETTE.wall);
     expect(calcCategory('Foundation & Geotech calcs')).toBe(KIND_PALETTE.footing);
+    // Loading designs no element: its own colour, not an element kind's
+    expect(calcCategory('Loading')).toBe(LOADING_COLOR);
+    expect(Object.values(KIND_PALETTE)).not.toContain(LOADING_COLOR);
   });
 
   it('shows explicitly and implicitly unmapped elements in red in review mode', () => {
