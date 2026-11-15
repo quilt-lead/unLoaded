@@ -1,0 +1,166 @@
+/* CompareDock.tsx: old vs new calc page of one re-run record. The pages get the width; the values
+   that moved sit in one line above them, the new value on the same highlight colour as the
+   evidence box on the pages, so the eye goes from the line to the highlighted row. */
+.v2-cd {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+}
+.v2-cd-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.v2-cd-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+.v2-cd-change {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.v2-cd-change dt {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.v2-cd-change dd {
+  margin: 0;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.v2-cd-was {
+  color: var(--muted);
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.v2-cd-arrow {
+  color: var(--muted);
+  margin: 0 4px;
+}
+.v2-cd-now {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--hl);
+  box-shadow: inset 0 -1.5px 0 var(--hl-line);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+.v2-cd-now.tone-bad {
+  color: var(--bad);
+}
+.v2-cd-same {
+  color: var(--muted);
+}
+.v2-cd-tools {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.v2-cd-pages {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+}
+.v2-cd-pages.stack {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.v2-cd-seg {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 6px;
+}
+.v2-cd-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--panel);
+}
+.v2-cd-page > .cg-pdf {
+  flex: 1;
+  min-height: 0;
+}
+.v2-cd-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.v2-cd-tag {
+  font-weight: 600;
+  color: var(--ink);
+}
+.v2-cd-tag.now {
+  background: var(--hl);
+  box-shadow: inset 0 -1.5px 0 var(--hl-line);
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.v2-cd-note {
+  margin: 0;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+/* in the dock the values take a line of their own, so they stay on one or two lines above the tools */
+@container (max-width: 1100px) {
+  .v2-cd-changes {
+    flex-basis: 100%;
+  }
+  .v2-cd-tools {
+    margin-left: auto;
+  }
+}
+/* a dock too narrow for two legible pages side by side stacks them, each at the full width */
+@container (max-width: 760px) {
+  .v2-cd-pages {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+/* full view: the same comparison over the whole window */
+.v2-cd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+}
+.v2-cd-overlay-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.v2-cd-overlay > .v2-cd {
+  flex: 1;
+}
+@media (max-width: 600px) {
+  .v2-cd-overlay-head .muted {
+    display: none;
+  }
+}

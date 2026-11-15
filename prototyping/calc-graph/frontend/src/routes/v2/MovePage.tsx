@@ -6,7 +6,6 @@ import { StatPill, StatRow } from "../../components/StatPill";
 import { Tabs } from "../../components/Tabs";
 import { Legend } from "../../components/Legend";
 import { PdfPage, type PdfSource } from "../../components/PdfPage";
-import { EvidenceCompare } from "../../components/EvidenceCompare";
 import type { MemberStyle } from "../../components/Viewer3D";
 import { urls } from "../../api/client";
 import {
@@ -30,6 +29,7 @@ import { PlanView, bandOf } from "./PlanView";
 import { StalePanel } from "./StalePanel";
 import { RerunPanel } from "./RerunPanel";
 import { ChangeOrderPanel } from "./ChangeOrderPanel";
+import { CompareDock } from "./CompareDock";
 import { AsOfControl, AsOfTimeline } from "./AsOfPanel";
 import { RevisionPanel } from "./RevisionPanel";
 import { EtabsPanel } from "./EtabsPanel";
@@ -703,79 +703,5 @@ function HeatList({
       })}
     </ul>
     </>
-  );
-}
-
-function CompareDock({ result, rev, style, idx }: { result: RerunResult; rev: CalcRevision; style: "package" | "handcalcs"; idx: NonNullable<ReturnType<typeof useDesignIndex>["idx"]> }) {
-  const r = idx.rec.get(result.record);
-  const left = recordSource(r, "original package");
-  const np = result.new_page;
-  const useHand = style === "handcalcs" && np?.rerun_sheet && rev.files?.rerun_sheets_pdf;
-  const right: PdfSource | null = np
-    ? useHand
-      ? {
-          url: urls.v2RevisionPdf(rev.rev_id, "rerun_sheets"),
-          page: np.rerun_sheet!.page,
-          rects: [np.rerun_sheet!.bbox],
-          label: `${result.record} - re-run sheet ${np.rerun_sheet!.sheet ?? ""}`,
-          sub: `rerun_sheets.pdf p.${np.rerun_sheet!.page}${np.rerun_sheet!.recomputed ? ` - math recomputed, ${np.rerun_sheet!.asserts ?? 0} values asserted against the re-run` : ""}`,
-        }
-      : {
-          url: urls.v2RevisionPdf(rev.rev_id, "calc_revision"),
-          page: np.page,
-          rects: [np.bbox],
-          label: `${result.record} - revised sheet ${np.sheet ?? ""}`,
-          sub: `calc_revision.pdf p.${np.page} (${rev.rev_id})`,
-        }
-    : null;
-  const rows: [string, string, string][] = [
-    ["Size", result.size_old ?? "-", result.size_new ?? "-"],
-    ["Demand", `${result.old?.demand ?? "-"} ${result.old?.unit ?? ""}`, `${result.new?.demand != null ? Math.round(result.new.demand * 100) / 100 : "-"} ${result.new?.unit ?? ""}`],
-    ["Capacity", `${result.old?.capacity ?? "-"}`, `${result.new?.capacity != null ? Math.round(result.new.capacity * 100) / 100 : "-"}`],
-    ["UC", fmtUc(result.old?.uc), fmtUc(result.new?.uc)],
-    ["Governs", result.old?.check ?? "-", result.new?.check ?? "-"],
-  ];
-  return (
-    <div className="v2-cmp">
-      <table className="v2-table v2-cmp-table">
-        <thead>
-          <tr>
-            <th />
-            <th>Before</th>
-            <th>After (our re-run)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([k, a, b]) => (
-            <tr key={k}>
-              <td>{k}</td>
-              <td className="mono">{a}</td>
-              <td className="mono">
-                <b>{b}</b>
-              </td>
-            </tr>
-          ))}
-          {result.uc_current_size_new_layout != null && (
-            <tr>
-              <td>UC at current size, new layout</td>
-              <td colSpan={2} className={`mono tone-${ucTone(result.uc_current_size_new_layout)}`}>
-                {fmtUc(result.uc_current_size_new_layout)} {result.ng_to_ok ? "(NG at the old size -> OK after re-size)" : ""}
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      <div className="v2-cmp-pages">
-        <EvidenceCompare
-          left={left}
-          right={right}
-          leftTitle="Before - original calc package"
-          rightTitle={useHand ? "After - re-run sheet (rendered math)" : "After - revised sheet, new calc revision"}
-          info="evidence.rerun-compare"
-          pageInfo="pdf.page"
-          note={`Method: ${result.method ?? rev.method ?? "calc-graph re-run"} - not ETABS`}
-        />
-      </div>
-    </div>
   );
 }

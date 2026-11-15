@@ -750,21 +750,6 @@
   flex-wrap: wrap;
   gap: 4px;
 }
-.v2-cmp {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  padding: 6px 8px;
-  gap: 6px;
-}
-.v2-cmp-table {
-  width: auto;
-}
-.v2-cmp-pages {
-  flex: 1;
-  min-height: 0;
-}
 
 /* change order */
 .v2-headline {
@@ -1013,12 +998,8 @@
 
 /* R3 tweaks after the first screenshots */
 .v2-dock.tall { height: 82%; }
-.v2-cmp { flex-direction: row; }
-.v2-cmp-table { flex: none; width: 260px; align-self: flex-start; }
-.v2-cmp-pages { min-width: 0; }
 .v2-table td.mono { white-space: nowrap; }
 .v2-side .cg-tablist { flex-wrap: wrap; overflow: visible; }
-@media (max-width: 1000px) { .v2-cmp { flex-direction: column; } .v2-cmp-table { width: 100%; } }
 
 /* Updating.tsx: previous answer dimmed with a spinner while the new one is computed */
 .v2-updating {
