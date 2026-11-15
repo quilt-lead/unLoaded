@@ -6,7 +6,7 @@
  * states (optional `CalcFact`s). See README "What changed from the hackathon engine".
  */
 import { buildModel, below, dist, lineIntersect, nextBelow, spanOf, type End, type Member, type Model, type P2 } from "./model.ts";
-import { fac, ru, solveSpan, type SpanResult, type Vec3 } from "./statics.ts";
+import { COMBOS, fac, ru, solveSpan, type SpanResult, type Vec3 } from "./statics.ts";
 import { healthOf } from "./health.ts";
 import { normaliseFacts, utilOf, type WFact } from "./facts.ts";
 import { provenance, RULES } from "./provenance.ts";
@@ -304,8 +304,15 @@ export function impact(input: ImpactInput): ImpactResult {
   };
 
   // carried members before their supports (topological order on the affected set)
-  const order = topoOrder([...affected], (m) => downOf(m).filter((s) => affected.has(s)));
-  const solve = (g: Map<string, Geo>, carried: Map<string, [string, End][]>) => {
+  const { order, cyclic: beamCycle } = topoOrder([...affected], (m) => downOf(m).filter((s) => affected.has(s)));
+  if (beamCycle.length)
+    notes.push(`support cycle among ${beamCycle.map((m) => name(m) ?? m).join(", ")} (each carried, directly or not, by another): solved in id order, so a carried member's new reaction may not reach its support`);
+  /**
+   * The local statics of every affected member. `extra`: reaction CHANGES delivered to a member as
+   * point loads at a plan point on it (a transfer member's far end on a girder) - so a change reaches
+   * the columns only as the end reactions of the members it lands on, never copied down.
+   */
+  const solve = (g: Map<string, Geo>, carried: Map<string, [string, End][]>, extra?: Map<string, [P2, Vec3][]>) => {
     const out = new Map<string, SpanResult>();
     for (const mid of order) {
       const m = model.members.get(mid);
@@ -323,13 +330,71 @@ export function impact(input: ImpactInput): ImpactResult {
         const cp = g.get(c)?.[ce === "i" ? "p1" : "p2"] ?? (ce === "i" ? cm.p1 : cm.p2);
         pts.push([dist(p1, cp), rv]);
       }
+      for (const [at, dv] of extra?.get(mid) ?? []) pts.push([dist(p1, at), dv]);
       out.set(mid, spanSolve(dist(p1, p2), w, pts, m.roof));
     }
     return out;
   };
-  // the same local model before and after: changes come from the geometry change alone
+
+  // ---- removal: each collinear pair becomes one transfer member (local statics on both halves' loads
+  // + the re-framed members' reactions). Each far support's change is the transfer member's reaction
+  // minus the reaction of the half that framed into it before, BOTH from the same local statics on the
+  // same loads (line load + self weight from wOf, carried members' reactions) - a stated reaction may
+  // not include the self weight the transfer solve adds. The change is DELIVERED to the far support: a
+  // column takes it as its own reaction change; a member (girder) takes it as a point load in its own
+  // re-solve, so it reaches the columns as that member's end reactions (statics), never copied down.
+  interface Transfer { tid: string; a: Member; b: Member; r: SpanResult }
+  const transfers: Transfer[] = [];
+  const extraAfter = new Map<string, [P2, Vec3][]>();
+  const farColumnD: [string, Vec3][] = [];
+  if (remove) {
+    for (const mg of merged) {
+      const [a, b] = mg.members.map((x) => model.members.get(x)!) as [Member, Member];
+      const farEnd = (m: Member): End => (stack.includes(m.sup.j ?? "") ? "i" : "j");
+      const fa = farEnd(a);
+      const fb = farEnd(b);
+      const pa = fa === "i" ? a.p1 : a.p2;
+      const pb = fb === "i" ? b.p1 : b.p2;
+      const L = dist(pa, pb);
+      const wa = wOf(a);
+      const wb = wOf(b);
+      if (!wa || !wb) continue;
+      const la = spanOf(a);
+      const lb = spanOf(b);
+      const w: Vec3 = [0, 1, 2].map((k) => (wa[k]! * la + wb[k]! * lb) / L) as Vec3;
+      const pts: [number, Vec3][] = [];
+      for (const m of [a, b])
+        for (const [c, ce] of model.carried.get(m.id) ?? []) {
+          const cm = model.members.get(c);
+          const rv = cm?.kind === "beam" ? baseReaction(c, ce, a.roof) : null;
+          if (cm && rv) pts.push([dist(pa, ce === "i" ? cm.p1 : cm.p2), rv]);
+        }
+      for (const rf of reframed) {
+        if (model.members.get(rf.member)!.levelId !== a.levelId) continue;
+        const rv = baseReaction(rf.member, rf.end, a.roof);
+        if (rv) pts.push([la, rv]);
+      }
+      const r = spanSolve(L, w, pts, a.roof);
+      const tid = `NEW:${a.id}+${b.id}`;
+      transfers.push({ tid, a, b, r });
+      for (const [end, m, mEnd, at] of [["i", a, fa, pa], ["j", b, fb, pb]] as [End, Member, End, P2][]) {
+        const s = m.sup[mEnd];
+        const old = baseSolve(m.id)?.[mEnd === "i" ? "Ri" : "Rj"] ?? null;
+        if (!s || !old) continue;
+        const nw = end === "i" ? r.Ri : r.Rj;
+        const dv: Vec3 = [nw[0] - old[0], nw[1] - old[1], nw[2] - old[2]];
+        const sm = model.members.get(s);
+        if (model.columns.has(s)) farColumnD.push([s, dv]);
+        else if (sm && order.includes(s) && wOf(sm)) (extraAfter.get(s) ?? extraAfter.set(s, []).get(s)!).push([at, dv]);
+        else
+          notes.push(`${name(s) ?? s} (far support of the transfer member ${tid}): its reaction change ${fmt(ru(dv), 1)} ${basis === "stated loads" ? "kip" : "(unit load)"} is not carried further - ${sm ? "no calc states its line loads, so it is not re-solved" : "it is neither a column nor a member"}`);
+      }
+    }
+  }
+  // the same local model before and after: changes come from the geometry change (and, on removal, the
+  // transfer members' reaction changes delivered to their far supports) alone
   const before = solve(new Map(), model.carried);
-  const after = solve(geo, effCarried);
+  const after = solve(geo, effCarried, extraAfter);
 
   const changes = new Map<string, GeometryChange[]>();
   type RawChange = Omit<GeometryChange, "before" | "after"> & { before: number; after: number; unit: Unit };
@@ -516,71 +581,37 @@ export function impact(input: ImpactInput): ImpactResult {
         addD(s, [n[0] - o[0], n[1] - o[1], n[2] - o[2]]);
       }
     }
-  if (remove) {
-    for (const mg of merged) {
-      const [a, b] = mg.members.map((x) => model.members.get(x)!) as [Member, Member];
-      const farEnd = (m: Member): End => (stack.includes(m.sup.j ?? "") ? "i" : "j");
-      const fa = farEnd(a);
-      const fb = farEnd(b);
-      const pa = fa === "i" ? a.p1 : a.p2;
-      const pb = fb === "i" ? b.p1 : b.p2;
-      const L = dist(pa, pb);
-      const wa = wOf(a);
-      const wb = wOf(b);
-      if (!wa || !wb) continue;
-      const la = spanOf(a);
-      const lb = spanOf(b);
-      const w: Vec3 = [0, 1, 2].map((k) => (wa[k]! * la + wb[k]! * lb) / L) as Vec3;
-      const pts: [number, Vec3][] = [];
-      for (const m of [a, b])
-        for (const [c, ce] of model.carried.get(m.id) ?? []) {
-          const cm = model.members.get(c);
-          const rv = cm?.kind === "beam" ? baseReaction(c, ce, a.roof) : null;
-          if (cm && rv) pts.push([dist(pa, ce === "i" ? cm.p1 : cm.p2), rv]);
-        }
-      for (const rf of reframed) {
-        if (model.members.get(rf.member)!.levelId !== a.levelId) continue;
-        const rv = baseReaction(rf.member, rf.end, a.roof);
-        if (rv) pts.push([la, rv]);
-      }
-      const r = spanSolve(L, w, pts, a.roof);
-      const tid = `NEW:${a.id}+${b.id}`;
-      // utilisation of the transfer member at the heavier member's stated flexure capacity
-      const heavier = [a, b].sort((p, q) => (memberWeightKlf(q.profile) ?? 0) - (memberWeightKlf(p.profile) ?? 0))[0]!;
-      const hf = beamFact(heavier.id);
-      const phiMn = hf?.checks?.find((c) => c.mode === "flexure")?.capacity?.value;
-      if (hf && phiMn && basis === "stated loads")
-        est.set(tid, {
-          element: tid, method: "estimate", utilisationBefore: null, utilisationAfter: round(r.mu / phiMn, 3), governs: "flexure",
-          scaledBy: `transfer member moment ${fmt(r.mu, 1)} (local statics: both halves' stated loads + re-framed reactions) / ${name(heavier.id) ?? heavier.id}'s stated flexure capacity ${fmt(phiMn, 1)}`,
-          source: hf.source, fact: hf.id,
-        });
-      notes.push(
-        input.sections
-          ? `${tid}: required size not estimated - the supplied section table covers only the model's profiles, not a shape catalogue to size from (the hackathon sized it from the full AISC table)`
-          : `${tid}: required size not estimated - no section table supplied (the hackathon sized it from the AISC table)`,
-      );
-      // each far support's change: the transfer member's reaction minus the reaction of the half that
-      // framed into it before, BOTH from the same local statics on the same loads (line load + self weight
-      // from wOf, carried members' reactions) - a stated reaction may not include the self weight the
-      // transfer solve adds, so mixing the two would leak that difference into the column and footing
-      for (const [end, m, mEnd] of [["i", a, fa], ["j", b, fb]] as [End, Member, End][]) {
-        const s = m.sup[mEnd];
-        const old = baseSolve(m.id)?.[mEnd === "i" ? "Ri" : "Rj"] ?? null;
-        if (!s || !old) continue;
-        const nw = end === "i" ? r.Ri : r.Rj;
-        addD(s, [nw[0] - old[0], nw[1] - old[1], nw[2] - old[2]]);
-      }
-    }
+  // transfer members: utilisation at the heavier half's stated flexure capacity; far column supports
+  // take their reaction change (girder supports took theirs as point loads in the after-solve)
+  for (const { tid, a, b, r } of transfers) {
+    const heavier = [a, b].sort((p, q) => (memberWeightKlf(q.profile) ?? 0) - (memberWeightKlf(p.profile) ?? 0))[0]!;
+    const hf = beamFact(heavier.id);
+    const phiMn = hf?.checks?.find((c) => c.mode === "flexure")?.capacity?.value;
+    if (hf && phiMn && basis === "stated loads")
+      est.set(tid, {
+        element: tid, method: "estimate", utilisationBefore: null, utilisationAfter: round(r.mu / phiMn, 3), governs: "flexure",
+        scaledBy: `transfer member moment ${fmt(r.mu, 1)} (local statics: both halves' stated loads + re-framed reactions) / ${name(heavier.id) ?? heavier.id}'s stated flexure capacity ${fmt(phiMn, 1)}`,
+        source: hf.source, fact: hf.id,
+      });
+    notes.push(
+      input.sections
+        ? `${tid}: required size not estimated - the supplied section table covers only the model's profiles, not a shape catalogue to size from (the hackathon sized it from the full AISC table)`
+        : `${tid}: required size not estimated - no section table supplied (the hackathon sized it from the AISC table)`,
+    );
   }
+  for (const [s, dv] of farColumnD) addD(s, dv);
   // the load path down each column: the next column(s) below (an upper storey on the one below it, a
-  // column on its pier) and what is between (splice / base plate, footing)
+  // column on its pier), what is between (splice / base plate, footing) and a wall it ends on
   const nextMemo = new Map<string, ReturnType<typeof nextBelow>>();
   const nextOf = (c: string) => nextMemo.get(c) ?? nextMemo.set(c, nextBelow(model, c)).get(c)!;
   const gone = (c: string) => remove && stack.includes(c);
+  // every column bearing directly on each column (the whole stack, for the load before)
+  const aboveAll = new Map<string, string[]>();
+  for (const c of [...model.columns.keys()].sort())
+    for (const d of nextOf(c).columns) (aboveAll.get(d) ?? aboveAll.set(d, []).get(d)!).push(c);
   // every column a change reaches: those with a reaction change of their own, and every column below them
   const reached = new Set<string>();
-  const cq = [...ownD.keys()].filter((c) => !gone(c));
+  const cq = [...ownD.keys()].filter((c) => model.columns.has(c) && !gone(c));
   while (cq.length) {
     const c = cq.shift()!;
     if (reached.has(c)) continue;
@@ -590,7 +621,19 @@ export function impact(input: ImpactInput): ImpactResult {
   const above = new Map<string, string[]>();
   for (const c of [...reached].sort())
     for (const d of nextOf(c).columns) if (reached.has(d)) (above.get(d) ?? above.set(d, []).get(d)!).push(c);
-  // load before (for the ratio): the beam reactions into the column itself, as vectors [D, L, Lr]
+  // a cycle among stacked columns (each bears, directly or not, on another) has no top to accumulate from:
+  // its members are reported, never accumulated (and never crash the screen)
+  const { order: colOrder, cyclic: colCycle } = topoOrder([...reached], (x) => nextOf(x).columns.filter((d) => reached.has(d)));
+  const inCycle = new Set(colCycle);
+  if (colCycle.length) {
+    notes.push(
+      `support cycle among the columns ${colCycle.map((c) => name(c) ?? c).join(", ")} (each bears, directly or not, on another in the graph): ` +
+        "no load change is carried down through them, so they, and the columns and footings below them, are screened without it",
+    );
+    for (const c of colCycle) mark(c, "in a column support cycle: its load change is not accumulated (see notes)", [column]);
+  }
+  // load before, as [D, L, Lr]: the beam reactions into the column plus everything carried down from the
+  // whole stack above it (every column bearing on it, changed or not)
   const own0 = (c: string): Vec3 => {
     const s: Vec3 = [0, 0, 0];
     for (const [m, e] of model.carried.get(c) ?? []) {
@@ -600,44 +643,94 @@ export function impact(input: ImpactInput): ImpactResult {
     }
     return s;
   };
+  const v0Memo = new Map<string, Vec3>();
+  const v0Of = (c: string, path = new Set<string>()): Vec3 => {
+    const hit = v0Memo.get(c);
+    if (hit) return hit;
+    const v = own0(c);
+    if (path.has(c)) return v; // a cycle (noted above): its own reactions only
+    path.add(c);
+    for (const u of aboveAll.get(c) ?? []) {
+      const vu = v0Of(u, path);
+      for (const k of [0, 1, 2] as const) v[k] += vu[k];
+    }
+    path.delete(c);
+    v0Memo.set(c, v);
+    return v;
+  };
+  /** The governing (largest) LRFD combination of a load vector: the rule `ru` applies to every end reaction. */
+  const governing = (v: Vec3): { pu: number; lc: string } =>
+    Object.keys(COMBOS).map((lc) => ({ pu: fac(v, lc), lc })).sort((p, q) => q.pu - p.pu || (p.lc < q.lc ? -1 : 1))[0]!;
   const unitWord = basis === "stated loads" ? "kip" : "(unit load)";
   // ONE accumulation, top-down: a column's change is its own members' reaction changes plus everything
-  // carried down from the column(s) it supports; its load before likewise (a stated Pu replaces the sum,
-  // since a column calc's Pu already includes the storeys above). Each column factors the accumulated
-  // change by its own governing combination (inherited from the column above when it has no calc row).
-  interface ColLoad { dv: Vec3; pu0: number; pu1: number; s0: number; combo: string | undefined; statedAbs: boolean }
+  // carried down from the column(s) it supports. Before and after are factored by ONE rule per column:
+  // the combination its calc row states (before and after alike); with none stated, each state's
+  // governing combination of LC1-LC3 (the largest, as `ru` takes for every end reaction) - never a
+  // combination borrowed from another column (a roof column's 1.2D + 0.5L + 1.6Lr would carry 0.5 L into
+  // a floor column's live-load change). A column with no calc row that carries nothing but ONE column
+  // above (a pier, a splice segment with no framing of its own) has that column's load exactly, so it
+  // takes that column's factored load before and after - the same load vector, not a borrowed rule. A
+  // stated Pu replaces the computed load before (a column calc's Pu already includes the storeys above).
+  interface ColLoad { dv: Vec3; pu0: number; pu1: number; stated: boolean }
   const colLoad = new Map<string, ColLoad>();
-  for (const c of topoOrder([...reached], (x) => nextOf(x).columns.filter((d) => reached.has(d)))) {
-    const ups = above.get(c) ?? [];
+  const wallNoted = new Set<string>();
+  for (const c of colOrder) {
+    if (inCycle.has(c)) continue;
+    const ups = (above.get(c) ?? []).filter((u) => colLoad.has(u));
     const dv: Vec3 = [...(ownD.get(c) ?? [0, 0, 0])] as Vec3;
     for (const u of ups) for (const k of [0, 1, 2] as const) dv[k] += colLoad.get(u)!.dv[k];
     const cf = factOf(c, ["column"]);
-    const combo = cf?.combination ?? (ups.length === 1 ? colLoad.get(ups[0]!)!.combo : undefined);
-    const [dpu, comboUsed] = gravityIncrement(dv, combo);
     const pu0Stated = cf?.axial?.value ?? cf?.demand?.value ?? null;
     const statedAbs = basis === "stated loads" && pu0Stated != null;
+    const v0 = v0Of(c);
+    const v1: Vec3 = [v0[0] + dv[0], v0[1] + dv[1], v0[2] + dv[2]];
+    let computed0: number, dpu: number, how: string;
     const o0 = own0(c);
-    const pu0 = statedAbs ? pu0Stated! : fac(o0, "LC2") + ups.reduce((t, u) => t + colLoad.get(u)!.pu0, 0);
-    const s0 = o0[0] + o0[1] + o0[2] + ups.reduce((t, u) => t + colLoad.get(u)!.s0, 0);
+    const only = ups.length === 1 && (aboveAll.get(c) ?? []).length === 1 && !ownD.has(c) && o0.every((x) => x === 0) ? colLoad.get(ups[0]!)! : undefined;
+    if (!cf && only) {
+      computed0 = only.pu0;
+      dpu = only.pu1 - only.pu0;
+      how = `the factored load of ${name(ups[0]!) ?? ups[0]}, the only load it carries`;
+    } else if (cf?.combination) {
+      const [d, used] = gravityIncrement(dv, cf.combination);
+      computed0 = gravityIncrement(v0, cf.combination)[0];
+      dpu = d;
+      how = `factored ${used} (the calc's governing combination)`;
+    } else {
+      const g0 = governing(v0), g1 = governing(v1);
+      computed0 = g0.pu;
+      dpu = g1.pu - g0.pu;
+      how = `factored by the governing combination of LC1-LC3 before (${g0.lc}) and after (${g1.lc}) - no combination stated`;
+    }
+    const pu0 = statedAbs ? pu0Stated! : computed0;
     const pu1 = pu0 + dpu;
-    colLoad.set(c, { dv, pu0, pu1, s0, combo, statedAbs });
+    const stated = statedAbs || (!cf && !!only?.stated);
+    colLoad.set(c, { dv, pu0, pu1, stated });
     const r = ratio(pu0, pu1);
+    const unit: Unit = stated ? "kip" : loadUnit;
+    const cbasis = stated ? "stated loads" : lbasis;
     const carried = ups.length ? `; includes the change carried down from ${ups.map((u) => name(u) ?? u).join(", ")}` : "";
-    addChange(c, {
-      quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit,
-      basis: statedAbs ? "stated loads" : lbasis,
-    });
+    addChange(c, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit, basis: cbasis });
     if (Math.abs(dpu) / Math.max(Math.abs(pu0), 1e-6) > TOUCH || c === column)
       mark(c, `axial changes by ${fmt(dpu, 1)} ${unitWord} (reactions of re-spanned members${ups.length ? ", carried down the column stack" : ""})`, [column]);
     if (cf && utilOf(cf) != null)
       est.set(c, {
         element: c, method: "estimate", utilisationBefore: utilOf(cf), utilisationAfter: round(utilOf(cf)! * r, 3), governs: "axial",
-        scaledBy: `stated utilisation x axial ratio ${fmt(r, 3)} (${statedAbs ? `stated Pu + reaction deltas factored ${comboUsed}, stated loads` : basis}${carried}); eccentric moments held`,
+        scaledBy: `stated utilisation x axial ratio ${fmt(r, 3)} (${statedAbs ? `stated Pu + reaction deltas ${how}, stated loads` : `${basis}, ${how}`}${carried}); eccentric moments held`,
         source: cf.source, fact: cf.id,
       });
     // the splice / base plate between this column and what is below it carries this column's load
     for (const x of nextOf(c).between)
-      if (!model.footings.has(x)) addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit, basis: statedAbs ? "stated loads" : lbasis });
+      if (!model.footings.has(x)) addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit, basis: cbasis });
+    // a wall ends the path: the change is reported on the wall, never copied to every footing under it
+    for (const w of nextOf(c).walls) {
+      if (Math.abs(dpu) / Math.max(Math.abs(pu0), 1e-6) > TOUCH || c === column)
+        mark(w, `${name(c) ?? c} bears on it: axial changes by ${fmt(dpu, 1)} ${unitWord}; its spread along the wall is not modelled`, [column, c]);
+      if (!wallNoted.has(w)) {
+        wallNoted.add(w);
+        notes.push(`${name(w) ?? w}: column(s) bear on this wall; the screen does not distribute a load change along a wall, so the footing(s) under it are not screened`);
+      }
+    }
   }
   // footings, from the bottom of each stack: the column(s) bearing directly on the footing
   const stackUp = (c: string, acc = new Set<string>()): Set<string> => {
@@ -646,17 +739,26 @@ export function impact(input: ImpactInput): ImpactResult {
     for (const u of above.get(c) ?? []) stackUp(u, acc);
     return acc;
   };
-  const onFooting = new Map<string, string[]>();
-  for (const c of [...reached].sort())
-    for (const x of nextOf(c).between) if (model.footings.has(x)) (onFooting.get(x) ?? onFooting.set(x, []).get(x)!).push(c);
-  for (const [fid, bottoms] of onFooting) {
+  const onFooting = new Map<string, Set<string>>();
+  for (const c of [...reached].sort()) {
+    if (!colLoad.has(c)) continue;
+    for (const x of nextOf(c).between) if (model.footings.has(x)) (onFooting.get(x) ?? onFooting.set(x, new Set()).get(x)!).add(c);
+  }
+  // footing short side the bearing estimate used, ft (the clash check grows the footing from the same basis)
+  const footingBasisFt = new Map<string, number>();
+  for (const [fid, on] of onFooting) {
+    // a column whose change already reaches the footing through another column bearing on it is counted
+    // once, in that column (its change is part of that column's accumulated change)
+    const all = [...on];
+    const bottoms = all.filter((c) => !all.some((o) => o !== c && stackUp(o).has(c)));
     const ff = factOf(fid, ["footing"]);
     const dv: Vec3 = [0, 0, 0];
     let s0 = 0;
     for (const c of bottoms) {
       const cl = colLoad.get(c)!;
       for (const k of [0, 1, 2] as const) dv[k] += cl.dv[k];
-      s0 += cl.s0;
+      const v0 = v0Of(c);
+      s0 += v0[0] + v0[1] + v0[2];
     }
     const ds = dv[0] + dv[1] + dv[2];
     const ps0Stated = ff?.serviceLoad?.value ?? null;
@@ -681,6 +783,7 @@ export function impact(input: ImpactInput): ImpactResult {
         const area = B * L;
         const aspect = L / B;
         const breq = Math.max(4.0, Math.ceil(Math.sqrt(Math.max(ps1, 0) / (qa.value * aspect)) * 2) / 2);
+        footingBasisFt.set(fid, B);
         const plan = ff.width
           ? rect
             ? `the stated width ${fmt(B, 2)} ft x the model's length ${fmt(L, 2)} ft`
@@ -728,9 +831,13 @@ export function impact(input: ImpactInput): ImpactResult {
       const fx = f0.cx + dx;
       const fy = f0.cy + dy;
       const req = est.get(movedFooting)?.requiredWidth;
-      const breqM = req ? (req.unit === "ft" ? req.value * FT : req.value) : 0; // requiredWidth is in ft
-      // the footing at its required size, keeping its plan's aspect ratio (requiredWidth is the short side)
-      const grow = Math.max(1, breqM / Math.min(f0.bx, f0.by));
+      const breqFt = req ? (req.unit === "ft" ? req.value : req.value / FT) : 0;
+      // the footing at its required size, keeping its plan's aspect ratio. requiredWidth is the short side
+      // on the bearing estimate's basis (the stated width when stated, else the model's short side), so it
+      // is compared with that same width: a stated 6 ft footing needing 6 ft does not grow because the
+      // model draws it 5 ft
+      const basisFt = footingBasisFt.get(movedFooting) ?? Math.min(f0.bx, f0.by) / FT;
+      const grow = Math.max(1, breqFt / basisFt);
       const Bx = f0.bx * grow;
       const By = f0.by * grow;
       for (const o of model.footings.values()) {
@@ -1022,7 +1129,7 @@ function movedGeometry(model: Model, carriedByCol: [string, End][], newc: P2, co
   return geo;
 }
 
-function topoOrder(ids: string[], deps: (id: string) => string[]): string[] {
+function topoOrder(ids: string[], deps: (id: string) => string[]): { order: string[]; cyclic: string[] } {
   // carried first: an edge m -> s (m is supported by s) means m comes before s
   const set = new Set(ids);
   const indeg = new Map(ids.map((i) => [i, 0]));
@@ -1046,9 +1153,10 @@ function topoOrder(ids: string[], deps: (id: string) => string[]): string[] {
       }
     }
   }
-  // a cycle in the support graph: append the rest in id order (said by the order, never dropped)
-  for (const i of [...ids].sort()) if (!res.includes(i)) res.push(i);
-  return res;
+  // a cycle in the support graph: the rest, in id order, appended to the order and listed as cyclic
+  // (callers report them; never dropped, never assumed solved)
+  const cyclic = [...ids].sort().filter((i) => !res.includes(i));
+  return { order: [...res, ...cyclic], cyclic };
 }
 
 /** Scale each stated check by its geometric ratio; the governing one is the largest. */

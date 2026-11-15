@@ -317,7 +317,19 @@ export function buildModel(graph: SerializedElementGraph): Model {
   return { nodes, columns, members, carried, footings, gradeBeams, down, up, connMembers, assumptions };
 }
 
-/** Elements below `id` on the load path (BFS over supports, connections included). */
+/**
+ * How the column screen walks down a load path from a column: through connections (splice, base
+ * plate) and foundations; never through a member (beam / brace: what bears on it is its own load
+ * path); and a wall ends the walk - a column on a wall spreads its load along the wall, which the
+ * screen does not model, so the change is never copied to every footing under the wall.
+ */
+function downStep(kind: string | undefined): "skip" | "stop" | "through" {
+  if (kind === "beam" || kind === "brace") return "skip";
+  if (kind === "wall") return "stop";
+  return "through";
+}
+
+/** Elements below `id` on the load path (BFS over supports, connections included; a wall is listed, not passed). */
 export function below(model: Model, id: string): string[] {
   const seen = new Set<string>([id]);
   const out: string[] = [];
@@ -327,11 +339,11 @@ export function below(model: Model, id: string): string[] {
     for (const y of model.down.get(x) ?? []) {
       if (seen.has(y)) continue;
       // stop at another member: only the column's own foundation chain moves with it
-      const k = model.nodes.get(y)?.kind;
-      if (k === "beam" || k === "brace") continue;
+      const step = downStep(model.nodes.get(y)?.kind);
+      if (step === "skip") continue;
       seen.add(y);
       out.push(y);
-      q.push(y);
+      if (step === "through") q.push(y);
     }
   }
   return out;
@@ -339,14 +351,16 @@ export function below(model: Model, id: string): string[] {
 
 /**
  * One step down a column's load path: the next column(s) below `id` (an upper storey's column bears
- * on the one below it; a column on its pier) and the elements met before reaching one (splice or base
- * plate connection, footing). Never passes through a beam or brace, and never past a column: what is
- * below that column belongs to its own step. Following `columns` repeatedly walks the whole stack.
+ * on the one below it; a column on its pier), the elements met before reaching one (splice or base
+ * plate connection, footing) and the walls it ends on (`downStep`). Never passes through a beam or
+ * brace, a wall, or past a column: what is below that column belongs to its own step. Following
+ * `columns` repeatedly walks the whole stack.
  */
-export function nextBelow(model: Model, id: string): { columns: string[]; between: string[] } {
+export function nextBelow(model: Model, id: string): { columns: string[]; between: string[]; walls: string[] } {
   const seen = new Set<string>([id]);
   const columns: string[] = [];
   const between: string[] = [];
+  const walls: string[] = [];
   const q = [id];
   while (q.length) {
     const x = q.shift()!;
@@ -354,7 +368,12 @@ export function nextBelow(model: Model, id: string): { columns: string[]; betwee
       if (seen.has(y)) continue;
       seen.add(y);
       const k = model.nodes.get(y)?.kind;
-      if (k === "beam" || k === "brace") continue;
+      const step = downStep(k);
+      if (step === "skip") continue;
+      if (step === "stop") {
+        walls.push(y);
+        continue;
+      }
       if (k === "column") {
         columns.push(y);
         continue;
@@ -363,7 +382,7 @@ export function nextBelow(model: Model, id: string): { columns: string[]; betwee
       q.push(y);
     }
   }
-  return { columns, between };
+  return { columns, between, walls };
 }
 
 export function spanOf(m: { p1: P2; p2: P2 }): number {

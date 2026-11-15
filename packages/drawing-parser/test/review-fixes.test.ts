@@ -155,17 +155,15 @@ describe("columns: ids from position only (finding 4)", () => {
   it("resizing one storey keeps every element id", () => {
     const before = parseDrawingPages([framingPlan(), schedule(), details()]);
     const after = parseDrawingPages([framingPlan(), resized(), details()]);
-    // rejects: column:1/A replaced by column:1/A:level-1..level-2 + column:1/A:level-2..roof (a diff shows removed + added)
+    // rejects: ids that change with the sizes (a size-run split / merge shows a diff as removed + added)
     expect(after.elements.map((e) => e.id)).toEqual(before.elements.map((e) => e.id));
     expect(after.relations.map((r) => `${r.a}|${r.b}`)).toEqual(before.relations.map((r) => `${r.a}|${r.b}`));
   });
 
-  it("one column per intersection keeps every storey's size", () => {
-    const c = parseDrawingPages([framingPlan(), resized(), details()]).elements.find((e) => e.id === "column:1/A")!;
-    expect(c.profile).toBe("W10X33");
-    expect(c.params["Drawing.StoreySizes"]).toBe("Level 1 - Level 2: W10X33; Level 2 - Roof: W10X39");
-    expect(c.params["Drawing.Storeys"]).toBe("Level 1 - Roof");
-    expect(c.geometry!.axis).toEqual({ start: [0, 0, 0], end: [0, 0, 28 * 0.3048] });
+  it("each storey segment keeps its own size (round 2: one element per storey segment)", () => {
+    const m = parseDrawingPages([framingPlan(), resized(), details()]);
+    expect(m.elements.find((e) => e.id === "column:1/A:level-1..level-2")!.profile).toBe("W10X33");
+    expect(m.elements.find((e) => e.id === "column:1/A:level-2..roof")!.profile).toBe("W10X39");
   });
 });
 

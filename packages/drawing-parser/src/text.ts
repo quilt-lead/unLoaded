@@ -107,29 +107,61 @@ export function inches(s: string): number | undefined {
 const INCH_VALUE = /(?<![\d.\/'-])(\d+(?:\.\d+)?(?:(?:\s+|-)\d+\/\d+)?|\d+\/\d+)\s*"/g;
 
 /**
+ * Abbreviations a structural note writes with a full stop ("20 GA.", "COMP. DECK", "CONC. TOPPING"):
+ * a period after one of these, or after a dotted / single-letter token ("L.W.", "N.W.", "W."), does
+ * not end a sentence.
+ */
+const NOTE_ABBREVIATIONS = new Set([
+  "GA", "CONC", "COMP", "COMPOS", "LW", "NW", "LWT", "NWT", "REINF", "TYP", "MIN", "MAX", "GALV", "OC", "EA", "NO",
+  "STL", "MTL", "FT", "IN", "PSI", "KSF", "PSF", "DIA", "THK", "GR", "SIM", "EQ", "APPROX", "CONT", "EMBED", "WWF", "WWR",
+  "SPA", "NOM", "STD", "ADDL", "VERT", "HORIZ", "GAL", "GAGE", "GAUGE", "FIN", "STRUCT", "MECH", "ARCH", "REF", "DWG", "DWGS",
+]);
+
+/** Index of the first sentence end at or after `from`: a ". " whose word is not an abbreviation; -1 if none. */
+export function sentenceEnd(t: string, from: number): number {
+  const re = /\.(?=\s|$)/g;
+  re.lastIndex = from;
+  for (let m = re.exec(t); m; m = re.exec(t)) {
+    const word = /([A-Z0-9./]+)$/.exec(t.slice(0, m.index))?.[1] ?? "";
+    const abbreviation = NOTE_ABBREVIATIONS.has(word) || word.includes(".") || /^[A-Z]$/.test(word);
+    if (!abbreviation) return m.index;
+  }
+  return -1;
+}
+
+/**
  * Slab thickness from a deck note. In order: a value marked TOTAL / OVERALL, or followed by SLAB,
  * is the thickness; else a deck depth ("3" ... DECK") plus the concrete above it ("3-1/4" LW
  * CONCRETE", "... TOPPING") is their sum; else a bare deck with no concrete mentioned is its depth.
  * Anything else (composite deck without a concrete thickness) is undefined - a rib depth is never
- * taken as the slab thickness.
+ * taken as the slab thickness. A value's context runs to the next value or the end of its clause
+ * (",", ";", brackets, or a full stop that is not an abbreviation's - `sentenceEnd`); the concrete must
+ * be in the deck value's sentence ("1-1/2" DECK. 4" CONC. PAD AT UNITS" is a bare deck).
  */
 export function deckThickness(text: string): { thicknessIn: number; rule: string } | undefined {
   const t = text.toUpperCase();
-  const vals: Array<{ v: number; ctx: string }> = [];
+  const ends: number[] = [];
+  for (let e = sentenceEnd(t, 0); e >= 0; e = sentenceEnd(t, e + 1)) ends.push(e);
+  const sentenceOf = (i: number) => ends.filter((e) => e < i).length;
+  const vals: Array<{ v: number; ctx: string; sentence: number }> = [];
   const ms = [...t.matchAll(INCH_VALUE)];
   ms.forEach((m, i) => {
     const v = inches(m[1]!);
     if (v === undefined || !(v > 0)) return;
     const from = m.index! + m[0].length;
-    const to = Math.min(i + 1 < ms.length ? ms[i + 1]!.index! : t.length, ...[",", ";", "(", ")", ". "].map((c) => (t.indexOf(c, from) < 0 ? t.length : t.indexOf(c, from))));
-    vals.push({ v, ctx: t.slice(from, to) });
+    const stops = [",", ";", "(", ")"].map((c) => t.indexOf(c, from));
+    stops.push(sentenceEnd(t, from));
+    const to = Math.min(i + 1 < ms.length ? ms[i + 1]!.index! : t.length, ...stops.map((x) => (x < 0 ? t.length : x)));
+    vals.push({ v, ctx: t.slice(from, to), sentence: sentenceOf(m.index!) });
   });
   const total = vals.find((x) => /^\s*(?:TOTAL|OVERALL)\b|^\s*(?:[A-Z.]+\s+){0,3}SLAB\b/.test(x.ctx));
   if (total) return { thicknessIn: total.v, rule: "value marked TOTAL / SLAB in the deck note" };
   const deck = vals.find((x) => /\bDECK\b/.test(x.ctx));
-  const conc = vals.find((x) => x !== deck && /\b(?:CONC|CONCRETE|TOPPING|FILL)\b/.test(x.ctx));
-  if (deck && conc) return { thicknessIn: deck.v + conc.v, rule: "deck depth + concrete above the deck (deck note)" };
-  if (deck && !/\b(?:CONC|CONCRETE|COMPOSITE|TOPPING|FILL)\b/.test(t)) return { thicknessIn: deck.v, rule: "bare deck: deck depth (no concrete in the note)" };
+  if (!deck) return undefined;
+  const conc = vals.find((x) => x !== deck && x.sentence === deck.sentence && /\b(?:CONC|CONCRETE|TOPPING|FILL)\b/.test(x.ctx));
+  if (conc) return { thicknessIn: deck.v + conc.v, rule: "deck depth + concrete above the deck (deck note)" };
+  const sentence = t.slice(deck.sentence ? ends[deck.sentence - 1]! + 1 : 0, ends[deck.sentence] ?? t.length);
+  if (!/\b(?:CONC|CONCRETE|COMPOSITE|COMP|TOPPING|FILL)\b/.test(sentence)) return { thicknessIn: deck.v, rule: "bare deck: deck depth (no concrete in the deck's sentence)" };
   return undefined;
 }
 
@@ -219,13 +251,17 @@ export function levelName(s: string): string | undefined {
   if (m) return `Level ${m[1]}`;
   if (/^(?:ROOF|RF|ROOF LEVEL)$/.test(t)) return "Roof";
   if (/^(?:FOUNDATION|FDN)$/.test(t)) return "Foundation";
-  m = /^(BASEMENT|MEZZANINE|PENTHOUSE)(?: (\d+))?$/.exec(t);
+  if (/^PENTHOUSE ROOF$/.test(t)) return "Penthouse Roof";
+  m = /^(BASEMENT|MEZZANINE|PENTHOUSE)(?: ?(\d+))?$/.exec(t);
   if (m) return `${m[1]!.charAt(0)}${m[1]!.slice(1).toLowerCase()}${m[2] ? ` ${m[2]}` : ""}`;
   return undefined;
 }
 
-/** Level phrases inside longer text: "LEVEL 2", "ROOF", "FOUNDATION". */
-export const LEVEL_IN_TEXT = /\b(LEVEL\s*\d+[A-Z]?|ROOF|FOUNDATION|BASEMENT(?:\s*\d+)?|MEZZANINE|PENTHOUSE)\b/;
+/**
+ * Level phrases inside longer text: "LEVEL 2", "ROOF", "FOUNDATION", "MEZZANINE 2", "PENTHOUSE ROOF".
+ * "PENTHOUSE ROOF" is listed before "PENTHOUSE" so the penthouse's roof is not read as the penthouse.
+ */
+export const LEVEL_IN_TEXT = /\b(LEVEL\s*\d+[A-Z]?|PENTHOUSE\s+ROOF|ROOF|FOUNDATION|BASEMENT(?:\s*\d+)?|MEZZANINE(?:\s*\d+)?|PENTHOUSE(?:\s*\d+)?)\b/;
 
 /** id-safe slug: "Level 2" -> "level-2". */
 export const slug = (s: string): string => s.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/^-|-$/g, "");

@@ -10,7 +10,11 @@
  *
  * Elements are matched to truth per class by plan position (greedy, nearest first, within
  * --match-ft, default 3 ft; beams and braces also by level), so the metrics below are about what
- * was read, not about ids:
+ * was read, not about ids. Columns: the parser emits one element per storey segment
+ * (`column:1/A:level-1..level-2`), the truth one full-height column per intersection, so a column's
+ * segments (same Drawing.Grid) are scored as one stack: matched by its plan position, size-correct only
+ * if every segment's size is the truth size, its occurrences the union of the segments', and in the
+ * load-path pairs every segment stands for the stack (segment-on-segment pairs are dropped).
  *   recall / precision          per class; recall_drawn counts only truth elements printed with text
  *   size_accuracy               normalised profile = truth size (matched)
  *   level_accuracy              element level elevation = truth level (beams, braces)
@@ -91,11 +95,29 @@ function segDist(t: { a: number[]; b: number[] }, m: { a: number[]; b: number[] 
 }
 const truthLevelFt = (n: TruthNode) => (typeof n.attrs.level === "string" ? levelFt.get(n.attrs.level) : undefined);
 
+const metrics: Record<string, number> = {};
 const truthEls = truth.nodes.filter((n) => n.kind === "element" && truthCls[n.type]);
-const mine = model.elements.filter((e) => myCls(e));
+// column stacks: the storey segments of one column (same Drawing.Grid); the lowest stands for the stack
+const segmentsOf = new Map<string, ElementInput[]>(); // representative id -> its segments
+const stackOf = new Map<string, string>(); // any column segment id -> representative id
+{
+  const byGrid = new Map<string, ElementInput[]>();
+  for (const e of model.elements.filter((x) => myCls(x) === "column")) {
+    const k = String(e.params["Drawing.Grid"] ?? e.id);
+    byGrid.set(k, [...(byGrid.get(k) ?? []), e]);
+  }
+  for (const group of byGrid.values()) {
+    group.sort((a, b) => (a.geometry?.bbox.min[2] ?? 0) - (b.geometry?.bbox.min[2] ?? 0) || (a.id < b.id ? -1 : 1));
+    segmentsOf.set(group[0]!.id, group);
+    for (const e of group) stackOf.set(e.id, group[0]!.id);
+  }
+}
+const canon = (id: string) => stackOf.get(id) ?? id;
+const segs = (e: ElementInput) => segmentsOf.get(e.id) ?? [e];
+const mine = model.elements.filter((e) => myCls(e) && (myCls(e) !== "column" || segmentsOf.has(e.id)));
+metrics.column_segments_found = stackOf.size;
 const match = new Map<string, ElementInput>(); // truth id -> mine
 const matchedMine = new Map<string, string>(); // my id -> truth id
-const metrics: Record<string, number> = {};
 const textOcc = (o: TruthOcc) => o.doc === "drawings" && ["plan_tag", "elevation_tag", "schedule_row"].includes(o.how) && !!o.text;
 
 for (const cls of ["beam", "grade_beam", "column", "pier", "brace", "footing", "slab"] as Cls[]) {
@@ -138,7 +160,7 @@ for (const cls of ["beam", "grade_beam", "column", "pier", "brace", "footing", "
     metrics[k("placement_max_err_ft")] = Math.max(...errs);
   }
   const sized = hit.filter((t) => typeof t.attrs.size === "string");
-  if (sized.length) metrics[k("size_accuracy")] = sized.filter((t) => match.get(t.id)!.profile === normaliseProfile(String(t.attrs.size))).length / sized.length;
+  if (sized.length) metrics[k("size_accuracy")] = sized.filter((t) => segs(match.get(t.id)!).every((e) => e.profile === normaliseProfile(String(t.attrs.size)))).length / sized.length;
   const lev = hit.filter((t) => truthLevelFt(t) !== undefined);
   if (lev.length && (cls === "beam" || cls === "brace")) {
     metrics[k("level_accuracy")] = lev.filter((t) => Math.abs(truthLevelFt(t)! - (myLevelFt.get(match.get(t.id)!.levelId ?? "") ?? NaN)) < 0.01).length / lev.length;
@@ -158,7 +180,7 @@ let occT = 0, occHit = 0, occM = 0, occMHit = 0;
 for (const [tid, m] of match) {
   const t = truthEls.find((n) => n.id === tid)!;
   const to = t.occurrences.filter(textOcc);
-  const mo = occsOf(m).filter((o) => ["plan_tag", "elevation_tag", "schedule_row"].includes(o.how));
+  const mo = segs(m).flatMap(occsOf).filter((o) => ["plan_tag", "elevation_tag", "schedule_row"].includes(o.how));
   occT += to.length;
   occHit += to.filter((o) => mo.some((x) => x.page === o.page && inside(x.rect, o.bbox!))).length;
   occM += mo.length;
@@ -212,7 +234,7 @@ for (const e of graph.edges()) {
   if (e.kind !== "supports") continue;
   if (isConn(e.a)) continue;
   const targets = isConn(e.b) ? graph.edgesOf(e.b, { kind: "supports", direction: "out" }).map((x) => x.b).filter((b) => !isConn(b) && b !== e.a) : [e.b];
-  for (const b of targets) pairsOut.add(`${e.a}|${b}`);
+  for (const b of targets) if (canon(e.a) !== canon(b)) pairsOut.add(`${canon(e.a)}|${canon(b)}`);
 }
 // grade beam -> footing is split out: the element graph has no "beam end bears on footing" rule, so
 // those pairs measure the graph, not the parser

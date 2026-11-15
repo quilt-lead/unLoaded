@@ -61,10 +61,15 @@ export interface DimPair {
 
 /**
  * A written dimension is accepted for a span only within this of the calibrated scale x the measured
- * distance: 3 % or 3 in, whichever is larger. A drawing's own plotting error is well under that; an
- * overall dimension (several bays) or one bay's string on a two-bay pair is off by 50 % or more.
+ * distance: 20 % or 3 in, whichever is larger. The bound sits in the gap between the two things it
+ * separates. A misread string is far off: an overall dimension over n >= 2 bays is >= 50 % long when
+ * adjacent bays differ by at most 2:1, and one bay's string on a pair spanning two bays (middle line not
+ * drawn) is >= 33 % short. Drafting distortion - a grid line moved without its dimension, a bay drawn
+ * "not to scale" - is a few percent and rarely past 10 to 15 %, and there the WRITTEN dimension is the
+ * truth, so a tighter bound (R1's 3 %) replaced correct written dimensions by measured ones. 20 % accepts
+ * distortion up to that and still leaves 13 points to the nearest misread.
  */
-export const DIM_TOL = { rel: 0.03, absFt: 0.25 } as const;
+export const DIM_TOL = { rel: 0.2, absFt: 0.25 } as const;
 
 /** Does a written dimension `ft` agree with `dpt` page points at `k` ft per pt? */
 export function agrees(ft: number, dpt: number, k: number): boolean {
@@ -86,14 +91,23 @@ export interface Calibration {
 }
 
 /**
- * The scale note that governs the plan: one in, or directly under, a title naming a PLAN; else the
+ * A title naming the sheet's plan: "LEVEL 2 FRAMING PLAN", "FOUNDATION PLAN". A detail drawn as a plan -
+ * "ENLARGED PLAN", "PARTIAL PLAN", "KEY PLAN", "PART PLAN", "DETAIL PLAN", "BLOW-UP PLAN" - is at its
+ * own (larger or smaller) scale and is not the plan.
+ */
+export function planTitle(text: string): boolean {
+  return /\bPLAN\b/.test(text) && !/\b(?:ENLARGED|PARTIAL|PART|KEY|DETAIL|BLOW-?UP)\b/.test(text);
+}
+
+/**
+ * The scale note that governs the plan: one in, or directly under, a title naming the plan (`planTitle`); else the
  * smallest scale on the sheet (a detail drawn on a plan sheet is at a larger scale than the plan, so
  * the first note in reading order may be a detail's). Undefined when the sheet has no scale note.
  */
 export function planScaleNote(phr: Phrase[]): { ptPerFt: number; rule: string } | undefined {
   const notes = phr.map((p) => ({ p, v: scalePtPerFt(p.text) })).filter((n): n is { p: Phrase; v: number } => n.v !== undefined);
   if (!notes.length) return undefined;
-  const PLAN = /\bPLAN\b/;
+  const PLAN = { test: planTitle };
   const underPlanTitle = (p: Phrase) => PLAN.test(p.text) || phr.some((q) => q !== p && q.rot === p.rot && PLAN.test(q.text) &&
     q.rect[3] <= p.rect[1] + 1 && p.rect[1] - q.rect[3] < 2.5 * Math.max(p.size, q.size) && q.rect[0] < p.rect[2] && p.rect[0] < q.rect[2]);
   const titled = notes.find((n) => underPlanTitle(n.p));
@@ -112,9 +126,14 @@ export function planScaleNote(phr: Phrase[]): { ptPerFt: number; rule: string } 
  * centre lies between the two lines, reading along them, outside the grid on the bubble side), else
  * from the plan's "SCALE: 3/16" = 1'-0"" note (`planScaleNote`), else the profile's fallback, else none.
  *
- * The scale is the one the most strings agree with (both axes pooled; a tie goes to the scale note),
- * then refit per axis as the median of the strings that agree. A string is kept as the span's stated
- * dimension (`pair.ft`) only if it agrees with that scale (`agrees`); the others keep `writtenFt` only.
+ * The scale is found per axis - the ratio the most of that axis's strings agree with (a tie goes to the
+ * scale note, else to the other axis's scale) - then refit as the median of the strings that agree. Per
+ * axis, because a plan can be plotted at different x and y scales: pooling them let the axis with more
+ * strings reject every string of the other. An axis with a single string that disagrees with the other
+ * axis's scale (when at least two strings agree on it) or else with the scale note is a misread, not a
+ * scale: that axis takes the other's scale (or the note's). An axis with no strings takes the other's.
+ * A string is kept as the span's stated dimension (`pair.ft`) only if it agrees with its axis's scale
+ * (`agrees`); the others keep `writtenFt` only.
  */
 export function calibrate(phr: Phrase[], lines: SheetGridLine[], sheet: Sheet, pf: DrawingProfile): Calibration {
   const dims = phr.filter((p) => p.rect[2] < sheet.cutoff && /^[+-]?\d+\s*'\s*-?\s*\d+(?:[\s-]+\d+\/\d+)?\s*"$/.test(p.text));
@@ -150,29 +169,42 @@ export function calibrate(phr: Phrase[], lines: SheetGridLine[], sheet: Sheet, p
   const note = planScaleNote(phr);
   const written = pairs.filter((p) => p.writtenFt !== undefined);
   if (written.length) {
-    // consensus: the ratio the most strings agree with, pooled over both axes; a tie goes to the scale note
-    const support = (r: number) => written.filter((p) => agrees(p.writtenFt!, p.dpt, r)).length;
-    let best: { r: number; s: number } | undefined;
-    let ambiguous = false;
-    for (const p of written) {
-      const r = p.writtenFt! / p.dpt;
-      const s = support(r);
-      if (!best || s > best.s) {
-        best = { r, s };
-        ambiguous = false;
-      } else if (s === best.s && !agrees(best.r * p.dpt, p.dpt, r)) {
-        if (note && Math.abs(r * note.ptPerFt - 1) < Math.abs(best.r * note.ptPerFt - 1)) best = { r, s };
-        else if (!note) ambiguous = true;
+    type Consensus = { r: number; s: number; tie?: boolean };
+    // consensus on one axis: the ratio the most of its strings agree with; a tie goes to the scale note,
+    // else to `prefer` (the other axis's scale), else is flagged
+    const consensus = (ws: DimPair[], prefer?: number): Consensus | undefined => {
+      const support = (r: number) => ws.filter((p) => agrees(p.writtenFt!, p.dpt, r)).length;
+      let best: Consensus | undefined;
+      for (const p of ws) {
+        const r = p.writtenFt! / p.dpt;
+        const s = support(r);
+        if (!best || s > best.s) best = { r, s };
+        else if (s === best.s && !agrees(best.r * p.dpt, p.dpt, r)) {
+          const ref = note ? 1 / note.ptPerFt : prefer;
+          if (ref === undefined) best.tie = true;
+          else if (Math.abs(r / ref - 1) < Math.abs(best.r / ref - 1)) best = { r, s };
+        }
       }
-    }
-    const k0 = best!.r;
-    const agreeing = written.filter((p) => agrees(p.writtenFt!, p.dpt, k0));
-    const fit = (axis: "x" | "y"): number | undefined => {
-      const ks = agreeing.filter((p) => p.axis === axis).map((p) => p.writtenFt! / p.dpt).sort((a, b) => a - b);
-      return ks.length ? ks[Math.floor(ks.length / 2)]! : undefined;
+      return best;
     };
-    const kx = fit("x"), ky = fit("y");
-    const k = { x: kx ?? ky ?? k0, y: ky ?? kx ?? k0 };
+    const wx = written.filter((p) => p.axis === "x"), wy = written.filter((p) => p.axis === "y");
+    let cx = consensus(wx), cy = consensus(wy, cx?.r);
+    if (cx?.tie && cy) cx = consensus(wx, cy.r); // an x tie broken by y's scale
+    // a lone string that disagrees with the other axis's agreed scale (else the note) is a misread
+    const lone = (c: Consensus | undefined, other: Consensus | undefined): Consensus | undefined => {
+      if (!c || c.s >= 2) return c;
+      const ref = other && other.s >= 2 ? other.r : note ? 1 / note.ptPerFt : undefined;
+      return ref !== undefined && Math.abs(c.r / ref - 1) > DIM_TOL.rel ? { r: ref, s: 0 } : c;
+    };
+    [cx, cy] = [lone(cx, cy), lone(cy, cx)];
+    const ambiguous = !!(cx?.tie || cy?.tie);
+    const fit = (c: { r: number; s: number } | undefined, ws: DimPair[]): number | undefined => {
+      if (!c) return undefined;
+      const ks = ws.filter((p) => agrees(p.writtenFt!, p.dpt, c.r)).map((p) => p.writtenFt! / p.dpt).sort((a, b) => a - b);
+      return ks.length ? ks[Math.floor(ks.length / 2)]! : c.r;
+    };
+    const kx = fit(cx, wx), ky = fit(cy, wy);
+    const k = { x: kx ?? ky!, y: ky ?? kx! };
     // only a string that agrees with the scale states the span (the nearest-to-middle one that does);
     // a pair with none is measured
     for (const p of written) {

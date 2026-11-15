@@ -52,21 +52,21 @@ Conventions are generic US structural-set conventions (`src/profile.ts`, ported 
 |---|---|
 | Sheet | Tallest word in the title-block strip (right 11% of the page) matching the sheet-number pattern; title = the words of 12 pt or more within 300 pt above it. No sheet number: not a drawing sheet, skipped. |
 | Sheet kind | First title substring that matches: FOUNDATION PLAN, FRAMING PLAN, ELEVATION, SCHEDULE, DETAIL, SECTION, NOTES. |
-| Plan level | From the plan's title: "LEVEL 2 FRAMING PLAN" -> Level 2, "ROOF ..." -> Roof, foundation plan -> Foundation. |
-| Level elevation | Stated elevations, most frequent wins (conflicts warned): "LEVEL 2" over "EL. 14'-0"" (elevations), "ROOF EL. 40'-0"" (schedule rows), "TOP OF STEEL (T.O.S.) EL. ..." (the level's own plan notes). Foundation = "TOP OF FOOTING EL.". Storey order: Foundation, Basement n (2 below 1), Level n, Mezzanine (above Level n), Penthouse, Roof. An unstated level is assumed evenly between the stated levels either side (12 ft storeys where nothing brackets it; foundation 3 ft below the lowest level), warned, and labelled on every element on it (`Drawing.LevelElevationAssumed`). |
+| Plan level | From the plan's title: "LEVEL 2 FRAMING PLAN" -> Level 2, "MEZZANINE 2 ..." -> Mezzanine 2, "ROOF ..." -> Roof, "PENTHOUSE ROOF ..." -> Penthouse Roof (not Penthouse), foundation plan -> Foundation. |
+| Level elevation | Stated elevations, most frequent wins (conflicts warned): "LEVEL 2" over "EL. 14'-0"" (elevations), "ROOF EL. 40'-0"" (schedule rows), "TOP OF STEEL (T.O.S.) EL. ..." (the level's own plan notes). Foundation = "TOP OF FOOTING EL.". Levels are ordered by their stated elevations, never by name. Name order (Foundation, Basement n (2 below 1), Level n, Mezzanine n (above Level n), Penthouse, Roof, Penthouse Roof) only places an unstated level: evenly between the highest stated level named below it and the lowest stated level named above it - counting only names that fix their order, so an unnumbered Mezzanine or Penthouse, once stated, is placed by its elevation and brackets nothing (12 ft storeys where nothing brackets it; an unstated foundation 3 ft below the lowest level by elevation). Stated elevations that contradict the names' order are warned. Every assumed elevation is warned and labelled on every element on it (`Drawing.LevelElevationAssumed`). |
 | Drawing area | Left of the plan notes column (a heading ending in NOTES right of 63% of the width) or of the title block. |
 | Grid | On plans: the same bubble label (single word, 12-30 pt) printed twice far apart (> 500 pt) at the same x (an x-line) or the same y (a y-line). |
-| Scale | Feet-inch dimension strings between adjacent grid lines: the scale most strings agree with (both axes; a tie goes to the scale note), refit per axis as the median of those, residual reported. Else the plan's `SCALE: 3/16" = 1'-0"` note (the one in / under a title naming a PLAN, else the smallest scale on the sheet - details are drawn larger); else the profile's fallback; else none (no geometry, warned). |
-| Building grid | From the plan with the most grid lines: coordinates are the cumulative written dimensions, each accepted for a span only when it agrees with the scale x the measured distance (3 % or 3 in); otherwise (no string, an overall dimension, another bay's string) the span is measured pt x scale and warned as measured, not stated. x right, y up the sheet (plan north up assumed), origin at the left-most x-line and bottom-most y-line. Every sheet maps page -> building piecewise-linearly between its own grid lines. |
+| Scale | Feet-inch dimension strings between adjacent grid lines, per axis (a plan may be plotted at different x and y scales): the scale most of that axis's strings agree with (a tie goes to the scale note, else the other axis), refit as the median of those, residual reported; an axis whose single string disagrees with the other axis's agreed scale (else the note) is a misread and takes that scale; an axis without strings takes the other's. Else the plan's `SCALE: 3/16" = 1'-0"` note (the one in / under the plan's title - not an ENLARGED / PARTIAL / KEY / PART / DETAIL / BLOW-UP plan, which is a detail at its own scale - else the smallest scale on the sheet, details being drawn larger); else the profile's fallback; else none (no geometry, warned). |
+| Building grid | From the plan with the most grid lines: coordinates are the cumulative written dimensions, each accepted for a span only when it agrees with the scale x the measured distance (20 % or 3 in: drafting distortion, where the written dimension is the truth, is rarely past 10 to 15 %; a misread is far further off - an overall dimension over two bays >= 50 % long, one bay's string on a two-bay pair >= 33 % short, for bays within 2:1); otherwise the span is measured pt x scale and warned as measured, not stated. x right, y up the sheet (plan north up assumed), origin at the left-most x-line and bottom-most y-line. Every sheet maps page -> building piecewise-linearly between its own grid lines. |
 | Plan member | A size tag (`*W18X40 (30) c=3/4"`, `HSS6X6X1/4`, `C12X20.7`, `L4X4X1/4`, metric shapes via ifc-parser) labels the line just past its descent edge (0.4 x text size); flat tags run along x, rotated tags along y. The member spans the grid lines either side of the tag. A line within 0.9 x text size of a grid line is on that grid line (role `girder`); otherwise it is an `infill` member at the measured offset. `*` = SFRS, `(n)` = studs, `c=` = camber. |
 | Frame marker | `*SMF` / `*SCBF` ... within 40 pt of a member -> `Drawing.FrameSystem`. |
 | Foundation plan | Footing marks (`F5.5`) and pier marks (`P2`) belong to the nearest grid intersection (within 120 pt); grade-beam marks (`GB1`) to the nearest grid line, spanning the lines either side. |
 | Frame elevation | A row of single grid bubbles with a title "... LINE <grid>" below it is one elevation of that grid line; level markers give the vertical axis. Rotated tags beside a bubble = a column storey; flat tags just above a level line = a beam of that line (merges with the plan's member: same id); other flat tags in a bay = a brace in the half bay holding the tag. Each column's base (the lowest level marker) is a callout target as a base plate; the column above its base is not. |
-| Column schedule | Header row `COLUMN LINE` with grid-intersection cells (`1/A`), storey rows (`L1 - L2`), `BASE PLATE`, `PIER`, `FOOTING` rows. One column per grid intersection, whatever its storey sizes (the text does not state splices): profile = the lowest storey's size; when sizes change by storey every storey's size is in `Drawing.StoreySizes` (warned). |
+| Column schedule | Header row `COLUMN LINE` with grid-intersection cells (`1/A`), storey rows (`L1 - L2`), `BASE PLATE`, `PIER`, `FOOTING` rows. One column element per storey segment: the segments run between every level the column's storey rows and elevation tags start or end at (a tier stated once, `L1 - L3`, stays one element), each with its own size and its lower level, so a calc row for an upper storey matches its segment. The upper segment bears on the lower in the graph (its column-base rule). |
 | Mark schedules | A mark (`F5.5`, `P2`, `GB1`, `BP-4`) under a `MARK` / `TYPE` header: the row's text goes to every element with that mark (`Schedule.Text`, plus sizes for the geometry). |
 | Detail panels | A bubble with the sheet's own number under the detail number; title to its right; type mark from the title (`MC-1`, `ST-3`, `BP-4`). |
 | Detail callout | A detail number over another sheet's number (callouts to SECTIONS sheets are section cuts, ignored). It becomes a connection at the end of the nearest member of a kind the detail fits (from its title: brace/gusset, base plate, or beam connections). |
-| Deck | A `FLOOR DECK:` / `ROOF DECK:` note on a framing plan -> one slab at that level. Thickness: a value marked `TOTAL` / `OVERALL` or followed by `SLAB` (`6 1/4"`, `6-1/4"`, `6.25"`); else deck depth + the concrete above it; else a bare deck's depth when no concrete is mentioned; else unknown (6 in assumed, said so). Never the rib depth alone. Rule in `Drawing.ThicknessRule`. |
+| Deck | A `FLOOR DECK:` / `ROOF DECK:` note on a framing plan -> one slab at that level. Thickness: a value marked `TOTAL` / `OVERALL` or followed by `SLAB` (`6 1/4"`, `6-1/4"`, `6.25"`); else deck depth + the concrete above it in the same sentence; else a bare deck's depth when its sentence mentions no concrete; else unknown (6 in assumed, said so). Never the rib depth alone. A full stop after an abbreviation (`20 GA.`, `COMP.`, `CONC.`, `L.W.`, `N.W.`) does not end a sentence. Rule in `Drawing.ThicknessRule`. |
 
 ## Ids (content-based, stable across re-imports)
 
@@ -78,12 +78,12 @@ the id**, so a resize keeps the id (and so do decisions keyed on it).
 | Member on a grid line | `beam:<level>:<span>:<line>` | `beam:level-2:A..B:1` (on line 1, from A to B) |
 | Infill member | `beam:<level>:<span>:<bay>#<n>` (n = 1 nearest the bay's lower line) | `beam:level-2:1..2:A..B#1` |
 | Brace | `brace:<bottom level>:<line>:<bay>:<side>` | `brace:level-1:1:A..B:A` |
-| Column | `column:<x-line>/<y-line>` (one per intersection, storey sizes never split it) | `column:1/A` |
+| Column | `column:<x-line>/<y-line>:<lower level>..<upper level>` (position + storey segment; the size never) | `column:1/A:level-1..level-2` |
 | Pier | `pier:<intersection>` (kind `column`, role `pier`, as the IFC writes piers) | `pier:1/A` |
 | Footing | `footing:<intersection>` | `footing:1/A` |
 | Grade beam | `grade-beam:<span>:<line>` (kind `beam`, role `grade_beam`) | `grade-beam:1..2:A` |
 | Callout connection | `connection:<member id>@<end>` (end = grid label, or `bottom` / `top` for braces) | `connection:beam:level-2:1..2:A..B#1@1` |
-| Base plate | `connection:base:<intersection>` | `connection:base:1/A` |
+| Base plate | `connection:base:<intersection>` (connects to the lowest column segment there) | `connection:base:1/A` |
 | Slab | `slab:<level>` | `slab:level-2` |
 
 Levels: `level-1`, `level-2`, `roof`, `foundation` (slug of the name). Spans list the grid labels in
@@ -101,7 +101,7 @@ sheet's `Drawing.ScaleSource` / `Drawing.ScaleFtPerPt` / `Drawing.ScaleResidualI
   measured from the tag (`Drawing.PlanErrorM`, about 1.5 pt x scale: ~0.03 m at 3/16" = 1'-0").
   On the synthetic set: mean 0.007 m, max 0.016 m.
 - **Elevations.** Beams: top of steel at the level's stated elevation (no deck or slope deducted).
-  Columns: from the top of pier (foundation note) or the lowest storey to the highest storey.
+  Columns: each segment from its lower level (the lowest from the top of pier, foundation note) to its upper level.
   Footings: top at the top of footing, L x W x T from the schedule. Piers: top of footing to top of
   pier. Grade beams: top at the top of footing; the **axis** runs grid line to grid line (the
   analytical line the plan states), the **bbox** between the footing faces.
@@ -139,8 +139,7 @@ through `serialize()`.
 | `Drawing.Role` | `girder`, `infill`, `frame_beam` (elevation only), `grade_beam`, `brace`, `column`, `pier`, `footing`, `connection`, `base_plate`, `deck` |
 | `Drawing.Grid` | grid reference (`1/A..B`, `A..B/1..2`, `1/A`) |
 | `Drawing.SFRS`, `Drawing.Studs`, `Drawing.CamberIn`, `Drawing.FrameSystem` | from the tag / markers |
-| `Drawing.Storeys` | columns: `Level 1 - Roof` |
-| `Drawing.StoreySizes` | columns whose size changes by storey: `Level 1 - Level 2: W14X90; Level 2 - Roof: W14X68` |
+| `Drawing.Storeys` | columns: the segment's storey, `Level 1 - Level 2` |
 | `Drawing.LevelElevationAssumed` | the element's level has no stated elevation: the assumed value and how |
 | `Drawing.ThicknessIn`, `Drawing.ThicknessRule` | slabs: thickness from the deck note and the rule that read it |
 | `Drawing.Member`, `Drawing.End` | connections: the member id and end |
@@ -185,4 +184,7 @@ npx vitest run --root packages/drawing-parser
 The gate runs on the synthetic v2 generator's fictional drawing set only
 (`tools/calcgraph-reference/synth/v2`: `drawings.pdf`, `registry_truth.json`, `design.json`).
 Never commit or score a real (copyrighted) set. `eval/baseline.json` holds the numbers; `--gate`
-fails when any gets worse. Tests use pages built in code (`test/helpers.ts`), no PDF.
+fails when any gets worse. The truth has one full-height column per intersection, the parser one
+element per storey segment: the scorer scores a column's segments as one stack (matched by position,
+size-correct only if every segment is, occurrences pooled, every segment standing for the stack in the
+load-path pairs) and reports `column_segments_found`. Tests use pages built in code (`test/helpers.ts`), no PDF.

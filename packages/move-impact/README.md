@@ -68,16 +68,24 @@ geometric ratio and says what it was scaled by; nothing calc-dependent is presen
    member slides to its new line (re-spans) or re-frames onto the collinear member when the support no
    longer spans past it; every beam downstream of a changed one; connections at both ends of every
    re-solved member; columns and their base plate / pier / footing when their load moves > 0.1 %.
-   A column's load change is its own members' reaction changes plus everything carried down from the
-   column(s) it supports (an upper storey's column bears on the one below it, a column on its pier),
-   accumulated once, top-down; the footing takes the change of the column(s) bearing on it - the whole
-   stack;
-   grade beams tied to the moved footing and footing clashes; with facts, every member of a lateral
-   frame the column belongs to and braces under a chevron beam whose gravity changes. Removal: the
-   collinear pair with the shortest combined span becomes one transfer member, the rest re-frame onto it.
-   Each far support's change is the transfer member's reaction minus the reaction of the half that
-   framed into it before, both from the same local statics on the same loads (line load + self weight),
-   never a computed reaction minus a stated one.
+   A load change reaches a column only through statics: as the end reaction change of a member framing
+   into it. A column's load change is its own members' reaction changes plus everything carried down
+   from the column(s) it supports (an upper storey's column bears on the one below it, a column on its
+   pier), accumulated once, top-down; its load before is likewise the reactions into the whole stack
+   above it. The footing takes the change of the column(s) bearing on it - the whole stack, each column
+   counted once (an upper column bearing on both the lower column and the footing is not added twice).
+   A wall ends the walk: a column on a wall is reported on the wall and the footings under it are not
+   screened (spreading a load along a wall is not modelled; said in `notes`). A cycle among stacked
+   columns is listed in `notes` and its members are not accumulated;
+   grade beams tied to the moved footing and footing clashes (the footing grown to its required width on
+   the bearing estimate's own basis: the stated width when stated, else the model's short side); with
+   facts, every member of a lateral frame the column belongs to and braces under a chevron beam whose
+   gravity changes. Removal: the collinear pair with the shortest combined span becomes one transfer
+   member, the rest re-frame onto it. Each far support's change is the transfer member's reaction minus
+   the reaction of the half that framed into it before, both from the same local statics on the same
+   loads (line load + self weight), never a computed reaction minus a stated one. A column far support
+   takes that change as its own; a girder far support takes it as a point load in its own re-solve, so
+   it reaches the girder's columns as its end reactions - never copied whole to every column under it.
 3. **Screened impact**: the same local simple-span statics before and after (`statics.ts`; exact for a
    pinned beam, no FE solver) on the stated line loads / reactions, or, without beam facts, a unit
    area load on each beam's tributary width. Kept when the governing quantity - moment (beams),
@@ -87,9 +95,13 @@ geometric ratio and says what it was scaled by; nothing calc-dependent is presen
 4. **Estimates** (facts only): beams scale each printed check by its ratio (flexure x moment ratio,
    and / phiMn ratio at the new unbraced length when a shape table is supplied; shear x shear ratio;
    deflection computed from the stated loads and Ix when supplied, else scaled; allowable x span
-   ratio); columns x axial ratio (stated Pu + reaction deltas factored by the printed combination,
-   seismic combinations with SDS >= Cs R / Ie; a column without a calc row inherits the combination
-   of the column above); footings by bearing on the plan area (a stated `width` as stated, the
+   ratio); columns x axial ratio (stated Pu + reaction deltas; before and after factored by ONE rule
+   per column: the combination its calc row prints, seismic combinations with SDS >= Cs R / Ie; with none
+   printed, each state's governing combination of LC1-LC3 - the largest, the rule `ru` applies to every
+   end reaction - said in `scaledBy`. Never a combination taken from another column: a roof column's
+   1.2D + 0.5L + 1.6Lr would carry 0.5 L into a floor column's live-load change. A member with no calc
+   row carrying nothing but one column above, a pier, has that column's factored load exactly);
+   footings by bearing on the plan area (a stated `width` as stated, the
    model's long side for a rectangular plan, else square - said in `scaledBy`) at the stated allowable
    bearing, with the required width at the same aspect ratio; connections x end-reaction ratio and the next
    typical detail whose capacity covers it and whose bolt row fits the web; braced-frame girders by

@@ -50,7 +50,8 @@ function vote(st: LevelStatement[], what: string, warnings: string[]): number | 
 /**
  * Bottom-up order of a level name (levelName's vocabulary): Foundation, Basement n (Basement 2 below
  * Basement 1), Level n (a lettered Level 2A just above Level 2), Mezzanine n (above Level n, below
- * Level n+1; no number = above Level 1), Penthouse, Roof. NaN for a name outside that vocabulary.
+ * Level n+1; no number = above Level 1), Penthouse, Roof, Penthouse Roof (the roof over the
+ * penthouse, above the main roof). NaN for a name outside that vocabulary.
  */
 export function levelOrder(name: string): number {
   let m = /^Level (\d+)([A-Z])?$/.exec(name);
@@ -63,12 +64,32 @@ export function levelOrder(name: string): number {
   m = /^Penthouse(?: (\d+))?$/.exec(name);
   if (m) return 999 + Number(m[1] ?? 0) / 100;
   if (name === "Roof") return 1000;
+  if (name === "Penthouse Roof") return 1001;
   return NaN;
+}
+
+/**
+ * Does the name alone fix where the level sits among the others? Numbered levels, basements and
+ * mezzanines, the foundation and the roofs do. An unnumbered Mezzanine or Penthouse (which storey it
+ * is over is a guess) and a name outside the vocabulary do not: once such a level's elevation is
+ * stated, the elevation places it, and it never brackets another level by name.
+ */
+export function nameFixesOrder(name: string): boolean {
+  return !Number.isNaN(levelOrder(name)) && name !== "Mezzanine" && name !== "Penthouse";
 }
 
 /** Storey height assumed above / below the nearest level when nothing brackets an unstated one, ft. */
 const ASSUMED_STOREY_FT = 12;
 
+/**
+ * Levels with elevations. Stated elevations place their levels (the order is by elevation, never by
+ * name). An unstated level is placed between the stated levels its NAME puts it between - the
+ * highest stated level named below it and the lowest stated level named above it, counting only
+ * names that fix their order (`nameFixesOrder`) - evenly, with any other unstated levels in the same
+ * gap in name order; with nothing stated above, 12 ft storeys up from the one below; with nothing
+ * below, 12 ft storeys down. An unstated foundation is 3 ft below the lowest level by elevation.
+ * Every assumption is warned and labelled on the level (`assumed`). The map iterates bottom-up.
+ */
 export function buildLevels(facts: Facts, sheets: Sheet[], warnings: string[]): Map<string, Level> {
   const names = new Set<string>();
   for (const s of sheets) if (s.level) names.add(s.level);
@@ -82,28 +103,35 @@ export function buildLevels(facts: Facts, sheets: Sheet[], warnings: string[]): 
     const o = levelOrder(n);
     return Number.isNaN(o) ? 500 : o;
   };
-  for (const n of names) if (Number.isNaN(levelOrder(n))) warnings.push(`level ${n}: name has no known storey order; placed after the numbered levels`);
-  const out = new Map<string, Level>();
+  const byName = (a: string, b: string) => order(a) - order(b) || a.localeCompare(b);
+  for (const n of names) if (Number.isNaN(levelOrder(n))) warnings.push(`level ${n}: name has no known storey order; placed by its stated elevation, else after the numbered levels`);
+  const all: Level[] = [];
   const tof = vote(facts.datums.filter((d) => d.level === "top of footing"), "top of footing", warnings);
-  for (const name of [...names].sort((a, b) => order(a) - order(b) || a.localeCompare(b))) {
+  for (const name of [...names].sort(byName)) {
     let ft = vote(facts.levels.filter((l) => l.level === name), name, warnings);
     if (ft === undefined && name === "Foundation") ft = tof;
-    out.set(name, { name, id: slug(name), ft: ft ?? NaN, stated: ft !== undefined });
+    all.push({ name, id: slug(name), ft: ft ?? NaN, stated: ft !== undefined });
   }
-  // unstated levels, walking up in storey order: evenly between the stated (or already assumed) level
-  // below and the next stated level above; with nothing above, 12 ft storeys up from the one below;
-  // with nothing below, 12 ft storeys down from the one above. Each consecutive unstated level gets
-  // its own elevation (never the same as its neighbour). The foundation is placed last, 3 ft below
-  // the lowest level. Every assumption is warned and labelled on the level (`assumed`).
-  const list = [...out.values()].filter((l) => l.name !== "Foundation");
-  for (let i = 0; i < list.length; i++) {
-    if (list[i]!.stated) continue;
-    let j = i;
-    while (j + 1 < list.length && !list[j + 1]!.stated) j++;
-    const lo = list[i - 1], hi = list[j + 1];
-    const n = j - i + 1;
-    for (let k = 0; k < n; k++) {
-      const l = list[i + k]!;
+  // brackets: stated levels other than the foundation whose name fixes their order
+  const anchors = all.filter((l) => l.stated && l.name !== "Foundation" && nameFixesOrder(l.name));
+  for (const a of anchors)
+    for (const b of anchors)
+      if (order(a.name) < order(b.name) && a.ft >= b.ft)
+        warnings.push(`levels ${a.name} (${r2(a.ft)} ft) and ${b.name} (${r2(b.ft)} ft): stated elevations contradict the storey order of their names`);
+  // unstated levels grouped by the gap they fall in, each gap filled in name order
+  const gaps = new Map<string, { lo?: Level; hi?: Level; levels: Level[] }>();
+  for (const l of all) {
+    if (l.stated || l.name === "Foundation") continue;
+    const below = anchors.filter((a) => order(a.name) < order(l.name)).sort((p, q) => q.ft - p.ft)[0];
+    let above = anchors.filter((a) => order(a.name) > order(l.name)).sort((p, q) => p.ft - q.ft)[0];
+    if (below && above && above.ft <= below.ft) above = undefined; // contradictory statements (warned): step up from below
+    const key = `${below?.name ?? ""}|${above?.name ?? ""}`;
+    const g = gaps.get(key) ?? gaps.set(key, { ...(below ? { lo: below } : {}), ...(above ? { hi: above } : {}), levels: [] }).get(key)!;
+    g.levels.push(l);
+  }
+  for (const { lo, hi, levels: ls } of gaps.values()) {
+    const n = ls.length;
+    ls.forEach((l, k) => {
       if (lo && hi) {
         l.ft = lo.ft + ((hi.ft - lo.ft) * (k + 1)) / (n + 1);
         l.assumed = `evenly between ${lo.name} and ${hi.name}`;
@@ -117,14 +145,16 @@ export function buildLevels(facts: Facts, sheets: Sheet[], warnings: string[]): 
         l.ft = ASSUMED_STOREY_FT * k;
         l.assumed = k === 0 ? "no level elevation stated in the set: lowest level at 0 ft" : `${ASSUMED_STOREY_FT * k} ft above the lowest level (${ASSUMED_STOREY_FT} ft storeys assumed)`;
       }
-    }
-    i = j;
+    });
   }
-  const fdn = out.get("Foundation");
+  const fdn = all.find((l) => l.name === "Foundation");
   if (fdn && !fdn.stated) {
-    fdn.ft = (list[0]?.ft ?? 0) - 3;
-    fdn.assumed = `3 ft below ${list[0]?.name ?? "the lowest level"}`;
+    const lowest = all.filter((l) => l !== fdn).sort((p, q) => p.ft - q.ft || byName(p.name, q.name))[0];
+    fdn.ft = (lowest?.ft ?? 0) - 3;
+    fdn.assumed = `3 ft below ${lowest?.name ?? "the lowest level"}`;
   }
+  const out = new Map<string, Level>();
+  for (const l of all.sort((p, q) => p.ft - q.ft || byName(p.name, q.name))) out.set(l.name, l);
   for (const l of out.values()) if (l.assumed) warnings.push(`level ${l.name}: no elevation stated in the set; assumed ${r2(l.ft)} ft (${l.assumed})`);
   return out;
 }
@@ -220,61 +250,66 @@ export function assemble(inp: AssembleInput): ModelInput {
     (d as Draft & { member?: MemberFact }).member ??= m;
   }
 
-  // ------------------------------------------------------------ columns (storeys merged)
+  // ------------------------------------------------------------ columns: one element per storey segment
   const tiersAt = new Map<string, ColumnTierFact[]>();
   for (const t of facts.tiers) tiersAt.set(t.at, [...(tiersAt.get(t.at) ?? []), t]);
   const pierAt = new Map<string, PointFact[]>();
   for (const p of facts.points) if (p.role === "pier") pierAt.set(p.at, [...(pierAt.get(p.at) ?? []), p]);
+  // intersection -> its lowest segment: what "column:<intersection>" (a base plate, a base callout) means
+  const stackBottom = new Map<string, string>();
   for (const [at, ts] of tiersAt) {
-    // one column per grid intersection: the id comes from its position only, never from its sizes, so
-    // resizing a storey keeps the id (and every decision keyed on it). Storeys bottom-up; where sizes
-    // differ by storey the element keeps every storey's size (Drawing.StoreySizes) and the lowest as
-    // its profile - the drawing's text does not state where a column is spliced.
-    const storeys = [...new Set(ts.map((t) => `${t.lo}..${t.hi}`))]
-      .map((k) => ({ k, lo: k.split("..")[0]!, hi: k.split("..")[1]! }))
-      .sort((a, b) => lvl(a.lo).ft - lvl(b.lo).ft || lvl(a.hi).ft - lvl(b.hi).ft);
-    const sizeOf = (k: string) => {
-      const sizes = [...new Set(ts.filter((t) => `${t.lo}..${t.hi}` === k && t.tag).map((t) => t.tag!.profile))];
-      if (sizes.length > 1) warnings.push(`column ${at} ${k}: sizes ${sizes.join(", ")} disagree; kept ${sizes[0]}`);
-      return sizes[0];
+    // segments between every level this column's storeys start or end at, bottom-up. The id is position +
+    // storey (`column:1/A:level-1..level-2`), never the size, so a resize keeps every id; each segment
+    // carries its own storey's size and level, so a calc row for an upper storey matches its segment
+    const bounds = [...new Set(ts.flatMap((t) => [t.lo, t.hi]))].sort((p, q) => lvl(p).ft - lvl(q).ft || p.localeCompare(q));
+    const segs = bounds.slice(0, -1).map((lo, i) => ({ lo, hi: bounds[i + 1]! })).filter((g) => lvl(g.hi).ft > lvl(g.lo).ft);
+    const covers = (t: ColumnTierFact, g: { lo: string; hi: string }) => {
+      const [a0, a1] = [lvl(t.lo).ft, lvl(t.hi).ft].sort((p, q) => p - q) as [number, number];
+      return a0 <= lvl(g.lo).ft + 1e-9 && lvl(g.hi).ft <= a1 + 1e-9;
     };
-    const sized = storeys.map((s) => ({ ...s, size: sizeOf(s.k) }));
-    const id = `column:${at}`;
-    for (const t of ts) {
-      const d = draft(id, "column", t.occ);
-      if (t.tag?.sfrs) d.params["Drawing.SFRS"] = true;
-      d.params[`Drawing.Rule.${t.occ.how}`] = t.rule;
-    }
-    const d = drafts.get(id)!;
-    const lo = sized[0]!.lo, hi = sized.reduce((a, b) => (lvl(b.hi).ft > lvl(a).ft ? b.hi : a), sized[0]!.hi);
-    const profile = sized.find((s) => s.size)?.size;
-    if (profile) d.profile = profile;
-    const distinct = [...new Set(sized.map((s) => s.size).filter(Boolean))];
-    if (distinct.length > 1) {
-      d.params["Drawing.StoreySizes"] = sized.map((s) => `${s.lo} - ${s.hi}: ${s.size ?? "?"}`).join("; ");
-      warnings.push(`column ${at}: size changes by storey (${distinct.join(", ")}); one element, profile ${profile} (lowest storey), every storey in Drawing.StoreySizes`);
-    }
-    d.levelId = lvl(lo).id;
-    d.params["Drawing.Role"] = "column";
-    d.params["Drawing.Grid"] = at;
-    d.params["Drawing.Storeys"] = `${lo} - ${hi}`;
-    if (grid) {
-      const [xl, yl] = at.split("/") as [string, string];
-      const x = grid.x.get(xl)! * FT, y = grid.y.get(yl)! * FT;
-      const onPier = pierAt.has(at) && topOfPier !== undefined;
-      const z0 = onPier ? topOfPier! * FT : z(lo);
-      const z1 = z(hi);
-      const sec = d.profile ? nominalSection(d.profile) : undefined;
-      const w = sec ? Math.max(sec.depth, sec.width) : 0.3;
-      d.geometry = {
-        bbox: bboxOf([v3(x, y, z0), v3(x, y, z1)], [w / 2, w / 2, 0]),
-        axis: { start: v3(x, y, z0), end: v3(x, y, z1) },
-        ...(sec ? { section: { depth: round6(sec.depth), width: round6(sec.width) } } : {}),
-      };
-      d.params["Drawing.GeometryRule"] = `at grid intersection ${at}; from ${onPier ? "the top of pier (foundation note)" : `${lo}`} to ${hi}` +
-        (sec ? `; section from the nominal designation${distinct.length > 1 ? " of the lowest storey" : ""}` : "; section unknown (0.3 m assumed)");
+    for (const g of segs) {
+      const mine = ts.filter((t) => covers(t, g));
+      if (!mine.length) {
+        warnings.push(`column ${at}: no storey stated between ${g.lo} and ${g.hi}; no element there`);
+        continue;
+      }
+      const id = `column:${at}:${slug(g.lo)}..${slug(g.hi)}`;
+      const bottom = !stackBottom.has(at);
+      if (bottom) stackBottom.set(at, id);
+      for (const t of mine) {
+        const d = draft(id, "column", t.occ);
+        setProfile(d, t.tag?.profile, t.occ);
+        if (t.tag?.sfrs) d.params["Drawing.SFRS"] = true;
+        d.params[`Drawing.Rule.${t.occ.how}`] = t.rule;
+      }
+      const d = drafts.get(id)!;
+      d.levelId = lvl(g.lo).id;
+      d.params["Drawing.Role"] = "column";
+      d.params["Drawing.Grid"] = at;
+      d.params["Drawing.Storeys"] = `${g.lo} - ${g.hi}`;
+      if (grid) {
+        const [xl, yl] = at.split("/") as [string, string];
+        const x = grid.x.get(xl)! * FT, y = grid.y.get(yl)! * FT;
+        const onPier = bottom && pierAt.has(at) && topOfPier !== undefined;
+        const z0 = onPier ? topOfPier! * FT : z(g.lo);
+        const z1 = z(g.hi);
+        const sec = d.profile ? nominalSection(d.profile) : undefined;
+        const w = sec ? Math.max(sec.depth, sec.width) : 0.3;
+        d.geometry = {
+          bbox: bboxOf([v3(x, y, z0), v3(x, y, z1)], [w / 2, w / 2, 0]),
+          axis: { start: v3(x, y, z0), end: v3(x, y, z1) },
+          ...(sec ? { section: { depth: round6(sec.depth), width: round6(sec.width) } } : {}),
+        };
+        d.params["Drawing.GeometryRule"] = `at grid intersection ${at}; from ${onPier ? "the top of pier (foundation note)" : g.lo} to ${g.hi}` +
+          (sec ? "; section from the nominal designation" : "; section unknown (0.3 m assumed)");
+      }
     }
   }
+  /** A column reference by intersection ("column:1/A") is its lowest segment; any other id is itself. */
+  const columnRef = (id: string): string => {
+    const m = /^column:([^:]+)$/.exec(id);
+    return (m && stackBottom.get(m[1]!)) ?? id;
+  };
 
   // ------------------------------------------------------------ footings and piers
   for (const p of facts.points) {
@@ -291,8 +326,10 @@ export function assemble(inp: AssembleInput): ModelInput {
   const memberOf = new Map<string, ConnectionFact[]>();
   for (const c of facts.connections) {
     const d = draft(c.id, "connection", c.occ);
-    d.params["Drawing.Role"] = c.member.startsWith("column:") && c.end === "base" ? "base_plate" : "connection";
-    d.params["Drawing.Member"] = c.member;
+    const basePlate = c.member.startsWith("column:") && c.end === "base";
+    d.params["Drawing.Role"] = basePlate ? "base_plate" : "connection";
+    d.params["Drawing.Member"] = columnRef(c.member);
+    if (basePlate) d.params["Drawing.Grid"] = c.member.slice("column:".length);
     d.params["Drawing.End"] = c.end;
     if (c.type) {
       d.mark ??= c.type;
@@ -462,7 +499,7 @@ export function assemble(inp: AssembleInput): ModelInput {
     const end = String(d.params["Drawing.End"]);
     if (d.params["Drawing.Role"] === "base_plate") {
       const col = drafts.get(member);
-      const at = member.slice("column:".length);
+      const at = String(d.params["Drawing.Grid"]);
       const [xl, yl] = at.split("/") as [string, string];
       if (!grid!.x.has(xl) || !grid!.y.has(yl)) return;
       const x = grid!.x.get(xl)! * FT, y = grid!.y.get(yl)! * FT;

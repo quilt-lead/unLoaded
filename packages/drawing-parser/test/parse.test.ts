@@ -77,12 +77,15 @@ describe("parseDrawingPages on a constructed mini set", () => {
     expect(byId(m, "beam:level-2:1..2:A..B#1").profile).toBe("W18X35");
   });
 
-  it("columns from schedule storeys: equal sizes merge into one column, base plate from its row", () => {
+  it("columns from schedule storeys: one element per storey segment, base plate from its row", () => {
     const m = set();
-    const c = byId(m, "column:1/A");
+    const c = byId(m, "column:1/A:level-1..level-2");
     expect(c).toMatchObject({ kind: "column", profile: "W10X33", levelId: "level-1" });
-    expect(c.params["Drawing.Storeys"]).toBe("Level 1 - Roof");
-    expect(c.geometry!.axis).toEqual({ start: [0, 0, 0], end: [0, 0, 28 * FT] });
+    expect(c.params["Drawing.Storeys"]).toBe("Level 1 - Level 2");
+    expect(c.geometry!.axis).toEqual({ start: [0, 0, 0], end: [0, 0, 14 * FT] });
+    const u = byId(m, "column:1/A:level-2..roof");
+    expect(u).toMatchObject({ kind: "column", profile: "W10X33", levelId: "level-2" });
+    expect(u.geometry!.axis).toEqual({ start: [0, 0, 14 * FT], end: [0, 0, 28 * FT] });
     const bp = byId(m, "connection:base:1/A");
     expect(bp).toMatchObject({ kind: "connection", mark: "BP-1", levelId: "level-1" });
     expect(bp.params["Detail.Title"]).toBe("COLUMN BASE PLATE BP-1");
@@ -108,8 +111,8 @@ describe("parseDrawingPages on a constructed mini set", () => {
       expect(occ[0]!.rect).toHaveLength(4);
       expect(e.source.format).toBe("drawing");
     }
-    const col: Occurrence[] = JSON.parse(String(byId(m, "column:1/A").params["Drawing.Occurrences"]));
-    expect(col.map((o) => o.how)).toEqual(["schedule_row", "schedule_row"]);
+    const col: Occurrence[] = JSON.parse(String(byId(m, "column:1/A:level-1..level-2").params["Drawing.Occurrences"]));
+    expect(col.map((o) => o.how)).toEqual(["schedule_row"]);
   });
 
   it("slab from the deck note, bearing on the beams in the graph", () => {
@@ -120,7 +123,7 @@ describe("parseDrawingPages on a constructed mini set", () => {
     expect(graph.supportsOf("slab:level-2")).toContain("beam:level-2:1..2:A..B#1");
     // geometric connectivity is inferred by the graph, not emitted by the parser
     expect(m.relations.every((r) => r.evidence.rule !== "bbox contact")).toBe(true);
-    expect(graph.supportsOf("beam:level-2:1..2:A")).toContain("column:1/A");
+    expect(graph.supportsOf("beam:level-2:1..2:A")).toContain("column:1/A:level-1..level-2");
   });
 
   it("without a readable grid there is no geometry, and it says so", () => {
