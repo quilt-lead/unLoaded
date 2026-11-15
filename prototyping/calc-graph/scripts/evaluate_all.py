@@ -27,6 +27,9 @@ Stages (a stage whose inputs are missing is SKIPPED, never failed). Everything r
                    registry truth exists
   set_coverage     drawing-set coverage numbers from data/sets/<sid>/graph.json (default the Harbor View set
                    synthetic-v2; info, not gated)
+  schema_strict    scripts/schema_audit.py --strict over every local set output + the store: every fact's rule id,
+                   rule version, engine and confidence come from its producer, none adapter-supplied (pass/fail;
+                   skipped when no drawing set has been built locally)
 
 Retired 2026-11-14 (Issy: retire the Dana Point permit set and the synthetic v1 building once v2 documents
 ingest through the generic pipeline - gate met: IFC 100/100, drawings 0.92/0.97, calcs 0.98/0.99, specs
@@ -232,6 +235,15 @@ def st_copyright(a) -> dict:
     return {"checks": {"no_copyrighted_in_head": c[0]}, "notes": [c[1]]}
 
 
+def st_schema_strict(a) -> dict:
+    if a.synthetic_only:
+        raise Skip("--synthetic-only")
+    if not any(os.path.exists(os.path.join(SETS, d, "graph.json")) for d in (os.listdir(SETS) if os.path.isdir(SETS) else [])):
+        raise Skip("no data/sets/<sid>/graph.json (build one: uv run calc-graph ingest-set ...)")
+    c = _check([PY, "scripts/schema_audit.py", "--strict"], "schema strict")
+    return {"checks": {"provenance_from_producers": c[0]}, "notes": [c[1]]}
+
+
 def st_ifc_contract(a) -> dict:
     """The IFC writers' contract: a freshly written v2 base + move revision against our IDS
     (backend/calcgraph/ids/calc-graph-v2.ids, ifctester), schema validation, GlobalId stability,
@@ -294,7 +306,8 @@ STAGES = [("v2_design", st_v2_design), ("v2_ifc", st_v2_ifc), ("v2_ifc_mapping",
           ("etabs_export", st_etabs_export),
           ("v2_documents", st_v2_documents),
           ("move_answer_key", st_move_answer_key), ("registry", st_registry),
-          ("ai_step", st_ai_step), ("copyright", st_copyright), ("set_coverage", st_set_coverage)]
+          ("ai_step", st_ai_step), ("copyright", st_copyright), ("set_coverage", st_set_coverage),
+          ("schema_strict", st_schema_strict)]
 # stages retired with the Dana Point set and the synthetic v1 building (2026-11-14): dropped from the baseline
 RETIRED = ("synthetic_v1", "calc_spot", "slice_tags", "slice_links")
 

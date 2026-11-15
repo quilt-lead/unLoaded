@@ -166,7 +166,8 @@ def calc_edges(pages: list[dict]) -> tuple[list[dict], dict]:
         k = (src["id"], dst["id"], rule)
         e = edges.get(k)
         if e is None:
-            e = edges[k] = {"src": src["id"], "dst": dst["id"], "rule": rule, "labels": [], "evidence": {"src": [], "dst": []}}
+            e = edges[k] = {"src": src["id"], "dst": dst["id"], "rule": rule, "confidence": 1.0, "labels": [],
+                            "evidence": {"src": [], "dst": []}}
             stats[rule] += 1
         if label and len(e["labels"]) < 12 and label not in e["labels"]:
             e["labels"].append(label)
@@ -240,7 +241,7 @@ def calc_edges(pages: list[dict]) -> tuple[list[dict], dict]:
     for p in pages:
         if p["section"] != "A" or "_" in p["sheet_id"]:
             continue
-        if p["title"] and p["title"] != "Wall Type Breakdown" and p["title_rect"]:
+        if p["title"] and p["title"] not in ("Wall Type Breakdown", "(untitled)") and p["title_rect"]:
             names.append((p, p["title"], p["title_rect"]))
         for l in p["lines"]:
             if re.match(r"^(Exterior|Interior) Wall\b", l["text"]):
@@ -518,6 +519,9 @@ def findings(elements, pages, links, sheets) -> list[dict]:
         out.append({"kind": "truncated sizes in calcs", "severity": "info",
                     "text": f"{len(trunc)} RISA shape names are cut off with '...' (e.g. {trunc[0][1]['text']}) and cannot be compared",
                     "evidence": [{"doc": p["doc"], "page": p["page"], "rects": [t["rect"]], "text": t["text"]} for p, t in trunc[:4]]})
+    for f in out:  # every finding rule is deterministic: the producer states rule id and confidence
+        f.setdefault("rule", f"set_graph.finding.{f['kind']}")
+        f.setdefault("confidence", 1.0)
     return out
 
 

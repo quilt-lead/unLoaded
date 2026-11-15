@@ -19,8 +19,8 @@ from collections import Counter
 from ..frames import BuildingFt, GridAnchor, Point2, SheetCalibration, SheetPt
 from ..models import (Bundle, CalcSheet, DocKind, Element, ElementType, Finding, Link, Occurrence, OccurrenceKind,
                       Relation, RelationKind)
-from ._common import ADAPTER_VERSION, DocRegistry, Reject, Rule, Tally, build, evidence_list, hid, pdf_ev, prov, \
-    to_values
+from ._common import ADAPTER_VERSION, DocRegistry, Reject, Rule, Tally, build, evidence_list, hid, pdf_ev, \
+    produced_by, prov, to_values
 
 R_TAG = Rule(engine="drawing_ingest (graph.json carries no engine version)", confidence=1.0)
 R_LOADPATH = Rule(engine="drawing_loadpath (graph.json carries no engine version)", confidence=1.0)
@@ -81,6 +81,8 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
     cals = calibrations(sid, reg, graph, t)
     b.calibrations = list(cals.values())
     built = graph.get("built_at")
+    P_TAG, P_LP, P_CALC, P_SET = (produced_by(graph, m) for m in ("drawing_ingest", "drawing_loadpath", "calcpkg_ingest",
+                                                                  "set_graph"))
 
     def el_id(x):
         return f"el:{sid}:{x}"
@@ -117,8 +119,8 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             return {"_units": uc, "id": el_id(e["id"]), "category": e["cat"], "type_id": tid, "mark": e.get("mark") or "",
                     "designation": designation, "level": e.get("level") or "", "grid": e.get("grid") or "",
                     "position": pos, "attrs": attrs,
-                    "provenance": prov([ev()], None, R_TAG, declared_rule_id=f"drawing_ingest.tag.{e.get('family')}",
-                                       at=built)}
+                    "provenance": prov([ev()], e.get("rule"), R_TAG, declared_rule_id=f"drawing_ingest.tag.{e.get('family')}",
+                                       confidence=e.get("confidence"), at=built, **P_TAG)}
 
         el = build(t, b, "elements", Element, e["id"], make_el, strict)
         if not el:
@@ -150,7 +152,8 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             build(t, b, "occurrences", Occurrence, tid, lambda tid=tid, sch=sch: (lambda ev: {
                 "id": f"occ:{sid}:schedule:{tid}", "kind": OccurrenceKind.schedule_row, "subject_id": tid, "at": ev,
                 "label": f"schedule row {sch.get('mark')} on {sch.get('sheet')}",
-                "provenance": prov([ev], None, R_TAG, declared_rule_id="drawing_ingest.footing_schedule_row", at=built)})(
+                "provenance": prov([ev], sch.get("rule"), R_TAG, declared_rule_id="drawing_ingest.footing_schedule_row",
+                                   confidence=sch.get("confidence"), at=built, **P_TAG)})(
                 pdf_ev(reg, "plans", sch.get("page"), sch.get("rects"), sch.get("text", ""), sheet=sch.get("sheet"))),
                 strict)
 
@@ -161,7 +164,7 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             "kind": EDGE_KIND[x["rule"]], "src": el_id(x["src"]), "dst": el_id(x["dst"]),
             "attrs": {"source_rule": x["rule"]},
             "provenance": prov(evidence_list(reg, x.get("evidence")), f"drawing_loadpath.{x['rule']}", R_LOADPATH,
-                               rule_text=x["rule"], at=built)}, strict)
+                               rule_text=x["rule"], confidence=x.get("confidence"), at=built, **P_LP)}, strict)
 
     # ---- calc sheets ----
     for c in graph.get("calcs", []):
@@ -170,15 +173,17 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             "section": c.get("section") or "", "title": c.get("title") or "", "software": c.get("software") or "",
             "role": c.get("role") or "", "level": c.get("level") or "",
             "provenance": prov([pdf_ev(reg, c["doc"], c["page"], [c.get("title_rect")], c.get("title", ""),
-                                       note="calc sheet title")], None, R_CALC,
-                               declared_rule_id="calcpkg_ingest.sheet_id_and_title", at=built)}, strict)
+                                       note="calc sheet title")], c.get("rule"), R_CALC,
+                               declared_rule_id="calcpkg_ingest.sheet_id_and_title", confidence=c.get("confidence"),
+                               at=built, **P_CALC)}, strict)
 
     for x in graph.get("calc_edges", []):
         build(t, b, "relations", Relation, f"{x['src']}->{x['dst']}", lambda x=x: {
             "id": f"rel:feeds:{calc_id(x['src'])}->{calc_id(x['dst'])}:{x['rule']}", "kind": RelationKind.feeds,
             "src": calc_id(x["src"]), "dst": calc_id(x["dst"]), "attrs": {"labels": [str(v) for v in x.get("labels", [])]},
             "provenance": prov(evidence_list(reg, (x["evidence"].get("src") or []) + (x["evidence"].get("dst") or [])),
-                               f"set_graph.calc_edge.{x['rule']}", R_CALC, rule_text=x["rule"], at=built)}, strict)
+                               f"set_graph.calc_edge.{x['rule']}", R_CALC, rule_text=x["rule"],
+                               confidence=x.get("confidence"), at=built, **P_SET)}, strict)
 
     # ---- links ----
     for x in graph.get("links", []):
@@ -186,7 +191,7 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             "id": f"link:{el_id(x['el'])}->{calc_id(x['calc'])}", "src": el_id(x["el"]), "dst": calc_id(x["calc"]),
             "tier": x["tier"], "system": x.get("system") or "",
             "provenance": prov(evidence_list(reg, [x["evidence"]["el"], x["evidence"]["calc"]]), f"set_graph.link.{x['tier']}",
-                               R_CALC, rule_text=x.get("rule", ""), confidence=x["score"], at=built)}, strict)
+                               R_CALC, rule_text=x.get("rule", ""), confidence=x["score"], at=built, **P_SET)}, strict)
 
     # ---- findings ----
     for x in graph.get("findings", []):
@@ -195,9 +200,11 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
         build(t, b, "findings", Finding, x["kind"], lambda x=x, subj=subj: {
             "id": f"finding:{sid}:{hid(x['kind'], x['text'], subj)}", "kind": x["kind"], "severity": x["severity"],
             "text": x["text"], "subjects": subj,
-            "provenance": prov(evidence_list(reg, x.get("evidence")), f"set_graph.finding.{x['kind']}", R_CALC, at=built)},
+            "provenance": prov(evidence_list(reg, x.get("evidence")), x.get("rule") or f"set_graph.finding.{x['kind']}", R_CALC,
+                               confidence=x.get("confidence"), at=built, **P_SET)},
               strict)
 
     t.skipped["sheets (no Sheet entity in F1; sheet number kept on occurrences / evidence frames)"] = len(graph.get("sheets", []))
-    t.notes.append("graph.json carries no engine / rule versions: every fact's rule_version + engine are adapter-supplied")
+    if not graph.get("producers"):
+        t.notes.append("graph.json carries no producers block: every fact's rule_version + engine are adapter-supplied")
     return b, t

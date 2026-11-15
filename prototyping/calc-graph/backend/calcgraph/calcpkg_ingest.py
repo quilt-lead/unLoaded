@@ -154,6 +154,8 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
         title, title_rect, tables = _title(lines, words, pf)
         if not title and i == 0:
             title = "Cover"
+        if title_rect is None:   # no title on the page (a scanned page has no text at all): the page is the evidence
+            title_rect = [0.0, 0.0, round(page.rect.width, 1), round(page.rect.height, 1)]
         toc = len(re.findall(r"\.{6,}", text)) >= C.toc_min_leaders
         section = sid[0] if pid else (id_prefix or doc_key.upper())
         software = _software(_signature_text(lines, page.rect.width, page.rect.height, C) if C.software_signature_band else text, sid, pf)
@@ -197,6 +199,9 @@ def read_package(path: str, doc_key: str, id_prefix: str | None = None,
             "labels": {k: dict(v) for k, v in tokens.items()}, "sizes": dict(size_hits), "size_raw": size_raw,
             "truncated": truncated[:20], "drawing_refs": refs, "lines": lines,
             "subtotal": sm,
+            # provenance of the sheet node: a sheet id the profile's rule found, else an id made from the page number
+            "rule": "calcpkg_ingest.sheet_id_and_title" if pid else "calcpkg_ingest.page_number_id",
+            "confidence": 1.0 if pid else 0.5,
         })
     # sections carry forward over pages without their own id (none expected in calc-pad output)
     _group(pages, C.continued_regex)

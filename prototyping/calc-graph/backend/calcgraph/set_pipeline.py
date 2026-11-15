@@ -35,7 +35,7 @@ SETS_DIR = os.environ.get("CALCGRAPH_SETS", os.path.join(ROOT, "data", "sets"))
 
 def _slim_page(p: dict) -> dict:
     return {k: p[k] for k in ("id", "doc", "page", "sheet_id", "sheet_rect", "section", "group", "title", "title_rect",
-                              "tables", "level", "software", "toc", "width", "height", "drawing_refs")} | {
+                              "tables", "level", "software", "toc", "width", "height", "drawing_refs", "rule", "confidence")} | {
         "labels": {k: len(v) for k, v in p["labels"].items()}, "sizes": sorted(p["sizes"]), "kind": set_graph.page_kind(p),
         "role": set_graph.page_role(p)}
 
@@ -93,6 +93,9 @@ def link_model(sid: str, plans: str, model: str, elements: list[dict], links: li
         placed[e["type"]] += 1
     shutil.copyfile(model, os.path.join(SETS_DIR, sid, "model.ifc"))
     return {"url": f"/api/sets/{sid}/model.ifc", "source": os.path.basename(model),
+            # who read the model's elements into this set, and what it states about them (same declaration as the
+            # IFC path's pipeline.MODEL_PRODUCER): the schema adapter takes rule id / confidence / engine from here
+            "producer": revstore.producer("ifc_ingest", ifc_ingest={"rule_id": "ifc_ingest.read_ifc", "confidence": 1.0}),
             "elements_in_3d": sum(placed.values()), "elements_total": len(elements),
             "counts_by_type": dict(placed.most_common()), "skipped": dict(skipped.most_common()),
             "rule": "drawing tag -> registry occurrence (same page, overlap >= 0.5) -> its IFC element",
@@ -130,6 +133,9 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
         "sheets": sheets, "elements": dr["elements"], "element_edges": edges,
         "calcs": [_slim_page(p) for p in pages], "calc_edges": cedges, "links": links,
         "findings": finds, "coverage": cov, "model": m3d,
+        # engine + version of every module that made a fact in this file (module@source hash); each fact
+        # carries its own rule id and confidence
+        "producers": revstore.producer(*revstore.SET_PRODUCERS["set"]),
     }
     with open(os.path.join(out, "graph.json"), "w") as fh:
         json.dump(graph, fh)
@@ -168,6 +174,7 @@ def build_records(sid: str) -> dict:
     out["built_at"] = time.strftime("%Y-%m-%d %H:%M:%S %Z")
     out["source_graph_built_at"] = (graph or {}).get("built_at")
     out["build_seconds"] = round(time.time() - t0, 1)
+    out["producers"] = revstore.producer(*revstore.SET_PRODUCERS["records"])
     with open(os.path.join(d, "calc_records.json"), "w") as fh:
         json.dump(out, fh)
     revstore.record_set_output(revstore.open_store(), sid, "records", d)
@@ -212,7 +219,7 @@ def build_connections(sid: str) -> dict:
         "build_seconds": round(time.time() - t0, 1),
     }
     res = {"id": sid, "built_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "source_graph_built_at": g.get("built_at"),
-           "coverage": cov} | out
+           "coverage": cov, "producers": revstore.producer(*revstore.SET_PRODUCERS["connections"])} | out
     with open(os.path.join(d, "connections.json"), "w") as fh:
         json.dump(res, fh, default=lambda o: list(o) if isinstance(o, tuple) else str(o))
     revstore.record_set_output(revstore.open_store(), sid, "connections", d)

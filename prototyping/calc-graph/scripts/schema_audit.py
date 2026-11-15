@@ -171,7 +171,9 @@ def main() -> int:
         if os.path.exists(os.path.join(set_dir, "connections.json")):
             results.append((sid, connections.convert(set_dir, a.strict)))
         if os.path.exists(os.path.join(set_dir, "model.ifc")):
-            results.append((sid, ifc_model.convert(os.path.join(set_dir, "model.ifc"), sid, a.strict)))
+            g = json.load(open(os.path.join(set_dir, "graph.json")))
+            results.append((sid, ifc_model.convert(os.path.join(set_dir, "model.ifc"), sid, a.strict,
+                                                   producer=(g.get("model") or {}).get("producer"))))
     store = os.environ.get("CALCGRAPH_STORE", os.path.join(ROOT, "data", "store"))
     if os.path.exists(os.path.join(store, "calcgraph.sqlite")):
         with tempfile.TemporaryDirectory() as tmp:

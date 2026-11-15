@@ -272,6 +272,8 @@ def read_plans(path: str, profile: "profiles.Profile | str | None" = None) -> di
                     "text": (t + (" " + role if role else "")).strip(), "vertical_text": is_vert,
                     "params": ({"role": role} if role else {}) | ({"sfrs": "yes (* = part of the seismic force-resisting system)"}
                                                                   if t.startswith(tg.sfrs_prefix) and not mark else {}),
+                    # provenance the reader states for the fact: a printed tag read by a deterministic rule
+                    "rule": f"drawing_ingest.tag.{fam}", "confidence": 1.0,
                 }
                 if mark and mark in schedule:
                     el["params"]["schedule"] = schedule[mark]["text"]
@@ -296,7 +298,8 @@ def _footing_schedule(words: list, cutoff: float, sheet: str, page: int, fs) -> 
         if len(dims) >= 3:
             ft = [int(a) + int(b) / 12 for a, b in dims[:3]]
             out[m[4]] = {"mark": m[4], "length_ft": ft[0], "width_ft": ft[1], "thick_ft": ft[2], "text": text,
-                         "sheet": sheet, "page": page, "rects": [_rect(w) for w in row[:4]]}
+                         "sheet": sheet, "page": page, "rects": [_rect(w) for w in row[:4]],
+                         "rule": "drawing_ingest.footing_schedule_row", "confidence": 1.0}
     return out
 
 

@@ -36,6 +36,8 @@ import pymupdf
 from . import calcpkg_ingest, profiles, sizes
 
 CONT = re.compile(r"\s*\((?:Continued|cont\.?)\)\s*$", re.I)
+# confidence of a load-path join by class: exact (a printed label / coordinate), inferred (sketch geometry)
+JOIN_CONFIDENCE = {"exact": 1.0, "inferred": 0.7}
 
 
 def _r(b) -> list[float]:
@@ -1389,6 +1391,14 @@ def build(calc_paths: list[tuple[str, str, str | None]], graph: dict | None = No
     allrecs = {**recs, **prec}
     for r in allrecs.values():
         r["section"] = _section(r, calc_meta)
+        # provenance the reader states: the table / page rule that made the record, deterministic
+        r.setdefault("rule", f"calc_records.{r['run']}.{r['type']}")
+        r.setdefault("confidence", 1.0)
+    for e in edges:  # a join's confidence follows its class (absent: no join, so no confidence)
+        e.setdefault("confidence", JOIN_CONFIDENCE.get(e.get("join")))
+    for n in notes:
+        n.setdefault("rule", "calc_records.commentary")
+        n.setdefault("confidence", 1.0)
     return {"runs": dict(pf.calcs.runs), "tables": tables_out, "records": list(allrecs.values()), "geometry": geometry_info,
             "load_path": edges, "reaction_check": rcheck, "commentary": notes, "sketch_fit": fits,
             "positional": pos, "stats": _stats(allrecs, edges, notes, pos)}

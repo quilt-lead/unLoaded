@@ -15,7 +15,7 @@ import re
 from collections import Counter
 
 from ..models import Bundle, ConnectionInstance, ConnectionType, Occurrence, OccurrenceKind, Relation, RelationKind
-from ._common import Rule, Tally, build, pdf_ev, prov, to_values
+from ._common import Rule, Tally, build, pdf_ev, produced_by, prov, to_values
 from .drawing_set import registry_for
 
 R_CONN = Rule(engine="connections (connections.json carries no engine version)", confidence=1.0)
@@ -35,6 +35,7 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
     reg = registry_for(set_dir, graph)
     b = Bundle(source=t.source, documents=list(reg.docs.values()))
     built = c.get("built_at")
+    P = produced_by(c, "connections")
 
     def tid(x):
         return f"conn-type:{sid}:{x}"
@@ -51,7 +52,7 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
                                        f"{x['detail']} {x.get('title', '')}", note="detail number + title",
                                        sheet=x["sheet"])],
                                f"connections.detail_type.{_slug(x.get('category'))}", R_CONN,
-                               rule_text=x.get("rule", ""), at=built)}, strict)
+                               rule_text=x.get("rule", ""), confidence=x.get("confidence"), at=built, **P)}, strict)
 
     known = {ct.id for ct in b.connection_types}
     for x in c.get("instances", []):
@@ -64,7 +65,7 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
             "symbol": x.get("symbol") or "", "attached": [f"el:{sid}:{a['id']}" for a in x.get("attached") or []],
             "grid": x.get("grid") or "",
             "provenance": prov([ev()], f"connections.instance.{_slug(x['via'])}", R_CONN,
-                               rule_text=x.get("attach_rule", ""), at=built)}, strict)
+                               rule_text=x.get("attach_rule", ""), confidence=x.get("confidence"), at=built, **P)}, strict)
         if not inst:
             continue
         build(t, b, "occurrences", Occurrence, x["id"], lambda x=x, inst=inst: {
@@ -77,7 +78,9 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
                 "src": inst.id, "dst": inst.type_id,
                 "attrs": {"type_known": inst.type_id in known},
                 "provenance": prov(inst.provenance.evidence, "connections.instance_type_by_ref", R_CONN,
-                                   rule_text="callout / legend reference names the detail", at=built)}, strict)
+                                   rule_text="callout / legend reference names the detail",
+                                   confidence=inst.provenance.confidence if x.get("confidence") is not None else None,
+                                   at=built, **P)}, strict)
         for a in x.get("attached") or []:
             def make(a=a, inst=inst, x=x):
                 uc = Counter()
@@ -85,7 +88,9 @@ def convert(set_dir: str, strict: bool = False) -> tuple[Bundle, Tally]:
                 return {"_units": uc, "id": f"rel:connected-by:el:{sid}:{a['id']}->{inst.id}",
                         "kind": RelationKind.connected_by, "src": f"el:{sid}:{a['id']}", "dst": inst.id, "attrs": attrs,
                         "provenance": prov(inst.provenance.evidence, "connections.attach_nearest", R_CONN,
-                                           rule_text=x.get("attach_rule", ""), at=built)}
+                                           rule_text=x.get("attach_rule", ""),
+                                           confidence=inst.provenance.confidence if x.get("confidence") is not None else None,
+                                           at=built, **P)}
             build(t, b, "relations", Relation, f"{x['id']}<-{a['id']}", make, strict)
 
     for k in ("views", "other_callouts", "note_refs", "detail_refs"):

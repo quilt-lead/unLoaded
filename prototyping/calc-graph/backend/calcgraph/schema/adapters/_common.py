@@ -80,6 +80,14 @@ class Rule:
     method: Method = Method.deterministic
 
 
+def produced_by(out: dict, module: str) -> dict:
+    """The engine / rule version an output file records for `module` (set_pipeline writes a "producers"
+    block: module@source-hash); empty for an output written before producer records, so prov() supplies
+    (and flags) them."""
+    p = (out.get("producers") or {}).get(module) or {}
+    return {"engine": p.get("engine"), "rule_version": p.get("version")}
+
+
 def prov(evidence: list, rule_id: str | None, rule: Rule, *, rule_text: str = "", confidence: float | None = None,
          rule_version: str | None = None, engine: str | None = None, at: str | None = None,
          declared_rule_id: str | None = None) -> Provenance:

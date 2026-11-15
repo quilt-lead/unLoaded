@@ -177,7 +177,7 @@ def infer(doc_path: str, sheets: list[dict], elements: list[dict]) -> tuple[list
         k = (src["id"], dst["id"])
         if k in edges or src["id"] == dst["id"]:
             return
-        edges[k] = {"src": src["id"], "dst": dst["id"], "rule": rule, "evidence": evidence}
+        edges[k] = {"src": src["id"], "dst": dst["id"], "rule": rule, "confidence": 1.0, "evidence": evidence}
         stats[rule] += 1
 
     segs_of, cols_of = {}, {}

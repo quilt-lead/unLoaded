@@ -854,5 +854,7 @@ def build(plans_path: str, sheets: list[dict], elements: list[dict], calc_docs: 
         t["referenced_from_details"] = sorted({r["from_detail"] for r in detail_refs if r.get("type_id") == t["id"] and r.get("from_detail")})
         t["calc_refs"] = [{"doc": r["doc"], "page": r["page"], "calc": r["calc"], "rects": r["rects"], "context": r["context"]}
                           for r in calc["detail_refs"] if r["ref"] == t["id"]]
+    for x in types + instances:  # deterministic detail-title / callout / symbol rules: the producer states confidence
+        x.setdefault("confidence", 1.0)
     return {"types": types, "views": views, "instances": instances, "other_callouts": other_callouts, "note_refs": note_refs,
             "detail_refs": detail_refs, "legends": legends, "legend_check": legend_check, "calc": calc, "stats": dict(stats)}

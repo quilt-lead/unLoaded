@@ -139,7 +139,8 @@ def _set_facts(kind: str, set_dir: str, sid: str):
         facts, cals = _facts_of(b), b.calibrations
         mp = os.path.join(set_dir, "model.ifc")
         if os.path.exists(mp):
-            b2, t2 = ifc_model.convert(mp, sid)
+            g = json.load(open(os.path.join(set_dir, "graph.json")))
+            b2, t2 = ifc_model.convert(mp, sid, producer=(g.get("model") or {}).get("producer"))
             facts += _facts_of(b2)
             t.notes.append(f"model.ifc: converted {dict(t2.converted)}, rejected "
                            f"{ {k: sum(v.values()) for k, v in t2.rejected.items()} }")

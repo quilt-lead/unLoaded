@@ -47,7 +47,10 @@ def _value(prop: str, v, uc: Counter):
     return s
 
 
-def convert(path: str, set_id: str, strict: bool = False) -> tuple[Bundle, Tally]:
+def convert(path: str, set_id: str, strict: bool = False, producer: dict | None = None) -> tuple[Bundle, Tally]:
+    """producer: the record of who read this IFC into the set and what it states about its elements
+    ({module: {engine, version, rule_id, confidence}}, graph.json model.producer, written by
+    set_pipeline.link_model); without one the rule id / version / confidence are adapter-supplied."""
     t = Tally(source=f"{set_id}/{os.path.basename(path)}")
     reg = DocRegistry()
     f = ifcopenshell.open(path)
@@ -57,6 +60,8 @@ def convert(path: str, set_id: str, strict: bool = False) -> tuple[Bundle, Tally
     b = Bundle(source=t.source, documents=list(reg.docs.values()))
     sha = reg.sha("model")
     rule_declared = Rule(engine=engine or "ifc reader", confidence=1.0)
+    pr = next(iter((producer or {}).values()), {})
+    own = {"engine": pr.get("engine") or engine, "rule_version": pr.get("version"), "confidence": pr.get("confidence")}
 
     for el in f.by_type("IfcElement"):
         psets = ue.get_psets(el)
@@ -74,8 +79,8 @@ def convert(path: str, set_id: str, strict: bool = False) -> tuple[Bundle, Tally
             return {"_units": uc, "id": f"el:{set_id}:ifc:{el.GlobalId}", "category": el.is_a(),
                     "mark": str(flat.get("Mark", "")), "designation": str(flat.get("Section") or flat.get("Size") or ""),
                     "grid": str(flat.get("Grid", "")), "attrs": attrs,
-                    "provenance": prov([ev], None, rule_declared, declared_rule_id="ifc.element_psets", engine=engine,
-                                       at=fn.time_stamp)}
+                    "provenance": prov([ev], pr.get("rule_id"), rule_declared, declared_rule_id="ifc.element_psets",
+                                       at=fn.time_stamp, **own)}
         e = build(t, b, "elements", Element, el.GlobalId, make_el, strict)
         if e:
             build(t, b, "occurrences", Occurrence, el.GlobalId, lambda e=e: {
