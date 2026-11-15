@@ -3,8 +3,9 @@ import type { ProjectFile } from "@unloaded/project-file";
 import { decisionsOf } from "../src/decisionLog.ts";
 
 const file = (): ProjectFile => ({
-  format: "unloaded.calc-graph-project", version: 1, exportedAt: "2026-11-14T21:00:00-05:00",
+  format: "unloaded.calc-graph-project", version: 2, exportedAt: "2026-11-14T21:00:00-05:00",
   project: { name: "P", createdAt: "2026-11-14T21:00:00-05:00" },
+  documents: [],
   revisions: [],
   decisions: [
     { globalId: "G", calcKey: "k", action: "confirm", actor: "r", note: null, at: "t1", modelRev: 1, calcRev: 2 },

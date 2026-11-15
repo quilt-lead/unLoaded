@@ -1,12 +1,19 @@
-// Revisions of the project (model + calc package) and the compare picker: base A vs compare B,
-// both model revisions; the diff itself is the calc engine's diffGraphs (src/engine/).
+// Revisions of the project and the compare picker: model revisions (base A vs compare B; the diff is
+// the calc engine's diffGraphs, src/engine/) and the calc documents with their own revisions
+// (CalcDocumentsSection).
 import React, { useEffect, useState } from 'react';
-import { Box, ExternalLink, FileText, GitCompareArrows, Loader2, Sparkles, Upload, X } from 'lucide-react';
-import type { RevisionInfo } from '../types/bim';
+import { Box, GitCompareArrows, Loader2, Sparkles, Upload, X } from 'lucide-react';
+import type { CalcDocumentInfo, RevisionInfo } from '../types/bim';
+import { CalcDocumentsSection } from './CalcDocumentsSection';
 import { useEscapeLayer } from './escapeStack';
 
 interface RevisionPanelProps {
+  projectId: string | null;
   revisions: RevisionInfo[] | null;
+  calcDocuments: CalcDocumentInfo[];
+  onAddCalcs: (files: File[]) => void;
+  onMoveCalcRevision: (revisionId: number, docId: string | 'new') => void;
+  onSetDocumentRemoved: (docId: string, removed: boolean) => void;
   loading: boolean;
   active: { a: number; b: number } | null;
   busy: boolean;
@@ -21,9 +28,11 @@ interface RevisionPanelProps {
 /** "11-14 16:41 ET": stored times carry their own Eastern offset */
 const shortTime = (iso: string) => `${iso.slice(5, 16).replace('T', ' ')} ET`;
 
-export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading, active, busy, onOpenRevisionFile, onCompare, onLoadSampleRev2, onLoadSupplement, onUploadModel, onClose }) => {
+export const RevisionPanel: React.FC<RevisionPanelProps> = ({
+  projectId, revisions, calcDocuments, onAddCalcs, onMoveCalcRevision, onSetDocumentRemoved,
+  loading, active, busy, onOpenRevisionFile, onCompare, onLoadSampleRev2, onLoadSupplement, onUploadModel, onClose,
+}) => {
   const models = (revisions ?? []).filter((r) => r.kind === 'model');
-  const calcs = (revisions ?? []).filter((r) => r.kind === 'calcs');
   const [a, setA] = useState<number | null>(active?.a ?? null);
   const [b, setB] = useState<number | null>(active?.b ?? null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -142,36 +151,16 @@ export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading
         </div>
 
         <div>
-          <p className="mono text-[10px] font-semibold text-rose-400 uppercase tracking-wider flex items-center gap-1 mb-1.5">
-            <FileText className="w-3 h-3" /> Calc package revisions ({calcs.length})
-          </p>
-          <div className="space-y-1">
-            {calcs.map((r) => (
-              <div key={r.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] text-zinc-100 truncate">
-                    <span className="mono text-zinc-500 mr-1">#{r.id}</span>
-                    {r.label}
-                  </div>
-                  <div className="mono text-[9px] text-zinc-500">
-                    {shortTime(r.createdAt)}
-                    {r.count != null ? ` · ${r.count} calcs` : ''}
-                  </div>
-                </div>
-                {r.isHead && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">head</span>}
-                <button
-                  type="button"
-                  onClick={() => onOpenRevisionFile(r.id)}
-                  aria-label={`Open the PDF of calc revision ${r.id}`}
-                  title="Open this revision's PDF"
-                  className="text-zinc-400 hover:text-white w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-                </button>
-              </div>
-            ))}
-            {!loading && calcs.length === 0 && <p className="text-[11px] text-zinc-500 italic">No calc package revisions yet.</p>}
-          </div>
+          <CalcDocumentsSection
+            projectId={projectId}
+            documents={calcDocuments}
+            loading={loading}
+            busy={busy}
+            onOpenRevisionFile={onOpenRevisionFile}
+            onAddCalcs={onAddCalcs}
+            onMoveRevision={onMoveCalcRevision}
+            onSetRemoved={onSetDocumentRemoved}
+          />
           <button
             type="button"
             disabled={busy}
@@ -184,8 +173,9 @@ export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading
         </div>
 
         <p className="text-[10.5px] text-zinc-500 leading-snug border-t border-white/[0.06] pt-3">
-          The graphs, links and calcs always show the head revisions (each added file becomes the head). A compare colours the head model by what changed between A and B; elements only in
-          the other revision are drawn as ghosts from that revision's IFC (or its element boxes for a JSON model).
+          The graphs, links and calcs show the head model and the calc set: the head revision of every calc document not withdrawn. An added PDF joins the document with its file name or
+          most of its calcs, else starts a new one; move it if that guess is wrong. A compare colours the head model by what changed between A and B; elements only in the other revision
+          are drawn as ghosts from that revision's IFC (or its element boxes for a JSON model).
         </p>
       </div>
     </div>

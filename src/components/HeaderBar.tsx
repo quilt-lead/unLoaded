@@ -45,7 +45,8 @@ interface HeaderBarProps {
   onLoadSample: () => void;
   onLoadDemo: () => void;
   onUploadModel: (file: File) => void;
-  onUploadCalcs: (file: File) => void;
+  /** One or more calc PDFs (one large package, one per calc, or new revisions): each is placed in a calc document. */
+  onUploadCalcs: (files: File[]) => void;
   /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
   onOpenFile: (file: File) => void;
   /** the diff laid over the view; null while it loads (or when not in diff mode) */
@@ -96,16 +97,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
     setMenuOpen(false);
     ref.current?.click();
   };
-  const fileInput = (ref: React.RefObject<HTMLInputElement>, accept: string, label: string, onFile: (f: File) => void) => (
+  const fileInput = (ref: React.RefObject<HTMLInputElement>, accept: string, label: string, onFiles: (fs: File[]) => void, multiple = false) => (
     <input
       ref={ref}
       type="file"
       accept={accept}
+      multiple={multiple}
       className="hidden"
       aria-label={label}
       onChange={(e) => {
-        const f = e.target.files?.[0];
-        if (f) onFile(f);
+        const fs = [...(e.target.files ?? [])];
+        if (fs.length) onFiles(fs);
         e.target.value = '';
       }}
     />
@@ -280,7 +282,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
               }, p.busy)}
               <div className="h-px bg-white/[0.08] my-1" />
               {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Add model revision', 'IFC (or element graph / ModelInput / legacy JSON); parsed in this browser', () => pick(modelInput), p.busy || p.source !== 'project')}
-              {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, 'Add calc package PDF', 'Read and mapped in a background worker', () => pick(calcInput), p.busy || p.source !== 'project')}
+              {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, 'Add calc PDFs', 'One package or one PDF per calc; each joins a calc document', () => pick(calcInput), p.busy || p.source !== 'project')}
               <div className="h-px bg-white/[0.08] my-1" />
               {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Open file…', 'A project file (new project), an export JSON (read-only), a model or a PDF', () => pick(openInput), p.busy)}
               {p.onSaveProject &&
@@ -296,9 +298,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
             </div>
           )}
         </div>
-        {fileInput(modelInput, '.ifc,.json,application/json', 'Add model revision', p.onUploadModel)}
-        {fileInput(calcInput, '.pdf,application/pdf', 'Add calc package PDF', p.onUploadCalcs)}
-        {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', p.onOpenFile)}
+        {fileInput(modelInput, '.ifc,.json,application/json', 'Add model revision', (fs) => p.onUploadModel(fs[0]!))}
+        {fileInput(calcInput, '.pdf,application/pdf', 'Add calc PDFs', p.onUploadCalcs, true)}
+        {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', (fs) => p.onOpenFile(fs[0]!))}
 
         {p.diffRevs && (
           <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">

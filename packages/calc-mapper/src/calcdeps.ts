@@ -149,8 +149,19 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
     for (const r of calcRegions(c, pages)) if (!pageOwner.has(r.page) || r.start === 0) pageOwner.set(r.page, c);
   }
   const pageByN = new Map(pages.map((p) => [p.n, p]));
-  // running headers / footers are detected over the whole document, not page by page
-  const running = runningLines(pages);
+  // A calc SET (calcset.ts) holds several PDFs with set page numbers: a page reference names a page of
+  // the referring page's own PDF. Each document's pages are numbered 1..n shifted by its offset, so the
+  // offset is its lowest page number - 1 (0 for a single PDF: references resolve as before).
+  const docPages = new Map<string, CalcPage[]>();
+  for (const p of pages) (docPages.get(p.doc_sha256) ?? docPages.set(p.doc_sha256, []).get(p.doc_sha256)!).push(p);
+  const docRange = new Map<string, { offset: number; last: number }>();
+  for (const [sha, ps] of docPages) {
+    const ns = ps.map((p) => p.n);
+    docRange.set(sha, { offset: Math.min(...ns) - 1, last: Math.max(...ns) });
+  }
+  // running headers / footers are detected over each whole document, not page by page
+  const running = new Map<number, Set<number>>();
+  for (const ps of docPages.values()) for (const [n, s] of runningLines(ps)) running.set(n, s);
   const edges = new Map<string, Omit<CalcEdge, "provenance"> & { ruleIds: string[]; inputs: string[] }>();
   const add = (src: string, dst: string, rule: string, ruleId: string, ev: CalcEdgeEvidence, inputs: readonly string[]) => {
     if (src === dst) return;
@@ -175,8 +186,10 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
         const ls = lineStart(U, start);
         const out = cue === "TO";
         const targets: Calc[] = [];
+        const dr = docRange.get(pg.doc_sha256) ?? { offset: 0, last: Infinity };
         for (let n = a; n <= Math.min(b, a + 50); n++) {
-          const o = pageOwner.get(n);
+          if (n + dr.offset > dr.last) break;
+          const o = pageOwner.get(n + dr.offset);
           if (o && !o.front && o.key !== c.key && !targets.includes(o)) targets.push(o);
         }
         for (const o of targets) {

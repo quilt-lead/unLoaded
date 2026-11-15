@@ -41,9 +41,18 @@ import {
   useRevisionUrls,
   useStoreInfo,
   useUploadCalcs,
+  useMoveCalcRevision,
+  useChangeDocument,
   useUploadModel,
 } from './engine/hooks';
-import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
+import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
+
+/** Where an added calc PDF went, in words (a toast): a new calc document, a new revision of one, or already loaded. */
+function calcPlacementText(fileName: string, p: CalcPlacement, revisionId: number | null): string {
+  if (p.kind === 'duplicate') return `${fileName} is already loaded (in ${p.docName}); not added again`;
+  if (p.kind === 'new') return `${fileName} added as a new calc document, ${p.docName} (revision #${revisionId})`;
+  return `${fileName} added as revision #${revisionId} of ${p.docName}${p.note && p.note !== 'chosen' ? ` (${p.note})` : ''}`;
+}
 import { calcNodeId } from './data/loadProject';
 import { applyModelDiff } from './data/mergeProject';
 import { diffRevisionsError, keepWhatExists } from './data/viewState';
@@ -135,6 +144,8 @@ export const App: React.FC = () => {
   // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
   const uploadModel = useUploadModel(setBusyText);
   const uploadCalcs = useUploadCalcs(setBusyText);
+  const moveCalcRevision = useMoveCalcRevision(pid);
+  const changeDocument = useChangeDocument(pid);
   const createProject = useCreateProject();
   const revisions = projectQ.data?.revisions ?? null;
   /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
@@ -627,13 +638,14 @@ export const App: React.FC = () => {
   const handleLoadSupplement = () =>
     run('Adding the sample calc supplement…', async () => {
       if (!pid) throw new Error('Open a project first (Load sample).');
+      let placed;
       try {
-        await supplement.mutateAsync(pid);
+        placed = await supplement.mutateAsync(pid);
       } catch (e) {
         throw new Error(sampleError(e));
       }
       setCompareOpen(false);
-      return 'Calc supplement added as the head calc package';
+      return calcPlacementText('calc_supplement.pdf', placed.placement, placed.revision?.id ?? null);
     });
 
   const handleLoadDemo = () =>
@@ -654,15 +666,19 @@ export const App: React.FC = () => {
    * when an export view is shown over it); once added it is shown through showAddedRevision. With
    * `compareWithHead`, a new model revision is shown as the diff (previous head -> new revision).
    * `kind: 'any'` dispatches by content (openAnyFile): a project file opens as a new project and an
-   * export JSON as a read-only view instead.
+   * export JSON as a read-only view instead. Calcs take several PDFs at once (one large package, one PDF
+   * per calc, or a new revision of some): each is placed in turn, and the toast says where each went.
    */
-  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', file: File, opts?: { compareWithHead?: boolean }) =>
-    run(`${kind === 'any' ? 'Opening' : 'Reading'} ${file.name}…`, async () => {
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', files: File | File[], opts?: { compareWithHead?: boolean }) => {
+    const list = Array.isArray(files) ? files : [files];
+    const file = list[0];
+    if (!file) return;
+    return run(`${kind === 'any' ? 'Opening' : 'Reading'} ${list.length > 1 ? `${list.length} PDFs` : file.name}…`, async () => {
       const target = projectId;
       if (!target) throw new Error('The project store is still opening; try again in a moment.');
       const startEpoch = scopeRef.current.epoch;
       const before = headModelRev;
-      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[] };
+      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[]; placement?: CalcPlacement };
       if (kind === 'any') {
         const opened = await openAnyFile(target, file, setBusyText);
         if (opened.kind === 'export') {
@@ -675,27 +691,65 @@ export const App: React.FC = () => {
           switchProject(opened.projectId);
           return `Imported project from ${file.name}`;
         }
-        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings };
+        if (opened.kind === 'duplicate') return calcPlacementText(file.name, opened.placement, null);
+        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings, placement: opened.placement };
       } else if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ projectId: target, file });
         added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
       } else {
-        const out = await uploadCalcs.mutateAsync({ projectId: target, file });
-        added = { kind: 'calcs', id: out.revisionId, warnings: [] };
+        // one at a time: each placement sees the documents the PDFs before it made
+        const placed: { name: string; placement: CalcPlacement; id: number | null }[] = [];
+        for (const [i, f] of list.entries()) {
+          if (list.length > 1) setBusyText(`Reading ${f.name} (${i + 1} of ${list.length})…`);
+          const out = await uploadCalcs.mutateAsync({ projectId: target, file: f });
+          placed.push({ name: f.name, placement: out.placement, id: out.revisionId });
+        }
+        const last = [...placed].reverse().find((x) => x.id != null);
+        if (!last) return placed.map((x) => calcPlacementText(x.name, x.placement, null)).join('; ');
+        if (list.length > 1) {
+          showAddedRevision(target, startEpoch, undefined);
+          const fresh = placed.filter((x) => x.placement.kind === 'new').length;
+          const revs = placed.filter((x) => x.placement.kind === 'revision').length;
+          const dups = placed.length - fresh - revs;
+          return `${list.length} calc PDFs: ${fresh} new document${fresh === 1 ? '' : 's'}, ${revs} new revision${revs === 1 ? '' : 's'}${dups ? `, ${dups} already loaded` : ''}. See Revisions to move any.`;
+        }
+        added = { kind: 'calcs', id: last.id!, warnings: [], placement: last.placement };
       }
       if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
       const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
       const shown = showAddedRevision(target, startEpoch, diff);
-      const what = `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+      const what = added.placement
+        ? calcPlacementText(file.name, added.placement, added.id)
+        : `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
       return shown ? what : `${what} of ${projectName(target)}`;
     });
-  const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);
+  };
+  const handleUpload = (kind: 'model' | 'calcs', file: File | File[]) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) => addRevisionFile('any', file);
 
-  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. The "compare" zone (shown
-  // once a model is loaded) adds a model revision and diffs it against the current head.
+  const handleMoveCalcRevision = (revisionId: number, docId: string | 'new') =>
+    run('Moving the calc revision…', async () => {
+      const to = await moveCalcRevision.mutateAsync({ revisionId, docId });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === to)?.name;
+      return `Calc revision #${revisionId} moved to ${docId === 'new' ? 'a new document' : name ?? to}`;
+    });
+  const handleSetDocumentRemoved = (docId: string, removed: boolean) =>
+    run(removed ? 'Withdrawing the calc document…' : 'Restoring the calc document…', async () => {
+      await changeDocument.mutateAsync({ docId, removed });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === docId)?.name ?? docId;
+      return removed ? `${name} withdrawn from the calc set (kept; restore it from Revisions)` : `${name} restored to the calc set`;
+    });
+
+  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. Calc PDFs dropped together
+  // are one upload (placed per document, like "Add calc PDFs"); anything else opens one file at a time. The
+  // "compare" zone (shown once a model is loaded) adds a model revision and diffs it against the current head.
   const handleDropFiles = (files: File[], slot: DropSlot) => {
+    const pdfs = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (slot !== 'compare' && pdfs.length > 0 && pdfs.length === files.length) {
+      void handleUpload('calcs', pdfs);
+      return;
+    }
     const file = files.find((f) => DROP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
     if (!file) {
       showToast(`Can't open ${files.map((f) => f.name).join(', ')}. Drop a ${DROP_EXTENSIONS.join(' / ')} file.`, true);
@@ -891,6 +945,7 @@ export const App: React.FC = () => {
   const ghostRids = (diffApplied?.ghosts ?? []).map((g) => g.revisionId).filter((rid) => revisions?.find((r) => r.id === rid)?.isIfc);
   const ghostUrls = useRevisionUrls(ghostRids);
   const pdfUrl = exportView ? null : (projectQ.data?.pdfUrl ?? null);
+  const pdfUrls = exportView ? undefined : projectQ.data?.pdfUrls;
   const ghostSources = useMemo(
     () =>
       (diffApplied?.ghosts ?? [])
@@ -1075,9 +1130,9 @@ export const App: React.FC = () => {
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           {[
-            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', on: (f: File) => handleUpload('model', f) },
-            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f) },
-            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', on: handleOpenFile },
+            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', multiple: false, on: (f: File[]) => handleUpload('model', f[0]!) },
+            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDFs', accept: '.pdf,application/pdf', multiple: true, on: (f: File[]) => handleUpload('calcs', f) },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', multiple: false, on: (f: File[]) => handleOpenFile(f[0]!) },
           ].map((b) => (
             <label
               key={b.label}
@@ -1088,10 +1143,11 @@ export const App: React.FC = () => {
               <input
                 type="file"
                 accept={b.accept}
+                multiple={b.multiple}
                 className="sr-only"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) b.on(f);
+                  const fs = [...(e.target.files ?? [])];
+                  if (fs.length) b.on(fs);
                   e.target.value = '';
                 }}
               />
@@ -1143,7 +1199,7 @@ export const App: React.FC = () => {
         onLoadSample={handleLoadSample}
         onLoadDemo={handleLoadDemo}
         onUploadModel={(f) => handleUpload('model', f)}
-        onUploadCalcs={(f) => handleUpload('calcs', f)}
+        onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
         diffSummary={diffSummary}
         diffRevs={diffRevs}
@@ -1163,7 +1219,12 @@ export const App: React.FC = () => {
       {compareOpen && (
         <RevisionPanel
           key={scope.epoch}
+          projectId={pid}
           revisions={revisions}
+          calcDocuments={projectQ.data?.calcDocuments ?? []}
+          onAddCalcs={(fs) => handleUpload('calcs', fs)}
+          onMoveCalcRevision={handleMoveCalcRevision}
+          onSetDocumentRemoved={handleSetDocumentRemoved}
           loading={projectQ.isLoading}
           active={diffRevs}
           busy={Boolean(busyText)}
@@ -1324,6 +1385,7 @@ export const App: React.FC = () => {
               calcs={view.calcs}
               calcPackageName={view.calcPackageName}
               pdfUrl={pdfUrl}
+              pdfUrls={pdfUrls}
               elementNodes={elementNodes}
               calcToElementIds={view.calcToElementIds}
               calcDependencies={view.calcDependencies}

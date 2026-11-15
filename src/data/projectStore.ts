@@ -4,20 +4,28 @@
 // `storeInfo().persistent` says so.
 //
 // Object stores (database "unloaded-calc-graph", version 1)
-//   projects    id (string)              { id, name, createdAt, updatedAt, headModelRev, headCalcRev }
+//   projects    id (string)              { id, name, createdAt, updatedAt, headModelRev, headCalcRev, documents? }
+//                                          documents: the calc documents in set order (absent on records
+//                                          from before calc sets: read through projectDocuments)
 //   revisions   id (auto number)         { id, projectId, kind: 'model'|'calcs', seq, label, sourceName,
 //                                          mediaType, createdAt, meta }           index: projectId
 //                                          meta.fileSha256: sha256 of the blob, recorded by the store
 //                                          when the revision is added (absent on older records)
+//                                          docId: calc revisions, the document (absent: LEGACY_DOC_ID)
 //   blobs       revisionId               { revisionId, blob }   the original IFC / PDF / JSON file
 //   graphs      revisionId               { revisionId, graph }  model revisions: ElementGraph.serialize()
 //                                                               (built once at import; never re-parse to get it)
 //   extractions revisionId               { revisionId, data }   calc revisions: extracted pages + segmented calcs
-//   runs        id (auto number)         { id, projectId, modelRev, calcRev, engine, createdAt, data }
-//                                                               one mapping run per (model rev, calc rev, engine)
+//   runs        id (auto number)         { id, projectId, modelRev, calcRev, calcSet, engine, createdAt, data }
+//                                                               one mapping run per (model rev, calc set, engine);
+//                                                               calcSet = the set's head revision ids (calcSetKey)
 //   decisions   id (auto number)         { id, projectId, globalId, calcKey, action, actor, note, at,
 //                                          modelRev, calcRev }   APPEND-ONLY; keyed by (globalId, calcKey),
-//                                                               latest wins, so they carry across revisions
+//                                                               latest wins, so they carry across revisions;
+//                                                               calcKey is a calc ref "<docId>#<key>" (a bare key
+//                                                               from before calc sets is read as LEGACY_DOC_ID's)
+// No IndexedDB schema change came with calc sets (records are schemaless): older records are read
+// through the project-file rules (projectDocuments, docIdOf, legacyCalcRef), so nothing is migrated in place.
 import type { SerializedElementGraph } from '@unloaded/element-graph';
 import { parseGraph, sha256 } from '@unloaded/calc-mapper';
 import {
@@ -25,7 +33,12 @@ import {
   PROJECT_FILE_VERSION,
   decodeBase64,
   encodeBase64,
+  docIdOf,
+  legacyCalcRef,
+  nextDocId,
+  projectDocuments,
   type ProjectFile,
+  type ProjectFileDocument,
   type ProjectFileDecision,
   type ProjectFileRevisionFields,
 } from '@unloaded/project-file';
@@ -43,7 +56,10 @@ export interface ProjectRecord {
   createdAt: string;
   updatedAt: string;
   headModelRev: number | null;
+  /** The calc revision added last (any document). The calc SET is every document's head (documentHeads). */
   headCalcRev: number | null;
+  /** Calc documents in set order; absent on projects from before calc sets (read with projectDocuments). */
+  documents?: ProjectFileDocument[];
 }
 
 /** A revision's fields are the project file's (`@unloaded/project-file`), so Save/Open project cannot drift from the store. */
@@ -55,7 +71,10 @@ export interface RunRecord<T = unknown> {
   id: number;
   projectId: string;
   modelRev: number;
+  /** The newest revision in the set (informational). */
   calcRev: number;
+  /** The calc set the run mapped: calcSetKey of its head revisions. Absent on runs from before calc sets (never reused). */
+  calcSet?: string;
   engine: string;
   createdAt: string;
   data: T;
@@ -338,7 +357,8 @@ export async function getRevision(id: number): Promise<RevisionRecord | undefine
   return read('revisions', (t) => t.get<RevisionRecord>('revisions', id));
 }
 
-type NewRevision = Omit<RevisionRecord, 'id' | 'projectId' | 'seq' | 'createdAt'> & { createdAt?: string };
+/** documentName: the name a NEW calc document gets (default: the file name without its extension). */
+type NewRevision = Omit<RevisionRecord, 'id' | 'projectId' | 'seq' | 'createdAt'> & { createdAt?: string; documentName?: string };
 const REVISION_STORES: StoreName[] = ['projects', 'revisions', 'blobs', 'graphs', 'extractions'];
 type RevisionPayload = { graph?: SerializedElementGraph; extraction?: unknown };
 
@@ -363,6 +383,10 @@ export function checkStorableRevision(rev: Pick<NewRevision, 'kind' | 'sourceNam
   }
 }
 
+/** A calc set's identity for the run cache: its documents' head revision ids, in set order. */
+export const calcSetKey = (heads: readonly { doc: { docId: string }; rev: { id: number } }[]): string =>
+  heads.map((h) => `${h.doc.docId}:${h.rev.id}`).join(',');
+
 /** sha256 of a revision's file, recorded once when it is added (read before the transaction opens). */
 const fileSha256 = async (blob: Blob) => sha256(new Uint8Array(await blob.arrayBuffer()));
 
@@ -375,12 +399,24 @@ async function addRevisionIn(t: Tx, projectId: string, rev: NewRevision, blob: B
   const seq = (await t.byProject<RevisionRecord>('revisions', projectId)).filter((r) => r.kind === rev.kind).length + 1;
   // the hash is the store's own, never a caller's (an imported file's meta could claim any value)
   const rec = { ...rev, meta: { ...rev.meta, fileSha256: sha }, projectId, seq, createdAt: rev.createdAt ?? nowEastern() } as Omit<RevisionRecord, 'id'>;
+  let documents = p.documents;
+  if (rev.kind === 'calcs') {
+    // every calc revision belongs to a listed document; adding one to a removed document restores it
+    const docId = docIdOf(rev);
+    documents = projectDocuments(p.documents, await t.byProject<RevisionRecord>('revisions', projectId));
+    const known = documents.find((d) => d.docId === docId);
+    documents = known
+      ? documents.map((d) => (d.docId === docId ? { ...d, removed: false } : d))
+      : [...documents, { docId, name: rev.documentName ?? rev.sourceName.replace(/\.[A-Za-z0-9]{2,4}$/, ''), removed: false }];
+    (rec as { docId?: string }).docId = docId;
+  }
+  delete (rec as { documentName?: string }).documentName;
   const id = Number(await t.put('revisions', rec));
   await t.put('blobs', { revisionId: id, blob });
   if (extra.graph) await t.put('graphs', { revisionId: id, graph: extra.graph });
   if (extra.extraction !== undefined) await t.put('extractions', { revisionId: id, data: extra.extraction });
   const head = rev.kind === 'model' ? { headModelRev: id } : { headCalcRev: id };
-  await t.put('projects', { ...p, ...head, updatedAt: nowEastern() });
+  await t.put('projects', { ...p, ...head, ...(documents ? { documents } : {}), updatedAt: nowEastern() });
   return { ...rec, id };
 }
 
@@ -412,9 +448,37 @@ export async function replaceExtraction(revisionId: number, data: unknown): Prom
   await run(['extractions'], 'readwrite', (t) => t.put('extractions', { revisionId, data }));
 }
 
-export async function findRun<T>(projectId: string, modelRev: number, calcRev: number, engine: string): Promise<RunRecord<T> | undefined> {
+export async function findRun<T>(projectId: string, modelRev: number, calcSet: string, engine: string): Promise<RunRecord<T> | undefined> {
   const runs = await read('runs', (t) => t.byProject<RunRecord<T>>('runs', projectId));
-  return runs.filter((r) => r.modelRev === modelRev && r.calcRev === calcRev && r.engine === engine).sort((a, b) => b.id - a.id)[0];
+  return runs.filter((r) => r.modelRev === modelRev && r.calcSet === calcSet && r.engine === engine).sort((a, b) => b.id - a.id)[0];
+}
+
+/** The project's calc documents in set order (a project from before calc sets: derived from its revisions). */
+export async function listDocuments(projectId: string): Promise<ProjectFileDocument[]> {
+  return run(['projects', 'revisions'], 'readonly', async (t) => {
+    const p = await t.get<ProjectRecord>('projects', projectId);
+    if (!p) throw new Error(`project ${projectId} not found`);
+    return projectDocuments(p.documents, await t.byProject<RevisionRecord>('revisions', projectId));
+  });
+}
+
+/** The id a new calc document of this project gets. */
+export async function newDocumentId(projectId: string): Promise<string> {
+  return nextDocId(await listDocuments(projectId));
+}
+
+/** Rename a calc document, or withdraw it from / restore it to the set (its revisions and decisions are kept). */
+export async function updateDocument(projectId: string, docId: string, change: { name?: string; removed?: boolean }): Promise<ProjectFileDocument[]> {
+  return run(['projects', 'revisions'], 'readwrite', async (t) => {
+    const p = await t.get<ProjectRecord>('projects', projectId);
+    if (!p) throw new Error(`project ${projectId} not found`);
+    const docs = projectDocuments(p.documents, await t.byProject<RevisionRecord>('revisions', projectId));
+    if (!docs.some((d) => d.docId === docId)) throw new Error(`calc document ${docId} is not in this project`);
+    const name = change.name?.trim();
+    const documents = docs.map((d) => (d.docId === docId ? { ...d, ...(name ? { name } : {}), ...(change.removed !== undefined ? { removed: change.removed } : {}) } : d));
+    await t.put('projects', { ...p, documents, updatedAt: nowEastern() });
+    return documents;
+  });
 }
 
 export async function addRun<T>(r: Omit<RunRecord<T>, 'id' | 'createdAt'>): Promise<RunRecord<T>> {
@@ -429,10 +493,34 @@ export async function addDecision(d: Omit<DecisionRecord, 'id' | 'at'>): Promise
   return { ...rec, id };
 }
 
-/** The decision log, oldest first. */
+/**
+ * Move a calc revision to another calc document (a new id makes a new document, named after the file).
+ * A document left with no revision is dropped from the list: a document always has a revision.
+ */
+export async function setRevisionDocument(projectId: string, revisionId: number, docId: string): Promise<ProjectFileDocument[]> {
+  if (!docId || docId.includes('#')) throw new Error(`calc document id must be non-empty without "#": ${docId}`);
+  return run(['projects', 'revisions'], 'readwrite', async (t) => {
+    const p = await t.get<ProjectRecord>('projects', projectId);
+    const r = await t.get<RevisionRecord>('revisions', revisionId);
+    if (!p) throw new Error(`project ${projectId} not found`);
+    if (!r || r.projectId !== projectId || r.kind !== 'calcs') throw new Error(`revision #${revisionId} is not a calc revision of this project`);
+    const before = await t.byProject<RevisionRecord>('revisions', projectId);
+    let documents = projectDocuments(p.documents, before);
+    await t.put('revisions', { ...r, docId });
+    const after = before.map((x) => (x.id === revisionId ? { ...x, docId } : x));
+    if (!documents.some((d) => d.docId === docId)) documents.push({ docId, name: r.sourceName.replace(/.[A-Za-z0-9]{2,4}$/, ''), removed: false });
+    documents = documents
+      .filter((d) => after.some((x) => x.kind === 'calcs' && docIdOf(x) === d.docId))
+      .map((d) => (d.docId === docId ? { ...d, removed: false } : d));
+    await t.put('projects', { ...p, documents, updatedAt: nowEastern() });
+    return documents;
+  });
+}
+
+/** The decision log, oldest first; calc keys as calc refs (a bare key from before calc sets names LEGACY_DOC_ID's calc). */
 export async function decisionLog(projectId: string): Promise<DecisionRecord[]> {
   const ds = await read('decisions', (t) => t.byProject<DecisionRecord>('decisions', projectId));
-  return ds.sort((a, b) => a.id - b.id);
+  return ds.sort((a, b) => a.id - b.id).map((d) => ({ ...d, calcKey: legacyCalcRef(d.calcKey) }));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -457,7 +545,7 @@ export async function exportProject(projectId: string): Promise<ProjectFile> {
       });
     }
     const decisions = (await t.byProject<DecisionRecord>('decisions', projectId)).sort((a, b) => a.id - b.id);
-    return { p, payloads, decisions };
+    return { p, payloads, decisions, documents: projectDocuments(p.documents, revs) };
   });
   const revisions: ProjectFile['revisions'] = [];
   for (const { r, blob, graph, extraction } of snap.payloads) {
@@ -466,10 +554,14 @@ export async function exportProject(projectId: string): Promise<ProjectFile> {
     // no reader can open (parseProjectFile refuses both): fail here instead
     if (!blob) throw new Error(`${r.kind === 'model' ? 'model' : 'calc'} revision ${r.seq} (${r.sourceName}) has no stored file; re-import it before saving`);
     if (r.kind === 'model' && !graph) throw new Error(`model revision ${r.seq} (${r.sourceName}) has no stored element graph; re-import it before saving`);
-    revisions.push({ ...rest, blob: encodeBase64(new Uint8Array(await blob.arrayBuffer())), graph, extraction });
+    const docId = r.kind === 'calcs' ? { docId: docIdOf(r) } : {};
+    revisions.push({ ...rest, ...docId, blob: encodeBase64(new Uint8Array(await blob.arrayBuffer())), graph, extraction });
   }
-  const decisions = snap.decisions.map(({ id: _i, projectId: _p, ...d }) => d);
-  return { format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: nowEastern(), project: { name: snap.p.name, createdAt: snap.p.createdAt }, revisions, decisions };
+  const decisions = snap.decisions.map(({ id: _i, projectId: _p, ...d }) => ({ ...d, calcKey: legacyCalcRef(d.calcKey) }));
+  return {
+    format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: nowEastern(), project: { name: snap.p.name, createdAt: snap.p.createdAt },
+    documents: snap.documents, revisions, decisions,
+  };
 }
 
 /**
@@ -483,14 +575,14 @@ export async function importProject(file: ProjectFile): Promise<ProjectRecord> {
   const shas = new Map<number, string>();
   for (const [id, blob] of blobs) shas.set(id, await fileSha256(blob));
   return run([...REVISION_STORES, 'decisions'], 'readwrite', async (t) => {
-    const p = newProject(file.project.name);
+    const p: ProjectRecord = { ...newProject(file.project.name), documents: file.documents };
     await t.put('projects', p);
     const idMap = new Map<number, number>();
     for (const r of [...file.revisions].sort((a, b) => a.id - b.id)) {
       const added = await addRevisionIn(
         t,
         p.id,
-        { kind: r.kind, label: r.label, sourceName: r.sourceName, mediaType: r.mediaType, meta: r.meta, createdAt: r.createdAt },
+        { kind: r.kind, label: r.label, sourceName: r.sourceName, mediaType: r.mediaType, meta: r.meta, createdAt: r.createdAt, ...(r.kind === 'calcs' ? { docId: r.docId } : {}) },
         blobs.get(r.id)!,
         { graph: r.graph, extraction: r.extraction },
         shas.get(r.id)!,
@@ -512,6 +604,10 @@ export async function importProject(file: ProjectFile): Promise<ProjectRecord> {
       };
       await t.put('decisions', rec);
     }
-    return (await t.get<ProjectRecord>('projects', p.id)) ?? p;
+    // re-adding a revision restores its document (addRevisionIn): the file's list (names, withdrawn ones) is the truth
+    const imported = (await t.get<ProjectRecord>('projects', p.id)) ?? p;
+    const done = { ...imported, documents: file.documents };
+    await t.put('projects', done);
+    return done;
   });
 }
