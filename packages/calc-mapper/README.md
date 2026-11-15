@@ -32,7 +32,7 @@ new field; no field of the export was renamed or removed.
   inputs }`. `method` is `"rule"`, `"human"` (decisions, hand links: plus `actor` and `at`) or
   `"estimate"`. `inputs` are the sha256 of the documents the record rests on. A record built without
   provenance does not type-check, and `inputList` throws on anything that is not a sha256.
-  - Rule ids: `segment.calc-title | scanned-run | front-matter`, `matcher.tier.<tier>`,
+  - Rule ids: `segment.calc-title | scanned-run | front-matter | untitled-start`, `matcher.tier.<tier>`,
     `matcher.typical-group`, `matcher.finding.size-mismatch`,
     `calcdeps.page-reference.input | output`, `calcdeps.cross-reference` (joined with "+" when an
     edge has both), `impact.propagate.<mode>`, `decision.<action>`.
@@ -74,13 +74,15 @@ new field; no field of the export was renamed or removed.
     `extractPdf(bytes, { pdfjs: await import("pdfjs-dist/legacy/build/pdf.mjs") })`.
 - **Segmentation** (`segment.ts`):
   - A page with fewer than 25 characters has no text layer. A run of such pages becomes one
-    "scanned" calc, which is never mapped.
-  - A page with 3 or more dot-leader entries is front matter and is never mapped.
+    "scanned" calc, which is never mapped. "Scanned" describes those pages and nothing else.
+  - A page with front-matter evidence is front matter and is never mapped: 3 or more dot-leader
+    entries, or a contents / index / cover heading line among its first lines (`FRONT_HEADING`).
+    Having no title is not front-matter evidence.
   - A calc-like title on a page starts a new calc, unless it is the current calc's title or an
     earlier calc's (that calc continues after a gap), also right after a scanned run or front matter.
-  - A page (part) with no title continues the current calc and keeps its flags: after a scanned run
-    it belongs to that scanned calc, after a contents page to that front matter, so neither is ever
-    mapped. A title-less page before any calc (a cover) is front matter.
+  - A page (part) with text but no title continues the most recent calc that has text (after a
+    scanned sketch or an inserted contents page, as a new span). With none yet (a cover with no title
+    keyword) it starts "Untitled (from page N)" (`segment.untitled-start`), mapped like any calc.
   - Calc keys are unique by construction (`uniqueKeys`): a repeated slug gets the first `-<n>` no
     calc has taken, so "Beam Design 2" and a second "Beam Design" never share `beam-design-2`.
   - Software named in the title wins over software the body only cites.
@@ -102,10 +104,14 @@ new field; no field of the export was renamed or removed.
   - Calc text and marks are read through one fold (`text.ts`): upper case, the Unicode dashes
     U+2010-U+2015 as "-", one UTF-16 unit per character so spans stay exact. "SL‐2" (U+2010)
     matches the mark SL-2.
-  - Section sizes in calc text come from the model side's own grammar (`profile.ts`: packages/ifc-parser's
-    `PROFILE_PATTERNS`, parity-tested) plus any designation the model carries verbatim, so IPE 300,
-    457X191X67 UB, C10X15.3, L4X4X1/2 or a ProfileName such as 310UB40.4 are found. A token that is a
-    model mark is never a size.
+  - Section sizes in calc text come from a calc-text grammar (`profile.ts` `CALC_SECTION_PATTERNS`), not
+    the parser's: the parser reads fields known to hold a profile, a calc is mostly arithmetic, grids
+    and tags. A designation must be complete: a family prefix with every dimension the family needs,
+    no spaces inside a generic NxN, no commas ("MU = 45 X 12", "GRID 12 X 14", "HD12", "S 2 X 4",
+    "HEA200,240" are not sizes). Or it is exactly a profile the model carries that has a digit and a
+    letter (`isDesignation`; a ProfileName "Beam" is never a size, nor the model's size in a
+    comparison). IPE 300, HEA 200, 457X191X67 UB, 533X210X92UB, 310UB40.4, C10X15.3, L4X4X1/2,
+    HSS6X6X.375 and W12X53 are found. A token that is a model mark is never a size.
   - A line names a storey only as a whole word ("LEVEL 10" does not name Level 1, "ROOFING" not Roof),
     in the size rule and in the evidence alike.
 - **Calcs as spans of page regions** (`segment.ts`):
@@ -139,8 +145,10 @@ new field; no field of the export was renamed or removed.
   `normaliseProfile`; a test pins the two together) and are found by the one grammar above.
 - **Calc edges** (`calcdeps.ts`): page references ("see page 7"; a "to" cue reverses the
   direction) and cross-references.
-  - A page number is not a reference (`pageReferences`): "Page 7 of 40", "Page 2/5", or a bare
-    "Page 7" ending its line with no cue word before it (a running footer).
+  - A page number is not a reference (`pageReferences`): "Page 7 of 40", "Page 2/5", or a page
+    mention on a running header / footer - a line in the top or bottom 3 lines of a page that recurs
+    in the same band on another page with only its page number changed (`runningLines`, detected per
+    document). Every other page mention is a reference, cue word or not ("max end reaction: page 7").
   - A cross-reference points at the element's designer (`designerOf`): a design-role link beats a
     loads-role one, then the higher tier confidence, then the smaller calc key.
 - **Impact** (`impact.ts`): walks the graph's `supports` edges. Connection nodes pass load through,
@@ -156,6 +164,19 @@ new field; no field of the export was renamed or removed.
   - The log is append-only and keyed by (global_id, calc_key), not by revision.
   - The latest decision for a pair wins, and "undo" clears it.
   - Decisions carry forward to later revisions while both keys exist.
+
+## Versions that key stored results (`types.ts`)
+
+- `SEGMENTER_VERSION` is recorded on every `CalcPackage` (`segmenter`). project-file's
+  `storedExtractionFor` reuses a stored extraction only when it matches, so a segmenter change reaches
+  existing projects.
+- `ENGINE_VERSION` = `<MAPPER_VERSION>+<SEGMENTER_VERSION>` keys stored mapping runs (the app's run
+  cache, `MappingRun.engine`), so a matcher or a segmenter bump makes every stored run stale.
+- `test/review-round2.test.ts` pins a fingerprint of segment / runMapping / inferCalcEdges output on a
+  realistic fixture next to each version: a behaviour change that keeps the version fails there.
+- `parseGraph` accepts exactly what the engine reads (numbers in text fields read as text; coordinate
+  lists of any length, null for a NaN JSON could not carry) and throws `GraphFormatError` otherwise.
+- `calcPackageProblem(x)` names what in a stored calc package the engine could not read (null if none).
 
 ## Proof it is at least as good as the reference
 

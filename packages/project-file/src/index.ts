@@ -16,7 +16,7 @@
  * Head revisions are not stored: importing re-adds revisions in id order and each add becomes the head
  * of its kind, so the head of a kind is the revision with the highest id (`headOf`).
  */
-import { DECISION_ACTIONS, parseGraph, type CalcPackage, type DecisionAction } from "@unloaded/calc-mapper";
+import { DECISION_ACTIONS, SEGMENTER_VERSION, calcPackageProblem, parseGraph, type CalcPackage, type DecisionAction } from "@unloaded/calc-mapper";
 import type { SerializedElementGraph } from "@unloaded/element-graph";
 
 export const PROJECT_FILE_FORMAT = "unloaded.calc-graph-project" as const;
@@ -183,10 +183,15 @@ export function parseProjectFile(data: unknown): ProjectFile {
 
 /**
  * Whether a calc revision's stored extraction can be used as its calc package, given the sha256 of
- * the PDF it was extracted from (calc-mapper `sha256` of the stored bytes). Usable only when it has
- * the shape the engine reads (pages and calcs lists, at least one page) and every document hash in
- * it names that PDF; otherwise `reason` says why, and the reader re-extracts from the PDF. The one
- * rule for the app (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/project.ts).
+ * the PDF it was extracted from (calc-mapper `sha256` of the stored bytes). Usable only when
+ *   1. every document hash in it names a PDF (an extraction from before the provenance contract has none),
+ *   2. it was segmented by the CURRENT segmenter (`segmenter` === calc-mapper `SEGMENTER_VERSION`):
+ *      calc keys, pages and flags from an older segmenter would otherwise be reused forever,
+ *   3. it has the full shape the engine reads (calc-mapper `calcPackageProblem`: pages with text and
+ *      word boxes, calcs with unique keys, regions, title boxes, provenance), and
+ *   4. every document hash names THIS PDF.
+ * Otherwise `reason` says why, and the reader re-extracts from the PDF. The one rule for the app
+ * (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/project.ts).
  */
 export function storedExtractionFor(extraction: unknown, pdfSha256: string): { pkg: CalcPackage; reason: null } | { pkg: null; reason: string } {
   const no = (reason: string) => ({ pkg: null, reason });
@@ -197,6 +202,12 @@ export function storedExtractionFor(extraction: unknown, pdfSha256: string): { p
   if (!Array.isArray(calcs) || !calcs.every(isObj)) return no("the stored extraction is malformed (calcs must be a list of calcs)");
   if (src !== undefined && src !== null && typeof src !== "string") return no("the stored extraction is malformed (source_sha256 must be a string)");
   if (!src || !pages.every((pg) => typeof pg.doc_sha256 === "string" && pg.doc_sha256)) return no("the stored extraction predates document hashes");
+  const seg = extraction.segmenter;
+  if (seg !== SEGMENTER_VERSION) {
+    return no(`the stored extraction was segmented by ${seg ? `an older segmenter (${String(seg)})` : "a segmenter that predates versioning"}; the current one is ${SEGMENTER_VERSION}`);
+  }
+  const problem = calcPackageProblem(extraction);
+  if (problem) return no(`the stored extraction is malformed (${problem})`);
   if (src !== pdfSha256 || !pages.every((pg) => pg.doc_sha256 === pdfSha256)) return no("the stored extraction's document hash does not match the PDF");
   return { pkg: extraction as unknown as CalcPackage, reason: null };
 }

@@ -26,8 +26,28 @@ export type { CalcMapperModule, CalcMapperProducer, Producer, Provenance, Proven
 export type { Dim, Quantity, Unit } from "./units.ts";
 export type { BuildingPointFt, Framed, ModelPointM, SheetRect } from "./frames.ts";
 
-/** The mapping engine's version. Bumped to v1.1 with the provenance contract, so a stored run made before it is recomputed. */
-export const ENGINE_VERSION = "mapper-v1.1" as const;
+/**
+ * The segmenter's version, recorded on every CalcPackage (`segmenter`). A stored extraction is reused
+ * only when it was segmented by this version (project-file `storedExtractionFor`), so ANY change to
+ * what segmentCalcs returns for the same pages must bump it. v2: unique calc keys; untitled pages
+ * continue the most recent calc with text; front matter only on contents / index / cover evidence.
+ */
+export const SEGMENTER_VERSION = "segment-v2" as const;
+
+/**
+ * The matcher's version: ANY change to what mapCalcs returns for the same graph and calc package must
+ * bump it. v1.1: the provenance contract. v1.2: the calc-text section grammar (complete designations
+ * only), whole-word storeys, the folded text, design-role designers, page numbers that are not
+ * references.
+ */
+export const MAPPER_VERSION = "mapper-v1.2" as const;
+
+/**
+ * The mapping engine's version, as stored mapping runs are keyed (the app's run cache, MappingRun /
+ * Export `engine`). A run rests on the calc keys the segmenter gave, so it names both versions: a
+ * matcher OR a segmenter bump makes every stored run stale, and nobody has to remember the other.
+ */
+export const ENGINE_VERSION = `${MAPPER_VERSION}+${SEGMENTER_VERSION}` as const;
 
 // ---------------------------------------------------------------- PDF text
 
@@ -114,6 +134,11 @@ export interface CalcPackage {
   source_name: string | null;
   /** sha256 of the PDF's bytes (every page's `doc_sha256`). */
   source_sha256: string;
+  /**
+   * The segmenter that split the pages into calcs (`SEGMENTER_VERSION` when made now). A package read
+   * back from a store or file may carry an older one, or none (made before it was recorded).
+   */
+  segmenter: string;
   pages: CalcPage[];
   calcs: Calc[];
 }

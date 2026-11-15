@@ -53,6 +53,7 @@ export const RULES = {
     calc: "segment.calc-title",
     scanned: "segment.scanned-run",
     front: "segment.front-matter",
+    untitled: "segment.untitled-start",
   },
   matcher: {
     tier: (tier: string) => `matcher.tier.${tier}`,

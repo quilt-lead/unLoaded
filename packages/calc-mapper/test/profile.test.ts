@@ -15,7 +15,9 @@ describe("one section grammar for model profiles and calc text", () => {
     expect(profileFromText([`beam ${s} ok`])).toBe(parserProfileFromText([`beam ${s} ok`]));
   });
 
-  it.each(MODEL_FORMS)("calc text finds what the model side would carry: %s", (s) => {
+  // every complete designation the model side carries; a generic NxN only written tight ("600 × 300" with
+  // spaces reads as arithmetic in a calc, see review-round2.test.ts)
+  it.each(MODEL_FORMS.filter((s) => s !== "600 × 300").concat(["600×300"]))("calc text finds what the model side would carry: %s", (s) => {
     // rejects the old calc-side regex, which required "<prefix>NxN" and missed IPE 300, 457X191X67 UB, C10X15.3, L4X4X1/2 ...
     const line = foldText(`Beam B7 ${s} OK`);
     expect(findSections(line).map((h) => h.profile)).toEqual([parserProfileFromText([s])]);
@@ -28,10 +30,12 @@ describe("one section grammar for model profiles and calc text", () => {
       ["310UB40.4", "310UB40.4"], ["HSS6X6X.375", "HSS6X6X.375"]]);
   });
 
-  it("a token that is a model mark is a mark, not a size", () => {
+  it("a dimensionless tag is a size only when the model carries exactly that profile, and never when it is a mark", () => {
+    // rejects round 1, which read the hold-down tag HD1 as a section (the parser's loose HD pattern)
     const line = foldText("hold-down HD1 at grid A");
-    expect(findSections(line).map((h) => h.profile)).toEqual(["HD1"]);
-    expect(findSections(line, { marks: new Set(["HD1"]), markOf: (s) => s })).toEqual([]);
+    expect(findSections(line)).toEqual([]);
+    expect(findSections(line, { known: new Set(["HD1"]) }).map((h) => h.profile)).toEqual(["HD1"]);
+    expect(findSections(line, { known: new Set(["HD1"]), marks: new Set(["HD1"]), markOf: (s) => s })).toEqual([]);
   });
 
   it("an IPE 300 calc links by size (it fell through to the type tier before)", () => {

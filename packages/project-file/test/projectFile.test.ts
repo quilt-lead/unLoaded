@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 import type { SerializedElementGraph } from "@unloaded/element-graph";
+import { segmentCalcs } from "@unloaded/calc-mapper";
 import {
   PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, ProjectFileError, decodeBase64, encodeBase64, headOf, isProjectFileFormat,
   parseProjectFile, storedExtractionFor, type ProjectFile,
@@ -112,10 +113,24 @@ describe("parseProjectFile returns only declared fields", () => {
 
 describe("storedExtractionFor: the one rule for using a stored calc package", () => {
   const sha = "a".repeat(64);
-  // null = no hashes (an explicit `undefined` would fall back to the default and build a hashed package)
-  const pkg = (h: string | null = sha) => ({ source_name: "c.pdf", source_sha256: h ?? undefined, pages: [{ n: 1, doc_sha256: h ?? undefined }], calcs: [] });
-  it("uses an extraction whose every document hash names the PDF", () => {
-    const p = pkg();
+  /** A real package, as the app's worker and the MCP server store it (segmentCalcs of extracted pages). */
+  const real = (h: string = sha) => {
+    const text = "BEAM DESIGN\nbeam 2B1 W18X35 ok, stress ratio 0.81";
+    const words: [number, number, number, number, number, number][] = [];
+    let pos = 0;
+    for (const w of text.split(/[ \n]/)) {
+      words.push([0, 0, 1, 1, pos, pos + w.length]);
+      pos += w.length + 1;
+    }
+    return JSON.parse(JSON.stringify(segmentCalcs([{ n: 1, text, words, width: 612, height: 792, scanned: false, doc_sha256: h }], "c.pdf")));
+  };
+  const edit = (f: (x: any) => void) => {
+    const x = real();
+    f(x);
+    return x;
+  };
+  it("uses a current extraction whose every document hash names the PDF", () => {
+    const p = real();
     expect(storedExtractionFor(p, sha)).toEqual({ pkg: p, reason: null });
   });
   // the app used to trust any extraction carrying hashes (and crashed with a TypeError on one with
@@ -124,12 +139,21 @@ describe("storedExtractionFor: the one rule for using a stored calc package", ()
     ["missing", undefined, /no stored extraction/],
     ["not an object", "x", /malformed/],
     ["source_sha256 but no pages", { source_sha256: sha, calcs: [] }, /malformed \(pages/],
-    ["no pages at all", { ...pkg(), pages: [] }, /malformed \(pages/],
-    ["calcs missing", { ...pkg(), calcs: undefined }, /malformed \(calcs/],
-    ["no hashes", pkg(null), /predates document hashes/],
-    ["a page without its hash", { ...pkg(), pages: [{ n: 1, doc_sha256: sha }, { n: 2 }] }, /predates document hashes/],
-    ["another PDF's hash", pkg("b".repeat(64)), /does not match the PDF/],
-    ["a page from another PDF", { ...pkg(), pages: [{ n: 1, doc_sha256: "b".repeat(64) }] }, /does not match the PDF/],
+    ["no pages at all", edit((x) => (x.pages = [])), /malformed \(pages/],
+    ["calcs missing", edit((x) => delete x.calcs), /malformed \(calcs/],
+    ["no hashes", edit((x) => { delete x.source_sha256; delete x.pages[0].doc_sha256; }), /predates document hashes/],
+    ["a page without its hash", edit((x) => x.pages.push({ ...x.pages[0], n: 2, doc_sha256: undefined })), /predates document hashes/],
+    ["another PDF's hash", real("b".repeat(64)), /does not match the PDF/],
+    ["a page from another PDF", edit((x) => (x.pages[0].doc_sha256 = "b".repeat(64))), /does not match the PDF/],
+    // round 2: an extraction from an older segmenter (duplicate keys, untitled pages swallowed) was reused forever
+    ["no segmenter recorded (made before it was)", edit((x) => delete x.segmenter), /predates versioning; the current one is segment-v/],
+    ["an older segmenter", edit((x) => (x.segmenter = "segment-v1")), /older segmenter \(segment-v1\)/],
+    // round 2: a stored extraction the engine cannot read is re-extracted, not handed to the engine to throw on
+    ["a page without text", edit((x) => delete x.pages[0].text), /malformed \(pages\[0\]\.text/],
+    ["page words that are not word boxes", edit((x) => (x.pages[0].words = [[1, 2]])), /malformed \(pages\[0\]\.words/],
+    ["a calc without a key", edit((x) => delete x.calcs[0].key), /malformed \(calcs\[0\]\.key/],
+    ["a calc whose spans are not a list", edit((x) => (x.calcs[0].spans = null)), /malformed \(calcs\[0\]\.spans/],
+    ["two calcs with one key", edit((x) => x.calcs.push({ ...x.calcs[0], ord: 1 })), /duplicate calc key/],
   ] as [string, unknown, RegExp][])("refuses %s", (_name, x, why) => {
     const r = storedExtractionFor(x, sha);
     expect(r.pkg).toBeNull();

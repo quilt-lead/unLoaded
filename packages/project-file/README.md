@@ -20,9 +20,12 @@ when `storedExtractionFor` refuses it), and the append-only decision log, oldest
   the file with the right kind). Throws `ProjectFileError` naming the first field at fault. Returns a new
   object holding only the declared fields (an extra key in a hand-edited file never reaches a reader).
 - `storedExtractionFor(extraction, pdfSha256)`: the one rule for whether a calc revision's stored
-  extraction can be used as its calc package (the shape the engine reads, and every document hash naming
-  that PDF), else the reason to re-extract. The app (`src/engine/projectService.ts`) and the MCP server
-  (`packages/mcp-server/src/project.ts`) both call it.
+  extraction can be used as its calc package, else the reason to re-extract. Usable only when it carries
+  document hashes, was segmented by the CURRENT segmenter (`segmenter` === calc-mapper
+  `SEGMENTER_VERSION`, so a segmenter fix reaches existing projects), has the full shape the engine reads
+  (calc-mapper `calcPackageProblem`: page text and word boxes, unique calc keys, regions, title boxes,
+  provenance), and every document hash names that PDF. The app (`src/engine/projectService.ts`) and the
+  MCP server (`packages/mcp-server/src/project.ts`) both call it.
 - `isProjectFileFormat(data)`: routing only ("does this JSON claim to be a project file?").
 - `encodeBase64` / `decodeBase64`: one codec for the browser and Node.
 - `headOf(revisions, kind)`: the head of a kind is the highest id, which is what importing leaves as head.

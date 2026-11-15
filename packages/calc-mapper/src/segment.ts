@@ -3,15 +3,20 @@
  * mockup's segment() / titleOf()); rules unchanged:
  *
  * - a page with < 25 characters of text has no text layer (scanned / handwritten):
- *   consecutive such pages form one "scanned" calc that is never mapped
- * - a page with >= 3 dot-leader entries ("Title ...... 12") is front matter / contents
- *   and is never mapped
+ *   consecutive such pages form one "scanned" calc that is never mapped. "Scanned" describes
+ *   exactly those pages and nothing else.
+ * - a page with front-matter evidence is front matter and is never mapped: >= 3 dot-leader
+ *   entries ("Title ...... 12"), or a contents / index / cover heading line among its first lines
+ *   (`FRONT_HEADING`: "Contents", "Table of Contents", "Index", "Cover Sheet" ...). Having no
+ *   title is NOT front-matter evidence.
  * - a page whose first lines carry a calc-like title starts a new calc unless the
  *   title (ignoring "(cont.)" and punctuation) equals the current calc's title, or an earlier
  *   calc's title (that calc continues, after a gap) - also right after a scanned run or front matter
- * - a page (part) with no title continues the current calc, whatever it is: after a scanned run it
- *   is part of that scanned calc, after a contents page part of that front matter, so neither is
- *   ever mapped; a title-less part before any calc (a cover) is front matter
+ * - a page (part) with text but no title continues the most recent calc that has text (not a
+ *   scanned run, not front matter), after a gap as a new span: a calc's untitled pages after a
+ *   scanned sketch or an inserted contents page stay in that calc. With no such calc yet (a cover
+ *   with no title keyword, say) it starts an untitled calc ("Untitled (from page N)", rule
+ *   `segment.untitled-start`), which is mapped like any other.
  * - software and element type come from keyword tables
  * - calc keys are unique by construction (`uniqueKeys`): links, decisions and export rows are keyed
  *   by (global_id, calc key), so two calcs must never share one
@@ -27,7 +32,7 @@ import { sheetRect } from "./frames.ts";
 import { rectsForSpan } from "./pdf.ts";
 import { sha1Json } from "./hash.ts";
 import { RULES, inputList, ruleProvenance } from "./provenance.ts";
-import type { Calc, CalcPackage, CalcPage, CalcRegion, CalcSpan, ElementCategory, TitleBox } from "./types.ts";
+import { SEGMENTER_VERSION, type Calc, type CalcPackage, type CalcPage, type CalcRegion, type CalcSpan, type ElementCategory, type TitleBox } from "./types.ts";
 
 const SOFTWARE: [RegExp, string][] = [
   [/RAM\s*CONCEPT/i, "RAM Concept"], [/RAM\s*(STRUCTURAL|STEEL|FRAME|ELEMENTS)/i, "RAM Structural System"],
@@ -51,6 +56,15 @@ export const CAT_WORDS: [Exclude<ElementCategory, "Other">, RegExp][] = [
 ];
 const TITLE_KW = /(design|calc|calculation|check|analysis|criteria|framing|report|schedule|connection|footing|bracing)/i;
 const TOC = /\.{4,}\s*\d+/g;
+/** A heading line that marks a contents / index / cover page (the whole line, ignoring case and trailing ":"). */
+export const FRONT_HEADING = /^(?:table\s+of\s+contents|contents|index(?:\s+of\s+(?:calculations|calcs|sheets|drawings))?|cover(?:\s+(?:sheet|page))?|title\s+sheet)\s*:?$/i;
+
+/** Front-matter evidence on a text page: dot-leader contents entries, or a contents / index / cover heading line. */
+export function isFrontMatter(text: string): boolean {
+  if ((text.match(TOC) ?? []).length >= 3) return true;
+  const lines = text.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 6);
+  return lines.some((l) => FRONT_HEADING.test(l));
+}
 export const TITLE_BOX_RULE = "segment.title_box";
 
 export function catOfText(s: string): ElementCategory | "" {
@@ -120,6 +134,8 @@ interface Building {
   parts: Part[];
   scanned: boolean;
   front: boolean;
+  /** Started by an untitled text page with no calc to continue (rule segment.untitled-start). */
+  untitled: boolean;
   text: string;
 }
 
@@ -210,12 +226,14 @@ export function segment(pages: CalcPage[]): Calc[] {
   const calcs: Building[] = [];
   let cur: Building | null = null;
   const push = (title: string, scanned = false): Building => {
-    const c: Building = { title, software: "", cat: "", parts: [], scanned, front: false, text: "" };
+    const c: Building = { title, software: "", cat: "", parts: [], scanned, front: false, untitled: false, text: "" };
     calcs.push(c);
     return c;
   };
-  /** A calc that can be continued by title (not a scanned run, not front matter). */
-  const titled = (c: Building): boolean => !c.scanned && !c.front;
+  /** A calc with text (not a scanned run, not front matter): the only kind a title or an untitled page continues. */
+  const textCalc = (c: Building): boolean => !c.scanned && !c.front;
+  /** The most recent text calc that took a part: where an untitled text page belongs. */
+  let lastText: Building | null = null;
   for (const pg of pages) {
     const whole = pg.text.trim();
     if (whole.length < 25) {
@@ -223,7 +241,7 @@ export function segment(pages: CalcPage[]): Calc[] {
       cur.parts.push({ page: pg, start: 0, end: pg.text.length, text: pg.text });
       continue;
     }
-    if ((whole.match(TOC) ?? []).length >= 3) {
+    if (isFrontMatter(whole)) {
       cur = push("Front matter / contents");
       cur.front = true;
       cur.parts.push({ page: pg, start: 0, end: pg.text.length, text: pg.text });
@@ -234,16 +252,20 @@ export function segment(pages: CalcPage[]): Calc[] {
       const t = part.text.trim();
       const title = titleOf(t);
       if (title) {
-        if (!cur || !titled(cur) || norm(title) !== norm(cur.title)) {
+        if (!cur || !textCalc(cur) || norm(title) !== norm(cur.title)) {
           // titled like an earlier calc: that calc continues here (a gap -> a new span); else a new calc
-          cur = calcs.find((c) => titled(c) && norm(c.title) === norm(title)) ?? push(title);
+          cur = calcs.find((c) => textCalc(c) && norm(c.title) === norm(title)) ?? push(title);
         }
-      } else if (!cur) {
-        // no title and nothing to continue: a cover / front page, never mapped
-        cur = push("Front matter");
-        cur.front = true;
+      } else {
+        // no title: the most recent calc with text continues (a gap after a scanned run or a contents
+        // page -> a new span); with none yet, an untitled calc starts - having no title is not front matter
+        if (!lastText) {
+          lastText = push(`Untitled (from page ${pg.n})`);
+          lastText.untitled = true;
+        }
+        cur = lastText;
       }
-      // (no title and a current calc: the current calc continues, keeping its scanned / front flags)
+      lastText = cur;
       cur.parts.push(part);
       cur.text += "\n" + t;
     }
@@ -268,7 +290,7 @@ export function segment(pages: CalcPage[]): Calc[] {
       c.cat = catOfText(c.title) || catOfText(under);
     }
     const first = c.parts[0]!;
-    const rule = c.scanned ? RULES.segment.scanned : c.front ? RULES.segment.front : RULES.segment.calc;
+    const rule = c.scanned ? RULES.segment.scanned : c.front ? RULES.segment.front : c.untitled ? RULES.segment.untitled : RULES.segment.calc;
     return {
       key, ord, title: c.title, software: c.software, cat: c.cat, pages: [...new Set(c.parts.map((p) => p.page.n))],
       scanned: c.scanned, front: c.front, title_box: titleBox(first.page, c.title, c.scanned, c.front, first.start),
@@ -319,7 +341,7 @@ export function packageSha256(pages: Pick<CalcPage, "doc_sha256">[]): string {
 
 /** Segment extracted pages into a calc package. */
 export function segmentCalcs(pages: CalcPage[], sourceName: string | null = null): CalcPackage {
-  return { source_name: sourceName, source_sha256: packageSha256(pages), pages, calcs: segment(pages) };
+  return { source_name: sourceName, source_sha256: packageSha256(pages), segmenter: SEGMENTER_VERSION, pages, calcs: segment(pages) };
 }
 
 /** Each calc's text (its regions joined, as the matcher reads it). */

@@ -15,8 +15,8 @@
  * matched, a snippet, word boxes for highlighting, and the rule. Calcs are read region by region
  * (a calc can start or end mid-page): a match counts only inside the calc's own regions.
  * Calc text and marks go through one fold (text.ts: upper case, Unicode dashes -> "-", offsets kept);
- * section sizes through one grammar (profile.ts `findSections`, the parser's patterns plus the
- * designations the model carries; a model mark is never a size); storeys through one whole-word test
+ * section sizes through one calc-text grammar (profile.ts `findSections`: complete designations
+ * only, plus the designations the model carries; a model mark is never a size); storeys through one whole-word test
  * (`storeysOn`), for the size rule and the evidence alike.
  *
  * On top of the tier (always evidence item 1, so tier metrics still compute) each link carries:
@@ -36,7 +36,7 @@
  * documents it rests on - the element graph (`graphSha256`) and the PDF of the page it was read on.
  */
 import { rectsForSpan } from "./pdf.ts";
-import { findSections, normaliseProfile, profileFromText, type SectionHit } from "./profile.ts";
+import { findSections, isDesignation, normaliseProfile, profileFromText, type SectionHit } from "./profile.ts";
 import { RULES, ruleProvenance } from "./provenance.ts";
 import { CAT_WORDS, calcRegions } from "./segment.ts";
 import { foldText } from "./text.ts";
@@ -61,6 +61,11 @@ const NAMED_TIERS: ReadonlySet<Tier> = new Set(["exact", "range"]);
 
 /** Section designation as one comparable string (the parser's normaliser: profile.ts). */
 export const normProfile = (s: string): string => (s ? normaliseProfile(s) : "");
+/** The model's section size for comparisons: the normalised profile when it is a designation (profile.ts `isDesignation`), else "". */
+const modelSize = (s: string): string => {
+  const p = normProfile(s);
+  return isDesignation(p) ? p : "";
+};
 
 /**
  * First section designation in the given strings, by the model side's own rule (profile.ts
@@ -163,8 +168,8 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
   const storeyRes = storeys.map((s) => [s, new RegExp(`(^|[^0-9A-Z])${escapeRe(foldText(s))}(?![0-9A-Z])`)] as const);
   /** The storeys a (folded) line names, longest first: whole words only ("LEVEL 10" does not name Level 1, "ROOFING" not Roof). */
   const storeysOn = (line: string): string[] => storeyRes.filter(([, rx]) => rx.test(line)).map(([s]) => s);
-  // section designations: the parser's grammar plus the designations the model carries; a model mark is not a size
-  const known = new Set(els.map((e) => normProfile(e.profile)).filter(Boolean));
+  // section designations: complete designations plus the ones the model carries; a model mark is not a size
+  const known = new Set(els.map((e) => normProfile(e.profile)).filter(isDesignation));
   const markSet: ReadonlySet<string> = new Set(exact.keys());
   const sectionsIn = (text: string): SectionHit[] => findSections(text, { known, marks: markSet, markOf: normMark });
   const markHits = new Map<string, number>();
@@ -194,7 +199,8 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
         caveats.push(`The calc line names ${lineStoreys.join(", ")}, but the element is on ${el.storey}.`);
       }
     }
-    const profile = normProfile(el.profile);
+    // the model's size, when it has one: a plain-word profile ("Beam") is not a size to match or contradict
+    const profile = modelSize(el.profile);
     if (profile && sizes.length) {
       if (sizes.includes(profile)) {
         evidence.push({ kind: "size-match", weight: WEIGHTS.sizeMatch, note: `line names ${profile}`, page: pg.n, rects: sizeRects() });

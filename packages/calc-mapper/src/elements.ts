@@ -38,21 +38,29 @@ export class GraphFormatError extends Error {
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const absent = (v: unknown): boolean => v === undefined || v === null;
-const optString = (v: unknown): boolean => absent(v) || typeof v === "string";
-const isPoint = (v: unknown): boolean => Array.isArray(v) && v.length === 3 && v.every((x) => typeof x === "number" && Number.isFinite(x));
+/** A JSON scalar: readable as text (graphElements reads a number or boolean as its decimal / literal text). */
+const isScalar = (v: unknown): boolean => typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
+const optScalar = (v: unknown): boolean => absent(v) || isScalar(v);
+/** A coordinate list as JSON carries it: numbers, with null where the producer had NaN / Infinity (JSON has neither). Any length. */
+const isCoords = (v: unknown): boolean => Array.isArray(v) && v.every((x) => x === null || (typeof x === "number" && Number.isFinite(x)));
+/** A graph text field as the element rows read it: absent / null -> "", a scalar -> its text. */
+const text = (v: unknown): string => (absent(v) ? "" : String(v));
 
 /**
- * Validate (and parse, when given text) a serialized element graph. Throws GraphFormatError with the
- * reason. It checks EVERY field this package reads from the graph (graphElements, loadPath,
- * connectivity, the producer records), so code past parseGraph never meets a shape it would throw
- * a TypeError on:
- *   levels[]  objects with a string id; name a string when given
- *   nodes[]   string id (unique) and kind; mark / name / profile / levelId strings when given;
- *             params an object; source an object (nativeType a string, nativeId a string or number);
- *             geometry an object whose bbox has min / max and whose axis has start / end, each three
- *             finite numbers
- *   edges[]   string kind; a / b node ids; evidence a list of objects (detail an object when given)
- *   meta      an object or null; meta.source an object when given; meta.units metres
+ * Validate (and parse, when given text) a serialized element graph. Throws GraphFormatError (exported)
+ * with the reason. The rules are EXACTLY what this package's readers need (graphElements, loadPath,
+ * connectivity, diff, the producer records) - no stricter, so every graph the app can save reopens,
+ * and no looser, so code past parseGraph never meets a shape it would throw a TypeError on or misread:
+ *   format / version   this engine's; meta.units metres when given (meta is otherwise only read
+ *                      through optional chaining, so any value is accepted)
+ *   levels[]  objects; id a string or number; name a scalar when given
+ *   nodes[]   objects; id a non-empty string, unique; kind a string; mark / name / profile / levelId
+ *             scalars when given (a number is read as its text: mark 101, level "2"); params an
+ *             object when given; source an object when given (nativeType a scalar, nativeId a string
+ *             or number); geometry an object when given, whose bbox (when given) has min / max and
+ *             whose axis (when given) has start / end, each a list of numbers or null (any length:
+ *             a 2-component point, or NaN that JSON wrote as null, reads as it is)
+ *   edges[]   objects; kind a string; a / b node ids; evidence a list of objects when given
  */
 export function parseGraph(input: string | unknown): SerializedElementGraph {
   let g: unknown = input;
@@ -74,11 +82,9 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
   for (const k of ["levels", "nodes", "edges"]) {
     if (!Array.isArray(o[k])) throw new GraphFormatError(`graph.${k} must be a list`);
   }
-  if (!absent(o.meta) && !isObj(o.meta)) throw new GraphFormatError("graph.meta must be an object or null");
-  if (isObj(o.meta) && !absent(o.meta.source) && !isObj(o.meta.source)) throw new GraphFormatError("graph.meta.source must be an object");
   (o.levels as unknown[]).forEach((l, i) => {
-    if (!isObj(l) || typeof l.id !== "string" || !optString(l.name)) {
-      throw new GraphFormatError(`graph.levels[${i}] needs a string id (and a string name, when given)`);
+    if (!isObj(l) || (typeof l.id !== "string" && !(typeof l.id === "number" && Number.isFinite(l.id))) || !optScalar(l.name)) {
+      throw new GraphFormatError(`graph.levels[${i}] needs a string or number id (and a scalar name, when given)`);
     }
   });
   const units = (o.meta as { units?: unknown } | null | undefined)?.units;
@@ -94,7 +100,7 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
   const ids = new Set<string>();
   (o.nodes as unknown[]).forEach((n, i) => {
     const r = n as { id?: unknown; kind?: unknown };
-    if (!r || typeof r.id !== "string" || !r.id || typeof r.kind !== "string") {
+    if (!isObj(r) || typeof r.id !== "string" || !r.id || typeof r.kind !== "string") {
       throw new GraphFormatError(`graph.nodes[${i}] needs a string id and kind`);
     }
     if (ids.has(r.id)) throw new GraphFormatError(`graph.nodes[${i}]: duplicate node id ${JSON.stringify(r.id)}`);
@@ -102,13 +108,13 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
     const at = `graph.nodes[${i}] (${JSON.stringify(r.id)})`;
     const nd = n as Record<string, unknown>;
     for (const k of ["mark", "name", "profile", "levelId"]) {
-      if (!optString(nd[k])) throw new GraphFormatError(`${at}.${k} must be a string`);
+      if (!optScalar(nd[k])) throw new GraphFormatError(`${at}.${k} must be a string or number`);
     }
     if (!absent(nd.params) && !isObj(nd.params)) throw new GraphFormatError(`${at}.params must be an object`);
     if (!absent(nd.source)) {
       const src = nd.source;
       if (!isObj(src)) throw new GraphFormatError(`${at}.source must be an object`);
-      if (!optString(src.nativeType)) throw new GraphFormatError(`${at}.source.nativeType must be a string`);
+      if (!optScalar(src.nativeType)) throw new GraphFormatError(`${at}.source.nativeType must be a string`);
       if (!absent(src.nativeId) && typeof src.nativeId !== "string" && typeof src.nativeId !== "number") {
         throw new GraphFormatError(`${at}.source.nativeId must be a string or a number`);
       }
@@ -119,21 +125,21 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
       for (const [k, ends] of [["bbox", ["min", "max"]], ["axis", ["start", "end"]]] as const) {
         const v = geo[k];
         if (absent(v)) continue;
-        if (!isObj(v) || !ends.every((e) => isPoint(v[e]))) {
-          throw new GraphFormatError(`${at}.geometry.${k} needs ${ends.join(" and ")}, each three finite numbers`);
+        if (!isObj(v) || !ends.every((e) => isCoords(v[e]))) {
+          throw new GraphFormatError(`${at}.geometry.${k} needs ${ends.join(" and ")}, each a list of numbers (or null)`);
         }
       }
     }
   });
   (o.edges as unknown[]).forEach((e, i) => {
     const r = e as { kind?: unknown; a?: unknown; b?: unknown; id?: unknown };
-    if (!r || typeof r.kind !== "string") throw new GraphFormatError(`graph.edges[${i}] needs a string kind`);
+    if (!isObj(r) || typeof r.kind !== "string") throw new GraphFormatError(`graph.edges[${i}] needs a string kind`);
     if (!ids.has(r.a as string) || !ids.has(r.b as string)) {
       throw new GraphFormatError(`graph.edges[${i}] (${JSON.stringify(r.id ?? null)}) references a node that is not in graph.nodes`);
     }
     const ev = (e as Record<string, unknown>).evidence;
-    if (!absent(ev) && (!Array.isArray(ev) || !ev.every((x) => isObj(x) && (absent(x.detail) || isObj(x.detail))))) {
-      throw new GraphFormatError(`graph.edges[${i}].evidence must be a list of objects (detail an object, when given)`);
+    if (!absent(ev) && (!Array.isArray(ev) || !ev.every(isObj))) {
+      throw new GraphFormatError(`graph.edges[${i}].evidence must be a list of objects`);
     }
   });
   return g as unknown as SerializedElementGraph;
@@ -150,7 +156,8 @@ const gapOf = (e: Edge): number | null => {
 };
 const byId = (p: string, q: string): number => (p < q ? -1 : p > q ? 1 : 0);
 
-const mm = (v: number): number => Math.round(v * 1000) / 1000;
+/** To 1 mm; a coordinate JSON carried as null (NaN / Infinity at the producer) stays null. */
+const mm = (v: number | null): number | null => (typeof v === "number" ? Math.round(v * 1000) / 1000 : null);
 
 /** What a revision diff compares, as compared: `bbox` is the geometry rounded to 1 mm (the axis is not compared). */
 export interface DiffFields {
@@ -161,7 +168,7 @@ export interface DiffFields {
   profile: string;
   storey: string;
   params: ElementRow["params"];
-  bbox: [number[], number[]] | null;
+  bbox: [(number | null)[], (number | null)[]] | null;
 }
 
 /**
@@ -184,7 +191,8 @@ export function elementContentHash(e: Omit<ElementRow, "content_hash">): string 
 
 /** Element rows of a graph, sorted by global_id (the order the reference engine read them in). */
 export function graphElements(g: SerializedElementGraph): ElementRow[] {
-  const levels = new Map(g.levels.map((l) => [l.id, l.name ?? ""]));
+  // ids and text fields as text: parseGraph lets a number through where the app's import does (level "2", mark 101)
+  const levels = new Map(g.levels.map((l) => [text(l.id), text(l.name)]));
   return g.nodes
     .map((n) => {
       const params = n.params ?? {};
@@ -194,10 +202,10 @@ export function graphElements(g: SerializedElementGraph): ElementRow[] {
         ? { min: modelPointM(bb.min), max: modelPointM(bb.max), ...(ax ? { p1: modelPointM(ax.start), p2: modelPointM(ax.end) } : {}) }
         : null;
       const row: Omit<ElementRow, "content_hash"> = {
-        global_id: n.id, express_id: n.source?.nativeId ?? null, ifc_type: n.source?.nativeType || n.kind,
-        cat: CAT[n.kind] ?? "Other", mark: n.mark || "", name: n.name || "",
-        type_name: String(params["Attr.ObjectType"] ?? ""), profile: n.profile || "",
-        storey: (n.levelId && levels.get(n.levelId)) || "", params, geom,
+        global_id: n.id, express_id: n.source?.nativeId ?? null, ifc_type: text(n.source?.nativeType) || n.kind,
+        cat: CAT[n.kind] ?? "Other", mark: text(n.mark), name: text(n.name),
+        type_name: String(params["Attr.ObjectType"] ?? ""), profile: text(n.profile),
+        storey: (absent(n.levelId) ? "" : levels.get(text(n.levelId))) || "", params, geom,
       };
       return { ...row, content_hash: elementContentHash(row) };
     })

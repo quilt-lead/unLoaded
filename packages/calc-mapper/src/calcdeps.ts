@@ -6,8 +6,9 @@
  *    that page. Direction from the nearest cue word earlier on the same line: "to" means this
  *    calc's output goes TO that page's calc (this -> that); "from" / "per" / "see" / "using" or
  *    no cue means it is an input (that -> this). A page NUMBER is not a reference (`pageReferences`):
- *    "Page 7 of 40", "Page 2/5", or a bare "Page 7" ending its line with no cue word before it (a
- *    running footer / header, often the calc software's own numbering, not the PDF's).
+ *    "Page 7 of 40", "Page 2/5", or one on a running header / footer - a line in the top or bottom
+ *    band that recurs on other pages with only its page number changed (`runningLines`, detected per
+ *    document; often the calc software's own numbering, not the PDF's).
  * 2. cross-reference - a calc that mentions (xref tier) an element designed by another calc takes
  *    that calc's output as input (designer -> this), unless the same line has a "to" cue before
  *    the mention ("carried to ST-1 design"), then this -> designer. The designer is `designerOf`.
@@ -27,6 +28,8 @@ const PAGE = /\b(?:PAGES?|PP?\.)\s*(\d{1,4})(?:\s*(?:-|TO)\s*(\d{1,4}))?/g;
 const CUE = /\b(FROM|PER|SEE|USING|TO)\b/g;
 /** "of 40" / "/ 5" right after a page number: pagination ("Page 7 of 40", "Page 2/5"), not a reference. */
 const PAGINATION = /^\s*(?:OF|\/)\s*\d/;
+/** How many non-empty lines at the top and at the bottom of a page make its header / footer band. */
+export const RUNNING_BAND = 3;
 
 const lineStart = (U: string, i: number): number => (i > 0 ? U.lastIndexOf("\n", i - 1) + 1 : 0);
 const lineEnd = (U: string, i: number): number => {
@@ -45,21 +48,72 @@ export interface PageReference {
   cue: string | undefined;
 }
 
+/** The non-empty lines of a page's top and bottom bands: [start offset, band, text] (a line can be in both). */
+function bandLines(U: string): [number, "top" | "bottom", string][] {
+  const lines: [number, string][] = [];
+  let pos = 0;
+  for (const line of U.split("\n")) {
+    if (line.trim()) lines.push([pos, line]);
+    pos += line.length + 1;
+  }
+  const top = lines.slice(0, RUNNING_BAND).map(([st, t]) => [st, "top", t] as [number, "top", string]);
+  // a short page's line can sit in both bands (a two-line page: its footer is also among its first lines)
+  const bottom = lines.slice(-RUNNING_BAND).map(([st, t]) => [st, "bottom", t] as [number, "bottom", string]);
+  return [...top, ...bottom];
+}
+
+/** A band line with its page numbers blanked: two pages' running lines differ in nothing else. */
+const runningKey = (band: string, line: string): string =>
+  `${band}\u0000${line.replace(PAGE, (m) => m.replace(/\d+/g, "#")).replace(/\s+/g, " ").trim()}`;
+
+/**
+ * The running headers / footers of one document, detected from the document itself: a line in a
+ * page's top or bottom band (RUNNING_BAND non-empty lines) that names a page and recurs in the same
+ * band on another page with only its page numbers changed ("RISA-3D Version 19 ... Page 3",
+ * "Designed per AISC 360-16    Page 3", "Page 4   Project: ..."). Returns, per page number, the line
+ * starts (offsets in the folded page text) of its running lines. A cue word on such a line does not
+ * make it a reference; a line that names a page and does not recur stays one.
+ */
+export function runningLines(pages: readonly Pick<CalcPage, "n" | "text">[]): Map<number, Set<number>> {
+  const seen = new Map<string, { pages: Set<number>; at: [number, number][] }>();
+  for (const pg of pages) {
+    const U = foldText(pg.text);
+    for (const [st, band, line] of bandLines(U)) {
+      if (line.search(PAGE) < 0) continue;
+      const k = runningKey(band, line);
+      let e = seen.get(k);
+      if (!e) seen.set(k, (e = { pages: new Set(), at: [] }));
+      e.pages.add(pg.n);
+      e.at.push([pg.n, st]);
+    }
+  }
+  const out = new Map<number, Set<number>>();
+  for (const { pages: ps, at } of seen.values()) {
+    if (ps.size < 2) continue;
+    for (const [n, st] of at) {
+      let s = out.get(n);
+      if (!s) out.set(n, (s = new Set()));
+      s.add(st);
+    }
+  }
+  return out;
+}
+
 /**
  * The page REFERENCES in folded text (text.ts `foldText`): every "page 7" / "pages 5-8" / "p. 12"
- * except page numbers - one followed by "of N" or "/N", or a bare one that ends its line with no cue
- * word before it on that line (a running footer such as "RISA-3D Version 19 ... Page 3").
+ * except page numbers - one followed by "of N" or "/N" (pagination), or one on a running header /
+ * footer line (`running`: the line starts `runningLines` found for this page). Anything else that
+ * names a page is a reference, cue word or not ("max end reaction: page 7").
  */
-export function pageReferences(U: string): PageReference[] {
+export function pageReferences(U: string, running: ReadonlySet<number> = new Set()): PageReference[] {
   const out: PageReference[] = [];
   for (const m of U.matchAll(PAGE)) {
     const start = m.index, end = m.index + m[0].length;
-    const le = lineEnd(U, end);
-    if (PAGINATION.test(U.slice(end, le))) continue;
-    const cue = lastCue(U.slice(lineStart(U, start), start));
-    if (!cue && !U.slice(end, le).trim()) continue;
+    if (PAGINATION.test(U.slice(end, lineEnd(U, end)))) continue;
+    const ls = lineStart(U, start);
+    if (running.has(ls)) continue;
     const from = Number(m[1]);
-    out.push({ start, end, from, to: Number(m[2] ?? from), cue });
+    out.push({ start, end, from, to: Number(m[2] ?? from), cue: lastCue(U.slice(ls, start)) });
   }
   return out;
 }
@@ -92,6 +146,8 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
     for (const r of calcRegions(c, pages)) if (!pageOwner.has(r.page) || r.start === 0) pageOwner.set(r.page, c);
   }
   const pageByN = new Map(pages.map((p) => [p.n, p]));
+  // running headers / footers are detected over the whole document, not page by page
+  const running = runningLines(pages);
   const edges = new Map<string, Omit<CalcEdge, "provenance"> & { ruleIds: string[]; inputs: string[] }>();
   const add = (src: string, dst: string, rule: string, ruleId: string, ev: CalcEdgeEvidence, inputs: readonly string[]) => {
     if (src === dst) return;
@@ -111,7 +167,7 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
       const pg = pageByN.get(pn);
       if (!pg) continue;
       const U = foldText(pg.text);
-      for (const { start, end, from: a, to: b, cue } of pageReferences(U)) {
+      for (const { start, end, from: a, to: b, cue } of pageReferences(U, running.get(pn))) {
         if (start < r.start || end > r.end) continue;
         const ls = lineStart(U, start);
         const out = cue === "TO";

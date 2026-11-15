@@ -27,27 +27,38 @@ describe("calc keys are unique by construction", () => {
   });
 });
 
-describe("continuations of a scanned run or front matter inherit their flags", () => {
-  it("an untitled page after a contents page is front matter, not a mappable calc", () => {
-    // rejects: a second calc "Front matter / contents (cont.)" with front: false that maps 2B1
+describe("untitled pages: scanned means no text layer, front matter needs front-matter evidence", () => {
+  // Round 1 pinned "an untitled page is never mapped" (it joined the scanned run / front matter before
+  // it); these replace those pins. See review-round2.test.ts for the realistic packages.
+  it("an untitled page after a contents page is a mapped calc; the contents page is front matter", () => {
+    // rejects: the round-1 "Front matter / contents" calc swallowing page 2, so 2B1 was never mapped
     const pages = [page(1, "Design criteria .... 2\nBeams .... 3\nColumns .... 4"), page(2, "beam 2B1 W18X35 ok, stress ratio fine")];
     const calcs = segment(pages);
-    expect(calcs.map((c) => [c.title, c.front, c.pages])).toEqual([["Front matter / contents", true, [1, 2]]]);
-    expect(runMapping([el("a", "Beam", "2B1")], calcs, pages, GRAPH_SHA)).toEqual([]);
+    expect(calcs.map((c) => [c.key, c.front, c.pages])).toEqual([["front-matter-contents", true, [1]], ["untitled-from-page-2", false, [2]]]);
+    expect(runMapping([el("a", "Beam", "2B1")], calcs, pages, GRAPH_SHA).map((l) => [l.calc_key, l.tier])).toEqual([["untitled-from-page-2", "exact"]]);
   });
 
-  it("an untitled text page after a scanned run stays in that scanned calc", () => {
-    // rejects: "Scanned page(s) - no text layer (cont.)" as a separate, mapped calc
+  it("an untitled text page after a scanned run is not part of the scanned calc", () => {
+    // rejects: page 2 (with text) inside scanned-1, so 2B1 was never mapped
     const pages = [page(1, ""), page(2, "beam 2B1 W18X35 ok, stress ratio fine")];
     const calcs = segment(pages);
-    expect(calcs.map((c) => [c.key, c.scanned, c.pages])).toEqual([["scanned-1", true, [1, 2]]]);
-    expect(runMapping([el("a", "Beam", "2B1")], calcs, pages, GRAPH_SHA)).toEqual([]);
+    expect(calcs.map((c) => [c.key, c.scanned, c.pages])).toEqual([["scanned-1", true, [1]], ["untitled-from-page-2", false, [2]]]);
+    expect(runMapping([el("a", "Beam", "2B1")], calcs, pages, GRAPH_SHA)).toHaveLength(1);
   });
 
-  it("a title-less cover is front matter", () => {
-    // rejects: "Front matter" with front: false (mapped)
+  it("a title-less cover with no contents / index / cover heading is not front matter", () => {
+    // rejects: "Front matter" with front: true for a page whose only evidence is having no title
     const pages = [page(1, "Sample Office Building, job 2611, issued for permit")];
-    expect(segment(pages).map((c) => [c.title, c.front])).toEqual([["Front matter", true]]);
+    expect(segment(pages).map((c) => [c.title, c.front, c.provenance.rule])).toEqual([["Untitled (from page 1)", false, "segment.untitled-start"]]);
+  });
+
+  it("a contents / index / cover heading is front-matter evidence (no dot leaders needed), and is never mapped", () => {
+    for (const head of ["TABLE OF CONTENTS", "Contents", "INDEX", "Cover Sheet", "Index of Calculations:"]) {
+      const pages = [page(1, `${head}\nBeams 3\nColumns 4\nbeam 2B1 listed here`), page(2, "BEAM DESIGN\nbeam 2B1 W18X35 ok")];
+      const calcs = segment(pages);
+      expect(calcs.map((c) => [c.front, c.pages])).toEqual([[true, [1]], [false, [2]]]);
+      expect(runMapping([el("a", "Beam", "2B1")], calcs, pages, GRAPH_SHA).map((l) => l.calc_key)).toEqual(["beam-design"]);
+    }
   });
 });
 
@@ -79,20 +90,23 @@ describe("the designer of an element", () => {
 });
 
 describe("page numbers are not page references", () => {
-  it("drops 'Page n of N', 'Page n/N' and a bare footer 'Page n'; keeps cued and parenthesised references", () => {
+  it("drops 'Page n of N' and 'Page n/N'; keeps every other page mention, cued or not", () => {
     const U = foldText([
-      "RISA-3D Version 19.0.2 Page 1", "Page 2 of 40", "Page 3/5", "column reactions from page 1",
-      "Ru := 32.8 kip (max end reaction, page 7)", "carried to ST-1 connection design (page 10).",
+      "Page 2 of 40", "Page 3/5", "column reactions from page 1",
+      "Ru := 32.8 kip (max end reaction, page 7)", "carried to ST-1 connection design (page 10).", "max end reaction: page 7",
     ].join("\n"));
-    expect(pageReferences(U).map((r) => [r.from, r.cue ?? null])).toEqual([[1, "FROM"], [7, null], [10, "TO"]]);
+    // rejects round 1's "a bare page number ending its line with no cue is a footer", which dropped the last line
+    expect(pageReferences(U).map((r) => [r.from, r.cue ?? null])).toEqual([[1, "FROM"], [7, null], [10, "TO"], [7, null]]);
   });
 
   it("a calc whose software numbers its pages 1..n draws no edge to PDF page 1's calc", () => {
-    // rejects: false edges beam-design -> footing-design from "Page 1 of 1" / "Page 1/1" / "RISA ... Page 1"
+    // rejects: false edges beam-design -> footing-design from "Page 1 of 2" / "Page 1/2" / a RISA footer
+    // that recurs on the calc's pages with only the page number changing
     const pages = [
       page(1, "BEAM DESIGN\nbeam 2B1 W18X35 at level 2"),
       page(2, "COLUMN DESIGN\ncolumn reactions from page 1"),
-      page(3, "FOOTING DESIGN\nfooting F1 bearing ok\nPage 1 of 1\nPage 1/1\nRISA-3D Version 19.0.2 Page 1"),
+      page(3, "FOOTING DESIGN\nfooting F1 bearing ok\nPage 1 of 2\nRISA-3D Version 19.0.2 Page 1"),
+      page(4, "FOOTING DESIGN (cont.)\nfooting F2 bearing ok\nPage 2/2\nRISA-3D Version 19.0.2 Page 2"),
     ];
     const edges = inferCalcEdges(segment(pages), pages, []);
     expect(edges.map((e) => [e.src, e.dst])).toEqual([["beam-design", "column-design"]]);
@@ -161,7 +175,7 @@ describe("parseGraph validates every field the engine reads", () => {
   const withB1 = (geometry: unknown) => JSON.stringify(graph({ nodes: graph().nodes.map((n) => (n.id === "B1" ? { ...n, geometry } : n)) as never }));
   it.each([
     [withB1({ bbox: {} }), "geometry.bbox needs min and max"],
-    [withB1({ bbox: { min: [0, 0], max: [1, 1, 1] } }), "geometry.bbox needs min and max"],
+    [withB1({ bbox: { min: "abc", max: [1, 1, 1] } }), "geometry.bbox needs min and max"],
     [withB1({ bbox: { min: [0, 0, 0], max: [1, 1, 1] }, axis: { start: [0, 0, 0] } }), "geometry.axis needs start and end"],
     [JSON.stringify(graph({ levels: [{}] as never })), "graph.levels[0] needs a string id"],
     [JSON.stringify(graph({ levels: [null] as never })), "graph.levels[0] needs a string id"],

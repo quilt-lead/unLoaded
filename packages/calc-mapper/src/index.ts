@@ -17,14 +17,15 @@ export * from "./types.ts";
 export {
   extractPdf, extractPdfWords, rectsForSpan, buildPage, SCANNED_MAX_CHARS, type PdfjsLike, type PdfWord, type PdfWordsPage,
 } from "./pdf.ts";
-export { segment, segmentCalcs, uniqueKeys, packageSha256, titleOf, titleBox, catOfText, calcText, calcRegions, pageParts, CAT_WORDS, TITLE_BOX_RULE, HEADING_RATIO, TITLE_HEIGHT_RATIO } from "./segment.ts";
+export { segment, segmentCalcs, uniqueKeys, isFrontMatter, FRONT_HEADING, packageSha256, titleOf, titleBox, catOfText, calcText, calcRegions, pageParts, CAT_WORDS, TITLE_BOX_RULE, HEADING_RATIO, TITLE_HEIGHT_RATIO } from "./segment.ts";
 export {
   runMapping, mapElements, typicalGroups, groupId, bandOf, CONF, XREF_CAP, WEIGHTS, BANDS, normMark, dashless, normProfile, profileFrom,
   type MappingResult,
 } from "./matcher.ts";
-export { normaliseProfile, profileFromText, findSections, PROFILE_PATTERNS, type SectionHit } from "./profile.ts";
+export { normaliseProfile, profileFromText, findSections, isDesignation, PROFILE_PATTERNS, CALC_SECTION_PATTERNS, type SectionHit } from "./profile.ts";
+export { calcPackageProblem, isCalcPackage } from "./package.ts";
 export { foldText, DASHES } from "./text.ts";
-export { inferCalcEdges, designerOf, pageReferences, type PageReference } from "./calcdeps.ts";
+export { inferCalcEdges, designerOf, pageReferences, runningLines, RUNNING_BAND, type PageReference } from "./calcdeps.ts";
 export { propagate } from "./impact.ts";
 export { diffGraphs, diffElements } from "./diff.ts";
 export { addDecision, applyDecisions, decisionFrom, effectiveDecisions, decisionLog } from "./decisions.ts";
