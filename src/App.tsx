@@ -1172,23 +1172,13 @@ export const App: React.FC = () => {
     </div>
   );
 
-  const subtitle = view
-    ? `${view.modelName ?? 'no model'} ⇄ ${view.calcPackageName ?? 'no calc package'}${view.engine ? ` · ${view.engine}` : ''}`
-    : '';
-
   return (
     <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
       <HeaderBar
-        projectName={hasProject && view ? view.projectName : 'No Model Loaded'}
-        subtitle={subtitle}
         activeView={activeView}
         onChangeView={changeView}
         calcCount={view?.calcs.length ?? 0}
-        colorMode={colorMode}
-        onChangeColorMode={setColorMode}
-        hasUtilization={Boolean(view?.hasUtilization)}
         persistent={storeInfo.data?.persistent ?? true}
-        hasDemoData={Boolean(view?.hasDemoData)}
         source={view?.source ?? null}
         busy={Boolean(busyText)}
         projects={(projectsQ.data ?? []).map((x) => ({ id: x.id, name: x.name }))}
@@ -1201,7 +1191,6 @@ export const App: React.FC = () => {
         onUploadModel={(f) => handleUpload('model', f)}
         onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
-        diffSummary={diffSummary}
         diffRevs={diffRevs}
         compareOpen={compareOpen}
         onToggleCompare={() => setCompareOpen((v) => !v)}
