@@ -534,7 +534,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                             textAnchor="middle"
                             fill="#e0e7ff"
                             fontSize="8px"
-                            fontFamily="'IBM Plex Sans', sans-serif"
+                            fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                           >
                             ✎
                           </text>
@@ -626,7 +626,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       textAnchor="middle"
                       dy="0.34em"
                       fill={textStyle.fill}
-                      fontFamily="'IBM Plex Sans', sans-serif"
+                      fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                       fontWeight={isProj || isCategory || isStack ? 600 : 500}
                       fontSize={getFittedFontSize(displayLabel, node.r)}
                       pointerEvents="none"
