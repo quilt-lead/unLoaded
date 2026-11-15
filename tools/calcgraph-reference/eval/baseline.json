@@ -6,6 +6,19 @@
     "no_copyrighted_in_head": true
    }
   },
+  "move_answer_key": {
+   "metrics": {
+    "health_band_exact": 1.0,
+    "health_band_within_one": 1.0,
+    "stale_screened_precision": 0.81,
+    "stale_screened_recall": 0.913,
+    "stale_topological_precision": 0.54,
+    "stale_topological_recall": 0.992,
+    "uc_abs_err_p90": 0.0008000000000000229,
+    "uc_over_flag_agreement": 0.999,
+    "uc_within_0_05": 0.998
+   }
+  },
   "synthetic_v1": {
    "metrics": {
     "calc_edges_fn": 1,
