@@ -76,7 +76,13 @@ new field; no field of the export was renamed or removed.
   - A page with fewer than 25 characters has no text layer. A run of such pages becomes one
     "scanned" calc, which is never mapped.
   - A page with 3 or more dot-leader entries is front matter and is never mapped.
-  - A calc-like title on a page starts a new calc.
+  - A calc-like title on a page starts a new calc, unless it is the current calc's title or an
+    earlier calc's (that calc continues after a gap), also right after a scanned run or front matter.
+  - A page (part) with no title continues the current calc and keeps its flags: after a scanned run
+    it belongs to that scanned calc, after a contents page to that front matter, so neither is ever
+    mapped. A title-less page before any calc (a cover) is front matter.
+  - Calc keys are unique by construction (`uniqueKeys`): a repeated slug gets the first `-<n>` no
+    calc has taken, so "Beam Design 2" and a second "Beam Design" never share `beam-design-2`.
   - Software named in the title wins over software the body only cites.
   - The element type falls back to the line under the title.
 - **Mapping** (`matcher.ts`), strongest tier first:
@@ -93,6 +99,15 @@ new field; no field of the export was renamed or removed.
 
   A mark tier whose element type differs from the calc's becomes an **xref**, capped at 0.45.
   Every link keeps its page, span, snippet, highlight rects and rule.
+  - Calc text and marks are read through one fold (`text.ts`): upper case, the Unicode dashes
+    U+2010-U+2015 as "-", one UTF-16 unit per character so spans stay exact. "SL‐2" (U+2010)
+    matches the mark SL-2.
+  - Section sizes in calc text come from the model side's own grammar (`profile.ts`: packages/ifc-parser's
+    `PROFILE_PATTERNS`, parity-tested) plus any designation the model carries verbatim, so IPE 300,
+    457X191X67 UB, C10X15.3, L4X4X1/2 or a ProfileName such as 310UB40.4 are found. A token that is a
+    model mark is never a size.
+  - A line names a storey only as a whole word ("LEVEL 10" does not name Level 1, "ROOFING" not Roof),
+    in the size rule and in the evidence alike.
 - **Calcs as spans of page regions** (`segment.ts`):
   - A page is cut at a mid-page heading that reads as a calc title (set at least 1.2x the page's
     median line height and about as large as the page's own title). So a calc can start or end
@@ -121,15 +136,21 @@ new field; no field of the export was renamed or removed.
 - **Size-mismatch findings**: a design-role line that names the mark (exact or range tier) and a
   different size than the model gives a finding: element, calc, model size, calc size, location.
   Sizes on both sides go through one normaliser (`profile.ts`, a port of packages/ifc-parser's
-  `normaliseProfile`; a test pins the two together).
+  `normaliseProfile`; a test pins the two together) and are found by the one grammar above.
 - **Calc edges** (`calcdeps.ts`): page references ("see page 7"; a "to" cue reverses the
   direction) and cross-references.
+  - A page number is not a reference (`pageReferences`): "Page 7 of 40", "Page 2/5", or a bare
+    "Page 7" ending its line with no cue word before it (a running footer).
+  - A cross-reference points at the element's designer (`designerOf`): a design-role link beats a
+    loads-role one, then the higher tier confidence, then the smaller calc key.
 - **Impact** (`impact.ts`): walks the graph's `supports` edges. Connection nodes pass load through,
   so waves count depth the way `ElementGraph.loadPathDown` does.
 - **Diff** (`diff.ts`):
   - Elements are keyed by GlobalId. An element counts as changed when its content hash differs.
     The hash covers ifc_type, mark, name, type_name, profile, storey, params and the bbox to 1 mm.
-  - Each change lists the before and after value of every changed field.
+  - Each change lists the before and after value of every changed field. The hash and the field
+    comparison read one field list (`diffFields`), so a changed element always lists at least one
+    field (a rename lists `name`) and float noise under 1 mm is neither a change nor "moved".
   - Load-path edges are compared too, giving the edges added and removed.
 - **Decisions** (`decisions.ts`):
   - The log is append-only and keyed by (global_id, calc_key), not by revision.

@@ -7,8 +7,14 @@
  * - a page with >= 3 dot-leader entries ("Title ...... 12") is front matter / contents
  *   and is never mapped
  * - a page whose first lines carry a calc-like title starts a new calc unless the
- *   title (ignoring "(cont.)" and punctuation) equals the current calc's title
+ *   title (ignoring "(cont.)" and punctuation) equals the current calc's title, or an earlier
+ *   calc's title (that calc continues, after a gap) - also right after a scanned run or front matter
+ * - a page (part) with no title continues the current calc, whatever it is: after a scanned run it
+ *   is part of that scanned calc, after a contents page part of that front matter, so neither is
+ *   ever mapped; a title-less part before any calc (a cover) is front matter
  * - software and element type come from keyword tables
+ * - calc keys are unique by construction (`uniqueKeys`): links, decisions and export rows are keyed
+ *   by (global_id, calc key), so two calcs must never share one
  *
  * Two deliberate changes from the mockup: software named in the title wins over software the
  * body cites, and the element type falls back to the line directly UNDER the title line (the
@@ -208,6 +214,8 @@ export function segment(pages: CalcPage[]): Calc[] {
     calcs.push(c);
     return c;
   };
+  /** A calc that can be continued by title (not a scanned run, not front matter). */
+  const titled = (c: Building): boolean => !c.scanned && !c.front;
   for (const pg of pages) {
     const whole = pg.text.trim();
     if (whole.length < 25) {
@@ -225,32 +233,26 @@ export function segment(pages: CalcPage[]): Calc[] {
     for (const part of pageParts(pg)) {
       const t = part.text.trim();
       const title = titleOf(t);
-      if (cur && !cur.scanned && !cur.front && title && norm(title) !== norm(cur.title)) {
-        // titled like an earlier calc: that calc continues here (a gap -> a new span)
-        const earlier = calcs.find((c) => !c.scanned && !c.front && norm(c.title) === norm(title));
-        if (earlier) cur = earlier;
+      if (title) {
+        if (!cur || !titled(cur) || norm(title) !== norm(cur.title)) {
+          // titled like an earlier calc: that calc continues here (a gap -> a new span); else a new calc
+          cur = calcs.find((c) => titled(c) && norm(c.title) === norm(title)) ?? push(title);
+        }
+      } else if (!cur) {
+        // no title and nothing to continue: a cover / front page, never mapped
+        cur = push("Front matter");
+        cur.front = true;
       }
-      if (!cur || cur.scanned || cur.front || (title && norm(title) !== norm(cur.title))) {
-        cur = push(title || (cur ? cur.title + " (cont.)" : "Front matter"));
-      }
+      // (no title and a current calc: the current calc continues, keeping its scanned / front flags)
       cur.parts.push(part);
       cur.text += "\n" + t;
     }
   }
 
-  const seen = new Map<string, number>();
   let nScanned = 0;
+  const keys = uniqueKeys(calcs.map((c) => (c.scanned ? `scanned-${++nScanned}` : slug(c.title))));
   return calcs.map((c, ord) => {
-    let base: string;
-    if (c.scanned) {
-      nScanned += 1;
-      base = `scanned-${nScanned}`;
-    } else {
-      base = slug(c.title);
-    }
-    const k = (seen.get(base) ?? 0) + 1;
-    seen.set(base, k);
-    const key = k === 1 ? base : `${base}-${k}`;
+    const key = keys[ord]!;
     if (!c.front) {
       // software named in the title wins over software the body merely cites
       const sw = SOFTWARE.find(([rx]) => rx.test(c.title))?.[1] || SOFTWARE.find(([rx]) => rx.test(c.text))?.[1] || "";
@@ -273,6 +275,22 @@ export function segment(pages: CalcPage[]): Calc[] {
       content_hash: sha1Json([c.title, c.text]), spans: spansOf(c.parts),
       provenance: ruleProvenance("segment", rule, c.parts.map((p) => p.page.doc_sha256)),
     };
+  });
+}
+
+/**
+ * Calc keys from base slugs, unique by construction: the first calc with a base gets the base, a later
+ * one the first `<base>-<n>` (n = 2, 3, ...) that no calc has taken - including a calc whose own title
+ * slugs to that form ("Beam Design 2" -> beam-design-2 is never given to a second "Beam Design").
+ */
+export function uniqueKeys(bases: readonly string[]): string[] {
+  const taken = new Set(bases.filter((b, i) => bases.indexOf(b) === i));
+  const used = new Set<string>();
+  return bases.map((base) => {
+    let key = base;
+    for (let n = 2; used.has(key) || (key !== base && taken.has(key)); n++) key = `${base}-${n}`;
+    used.add(key);
+    return key;
   });
 }
 

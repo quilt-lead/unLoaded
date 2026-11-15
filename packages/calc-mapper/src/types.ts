@@ -472,7 +472,7 @@ export interface ProjectState {
 export interface CompareChange {
   global_id: string;
   mark: string;
-  /** Per changed field: [before, after]. Params by key; plus mark / profile / storey / type_name; "geometry". */
+  /** Per changed field: [before, after]. Params by key; plus ifc_type / mark / name / profile / storey / type_name; "geometry" (bbox to 1 mm). Never empty. */
   fields: Record<string, [unknown, unknown]>;
 }
 

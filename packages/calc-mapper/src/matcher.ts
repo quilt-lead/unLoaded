@@ -14,6 +14,10 @@
  * Scanned pages and front matter are never mapped. Every link keeps page, the exact text span it
  * matched, a snippet, word boxes for highlighting, and the rule. Calcs are read region by region
  * (a calc can start or end mid-page): a match counts only inside the calc's own regions.
+ * Calc text and marks go through one fold (text.ts: upper case, Unicode dashes -> "-", offsets kept);
+ * section sizes through one grammar (profile.ts `findSections`, the parser's patterns plus the
+ * designations the model carries; a model mark is never a size); storeys through one whole-word test
+ * (`storeysOn`), for the size rule and the evidence alike.
  *
  * On top of the tier (always evidence item 1, so tier metrics still compute) each link carries:
  * - more evidence on the matched line, summed into the confidence and clamped to [0, 1]:
@@ -32,9 +36,10 @@
  * documents it rests on - the element graph (`graphSha256`) and the PDF of the page it was read on.
  */
 import { rectsForSpan } from "./pdf.ts";
-import { normaliseProfile } from "./profile.ts";
+import { findSections, normaliseProfile, profileFromText, type SectionHit } from "./profile.ts";
 import { RULES, ruleProvenance } from "./provenance.ts";
 import { CAT_WORDS, calcRegions } from "./segment.ts";
+import { foldText } from "./text.ts";
 import type {
   Calc, CalcPage, ConfidenceBand, ElementRow, Finding, GroupLink, Link, LinkEvidence, LinkRole, Rect, Snippet, Tier,
   TypicalGroup,
@@ -46,11 +51,9 @@ export const XREF_CAP = 0.45;
 export const WEIGHTS = { storeyMatch: 0.05, storeyConflict: -0.15, sizeMatch: 0.05, sizeMismatch: -0.2 } as const;
 export const BANDS = { high: 0.75, medium: 0.5 } as const;
 
-const DASHES = /[‐-―]/g;
-const RANGE = /\b([A-Z]{0,3}\d{0,2}[A-Z]{1,3})(\d{1,4})\s*(?:-|–|—|TO|THRU|THROUGH)\s*(?:\1)?(\d{1,4})\b/g;
+// calc text is read folded (text.ts: upper case, Unicode dashes -> "-"), so "-" is the only dash these rules need
+const RANGE = /\b([A-Z]{0,3}\d{0,2}[A-Z]{1,3})(\d{1,4})\s*(?:-|TO|THRU|THROUGH)\s*(?:\1)?(\d{1,4})\b/g;
 const TOK = /[A-Z0-9]+(?:[-./][A-Z0-9]+)*/g;
-const PROF = /\b(?:W|HSS|WT|MC|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:\/\d+)?(?:\.\d+)?)?\b|\b\d{3,4}X\d{3,4}\b/g;
-const PROFILE_RE = /\b(?:W|HSS|WT|MC|C|L|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:\.\d+)?)?\b|\b\d{3,4}X\d{3,4}\b/;
 const LOAD_CUE = /\b(REACTIONS?|LOADS?|FROM|CARRIED|END MOMENTS?|PUNCHING|SUPPORTING|DESIGNED SEPARATELY|SEE)\b/;
 const MARK_TIERS: ReadonlySet<Tier> = new Set(["exact", "range", "loose", "family", "partial"]);
 /** Tiers that name the element's own mark (not a punctuation-insensitive or partial match): only these raise findings. */
@@ -59,18 +62,16 @@ const NAMED_TIERS: ReadonlySet<Tier> = new Set(["exact", "range"]);
 /** Section designation as one comparable string (the parser's normaliser: profile.ts). */
 export const normProfile = (s: string): string => (s ? normaliseProfile(s) : "");
 
-/** First section designation found in the given strings (the mockup's profileFrom()). */
+/**
+ * First section designation in the given strings, by the model side's own rule (profile.ts
+ * `profileFromText`, the parser's grammar), on the folded text.
+ */
 export function profileFrom(...strs: (string | null | undefined)[]): string {
-  for (const s of strs) {
-    if (!s) continue;
-    const m = PROFILE_RE.exec(String(s).toUpperCase().replaceAll("×", "X"));
-    if (m) return normProfile(m[0]);
-  }
-  return "";
+  return profileFromText(strs.map((s) => (s ? foldText(String(s)) : undefined))) ?? "";
 }
 
-export const normMark = (s: string | null | undefined): string =>
-  String(s ?? "").toUpperCase().replace(DASHES, "-").replace(/\s+/g, "");
+/** A mark as one comparable string: the calc-text fold (text.ts) without whitespace. */
+export const normMark = (s: string | null | undefined): string => foldText(String(s ?? "")).replace(/\s+/g, "");
 export const dashless = (s: string | null | undefined): string => normMark(s).replace(/[-./]/g, "");
 
 export const bandOf = (conf: number): ConfidenceBand => (conf >= BANDS.high ? "high" : conf >= BANDS.medium ? "medium" : "low");
@@ -159,15 +160,21 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
   // longest first; equal lengths alphabetically (deterministic)
   const storeys = [...new Set(els.map((e) => e.storey).filter((s) => s && s.length > 2))]
     .sort((p, q) => q.length - p.length || cmp(p, q));
-  const storeyRes = storeys.map((s) => [s, new RegExp(`(^|[^0-9A-Z])${escapeRe(s.toUpperCase())}(?![0-9A-Z])`)] as const);
+  const storeyRes = storeys.map((s) => [s, new RegExp(`(^|[^0-9A-Z])${escapeRe(foldText(s))}(?![0-9A-Z])`)] as const);
+  /** The storeys a (folded) line names, longest first: whole words only ("LEVEL 10" does not name Level 1, "ROOFING" not Roof). */
+  const storeysOn = (line: string): string[] => storeyRes.filter(([, rx]) => rx.test(line)).map(([s]) => s);
+  // section designations: the parser's grammar plus the designations the model carries; a model mark is not a size
+  const known = new Set(els.map((e) => normProfile(e.profile)).filter(Boolean));
+  const markSet: ReadonlySet<string> = new Set(exact.keys());
+  const sectionsIn = (text: string): SectionHit[] => findSections(text, { known, marks: markSet, markOf: normMark });
   const markHits = new Map<string, number>();
   /** Lines (page:lineStart) on which a mark tier matched: a size on such a line is not a "typical" (size-only) statement. */
   const markLines = new Set<string>();
 
   /** Storeys and sizes the line names. */
   const lineFacts = (line: string) => {
-    const lineStoreys = storeyRes.filter(([, rx]) => rx.test(line)).map(([s]) => s);
-    const sizes = [...line.matchAll(PROF)].map((m) => normProfile(m[0]));
+    const lineStoreys = storeysOn(line);
+    const sizes = sectionsIn(line).map((h) => h.profile);
     return { lineStoreys, sizes };
   };
 
@@ -216,7 +223,7 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
     const loadsLine = LOAD_CUE.test(line);
     if (!loadsLine && tier !== "xref") designVotes.set(k, (designVotes.get(k) ?? 0) + 1);
     const rects = rectsForSpan(pg, idx, idx + n);
-    const sizeRects = (): Rect[] => [...line.matchAll(PROF)].flatMap((m) => rectsForSpan(pg, ls + m.index, ls + m.index + m[0].length));
+    const sizeRects = (): Rect[] => sectionsIn(line).flatMap((h) => rectsForSpan(pg, ls + h.index, ls + h.index + h.length));
     const ev = evidenceFor(el, tier, conf, rule, pg, line, rects, sizeRects);
     if (loadsLine) ev.evidence.push({ kind: "loads-context", weight: 0, note: "the line is about reactions / loads / a reference", page: pg.n, rects: [] });
     if (viaGroup) ev.evidence.push({ kind: "group", weight: 0, note: `linked through typical group ${viaGroup}`, page: pg.n, rects: [] });
@@ -249,8 +256,8 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
     for (const r of calcRegions(c, pages)) {
       const pg = pageByN.get(r.page);
       if (!pg) continue;
-      const U = pg.text.toUpperCase();
-      const inside = (m: RegExpExecArray) => m.index >= r.start && m.index + m[0].length <= r.end;
+      const U = foldText(pg.text);
+      const inside = (m: { index: number; 0: string }) => m.index >= r.start && m.index + m[0].length <= r.end;
       // 1. ranges
       for (const m of U.matchAll(RANGE)) {
         if (!inside(m)) continue;
@@ -305,14 +312,15 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
       }
       // 3. section size + element type (+ storey named on the line) -> the typical group(s)
       if (c.cat) {
-        for (const m of U.matchAll(PROF)) {
-          if (!inside(m)) continue;
-          const p = normProfile(m[0]);
+        for (const h of sectionsIn(U)) {
+          if (h.index < r.start || h.index + h.length > r.end) continue;
+          const m = { index: h.index, 0: U.slice(h.index, h.index + h.length) };
+          const p = h.profile;
           const ls = lineStart(U, m.index);
           const le = U.indexOf("\n", m.index);
           const line = U.slice(ls, le >= 0 ? le : undefined);
           const lineCat = CAT_WORDS.find(([, rx]) => rx.test(line))?.[0] || c.cat;
-          const lineStorey = storeys.find((st) => line.includes(st.toUpperCase())) ?? null;
+          const lineStorey = storeysOn(line)[0] ?? null;
           const rule = `Size ${p} + element type ${lineCat}${lineStorey ? " on " + lineStorey : ""} (no mark given)`;
           // a size on a line that names no mark is a typical (size-only) statement: it links the GROUP once;
           // a size beside a mark keeps the reference engine's plain per-element size links
@@ -358,7 +366,7 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
     if (!rx) continue;
     const mm = rx.exec(pg.text.slice(r.start, r.end));
     const [idx, n] = mm ? [r.start + mm.index, mm[0].length] : [r.start, 0];
-    const U = pg.text.toUpperCase();
+    const U = foldText(pg.text);
     for (const el of els) {
       if (el.cat === c.cat && !claimed.has(el.global_id)) {
         link(el, c, CONF.type, "type", `Calc covers ${c.cat.toLowerCase()}s but names no marks or sizes`, pg, U, idx, n);

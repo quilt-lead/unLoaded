@@ -4,12 +4,18 @@
  * params and the bbox rounded to 1 mm - the fields the reference store compared) with per-field
  * before / after, plus the load-path edges that appeared / disappeared. Port of the reference
  * Store.compare_models(); the one diff implementation for the app.
+ *
+ * The hash and the per-field comparison both read `diffFields` (elements.ts): params are listed by
+ * key, every other field by name, and the rounded bbox as "geometry". A changed element always lists
+ * at least one field, and a field is never listed for a difference the hash does not see.
  */
-import { graphElements, loadPath } from "./elements.ts";
+import { diffFields, graphElements, loadPath, type DiffFields } from "./elements.ts";
 import { canonicalJson } from "./hash.ts";
 import type { Compare, CompareChange, ElementRow, SerializedElementGraph } from "./types.ts";
 
 const cmp = (p: string, q: string): number => (p < q ? -1 : p > q ? 1 : 0);
+const paramJson = (p: Record<string, unknown>, k: string): string | undefined =>
+  Object.hasOwn(p, k) && p[k] !== undefined ? canonicalJson(p[k]) : undefined;
 const pairCmp = (p: [string, string], q: [string, string]): number => cmp(p[0], q[0]) || cmp(p[1], q[1]);
 
 export function diffElements(
@@ -22,15 +28,17 @@ export function diffElements(
   for (const g of [...ha.keys()].filter((k) => hb.has(k)).sort(cmp)) {
     const ea = ha.get(g)!, eb = hb.get(g)!;
     if (ea.content_hash === eb.content_hash) continue;
+    const fa = diffFields(ea), fb = diffFields(eb);
     const fields: Record<string, [unknown, unknown]> = {};
-    const pa = ea.params, pb = eb.params;
+    const pa = fa.params, pb = fb.params;
     for (const k of [...new Set([...Object.keys(pa), ...Object.keys(pb)])].sort(cmp)) {
-      if (canonicalJson(pa[k] ?? null) !== canonicalJson(pb[k] ?? null)) fields[k] = [pa[k] ?? null, pb[k] ?? null];
+      // as the hash sees them: a param set to null differs from an absent one
+      if (paramJson(pa, k) !== paramJson(pb, k)) fields[k] = [pa[k] ?? null, pb[k] ?? null];
     }
-    for (const col of ["mark", "profile", "storey", "type_name"] as const) {
-      if (ea[col] !== eb[col]) fields[col] = [ea[col], eb[col]];
+    for (const col of (Object.keys(fa) as (keyof DiffFields)[]).filter((c) => c !== "params").sort(cmp)) {
+      if (canonicalJson(fa[col]) === canonicalJson(fb[col])) continue;
+      fields[col === "bbox" ? "geometry" : col] = col === "bbox" ? ["", "moved / resized"] : [fa[col], fb[col]];
     }
-    if (canonicalJson(ea.geom) !== canonicalJson(eb.geom)) fields.geometry = ["", "moved / resized"];
     changed.push({ global_id: g, mark: eb.mark, fields });
   }
   const key = (e: { src: string; dst: string }) => `${e.src}\u0000${e.dst}`;
