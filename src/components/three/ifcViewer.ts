@@ -191,7 +191,27 @@ export class IfcViewer {
     }
   }
 
+  /**
+   * Empty the scene and invalidate every in-flight load: a load() or loadGhosts() still running
+   * after this sees a stale token and paints nothing. Called by Structural3DViewer when the model
+   * URL goes null, and by dispose().
+   */
   clear() {
+    this.invalidateLoads();
+    this.emptyScene();
+  }
+
+  /**
+   * The one place a load is invalidated. Anything that makes the current head model or its ghosts
+   * obsolete (clear, dispose, a new load) goes through here; ghosts share the head model's
+   * re-centring, so a new head model invalidates them too.
+   */
+  private invalidateLoads() {
+    this.loadToken++;
+    this.ghostToken++;
+  }
+
+  private emptyScene() {
     this.clearGhosts();
     this.clearBoxes();
     this.disposeGroup(this.group);
@@ -261,18 +281,24 @@ export class IfcViewer {
     }
   }
 
-  async load(url: string, onProgress: (t: string, pct: number) => void) {
-    const token = ++this.loadToken;
+  /**
+   * Load the head model. Resolves `false` (without painting) when the load was superseded by
+   * clear(), dispose() or a newer load(), so the caller can tell a finished load from a dropped one.
+   */
+  async load(url: string, onProgress: (t: string, pct: number) => void): Promise<boolean> {
+    this.invalidateLoads();
+    const token = this.loadToken;
+    const current = () => token === this.loadToken;
     onProgress('Loading IFC engine…', 5);
     await engine();
-    if (token !== this.loadToken) return;
+    if (!current()) return false;
     onProgress('Downloading model…', 20);
     await fetchIfc(url);
-    if (token !== this.loadToken) return;
+    if (!current()) return false;
     onProgress('Building geometry…', 45);
-    this.clear();
-    await this.stream(url, this.group, null, false, () => token === this.loadToken);
-    if (token !== this.loadToken) return;
+    this.emptyScene();
+    await this.stream(url, this.group, null, false, current);
+    if (!current()) return false;
     // re-centre: the head model's bounding-box centre at the origin, its base on the grid
     const box = new THREE.Box3().setFromObject(this.group);
     if (!box.isEmpty()) {
@@ -281,6 +307,7 @@ export class IfcViewer {
     }
     onProgress('', 100);
     this.fit();
+    return true;
   }
 
   /** Meshes of `gids` from another revision's IFC, in the same coordinates as the head model. */

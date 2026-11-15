@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, ExternalLink, FileText, GitCompareArrows, Loader2, Sparkles, Upload, X } from 'lucide-react';
 import type { RevisionInfo } from '../types/bim';
+import { useEscapeLayer } from './escapeStack';
 
 interface RevisionPanelProps {
   revisions: RevisionInfo[] | null;
@@ -26,6 +27,8 @@ export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading
   const [a, setA] = useState<number | null>(active?.a ?? null);
   const [b, setB] = useState<number | null>(active?.b ?? null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  // open while mounted: Escape closes this panel (and does nothing else)
+  useEscapeLayer(true, onClose);
 
   // default: the head as B, the revision before it as A
   useEffect(() => {

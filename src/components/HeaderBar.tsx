@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useEscapeLayer } from './escapeStack';
 import {
   ArrowLeftRight,
   Box,
@@ -79,18 +80,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const calcInput = useRef<HTMLInputElement | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
 
+  useEscapeLayer(menuOpen, () => setMenuOpen(false));
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
     window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('pointerdown', onDown);
   }, [menuOpen]);
 
   const pick = (ref: React.RefObject<HTMLInputElement>) => {

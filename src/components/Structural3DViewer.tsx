@@ -87,22 +87,23 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     };
   }, []);
 
-  // load the head model
+  // load the head model. Every URL change starts from a clean slate (no progress, error or loaded
+  // model); a load that is superseded (new URL, null URL, unmount) is invalidated inside IfcViewer,
+  // paints nothing and resolves false, so only the current load may report back.
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;
+    setProgress(null);
+    setError('');
+    setLoadedUrl(null);
     if (!modelUrl) {
       v.clear();
-      setLoadedUrl(null);
-      setError('');
       return;
     }
     let dead = false;
-    setError('');
-    setLoadedUrl(null);
     v.load(modelUrl, (text, pct) => !dead && setProgress(pct >= 100 ? null : { text, pct }))
-      .then(() => {
-        if (!dead) setLoadedUrl(modelUrl);
+      .then((done) => {
+        if (!dead && done) setLoadedUrl(modelUrl);
       })
       .catch((e: unknown) => {
         if (dead) return;

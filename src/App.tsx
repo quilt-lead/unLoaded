@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -61,8 +61,28 @@ import { PropertyInspector } from './components/PropertyInspector';
 import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
 import { RevisionPanel } from './components/RevisionPanel';
+import { useEscapeFallback } from './components/escapeStack';
 
 const EMPTY_SET = new Set<string>();
+const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
+
+/**
+ * What is open: a project in the store, or a read-only export file over it. `epoch` counts scope
+ * changes (0 = the scope the app opened with); it keys every component that holds project-local
+ * state, so a different project remounts them instead of inheriting their tabs and picks.
+ */
+interface Scope {
+  projectId: string | null;
+  exportView: ProjectViewModel | null;
+  epoch: number;
+}
+
+/** The URL deep link (#view=docs&el=<GlobalId>&evidence=1&impact=remove&calc=<key>&compare=A,B), read once. */
+const readDeepLink = () => {
+  if (typeof window === 'undefined') return null;
+  const h = window.location.hash.replace(/^#/, '');
+  return h ? new URLSearchParams(h) : null;
+};
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const App: React.FC = () => {
@@ -79,40 +99,42 @@ export const App: React.FC = () => {
   const [busyText, setBusyText] = useState('');
   const storeInfo = useStoreInfo();
   const initialProject = useInitialProject();
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>({ projectId: null, exportView: null, epoch: 0 });
+  const { projectId, exportView } = scope;
+  // the store's last-active project is the opening scope (epoch 0); every later change is enterScope
   useEffect(() => {
-    if (!projectId && initialProject.data) setProjectId(initialProject.data.id);
-  }, [projectId, initialProject.data]);
-  const [exportView, setExportView] = useState<ProjectViewModel | null>(null);
+    const id = initialProject.data?.id;
+    if (id) setScope((s) => (s.projectId ? s : { ...s, projectId: id }));
+  }, [initialProject.data]);
   const pid = exportView ? null : projectId;
-  // progress of (re)building the project view: mapping runs in the worker the first time a
-  // (model, calcs) pair is seen; shown only while that query is fetching
-  const [viewProgress, setViewProgress] = useState('');
-  const projectQ = useProjectView(pid, setViewProgress);
-  const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
-  const projectsQ = useProjectList();
-  const decide = useDecide(pid);
-  const sample = useLoadSample(setBusyText);
-  const demo = useLoadDemo(setBusyText);
-  const supplement = useLoadSupplement(setBusyText);
-  const uploadModel = useUploadModel(pid, setBusyText);
-  const uploadCalcs = useUploadCalcs(pid, setBusyText);
-  const createProject = useCreateProject();
-  const revisions = projectQ.data?.revisions ?? null;
 
-  const switchProject = useCallback((id: string) => {
-    rememberActiveProject(id);
-    setExportView(null);
-    setProjectId(id);
-  }, []);
-
+  // diff mode: (A, B) model revisions of `pid`; the diff is laid over revision B's view
   const [diffRevs, setDiffRevs] = useState<{ a: number; b: number } | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('ALL');
   const [compareOpen, setCompareOpen] = useState(false);
+
+  // progress of (re)building the project view: mapping runs in the worker the first time a
+  // (model, calcs) pair is seen; shown only while that query is fetching
+  const [viewProgress, setViewProgress] = useState('');
+  const projectQ = useProjectView(pid, setViewProgress, diffRevs?.b ?? null);
+  const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
+  const projectsQ = useProjectList();
+  const decide = useDecide(pid, diffRevs?.b ?? null);
+  const sample = useLoadSample(setBusyText);
+  const demo = useLoadDemo(setBusyText);
+  const supplement = useLoadSupplement(setBusyText);
+  // revisions go to the store project, also when an export view is shown over it (as handleOpenFile)
+  const uploadModel = useUploadModel(projectId, setBusyText);
+  const uploadCalcs = useUploadCalcs(projectId, setBusyText);
+  const createProject = useCreateProject();
+  const revisions = projectQ.data?.revisions ?? null;
+  /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
+  const headModelRev = revisions?.find((r) => r.kind === 'model' && r.isHead)?.id ?? null;
+
   const compareQ = useCompare(pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
 
   const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
-  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change');
+  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change', diffRevs?.b ?? null);
   const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
 
   const baseView: ProjectViewModel | null = exportView ?? projectQ.data?.view ?? null;
@@ -137,7 +159,7 @@ export const App: React.FC = () => {
   const [selectedCalcNodeId, setSelectedCalcNodeId] = useState<string | null>(null);
   const [selectedCalcNodeIds, setSelectedCalcNodeIds] = useState<Set<string>>(new Set());
   const [calcAnchorKey, setCalcAnchorKey] = useState<string | null>(null);
-  const [filters, setFilters] = useState<FilterState>({ search: '', type: 'ALL', level: 'ALL' });
+  const [filters, setFilters] = useState<FilterState>(NO_FILTERS);
   const [docFilterBySelected, setDocFilterBySelected] = useState(false);
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
@@ -148,6 +170,43 @@ export const App: React.FC = () => {
   const [rightDockWidth, setRightDockWidth] = useState(360);
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
+
+  /**
+   * The one way the open project changes (picker, sample, demo, new project, project or export
+   * file). It resets every project-scoped piece of state here, synchronously, and bumps the epoch
+   * that remounts components holding project-local state. `diff` is applied as part of the same
+   * change, so a caller entering a project in diff mode (the demo) cannot have it reset away.
+   * Re-entering the scope already open changes nothing but the diff, when one is given.
+   * View-scoped state (selection, groups, impact, PDF target) resets on `projectKey` below, which
+   * also covers a new revision of the same project.
+   */
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const enterScope = useCallback(
+    (next: { projectId: string } | { exportView: ProjectViewModel }, diff?: { a: number; b: number }) => {
+      const cur = scopeRef.current;
+      const nextProject = 'projectId' in next ? next.projectId : cur.projectId;
+      const nextExport = 'exportView' in next ? next.exportView : null;
+      if ('projectId' in next) rememberActiveProject(next.projectId);
+      const same = nextProject === cur.projectId && nextExport === cur.exportView;
+      if (!same) {
+        const s = { projectId: nextProject, exportView: nextExport, epoch: cur.epoch + 1 };
+        scopeRef.current = s;
+        setScope(s);
+        setDiffRevs(null);
+        setDiffFilter('ALL');
+        setFilters(NO_FILTERS);
+        setCompareOpen(false);
+        setDocFilterBySelected(false);
+      }
+      if (diff) {
+        setDiffRevs(diff);
+        setDiffFilter('ALL');
+      }
+    },
+    [],
+  );
+  const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
   const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
   const showToast = useCallback((message: string, isError = false) => {
@@ -164,9 +223,17 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (compareQ.error) showToast(`Compare failed: ${errMsg(compareQ.error)}`, true);
   }, [compareQ.error, showToast]);
+  // once per diff entered (a scope's (A, B) pair), not per recomputation: every decision refetches
+  // the base view and recomputes diffSummary
+  const diffKey = diffRevs ? `${scope.epoch}:${diffRevs.a}:${diffRevs.b}` : null;
+  const announcedDiff = useRef<string | null>(null);
   useEffect(() => {
-    if (diffSummary) showToast(`Diff ready: +${diffSummary.addedCount} added, ~${diffSummary.modifiedCount} modified, -${diffSummary.removedCount} removed`);
-  }, [diffSummary, showToast]);
+    if (!diffKey) announcedDiff.current = null;
+    else if (diffSummary && announcedDiff.current !== diffKey) {
+      announcedDiff.current = diffKey;
+      showToast(`Diff ready: +${diffSummary.addedCount} added, ~${diffSummary.modifiedCount} modified, -${diffSummary.removedCount} removed`);
+    }
+  }, [diffKey, diffSummary, showToast]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedNodeId(null);
@@ -411,6 +478,12 @@ export const App: React.FC = () => {
     showToast(`Grouped ${ids.length} elements (Ctrl+G)`);
   }, [selectedNodeIds, elementById, showToast]);
 
+  // Escape with no menu or panel open (they close themselves through the escape stack)
+  useEscapeFallback(() => {
+    setDocFilterBySelected(false);
+    setImpactReq(null);
+    handleClearSelection();
+  });
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
@@ -418,11 +491,6 @@ export const App: React.FC = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
-      } else if (e.key === 'Escape') {
-        setDocFilterBySelected(false);
-        setImpactReq(null);
-        setCompareOpen(false);
-        handleClearSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -450,8 +518,6 @@ export const App: React.FC = () => {
 
   const handleLoadSample = () =>
     run('Loading the sample building and calc package…', async () => {
-      setExportView(null);
-      setDiffRevs(null);
       try {
         const out = await sample.mutateAsync({ rev: 1, projectId: null });
         switchProject(out.projectId);
@@ -463,19 +529,15 @@ export const App: React.FC = () => {
 
   const handleLoadSampleRev2 = () =>
     run('Adding sample model rev 2 (column C8 removed)…', async () => {
-      const before = baseView?.modelRevisionId ?? null;
+      const before = headModelRev;
       let out: { projectId: string; modelRevisionId: number };
       try {
         out = await sample.mutateAsync({ rev: 2, projectId: pid });
       } catch (e) {
         throw new Error(sampleError(e));
       }
-      switchProject(out.projectId);
       setCompareOpen(false);
-      if (before != null) {
-        setDiffRevs({ a: before, b: out.modelRevisionId });
-        setDiffFilter('ALL');
-      }
+      enterScope({ projectId: out.projectId }, before != null ? { a: before, b: out.modelRevisionId } : undefined);
       return 'Model rev 2 added and made the head';
     });
 
@@ -493,22 +555,22 @@ export const App: React.FC = () => {
 
   const handleLoadDemo = () =>
     run('Loading the Harborview A/B demo (legacy JSON, demo data)…', async () => {
-      setExportView(null);
       let out: { projectId: string; a: number; b: number };
       try {
         out = await demo.mutateAsync();
       } catch (e) {
         throw new Error(sampleError(e));
       }
-      switchProject(out.projectId);
-      setDiffRevs({ a: out.a, b: out.b });
-      setDiffFilter('ALL');
+      enterScope({ projectId: out.projectId }, { a: out.a, b: out.b });
       return 'Harborview demo loaded as two model revisions, compared A → B';
     });
 
   const handleUpload = (kind: 'model' | 'calcs', file: File) =>
     run(`Reading ${file.name}…`, async () => {
-      setExportView(null);
+      if (!projectId) throw new Error('The project store is still opening; try again in a moment.');
+      // a new revision of the store project: back from any export view, out of diff mode so the
+      // new head is what is shown
+      switchProject(projectId);
       setDiffRevs(null);
       if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ file });
@@ -524,18 +586,19 @@ export const App: React.FC = () => {
     run(`Opening ${file.name}…`, async () => {
       if (!projectId) throw new Error('The project store is still opening; try again in a moment.');
       const opened = await openAnyFile(projectId, file, setBusyText);
-      setDiffRevs(null);
       if (opened.kind === 'export') {
         const v = exportFileView(opened.export);
-        setExportView(v);
+        enterScope({ exportView: v });
         return `Opened ${file.name}: ${v.elementNodes.filter((x) => x.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only export)`;
       }
-      setExportView(null);
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
       if (opened.kind === 'project') {
         switchProject(opened.projectId);
         return `Imported project from ${file.name}`;
       }
+      // a revision added to the store project: back from any export view, out of diff mode
+      switchProject(projectId);
+      setDiffRevs(null);
       if (opened.warnings.length) console.warn(`${file.name}: ${opened.warnings.length} import warnings`, opened.warnings);
       return `${file.name} added as ${opened.revision.kind === 'model' ? 'model' : 'calc'} revision #${opened.revision.id}`;
     });
@@ -549,7 +612,6 @@ export const App: React.FC = () => {
   const handleNewProject = () =>
     run('Creating a project…', async () => {
       switchProject(await createProject.mutateAsync('Untitled project'));
-      setDiffRevs(null);
       return 'New empty project';
     });
 
@@ -586,7 +648,7 @@ export const App: React.FC = () => {
   };
 
   const handleResetAll = useCallback(() => {
-    setFilters({ search: '', type: 'ALL', level: 'ALL' });
+    setFilters(NO_FILTERS);
     setDiffFilter('ALL');
     setImpactReq(null);
     handleClearSelection();
@@ -622,12 +684,20 @@ export const App: React.FC = () => {
     [elementById, view, handleSelectElementNode],
   );
 
-  // deep link, applied once the project has loaded: #view=docs&el=<GlobalId>&evidence=1&impact=remove&calc=<key>&compare=A,B
-  const [deepLinkDone, setDeepLinkDone] = useState(false);
+  // the deep link belongs to the project the app opened with (scope epoch 0) and is applied once,
+  // when that project's view has loaded; an empty or failed opening project, or a switch to another
+  // project first, drops it rather than carrying it to whatever opens next
+  const [deepLink, setDeepLink] = useState(readDeepLink);
   useEffect(() => {
-    if (deepLinkDone || !view || !hasProject) return;
-    setDeepLinkDone(true);
-    const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const h = deepLink;
+    if (!h) return;
+    if (scope.epoch !== 0) {
+      setDeepLink(null);
+      return;
+    }
+    if (!pid || projectQ.isPending || projectQ.isFetching) return;
+    setDeepLink(null);
+    if (!view || !hasProject) return;
     const el = h.get('el');
     const calc = h.get('calc');
     const v = h.get('view') as WorkspaceView | null;
@@ -641,7 +711,7 @@ export const App: React.FC = () => {
     if (cmp && cmp.length === 2 && cmp.every(Number.isFinite)) setDiffRevs({ a: cmp[0], b: cmp[1] });
     const color = h.get('color') as ColorMode | null;
     if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
-  }, [deepLinkDone, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs]);
+  }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs]);
 
   // ---------------------------------------------------------------- panels
   const defaultV3dPos = useMemo(
@@ -807,6 +877,7 @@ export const App: React.FC = () => {
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
+          key={scope.epoch}
           node={inspectorNode}
           elementNodes={elementNodes}
           calcs={view?.calcs ?? []}
@@ -954,6 +1025,7 @@ export const App: React.FC = () => {
 
       {compareOpen && (
         <RevisionPanel
+          key={scope.epoch}
           revisions={revisions}
           loading={projectQ.isLoading}
           active={diffRevs}
@@ -965,7 +1037,7 @@ export const App: React.FC = () => {
           onLoadSampleRev2={handleLoadSampleRev2}
           onLoadSupplement={handleLoadSupplement}
           onUploadModel={(f) => {
-            const before = baseView?.modelRevisionId ?? null;
+            const before = headModelRev;
             run(`Reading ${f.name}…`, async () => {
               const out = await uploadModel.mutateAsync({ file: f });
               setCompareOpen(false);
@@ -981,7 +1053,7 @@ export const App: React.FC = () => {
         filters={filters}
         onChangeFilters={setFilters}
         onClearFilters={() => {
-          setFilters({ search: '', type: 'ALL', level: 'ALL' });
+          setFilters(NO_FILTERS);
           setDiffFilter('ALL');
         }}
         isFilterActive={isFilterActive}
@@ -1104,6 +1176,7 @@ export const App: React.FC = () => {
 
           {hasProject && activeView === 'docs' && view && (
             <DocumentBrowser
+              key={scope.epoch}
               calcs={view.calcs}
               calcPackageName={view.calcPackageName}
               pdfUrl={pdfUrl}

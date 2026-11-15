@@ -77,7 +77,11 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [compareDep, setCompareDep] = useState<CalcDependency | null>(null);
-  const [tab, setTab] = useState<'calcs' | 'groups' | 'findings'>('calcs');
+  const [tabPick, setTab] = useState<'calcs' | 'groups' | 'findings'>('calcs');
+  // the tablist shows only while there are groups or findings; without it, the calc list is the
+  // only reachable tab, so a pick made earlier (another revision, another package) cannot strand you
+  const hasTabs = groups.length > 0 || findings.length > 0;
+  const tab = hasTabs ? tabPick : 'calcs';
   const calcByKey = useMemo(() => new Map(calcs.map((c) => [c.key, c])), [calcs]);
   const nodeById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
 
@@ -258,7 +262,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden min-h-0">
         <div className="lg:col-span-5 xl:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
-          {!elementLinks && (groups.length > 0 || findings.length > 0) && (
+          {!elementLinks && hasTabs && (
             <div role="tablist" aria-label="Calc package lists" className="flex items-center gap-1 bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.12] mb-1">
               {(
                 [

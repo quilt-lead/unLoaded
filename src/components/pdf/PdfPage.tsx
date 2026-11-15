@@ -69,7 +69,8 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
   const pageRef = useRef<PDFPageProxy | null>(null);
   const sharpTask = useRef<RenderTask | null>(null);
   const settle = useRef(0);
-  const [size, setSize] = useState<{ pw: number; ph: number } | null>(null);
+  /** the page on screen: its size in PDF points and which (url, page) it is */
+  const [size, setSize] = useState<{ pw: number; ph: number; url: string; page: number } | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [err, setErr] = useState('');
   const [textMode, setTextMode] = useState(false);
@@ -195,13 +196,24 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
     [apply],
   );
 
-  // load document + page whenever the file or page changes
+  /** Take the page off screen: canvases, text layer and size. The one way a page goes away. */
+  const dropPage = useCallback(() => {
+    sharpTask.current?.cancel();
+    pageRef.current = null;
+    if (bg.current) bg.current.width = 0;
+    if (sharp.current) sharp.current.style.display = 'none';
+    textHost.current?.replaceChildren();
+    setSize(null);
+  }, []);
+
+  // load document + page whenever the file or page changes; the previous page stays on screen
+  // while the next loads (no flash), but the evidence overlay is drawn only on the page it
+  // belongs to (`onPage` below), and a failed load drops the old page
   const url = source?.url;
   const pageNo = source?.page;
   useEffect(() => {
     if (!url || !pageNo) {
-      pageRef.current = null;
-      setSize(null);
+      dropPage();
       setStatus('idle');
       return;
     }
@@ -226,11 +238,12 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
         const th = textHost.current!;
         th.replaceChildren();
         textLayer = new pdfjs.TextLayer({ textContentSource: page.streamTextContent(), container: th, viewport: vp1 });
-        setSize({ pw: vp1.width, ph: vp1.height });
+        setSize({ pw: vp1.width, ph: vp1.height, url, page: pageNo });
         await Promise.all([bgTask.promise, textLayer.render()]);
         if (!dead) setStatus('ready');
       } catch (e) {
         if (dead || (e as Error)?.name === 'RenderingCancelledException') return;
+        dropPage();
         setErr(e instanceof Error ? e.message : String(e));
         setStatus('error');
       }
@@ -241,7 +254,7 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
       textLayer?.cancel();
       sharpTask.current?.cancel();
     };
-  }, [url, pageNo]);
+  }, [url, pageNo, dropPage]);
 
   // (re)focus when the page size is known or the evidence changes
   const rectKey = JSON.stringify([source?.rects ?? [], source?.focus ?? null, source?.regions ?? []]);
@@ -320,6 +333,8 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
     if (r) zoomAt(r.width / 2, r.height / 2, k);
   };
   const pad = size ? Math.max(size.pw, size.ph) / 900 : 1;
+  /** the page on screen is the one `source` points at (false while the next page is loading) */
+  const onPage = Boolean(size && size.url === url && size.page === pageNo);
   const hasRects = (source?.rects ?? []).length > 0;
 
   return (
@@ -349,7 +364,7 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
           <canvas ref={bg} className="absolute left-0 top-0" style={size ? { width: size.pw, height: size.ph } : undefined} />
           <canvas ref={sharp} className="absolute left-0 top-0 hidden" />
           <div ref={textHost} className={`textLayer pdf-text-layer ${textMode ? 'pointer-events-auto select-text' : 'pointer-events-none'}`} />
-          {size && (
+          {size && onPage && (
             <svg
               className="absolute left-0 top-0 pointer-events-none overflow-visible"
               viewBox={`0 0 ${size.pw} ${size.ph}`}
