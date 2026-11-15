@@ -7,6 +7,7 @@ interface FileDropOverlayProps {
   hoverSlot: DropSlot | null;
   /** A base model is loaded, so the compare target is offered. */
   hasBaseModel: boolean;
+  acceptedExtensions: string[];
 }
 
 interface ZoneProps {
@@ -59,11 +60,13 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
   visible,
   hoverSlot,
   hasBaseModel,
+  acceptedExtensions,
 }) => {
+  const extList = acceptedExtensions.join(' / ');
   return (
     <>
       <div role="status" aria-live="polite" className="sr-only">
-        {visible ? 'Drop a model file to import it.' : ''}
+        {visible ? `Drop a ${extList} file to import or compare.` : ''}
       </div>
       {visible && (
         <div
@@ -99,7 +102,7 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
             )}
           </div>
           <p className="mono text-[10px] text-zinc-400 text-center uppercase tracking-wider">
-            One file at a time
+            Accepts {extList} · one file at a time
           </p>
         </div>
       )}

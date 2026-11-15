@@ -97,13 +97,10 @@ describe('PropertyInspector data display', () => {
     expect(html).not.toContain('kN');
   });
 
-  it.each([
-    ['added', 'This element exists only in the comparison model.'],
-    ['removed', 'This element exists only in the primary model.'],
-  ] as const)('explains %s elements as belonging to only one model', (diffStatus, explanation) => {
+  it.each([['added', 'B'], ['removed', 'A']] as const)('explains %s elements as belonging to only one revision', (diffStatus, rev) => {
     const html = renderInspector({ ...beam, diffStatus });
 
-    expect(html).toContain(explanation);
+    expect(html).toContain(`This element exists only in rev ${rev}.`);
     expect(html).not.toContain('No property changes');
   });
 });

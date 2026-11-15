@@ -1,9 +1,12 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import * as THREE from 'three';
-import { BimNode } from '../types/bim';
-import { getGraphNodeColor } from '../utils/colors';
-import { isColumnStackNode, isElementTypeNode, isInstanceNode, isProjectNode } from '../utils/graphEngine';
-import { Structural3DControls } from './Structural3DControls';
+// The 3D model: real IFC geometry (web-ifc) of the head model revision, meshes keyed by GlobalId,
+// coloured from the view model (type / review status / link confidence / utilisation when present),
+// with impact and revision-diff overlays, selection sync and zoom-to-selection.
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Loader2 } from 'lucide-react';
+import type { BimNode, ColorMode, HighlightOverlay } from '../types/bim';
+import { TONE_COLORS, getEffectiveNodeColor } from '../utils/colors';
+import { elementIdsUnder } from '../utils/graphEngine';
+import { IfcViewer, type MeshStyle } from './three/ifcViewer';
 
 interface Structural3DViewerProps {
   nodes: BimNode[];
@@ -54,63 +57,12 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   onSelectRef.current = onSelectNode;
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const width = container.clientWidth || 320;
-    const height = container.clientHeight || 220;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2d3139);
-    scene.fog = new THREE.FogExp2(0x2d3139, 0.00038);
-
-    const camera = new THREE.PerspectiveCamera(40, width / height, 1.0, 4500);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setClearColor(0x2d3139, 1);
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.18;
-    container.appendChild(renderer.domElement);
-
-    const hemiLight = new THREE.HemisphereLight(0xf8fafc, 0x2f333a, 0.85);
-    scene.add(hemiLight);
-
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
-    keyLight.position.set(45, 90, 55);
-    scene.add(keyLight);
-
-    const rimLight = new THREE.DirectionalLight(0xbae6fd, 0.65);
-    rimLight.position.set(-55, 40, -45);
-    scene.add(rimLight);
-
-    const gridHelper = new THREE.GridHelper(240, 8, 0x565e6e, 0x383d47);
-    gridHelper.position.y = -0.05;
-    scene.add(gridHelper);
-
-    const rootGroup = new THREE.Group();
-    scene.add(rootGroup);
-
-    const st = stateRef.current;
-    st.scene = scene;
-    st.camera = camera;
-    st.renderer = renderer;
-    st.rootGroup = rootGroup;
-
-    const raycaster = new THREE.Raycaster();
-    const mouseNDC = new THREE.Vector2();
-    const controls = new Structural3DControls(camera, container, DEFAULT_3D_CAM,
-      () => { st.needsRender = true; },
-      (event) => {
-        const rect = container.getBoundingClientRect();
-        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
-        mouseNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouseNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(mouseNDC, camera);
-        const hits = raycaster.intersectObjects(Array.from(st.meshMap.values()), false);
-        if (hits.length > 0 && hits[0].object.userData.nodeId) {
-          onSelectRef.current(hits[0].object.userData.nodeId, { toggleMulti: event.shiftKey });
-        }
+    // navigation, click-vs-drag (3 px from pointerdown) and stopping pointer / wheel events from
+    // reaching the panel behind are all Structural3DControls' (inside IfcViewer); a click picks
+    const v: IfcViewer = new IfcViewer(host.current!, {
+      onClick: (e) => {
+        const gid = v.pick(e);
+        if (gid) onSelectRef.current(gid, { toggleMulti: e.shiftKey });
       },
     });
     viewer.current = v;
@@ -124,142 +76,13 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   // model); a load that is superseded (new URL, null URL, unmount) is invalidated inside IfcViewer,
   // paints nothing and resolves false, so only the current load may report back.
   useEffect(() => {
-    const st = stateRef.current;
-    const rootGroup = st.rootGroup;
-    if (!rootGroup) return;
-
-    while (rootGroup.children.length > 0) {
-      rootGroup.remove(rootGroup.children[0]);
-    }
-    st.meshMap.clear();
-
-    const instances = nodes.filter(isInstanceNode);
-    const geomCache = new Map<string, { geom: THREE.BufferGeometry; edges: THREE.EdgesGeometry }>();
-    const catCounters: Record<string, number> = {};
-
-    instances.forEach((node) => {
-      const catKey = node.parent || 'default';
-      const idx = catCounters[catKey] || 0;
-      catCounters[catKey] = idx + 1;
-
-      const spec = getStructural3DSpec(node, idx);
-      const geomKey = `${spec.shape}:${spec.size[0]}:${spec.size[1]}:${spec.size[2]}`;
-      let cached = geomCache.get(geomKey);
-      if (!cached) {
-        let g: THREE.BufferGeometry;
-        if (spec.shape === 'cylinder') {
-          g = new THREE.CylinderGeometry(spec.size[0], spec.size[2], spec.size[1], 14);
-        } else if (spec.shape === 'joint') {
-          g = new THREE.OctahedronGeometry(spec.size[0] * 0.62, 1);
-        } else {
-          g = new THREE.BoxGeometry(spec.size[0], spec.size[1], spec.size[2]);
-        }
-        cached = { geom: g, edges: new THREE.EdgesGeometry(g) };
-        geomCache.set(geomKey, cached);
-      }
-
-      const resolvedHex = getGraphNodeColor(node, false);
-      const baseColor = new THREE.Color(resolvedHex);
-      const isSlab = node.parent === 'cat-slab' || (node.ifcType || '').toUpperCase() === 'IFCSLAB';
-
-      const mat = new THREE.MeshStandardMaterial({
-        color: baseColor,
-        emissive: baseColor,
-        emissiveIntensity: isSlab ? 0.12 : 0.22,
-        roughness: 0.28,
-        metalness: 0.35,
-        transparent: isSlab,
-        depthWrite: !isSlab,
-        opacity: isSlab ? 0.26 : 1.0,
-      });
-
-      const mesh = new THREE.Mesh(cached.geom, mat);
-      mesh.position.set(spec.pos[0], spec.pos[1], spec.pos[2]);
-      mesh.renderOrder = isSlab ? 1 : 2;
-
-      const lineMat = new THREE.LineBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: isSlab ? 0.55 : 0.85,
-      });
-      const wireframe = new THREE.LineSegments(cached.edges, lineMat);
-      mesh.add(wireframe);
-
-      mesh.userData = { nodeId: node.id, node, isSlab, wireframe };
-      rootGroup.add(mesh);
-      st.meshMap.set(node.id, mesh);
-    });
-
-    st.needsRender = true;
-  }, [nodes]);
-
-  // Update 3D highlights on selection / filter / heatmap changes
-  useEffect(() => {
-    const st = stateRef.current;
-    st.needsRender = true;
-    if (st.meshMap.size === 0) return;
-
-    if (!selectedNodeId) {
-      st.meshMap.forEach((mesh, id) => {
-        const mat = mesh.material as THREE.MeshStandardMaterial;
-        const wf = mesh.userData.wireframe as THREE.LineSegments;
-        const wfMat = wf.material as THREE.LineBasicMaterial;
-        const nodeObj = mesh.userData.node as BimNode;
-        const activeColor = new THREE.Color(getGraphNodeColor(nodeObj, heatmapMode, diffMode));
-        const diffStatus = diffMode ? nodeObj.diffStatus : undefined;
-        const matchesFilter = !isFilterActive || matchingNodeIds.has(id);
-        const isSlab = mesh.userData.isSlab;
-
-        if (matchesFilter) {
-          const isUnchangedDiff = diffStatus === 'unchanged';
-          const isRemovedDiff = diffStatus === 'removed';
-          mat.transparent = isSlab || isUnchangedDiff || isRemovedDiff;
-          mat.depthWrite = !(isSlab || isUnchangedDiff);
-          mesh.renderOrder = isSlab ? 1 : isUnchangedDiff ? 0 : 2;
-          mat.color.copy(activeColor);
-          mat.emissive.copy(activeColor);
-          mat.emissiveIntensity = diffStatus
-            ? isUnchangedDiff
-              ? 0.06
-              : 0.65
-            : heatmapMode
-            ? isSlab
-              ? 0.24
-              : 0.52
-            : isSlab
-            ? 0.12
-            : 0.22;
-          mat.opacity = diffStatus
-            ? isUnchangedDiff
-              ? 0.11
-              : isRemovedDiff
-              ? 0.45
-              : isSlab
-              ? 0.42
-              : 1.0
-            : heatmapMode
-            ? isSlab
-              ? 0.3
-              : 1.0
-            : isSlab
-            ? 0.26
-            : 1.0;
-          mat.needsUpdate = true;
-          wfMat.color.setHex(isRemovedDiff ? 0xfca5a5 : 0xffffff);
-          wfMat.opacity = isUnchangedDiff ? 0.18 : isSlab ? 0.55 : 0.9;
-        } else {
-          mat.transparent = true;
-          mat.depthWrite = false;
-          mesh.renderOrder = 0;
-          mat.color.copy(activeColor);
-          mat.emissive.copy(activeColor);
-          mat.emissiveIntensity = 0.04;
-          mat.opacity = 0.15;
-          mat.needsUpdate = true;
-          wfMat.color.setHex(0x94a3b8);
-          wfMat.opacity = 0.22;
-        }
-      });
+    const v = viewer.current;
+    if (!v) return;
+    setProgress(null);
+    setError('');
+    setLoadedUrl(null);
+    if (!modelUrl) {
+      v.clear();
       return;
     }
     let dead = false;
@@ -347,51 +170,10 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         s.color = getEffectiveNodeColor(node, colorMode, diffMode);
         s.opacity = node.elementKind === 'slab' ? 0.32 : 1;
       }
-    });
-
-    st.meshMap.forEach((mesh, id) => {
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      const wf = mesh.userData.wireframe as THREE.LineSegments;
-      const wfMat = wf.material as THREE.LineBasicMaterial;
-      const isPrimary = selectedSet.has(id);
-      const isLit = litIds.has(id);
-      const isSlab = mesh.userData.isSlab;
-      const nodeObj = mesh.userData.node as BimNode;
-      const activeColor = new THREE.Color(getGraphNodeColor(nodeObj, heatmapMode, diffMode));
-
-      if (isPrimary) {
-        mat.transparent = false;
-        mat.depthWrite = true;
-        mesh.renderOrder = 3;
-        mat.color.copy(activeColor);
-        mat.emissive.copy(activeColor);
-        mat.emissiveIntensity = 1.15;
-        mat.opacity = 1.0;
-        mat.needsUpdate = true;
-        wfMat.color.setHex(0xffffff);
-        wfMat.opacity = 1.0;
-      } else if (isLit) {
-        mat.transparent = isSlab;
-        mat.depthWrite = !isSlab;
-        mesh.renderOrder = isSlab ? 1 : 2;
-        mat.color.copy(activeColor);
-        mat.emissive.copy(activeColor);
-        mat.emissiveIntensity = isSlab ? 0.3 : 0.55;
-        mat.opacity = isSlab ? 0.42 : 1.0;
-        mat.needsUpdate = true;
-        wfMat.color.setHex(0xffffff);
-        wfMat.opacity = isSlab ? 0.75 : 0.95;
-      } else {
-        mat.transparent = true;
-        mat.depthWrite = false;
-        mesh.renderOrder = 0;
-        mat.color.copy(activeColor);
-        mat.emissive.copy(activeColor);
-        mat.emissiveIntensity = 0.04;
-        mat.opacity = 0.15;
-        mat.needsUpdate = true;
-        wfMat.color.setHex(0x94a3b8);
-        wfMat.opacity = 0.18;
+      if (diffMode) {
+        const st = node?.diffStatus ?? 'unchanged';
+        s.opacity = st === 'unchanged' ? 0.11 : st === 'removed' ? 0.45 : node?.elementKind === 'slab' ? 0.42 : 1;
+        if (st !== 'unchanged') s.glow = s.color;
       }
       if (isGhost && !diffMode) s.visible = false;
 
@@ -407,12 +189,11 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         }
       } else if (litIds.any) {
         if (litIds.primary.has(gid)) {
-          s.color = '#ffffff';
           s.opacity = 1;
-          s.glow = '#6366f1';
+          s.glow = s.color;
         } else if (litIds.ids.has(gid)) {
           s.opacity = Math.max(s.opacity, node?.elementKind === 'slab' ? 0.42 : 1);
-          s.glow = '#bef264';
+          s.glow = s.color;
         } else {
           s.opacity = Math.min(s.opacity, 0.06);
           s.glow = null;
@@ -446,7 +227,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   }, [resetTrigger]);
 
   return (
-    <div className="relative w-full h-full bg-[#282c34] overflow-hidden">
+    <div className="relative w-full h-full bg-[#2d3139] overflow-hidden">
       <div ref={host} style={{ touchAction: 'none' }} className="absolute inset-0 cursor-grab active:cursor-grabbing" aria-label="3D model view" role="img" />
       {!hasGeometry && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center pointer-events-none">

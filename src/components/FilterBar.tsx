@@ -54,7 +54,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             aria-label="Search elements and calculations"
             value={filters.search}
             onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
-            placeholder="Search element, calc, level..."
+            placeholder="Search mark, size, level, calc..."
             className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-calcmap/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-48 transition"
           />
         </div>
@@ -116,9 +116,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('CHANGED')}
               aria-pressed={diffFilter === 'CHANGED'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
-                diffFilter === 'CHANGED'
-                  ? 'bg-calcmap/20 text-calcmap border border-calcmap/40 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                diffFilter === 'CHANGED'                 ? 'bg-calcmap/20 text-calcmap border border-calcmap/40 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Changed ({diffSummary.addedCount + diffSummary.removedCount + diffSummary.modifiedCount})

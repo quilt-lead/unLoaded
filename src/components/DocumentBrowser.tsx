@@ -169,9 +169,9 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           setCompareDep(null);
           onChangeTarget(extra ? linkTarget(extra.link, c) : calcTarget(c));
         }}
-        className={`block w-full text-left p-3 rounded-xl cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+        className={`block w-full text-left p-3 rounded-xl cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
           isActive
-            ? 'bg-indigo-500/15 border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+            ? 'bg-calcmap/15 border-calcmap/40'
             : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
         }`}
       >
@@ -286,7 +286,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               autoComplete="off"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search PDFs, codes, members…"
+              placeholder="Search calcs, software, members…"
               className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-calcmap/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
             />
           </div>
@@ -294,9 +294,128 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
       </div>
 
       <div className="flex-1 grid grid-cols-1 min-[900px]:grid-cols-12 overflow-hidden min-h-0">
-        {/* Document List */}
         <div className="min-w-0 min-h-0 min-[900px]:col-span-5 min-[1280px]:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
-          {filteredDocs.length === 0 ? (
+          {!elementLinks && hasTabs && (
+            <div role="tablist" aria-label="Calc package lists" className="flex items-center gap-1 bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.12] mb-1">
+              {(
+                [
+                  { id: 'calcs', label: `Calcs (${calcs.length})` },
+                  { id: 'groups', label: `Typical groups (${groups.length})` },
+                  { id: 'findings', label: `Findings (${findings.length})` },
+                ] as const
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-1 mono text-[10px] px-2 py-1 rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
+                    tab === t.id ? 'bg-calcmap/15 text-calcmap border border-calcmap/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  } ${t.id === 'findings' && findings.length > 0 && tab !== t.id ? 'text-rose-300' : ''}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {!elementLinks && tab === 'groups' ? (
+            groups.length === 0 ? (
+              <p className="text-[11px] text-zinc-500 text-center py-8">No typical groups: no calc designs elements by size only.</p>
+            ) : (
+              groups.map((g) => (
+                <div key={g.id} className="p-3 rounded-xl border bg-white/[0.02] border-white/[0.06]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-zinc-100 truncate">{g.title}</p>
+                      <p className="mono text-[10px] text-zinc-500 mt-0.5">
+                        {g.category} · {g.storey || 'no storey'} · {g.profile}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onSelectElements(g.members)}
+                      className="mono text-[9px] px-1.5 py-0.5 rounded border border-white/[0.14] text-zinc-300 hover:text-white hover:border-calcmap/40 flex items-center gap-1 flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
+                      title="Select the members in the graph and 3D"
+                    >
+                      <Users className="w-2.5 h-2.5" aria-hidden="true" />
+                      {g.members.length} members
+                    </button>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {g.links.map((gl) => {
+                      const c = calcByKey.get(gl.calcKey);
+                      return (
+                        <li key={gl.calcKey}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCompareDep(null);
+                              onChangeTarget({ calcKey: gl.calcKey, page: gl.page ?? c?.pages[0] ?? 1, rects: gl.rects, caption: `Typical size ${g.profile}` });
+                            }}
+                            className="w-full text-left flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/20 hover:bg-black/35 border border-white/[0.05] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} aria-hidden="true" />
+                            <span className="text-[11px] text-zinc-200 truncate flex-1">{c?.title ?? gl.calcKey}</span>
+                            <Chip tone={gl.band === 'high' ? 'good' : gl.band === 'medium' ? 'warn' : 'bad'}>{Math.round(gl.confidence * 100)}%</Chip>
+                            <RoleChip role={gl.role} />
+                          </button>
+                          {gl.caveats.length > 0 && <p className="text-[10px] text-amber-200/90 mt-0.5 pl-2">{gl.caveats.join(' · ')}</p>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))
+            )
+          ) : !elementLinks && tab === 'findings' ? (
+            findings.length === 0 ? (
+              <p className="text-[11px] text-zinc-500 text-center py-8">No findings: every calc that sizes an element agrees with the model's size.</p>
+            ) : (
+              findings.map((f, i) => {
+                const el = nodeById.get(f.elementId);
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setCompareDep(null);
+                      onChangeTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize} (model ${f.modelSize})` });
+                      onSelectElements([f.elementId]);
+                    }}
+                    className="block w-full text-left p-3 rounded-xl border bg-rose-500/[0.06] hover:bg-rose-500/[0.12] border-rose-400/25 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3 h-3 text-rose-300" aria-hidden="true" />
+                        {el?.label ?? f.elementId}
+                        {el?.storey && <span className="mono text-[10px] text-zinc-500 font-normal">{el.storey}</span>}
+                      </span>
+                      <span className="mono text-[10px] text-rose-200">
+                        {f.modelSize} ≠ {f.calcSize}
+                      </span>
+                    </span>
+                    <span className="block text-[10px] text-zinc-400 mt-1 leading-snug">{f.note}</span>
+                    <span className="block mono text-[9px] text-zinc-500 mt-0.5 truncate">
+                      {calcByKey.get(f.calcKey)?.title ?? f.calcKey} · p. {f.page}
+                    </span>
+                  </button>
+                );
+              })
+            )
+          ) : elementLinks ? (
+            filteredLinks.length === 0 ? (
+              <div className="text-center py-12 text-zinc-500">
+                <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
+                <p className="text-xs font-medium text-zinc-300">No calc names this element</p>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  Nothing in the package mentions {selectedElement?.mark ? `"${selectedElement.mark}"` : 'it (it has no mark)'}, its size or its type.
+                </p>
+              </div>
+            ) : (
+              filteredLinks.map((l) => listRow(calcByKey.get(l.calcKey)!, { link: l }))
+            )
+          ) : filteredCalcs.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
               <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
               <p className="text-xs font-medium text-zinc-300">{calcs.length ? 'No matching calculations' : 'No calc package loaded'}</p>
@@ -309,83 +428,23 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               </p>
             </div>
           ) : (
-            filteredDocs.map((doc) => {
-              const isActive = activeDoc?.id === doc.id;
-              return (
-                <button
-                  key={doc.id}
-                  type="button"
-                  aria-pressed={isActive}
-                  onClick={() => {
-                    setSelectedDocId(doc.id);
-                    setSelectedRevision(null);
-                  }}
-                  className={`block w-full text-left p-3 rounded-xl cursor-pointer transition border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
-                    isActive
-                      ? 'bg-calcmap/15 border-calcmap/40'
-                      : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
-                  }`}
-                >
-                  {(() => {
-                    const statuses = doc.mappedElementIds
-                      .map((eid) => nodeMap.get(eid)?.diffStatus)
-                      .filter((s): s is DiffStatus => Boolean(s) && s !== 'unchanged');
-                    const topStatus: DiffStatus | null = statuses.includes('modified')
-                      ? 'modified'
-                      : statuses.includes('added')
-                      ? 'added'
-                      : statuses.includes('removed')
-                      ? 'removed'
-                      : null;
-                    return (
-                      <span className="flex items-start justify-between gap-2">
-                        <span className="flex items-center gap-2 min-w-0">
-                          <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                          <span className="text-xs font-semibold text-zinc-100 truncate">{doc.title}</span>
-                        </span>
-                        <span className="flex items-center gap-1 flex-shrink-0">
-                          {diffMode && topStatus && (
-                            <span
-                              className="mono text-[8.5px] font-bold px-1.5 py-0.5 rounded uppercase"
-                              style={{
-                                backgroundColor: `${DIFF_PALETTE[topStatus]}26`,
-                                color: DIFF_PALETTE[topStatus],
-                              }}
-                            >
-                              {topStatus}
-                            </span>
-                          )}
-                          <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
-                            {doc.rev}
-                          </span>
-                        </span>
-                      </span>
-                    );
-                  })()}
-                  <span className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: doc.nodeColor }} />
-                      <span className="text-zinc-300">
-                        {doc.mappedElementIds.length > 1
-                          ? `${doc.mappedElementIds.length} Mapped Elements`
-                          : doc.nodeLabel}
-                      </span>
-                    </span>
-                    <span>
-                      {doc.type} • {doc.pages}p
-                    </span>
-                  </span>
-                </button>
-              );
-            })
+            filteredCalcs.map((c) => listRow(c))
           )}
         </div>
 
-        {/* Document Preview & Revision Selector */}
-        <div className="min-w-0 min-h-0 min-[900px]:col-span-7 min-[1280px]:col-span-8 overflow-y-auto p-4 bg-[#252729] flex flex-col">
-          {!activeDoc || !activeRevision ? (
-            <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs">
-              Select a calculation PDF from the left panel to preview its engineering sheet.
+        <div className="min-w-0 min-h-0 min-[900px]:col-span-7 min-[1280px]:col-span-8 overflow-hidden p-4 bg-[#24272d] flex flex-col gap-3">
+          {compareDep ? (
+            <EvidenceCompare
+              left={depSource(compareDep, 'source')}
+              right={depSource(compareDep, 'target')}
+              leftTitle={`Output · ${calcByKey.get(compareDep.source)?.title ?? compareDep.source}`}
+              rightTitle={`Input · ${calcByKey.get(compareDep.target)?.title ?? compareDep.target}`}
+              note={compareDep.rules.join(' · ')}
+              onClose={() => setCompareDep(null)}
+            />
+          ) : !activeCalc || !target ? (
+            <div className="flex-1 flex items-center justify-center text-zinc-500 text-xs text-center px-6">
+              {calcs.length ? 'Pick a calculation or a link on the left to open its original page.' : 'No calc package loaded yet.'}
             </div>
           ) : (
             <>
@@ -412,7 +471,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           onClick={() => goRegion(Math.max(0, regionIdx - 1))}
                           disabled={regionIdx <= 0}
                           aria-label="Previous region"
-                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                         >
                           <ChevronLeft className="w-3 h-3" aria-hidden="true" />
                         </button>
@@ -424,7 +483,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           onClick={() => goRegion(Math.min(regions.length - 1, regionIdx + 1))}
                           disabled={regionIdx >= regions.length - 1}
                           aria-label="Next region"
-                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                         >
                           <ChevronRight className="w-3 h-3" aria-hidden="true" />
                         </button>
@@ -440,7 +499,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                             aria-pressed={p === target.page}
                             className={`mono text-[9px] px-1.5 py-0.5 rounded border transition-colors ${
                               p === target.page
-                                ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'
+                                ? 'bg-calcmap/15 text-calcmap border-calcmap/45 font-semibold'
                                 : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
                             }`}
                           >
@@ -483,82 +542,65 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                 </div>
               </div>
 
-              {/* PDF Version / Revision Tabs */}
-              {revisions.length > 0 && (
-                <div className="px-5 py-2 border-b border-white/[0.08] bg-[#1e2127]/60 flex items-center justify-between gap-2">
-                  <span className="mono text-[10px] text-zinc-400 flex items-center gap-1.5">
-                    <History className="w-3 h-3 text-calcmap" />
-                    PDF Versions ({revisions.length}):
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {revisions.map((r) => {
-                      const isCurr = r.rev === activeRevision.rev;
-                      return (
-                        <button
-                          key={r.rev}
-                          type="button"
-                          onClick={() => setSelectedRevision({ docId: activeDoc.id, rev: r.rev })}
-                          aria-pressed={isCurr}
-                          className={`mono text-[10px] px-2.5 py-0.5 rounded-md border transition ${
-                            isCurr
-                              ? 'bg-calcmap/15 text-calcmap border-calcmap/45 font-semibold'
-                              : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
-                          }`}
-                        >
-                          {r.rev} ({r.date})
-                        </button>
-                      );
-                    })}
-                  </div>
+              <div className="flex-1 min-h-[300px] border border-white/[0.12] rounded-xl overflow-hidden">
+                <PdfPage
+                  source={
+                    pdfSource && {
+                      ...pdfSource,
+                      label: `${activeCalc.title} · page ${target.page}`,
+                      sub: target.rects.length ? `${target.caption ?? 'Evidence'} — highlighted` : calcPackageName ?? undefined,
+                    }
+                  }
+                  emptyText="The calc package PDF is not available here (an export JSON carries no PDF; open the project file instead)."
+                />
+              </div>
+
+              {(deps.inputs.length > 0 || deps.feeds.length > 0 || linkedElements.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 flex-shrink-0 max-h-44 overflow-y-auto">
+                  {(deps.inputs.length > 0 || deps.feeds.length > 0) && (
+                    <div className="bg-white/[0.02] border border-white/[0.07] rounded-xl p-2.5 space-y-1.5">
+                      <p className="mono text-[9px] text-zinc-500 uppercase tracking-wider">Calc dependencies</p>
+                      {[...deps.inputs.map((d) => ({ d, dir: 'in' as const })), ...deps.feeds.map((d) => ({ d, dir: 'out' as const }))].map(({ d, dir }, i) => {
+                        const other = calcByKey.get(dir === 'in' ? d.source : d.target);
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setCompareDep(d)}
+                            title="Compare the evidence on both pages"
+                            className="w-full text-left flex items-center gap-2 bg-calcmap/[0.06] hover:bg-calcmap/[0.14] border border-calcmap/20 rounded-lg px-2 py-1.5 transition"
+                          >
+                            <span className="mono text-[9px] text-calcmap flex-shrink-0">{dir === 'in' ? 'Input from' : 'Feeds'}</span>
+                            <ArrowRight className={`w-3 h-3 text-calcmap flex-shrink-0 ${dir === 'in' ? 'rotate-180' : ''}`} />
+                            <span className="text-[11px] text-zinc-100 truncate">{other?.title ?? (dir === 'in' ? d.source : d.target)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {linkedElements.length > 0 && (
+                    <div className="bg-white/[0.02] border border-white/[0.07] rounded-xl p-2.5">
+                      <p className="mono text-[9px] text-zinc-500 uppercase tracking-wider mb-1.5">Linked elements ({linkedElements.length})</p>
+                      <div className="flex flex-wrap gap-1">
+                        {linkedElements.slice(0, 60).map((el) => (
+                          <button
+                            key={el.id}
+                            type="button"
+                            onClick={() => onLocateElement(el.id, 'element-graph')}
+                            className="mono text-[10px] px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-calcmap/20 text-zinc-200 border border-white/[0.12] hover:border-calcmap/40 transition flex items-center gap-1.5"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getEffectiveNodeColor(el, 'type') }} />
+                            {el.label}
+                            {el.storey && <span className="text-zinc-500">{el.storey}</span>}
+                          </button>
+                        ))}
+                        {linkedElements.length > 60 && <span className="mono text-[10px] text-zinc-500">+{linkedElements.length - 60} more</span>}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-
-              <div className="p-6 space-y-5">
-                <div className="border border-white/[0.14] rounded-xl p-5 bg-[#05070c] relative overflow-hidden">
-                  <div className="flex items-start justify-between gap-4 border-b border-white/[0.12] pb-4">
-                    <div>
-                      <p className="mono text-[10px] text-calcmap uppercase tracking-widest mb-1">
-                        {activeDoc.type} // {activeDoc.code}
-                      </p>
-                      <h3 className="text-base font-bold text-white tracking-tight">{activeDoc.title}</h3>
-                    </div>
-                    <div className="text-right mono text-[10px] text-zinc-400 flex-shrink-0">
-                      <div className="px-2 py-1 rounded bg-white/[0.04] border border-white/[0.12] text-zinc-200 font-semibold">
-                        {activeRevision.rev}
-                      </div>
-                      <div className="mt-1 text-zinc-500">Issued {activeRevision.date}</div>
-                    </div>
-                  </div>
-
-                  <div className="py-4 border-b border-white/[0.12]">
-                    <span className="mono text-[9px] text-zinc-500 uppercase block mb-2">
-                      Mapped Structural Elements ({mappedElements.length})
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {mappedElements.map((el) => (
-                        <button
-                          key={el.id}
-                          type="button"
-                          onClick={() => onLocateElement(el.id, 'element-graph')}
-                          className="mono text-[10px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-calcmap/20 text-zinc-200 border border-white/[0.12] hover:border-calcmap/40 transition flex items-center gap-1.5"
-                        >
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeDoc.nodeColor }} />
-                          <span>{el.label}</span>
-                          {el.sectionSize && <span className="text-zinc-500">({el.sectionSize})</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <p className="mono text-[10px] text-zinc-400 uppercase tracking-wider mb-1.5">
-                      Calculation Scope & Design Check ({activeRevision.rev})
-                    </p>
-                    <p className="text-xs text-zinc-300 leading-relaxed">{activeRevision.summary}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </>
           )}
         </div>
       </div>

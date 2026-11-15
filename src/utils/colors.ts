@@ -1,8 +1,7 @@
-import { BimNode } from '../types/bim';
-import { isProjectNode, isElementTypeNode, isColumnStackNode, isInstanceNode } from './graphEngine';
+import type { BimNode, ColorMode, DiffStatus, HighlightTone, LinkReview, MappingStatus } from '../types/bim';
 
-const GRAPH_NODE_PALETTE = [
-  // Supplied swatches plus equal OKLab steps, reordered for contrast.
+/** Supplied node swatches plus equal OKLab steps, ordered to keep neighbouring categories distinct. */
+export const GRAPH_NODE_PALETTE = [
   '#FF1493',
   '#A3D900',
   '#00AEEF',
@@ -24,134 +23,71 @@ const GRAPH_NODE_PALETTE = [
   '#FF5284',
   '#FFA537',
   '#FF931C',
-];
+] as const;
 
-const GRAPH_ROOT_COLOR = '#D8D3D8';
-
-const STRUCTURAL_CATEGORY_IDS = [
-  'cat-slab',
-  'cat-col',
-  'cat-beam',
-  'cat-mframe',
-  'cat-brace',
-  'cat-conn',
-  'cat-wall',
-  'cat-mat',
-  'cat-pcap',
-  'cat-pile',
-  'cat-footing',
-  'cat-stair',
-  'cat-roof',
-  'cat-curtain',
-  'cat-window',
-  'cat-door',
-  'cat-railing',
-  'cat-covering',
-  'cat-rebar',
-  'cat-tendon',
-  'cat-proxy',
-];
-
-const structuralCategoryColors = Object.fromEntries(
-  STRUCTURAL_CATEGORY_IDS.map((id, index) => [id, GRAPH_NODE_PALETTE[index % GRAPH_NODE_PALETTE.length]])
-);
-
-const GRAPH_CATEGORY_PALETTE: Record<string, string> = {
-  ...structuralCategoryColors,
-  'calc-cat-beam': GRAPH_NODE_PALETTE[2],
-  'calc-cat-col': GRAPH_NODE_PALETTE[1],
-  'calc-cat-conn': GRAPH_NODE_PALETTE[5],
-  'calc-cat-slab': GRAPH_NODE_PALETTE[0],
-  'calc-cat-wall': GRAPH_NODE_PALETTE[6],
-  'calc-cat-fdn': GRAPH_NODE_PALETTE[10],
-};
-
-export const CATEGORY_PALETTE: Record<string, string> = {
-  'proj-1': '#14AE5C',
-  'proj-root': '#14AE5C',
-  'cat-slab': '#0369a1',
-  'cat-col': '#15803d',
-  'cat-beam': '#b45309',
-  'cat-mframe': '#6d28d9',
-  'cat-brace': '#0f766e',
-  'cat-conn': '#0e7490',
-  'cat-wall': '#be123c',
-  'cat-mat': '#9a3412',
-  'cat-pcap': '#c2410c',
-  'cat-pile': '#334155',
-  'cat-footing': '#9a3412',
-  'cat-stair': '#4338ca',
-  'cat-roof': '#1d4ed8',
-  'cat-curtain': '#0284c7',
-  'cat-window': '#0891b2',
-  'cat-door': '#7e22ce',
-  'cat-railing': '#475569',
-  'cat-covering': '#4f46e5',
-  'cat-rebar': '#9f1239',
-  'cat-tendon': '#a16207',
-  'cat-proxy': '#3f3f46',
-  'calc-root': '#14AE5C',
-  'calc-cat-beam': '#b45309',
-  'calc-cat-col': '#15803d',
-  'calc-cat-conn': '#0e7490',
-  'calc-cat-slab': '#0369a1',
-  'calc-cat-wall': '#be123c',
-  'calc-cat-fdn': '#9a3412',
+/** Element-graph kinds use the first six palette steps in a high-contrast order. */
+export const KIND_PALETTE: Record<string, string> = {
+  slab: GRAPH_NODE_PALETTE[0],
+  column: GRAPH_NODE_PALETTE[1],
+  beam: GRAPH_NODE_PALETTE[2],
+  brace: GRAPH_NODE_PALETTE[4],
+  connection: GRAPH_NODE_PALETTE[5],
+  fastener: GRAPH_NODE_PALETTE[6],
+  wall: GRAPH_NODE_PALETTE[7],
+  footing: GRAPH_NODE_PALETTE[10],
+  pile: GRAPH_NODE_PALETTE[11],
+  other: GRAPH_NODE_PALETTE[12],
 };
 
 export const IFC_ENTITY_PALETTE: Record<string, string> = {
-  IFCSLAB: '#0369a1',
-  IFCCOLUMN: '#15803d',
-  IFCBEAM: '#b45309',
-  IFCMEMBER: '#0f766e',
-  IFCWALL: '#be123c',
-  IFCWALLSTANDARDCASE: '#be123c',
-  IFCCURTAINWALL: '#0284c7',
-  IFCFOOTING: '#9a3412',
-  IFCPILE: '#334155',
-  IFCPLATE: '#0e7490',
-  IFCMECHANICALFASTENER: '#0e7490',
-  IFCDISCRETEACCESSORY: '#0e7490',
-  IFCROOF: '#1d4ed8',
-  IFCSTAIR: '#4338ca',
-  IFCSTAIRFLIGHT: '#4338ca',
-  IFCRAMP: '#4338ca',
-  IFCRAMPFLIGHT: '#4338ca',
-  IFCRAILING: '#475569',
-  IFCWINDOW: '#0891b2',
-  IFCDOOR: '#7e22ce',
-  IFCCOVERING: '#4f46e5',
-  IFCREINFORCINGBAR: '#9f1239',
-  IFCREINFORCINGMESH: '#9f1239',
-  IFCTENDON: '#a16207',
-  IFCTENDONANCHOR: '#a16207',
-  IFCBUILDINGELEMENTPROXY: '#3f3f46',
-  IFCSITE: '#1e3a8a',
-  IFCBUILDING: '#312e81',
-  IFCBUILDINGSTOREY: '#3730a3',
-  IFCSPACE: '#5b21b6',
-  IFCOPENINGELEMENT: '#52525b',
-  IFCDISTRIBUTIONELEMENT: '#115e59',
-  IFCFLOWSEGMENT: '#115e59',
-  IFCFLOWTERMINAL: '#115e59',
+  IFCSLAB: KIND_PALETTE.slab,
+  IFCCOLUMN: KIND_PALETTE.column,
+  IFCBEAM: KIND_PALETTE.beam,
+  IFCMEMBER: KIND_PALETTE.brace,
+  IFCWALL: KIND_PALETTE.wall,
+  IFCWALLSTANDARDCASE: KIND_PALETTE.wall,
+  IFCCURTAINWALL: GRAPH_NODE_PALETTE[13],
+  IFCFOOTING: KIND_PALETTE.footing,
+  IFCPILE: KIND_PALETTE.pile,
+  IFCPLATE: KIND_PALETTE.connection,
+  IFCMECHANICALFASTENER: KIND_PALETTE.fastener,
+  IFCDISCRETEACCESSORY: KIND_PALETTE.connection,
+  IFCROOF: GRAPH_NODE_PALETTE[14],
+  IFCSTAIR: GRAPH_NODE_PALETTE[15],
+  IFCSTAIRFLIGHT: GRAPH_NODE_PALETTE[15],
+  IFCRAMP: GRAPH_NODE_PALETTE[16],
+  IFCRAMPFLIGHT: GRAPH_NODE_PALETTE[16],
+  IFCRAILING: GRAPH_NODE_PALETTE[17],
+  IFCWINDOW: GRAPH_NODE_PALETTE[18],
+  IFCDOOR: GRAPH_NODE_PALETTE[19],
+  IFCCOVERING: GRAPH_NODE_PALETTE[20],
+  IFCREINFORCINGBAR: GRAPH_NODE_PALETTE[8],
+  IFCREINFORCINGMESH: GRAPH_NODE_PALETTE[8],
+  IFCTENDON: GRAPH_NODE_PALETTE[9],
+  IFCTENDONANCHOR: GRAPH_NODE_PALETTE[9],
+  IFCBUILDINGELEMENTPROXY: KIND_PALETTE.other,
+  IFCSITE: GRAPH_NODE_PALETTE[3],
+  IFCBUILDING: GRAPH_NODE_PALETTE[3],
+  IFCBUILDINGSTOREY: GRAPH_NODE_PALETTE[3],
+  IFCSPACE: GRAPH_NODE_PALETTE[3],
+  IFCOPENINGELEMENT: GRAPH_NODE_PALETTE[3],
+  IFCDISTRIBUTIONELEMENT: GRAPH_NODE_PALETTE[6],
+  IFCFLOWSEGMENT: GRAPH_NODE_PALETTE[6],
+  IFCFLOWTERMINAL: GRAPH_NODE_PALETTE[6],
 };
 
 export function hashStringToJewelColor(str: string): string {
-  const jewelSwatches = [
-    '#0369a1', '#15803d', '#b45309', '#be123c', '#6d28d9',
-    '#0f766e', '#1d4ed8', '#9a3412', '#4338ca', '#0e7490',
-    '#7e22ce', '#9f1239', '#334155', '#1e40af', '#065f46',
-  ];
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return jewelSwatches[Math.abs(h) % jewelSwatches.length];
+  return GRAPH_NODE_PALETTE[Math.abs(h) % GRAPH_NODE_PALETTE.length];
 }
 
 export function getHeatmapColor(utilization?: number): string {
-  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return '#FF1493';
+  // Unknown is not a measurement: use a distinct palette color, never a guessed mid-scale value.
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return NO_DATA_COLOR;
   const u = Math.max(0, Math.min(1, utilization));
   const stops = [
     { t: 0.25, r: 0, g: 174, b: 239 },
@@ -212,55 +148,139 @@ export const CALC_PALETTE = [
   '#2b8c8c', '#8f6ed5', '#d4a017', '#3d9970', '#c2185b', '#5f7d95',
 ];
 
-export const DIFF_PALETTE: Record<'added' | 'removed' | 'modified' | 'unchanged', string> = {
+export const PROJECT_COLOR = '#D8D3D8';
+export const NO_DATA_COLOR = '#FF1493';
+
+export const STATUS_COLORS: Record<MappingStatus, string> = {
+  confirmed: '#059669',
+  review: '#d97706',
+  unmapped: '#e11d48',
+};
+
+export const STATUS_LABELS: Record<MappingStatus, string> = {
+  confirmed: 'Mapped',
+  review: 'Needs review',
+  unmapped: 'No calc found',
+};
+
+export const REVIEW_COLORS: Record<LinkReview, string> = {
+  confirmed: '#34d399',
+  manual: '#818cf8',
+  auto: '#fbbf24',
+  rejected: '#fb7185',
+};
+
+export const REVIEW_LABELS: Record<LinkReview, string> = {
+  confirmed: 'Confirmed',
+  manual: 'Linked by hand',
+  auto: 'Proposed',
+  rejected: 'Rejected',
+};
+
+export const TONE_COLORS: Record<HighlightTone, string> = {
+  origin: '#ffffff',
+  removed: '#f43f5e',
+  hit: '#f59e0b',
+  stale: '#f59e0b',
+};
+
+export const DIFF_PALETTE: Record<DiffStatus, string> = {
   added: '#A3D900',
   removed: '#FF5E7E',
   modified: '#FF8A00',
   unchanged: '#00AEEF',
 };
 
-function hashStringToGraphNodeColor(str: string): string {
-  let hash = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return GRAPH_NODE_PALETTE[Math.abs(hash) % GRAPH_NODE_PALETTE.length];
+/** How a link was made, in words (matcher tier -> label). */
+export const TIER_LABELS: Record<string, string> = {
+  exact: 'Named by mark',
+  range: 'In a mark range',
+  loose: 'Mark, punctuation ignored',
+  family: 'Mark family',
+  partial: 'Partial mark',
+  xref: 'Cross-reference only',
+  size: 'Section size + type',
+  type: 'Element type only',
+  manual: 'Linked by hand',
+};
+
+export function getConfidenceColor(conf: number | undefined): string {
+  if (typeof conf !== 'number') return NO_DATA_COLOR;
+  if (conf >= 0.8) return '#059669';
+  if (conf >= 0.5) return '#d97706';
+  return '#e11d48';
 }
 
-function getGraphBaseNodeColor(node: BimNode): string {
-  if (isProjectNode(node)) return GRAPH_ROOT_COLOR;
-  if (GRAPH_CATEGORY_PALETTE[node.id]) return GRAPH_CATEGORY_PALETTE[node.id];
-  if (isColumnStackNode(node)) return GRAPH_CATEGORY_PALETTE['cat-col'];
-  if (node.categoryParent && GRAPH_CATEGORY_PALETTE[node.categoryParent]) {
-    return GRAPH_CATEGORY_PALETTE[node.categoryParent];
+/** Stroke colour + dash of a calc-mapping edge, styled by its review state. */
+export function linkStrokeStyle(review: LinkReview | undefined, confidence = 0): { stroke: string; dash?: string; width: number } {
+  switch (review) {
+    case 'confirmed':
+      return { stroke: REVIEW_COLORS.confirmed, width: 1.6 };
+    case 'manual':
+      return { stroke: REVIEW_COLORS.manual, width: 1.6 };
+    case 'rejected':
+      return { stroke: REVIEW_COLORS.rejected, dash: '1.5 3', width: 1.1 };
+    default:
+      return { stroke: confidence >= 0.8 ? '#a3e635' : REVIEW_COLORS.auto, dash: confidence >= 0.8 ? undefined : '4 3', width: 1.2 };
   }
-  if (node.parent && GRAPH_CATEGORY_PALETTE[node.parent]) {
-    return GRAPH_CATEGORY_PALETTE[node.parent];
-  }
-  if (node.ifcType) return hashStringToGraphNodeColor(node.ifcType.toUpperCase());
-  if (isElementTypeNode(node)) {
-    return hashStringToGraphNodeColor(node.id || node.label);
-  }
-  return hashStringToGraphNodeColor(node.parent || node.id || node.label);
 }
 
-export function getEffectiveNodeColor(node: BimNode | null | undefined, heatmapMode: boolean, diffMode = false): string {
-  if (!node) return '#14AE5C';
-  if (isProjectNode(node)) return GRAPH_ROOT_COLOR;
-  if (diffMode && node.diffStatus && isInstanceNode(node)) {
-    return DIFF_PALETTE[node.diffStatus];
-  }
-  if (heatmapMode && isInstanceNode(node)) {
-    return getHeatmapColor(node.utilization);
-  }
-  return getGraphBaseNodeColor(node);
+/** Colour of an element / family / category by kind, else by IFC type. */
+export function typeColor(node: BimNode): string {
+  if (node.elementKind && KIND_PALETTE[node.elementKind]) return KIND_PALETTE[node.elementKind];
+  if (node.elementKind) return hashStringToJewelColor(node.elementKind);
+  return ifcTypeColor(node.ifcType, node.parent || node.id);
 }
 
-export function getGraphNodeColor(
-  node: BimNode | null | undefined,
-  heatmapMode: boolean,
-  diffMode = false
-): string {
-  return getEffectiveNodeColor(node, heatmapMode, diffMode);
+function calcCategoryColor(node: BimNode): string {
+  const label = `${node.id} ${node.label}`.toLowerCase();
+  if (/beam|girder/.test(label)) return KIND_PALETTE.beam;
+  if (/column/.test(label)) return KIND_PALETTE.column;
+  if (/connection|fastener/.test(label)) return KIND_PALETTE.connection;
+  if (/slab|punch/.test(label)) return KIND_PALETTE.slab;
+  if (/wall|lateral/.test(label)) return KIND_PALETTE.wall;
+  if (/foundation|footing|geotech|pile/.test(label)) return KIND_PALETTE.footing;
+  return hashStringToJewelColor(node.id);
+}
+
+export function ifcTypeColor(ifcType: string | undefined, fallbackKey: string): string {
+  const key = (ifcType || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return IFC_ENTITY_PALETTE[key] ?? hashStringToJewelColor(fallbackKey);
+}
+
+/** Strongest live DESIGN link of an element (rejected and loads-only links ignored, as the mapping status does). */
+export function topLiveConfidence(node: BimNode): number | undefined {
+  const live = (node.calcLinks ?? []).filter((l) => l.review !== 'rejected' && l.role === 'design');
+  if (!live.length) return undefined;
+  return Math.max(...live.map((l) => (l.review === 'confirmed' || l.review === 'manual' ? 1 : l.confidence)));
+}
+
+export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMode: ColorMode = 'type', diffMode = false): string {
+  if (!node) return NO_DATA_COLOR;
+  if (diffMode && node.kind === 'element') return DIFF_PALETTE[node.diffStatus ?? 'unchanged'];
+  switch (node.kind) {
+    case 'project':
+    case 'calc-root':
+      return PROJECT_COLOR;
+    case 'calc':
+      return node.color ?? hashStringToJewelColor(node.id);
+    case 'calc-category':
+      return calcCategoryColor(node);
+    case 'mapped-element': {
+      const l = node.link;
+      if (!l) return NO_DATA_COLOR;
+      if (l.review === 'rejected') return '#9f1239';
+      if (l.review === 'confirmed' || l.review === 'manual') return '#059669';
+      return getConfidenceColor(l.confidence);
+    }
+    case 'category':
+    case 'family':
+      return typeColor(node);
+    case 'element':
+    default:
+      if (colorMode === 'review') return node.mappingStatus ? STATUS_COLORS[node.mappingStatus] : NO_DATA_COLOR;
+      if (colorMode === 'confidence') return getConfidenceColor(topLiveConfidence(node));
+      if (colorMode === 'utilisation') return getHeatmapColor(node.utilization);
+      return typeColor(node);
+  }
 }

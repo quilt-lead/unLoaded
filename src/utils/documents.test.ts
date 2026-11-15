@@ -62,12 +62,6 @@ describe('documents on the one model path', () => {
     expect(v.hasDemoData).toBe(false);
   });
 
-  it('uses a neutral root label when no project name is available', () => {
-    const graph = buildCalculationGraph([], '');
-
-    expect(graph.calcNodes.find((node) => node.id === 'calc-root')?.label).toBe('Calculation Graph');
-  });
-
   it('preserves supplied document metadata without inventing revision history', () => {
     const withHistory = { ...doc, id: 'other-package', revisions: [{ rev: 'Rev A', date: '2026-10-01', pages: 3 }] };
     const v = view(model([beam('B1', 0, [doc]), beam('B2', 40, [withHistory])]));

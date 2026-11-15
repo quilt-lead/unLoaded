@@ -10,7 +10,7 @@ import {
   isProjectNode,
   loadPathKey,
 } from '../utils/graphEngine';
-import { getContrastingTextStyle, getGraphNodeColor } from '../utils/colors';
+import { DIFF_PALETTE, TONE_COLORS, getContrastingTextStyle, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -396,16 +396,6 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         }}
         className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden flex items-center justify-center"
       >
-        {nodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="bg-[#2d3139]/90 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-6 py-5 text-center max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
-              <h3 className="text-sm font-semibold text-white">Import a structural model</h3>
-              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Choose <span className="text-zinc-200 font-medium">Import</span> in the top-right bar, or drop a model file anywhere on the window.
-              </p>
-            </div>
-          </div>
-        )}
         <svg id="graphSvg" className="w-full h-full">
           <g id="viewport" transform={`translate(${camera.panX}, ${camera.panY}) scale(${camera.scale})`}>
             {/* Subtle Polar Reference Rings */}
@@ -551,14 +541,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                         <g transform={`translate(${badgeX + badgeWidth - 15}, ${badgeY + 3})`} onPointerDown={(e) => e.stopPropagation()} onClick={startRename}>
                           <title>Rename group</title>
                           <rect width={12} height={12} rx={3} fill="rgba(255,255,255,0.12)" />
-                          <text
-                            x={6}
-                            y={9.2}
-                            textAnchor="middle"
-                            fill="#14AE5C"
-                            fontSize="8px"
-                            fontFamily="'Apercu Pro', 'Apercu', sans-serif"
-                          >
+                          <text x={6} y={9.2} textAnchor="middle" fill="#14AE5C" fontSize="8px" fontFamily="'Apercu Pro', 'Apercu', sans-serif">
                             ✎
                           </text>
                         </g>
@@ -665,8 +648,9 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const dimmed = (hasSelection || isFilterActive) && !isLit;
                 const isProj = isProjectNode(node);
                 const isCategory = isElementTypeNode(node);
-                const isStack = isColumnStackNode(node);
-                const fillHex = getGraphNodeColor(node, heatmapMode, diffMode);
+                const isFamily = isFamilyNode(node);
+                const tone = overlay?.tones.get(node.id);
+                const fillHex = tone ? TONE_COLORS[tone] : getEffectiveNodeColor(node, colorMode, diffMode);
                 const textStyle = getContrastingTextStyle(fillHex);
                 const isRemovedDiff = diffMode && node.diffStatus === 'removed';
                 const ringColor =
@@ -690,12 +674,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                   >
                     <title>{node.desc ? `${node.label} — ${node.desc}` : node.label}</title>
                     {isSelected && (
-                      <circle
-                        r={node.r + 6}
-                        fill="none"
-                        stroke="#D2F2DF"
-                        strokeWidth={1.75}
-                      />
+                      <circle r={node.r + 6} fill="none" stroke={isPrimary ? '#ffffff' : '#38bdf8'} strokeWidth={1.75} strokeDasharray="4 3" />
                     )}
                     {ringColor && !isSelected && <circle r={node.r + 2.6} fill="none" stroke={ringColor} strokeWidth={1.6} />}
                     {tone === 'origin' && <circle r={node.r + 7} fill="none" stroke="#818cf8" strokeWidth={2} />}
@@ -705,7 +684,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       fillOpacity={isRemovedDiff ? 0.55 : 1}
                       stroke={
                         isSelected
-                          ? '#14AE5C'
+                          ? '#ffffff'
                           : isProj
                           ? '#ffffff'
                           : isCategory

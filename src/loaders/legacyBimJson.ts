@@ -115,24 +115,7 @@ function geometryOf(n: LegacyNode, kind: string): GeometrySummary | undefined {
   return geom;
 }
 
-  const projectLabel = parsed.projectName || parsed.project || fileName.replace(/\.json$/i, '');
-  const nodes: BimNode[] = [
-    {
-      id: 'proj-1',
-      label: projectLabel,
-      type: 'Project',
-      level: 0,
-      floor: 'ALL',
-      floorNum: 0,
-      r: 36,
-      x: 0,
-      y: 0,
-      color: '#14AE5C',
-      desc: `Imported BIM model (${rawNodes.length} elements).`,
-    },
-  ];
-  const links: BimLink[] = [...rawLinks];
-  const catMap = new Map<string, BimNode>();
+const linkId = (v: LegacyLink['source']) => (typeof v === 'object' && v !== null ? v.id : v) ?? '';
 
 function legacyToModelInput(d: LegacyBimJson, fileName: string): { input: ModelInput; documents: Map<string, Record<string, unknown>[]> } {
   const byId = new Map<string, LegacyNode>();

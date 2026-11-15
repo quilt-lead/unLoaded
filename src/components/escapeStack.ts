@@ -11,12 +11,6 @@ const layers: { close: Close }[] = [];
 let fallback: Close | null = null;
 let listening = false;
 
-/** an Escape typed into a field belongs to that field (cancel a rename), not to the app */
-const isEditable = (t: EventTarget | null) => {
-  const el = t as HTMLElement | null;
-  return Boolean(el && (['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName) || el.isContentEditable));
-};
-
 /** Run one Escape: the most recently opened layer closes, else the fallback runs. */
 export function dispatchEscape(): 'layer' | 'fallback' | 'none' {
   const top = layers[layers.length - 1];
@@ -32,7 +26,7 @@ export function dispatchEscape(): 'layer' | 'fallback' | 'none' {
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.key !== 'Escape' || e.defaultPrevented || isEditable(e.target)) return;
+  if (e.key !== 'Escape' || e.defaultPrevented) return;
   dispatchEscape();
 }
 

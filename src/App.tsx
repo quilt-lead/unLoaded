@@ -126,9 +126,57 @@ export const App: React.FC = () => {
   }, [initialProject.data]);
   const pid = exportView ? null : projectId;
 
-  const [projectName, setProjectName] = useState<string>('');
-  const [elementNodes, setElementNodes] = useState<BimNode[]>([]);
-  const [rawLinks, setRawLinks] = useState<BimGraphData['links']>([]);
+  // diff mode: (A, B) model revisions of `pid`; the diff is laid over revision B's view
+  const [diffRevs, setDiffRevs] = useState<{ a: number; b: number } | null>(null);
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>('ALL');
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  // progress of (re)building the project view: mapping runs in the worker the first time a
+  // (model, calcs) pair is seen; shown only while that query is fetching
+  const [viewProgress, setViewProgress] = useState('');
+  const projectQ = useProjectView(pid, setViewProgress, diffRevs?.b ?? null);
+  const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
+  const projectsQ = useProjectList();
+  const decide = useDecide(pid);
+  const sample = useLoadSample(setBusyText);
+  const demo = useLoadDemo(setBusyText);
+  const supplement = useLoadSupplement(setBusyText);
+  // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
+  const uploadModel = useUploadModel(setBusyText);
+  const uploadCalcs = useUploadCalcs(setBusyText);
+  const moveCalcRevision = useMoveCalcRevision(pid);
+  const changeDocument = useChangeDocument(pid);
+  const createProject = useCreateProject();
+  const revisions = projectQ.data?.revisions ?? null;
+  /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
+  const headModelRev = revisions?.find((r) => r.kind === 'model' && r.isHead)?.id ?? null;
+
+  const compareQ = useCompare(pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
+
+  const baseView: ProjectViewModel | null = exportView ?? projectQ.data?.view ?? null;
+  // The model revision ON SCREEN: while B's view loads, the previous revision's view is still shown
+  // (placeholder data), and impact and decisions must be about what the reviewer sees, not about the
+  // revision being loaded. Writes are disabled while the view is a placeholder (canWrite below).
+  const shownModelRev = exportView ? null : (baseView?.modelRevisionId ?? null);
+  const viewIsPlaceholder = !exportView && projectQ.isPlaceholderData;
+
+  const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
+  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change', shownModelRev);
+  const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
+
+  const diffApplied = useMemo(() => {
+    if (!baseView || !diffRevs || !compareQ.data) return null;
+    const label = (rid: number) => {
+      const r = revisions?.find((x) => x.id === rid);
+      return r ? `#${rid} ${r.label}` : `Revision #${rid}`;
+    };
+    return applyModelDiff(baseView, compareQ.data, { base: label(diffRevs.a), compare: label(diffRevs.b) });
+  }, [baseView, diffRevs, compareQ.data, revisions]);
+  const diffSummary = diffApplied?.summary ?? null;
+  const diffMode = Boolean(diffSummary);
+  const view = diffApplied?.view ?? baseView;
+
+  // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
   const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -300,113 +348,15 @@ export const App: React.FC = () => {
     return computeLoadPathTrace(view?.loadPath ?? [], seeds, traceDirection, traceSteps);
   }, [view, elementById, selectedNodeId, selectedNodeIds, traceDirection, traceSteps]);
 
-  const handleUploadFile = useCallback(
-    async (file: File, slot: 'base' | 'compare') => {
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const { graph, rawLinks: parsedLinks, warnings } = await importModel(file.name, bytes, (msg) =>
-          showToast(`${msg}…`)
-        );
-        if (!graph.nodes.some(isInstanceNode)) {
-          showToast('No physical structural elements found in file.', true);
-          return;
-        }
-        if (warnings.length > 0) console.warn(`[import] ${file.name}: ${warnings.length} warning(s)`, warnings);
-        const warnText =
-          warnings.length > 0 ? ` • ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (see console)` : '';
-
-        setGroups([]);
-        setFilters({ search: '', type: 'ALL', level: 'ALL' });
-        setDiffFilter('ALL');
-        setDocFilterBySelected(false);
-        setInitialDocId(null);
-        setDocumentOpenRequest((value) => value + 1);
-        setSelectedNodeId(null);
-        setSelectedNodeIds(new Set());
-        setSelectedCalcNodeId(null);
-        setSelectedCalcNodeIds(new Set());
-        setResetTrigger((c) => c + 1);
-
-        if (slot === 'compare') {
-          if (!baseSnapshot) {
-            // If Compare was chosen first, load the file as the primary model.
-            setBaseSnapshot({ graph, rawLinks: parsedLinks });
-            showToast(`Loaded primary model (${graph.projectName || file.name}). Choose Compare again to add a second model.`);
-            return;
-          }
-          setCompareSnapshot({ graph, rawLinks: parsedLinks });
-          const diffRes = computeDatabaseDiff(baseSnapshot.graph, baseSnapshot.rawLinks, graph, parsedLinks);
-          const s = diffRes.summary;
-          showToast(`Diff ready: +${s.addedCount} added, ~${s.modifiedCount} modified, -${s.removedCount} removed${warnText}`);
-        } else {
-          setBaseSnapshot({ graph, rawLinks: parsedLinks });
-          const catCount = graph.nodes.filter(isElementTypeNode).length;
-          const instCount = graph.nodes.filter(isInstanceNode).length;
-          showToast(`Loaded model: ${instCount} elements across ${catCount} types${warnText}`);
-        }
-      } catch (err: any) {
-        showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
-      }
-    },
-    [baseSnapshot, showToast]
-  );
-
-  const handleDropFiles = useCallback(
-    (files: File[], slot: DropSlot) => {
-      const supported = files.filter((f) =>
-        ACCEPTED_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
-      );
-      if (supported.length === 0) {
-        const names = files.map((f) => f.name).join(', ');
-        showToast(`Can’t import ${names}. Choose a supported model file.`, true);
-        return;
-      }
-      if (files.length > 1) {
-        console.info(`[drop] importing ${supported[0].name}; ignored ${files.length - 1} other file(s)`);
-      }
-      void handleUploadFile(supported[0], slot);
-    },
-    [handleUploadFile, showToast]
-  );
-
-  const { isDragging, hoverSlot } = useFileDrop(handleDropFiles);
-
-  const handleSwapDatabases = useCallback(() => {
-    if (!baseSnapshot || !compareSnapshot) return;
-    const prevBase = baseSnapshot;
-    const prevCompare = compareSnapshot;
-    setBaseSnapshot(prevCompare);
-    setCompareSnapshot(prevBase);
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-    showToast(
-      `Swapped models: "${prevCompare.graph.projectName || 'Comparison model'}" is now primary; "${prevBase.graph.projectName || 'Primary model'}" is now the comparison.`
-    );
-  }, [baseSnapshot, compareSnapshot, showToast]);
-
-  const handleClearDiff = useCallback(() => {
-    setCompareSnapshot(null);
-    setDiffFilter('ALL');
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-    showToast('Exited comparison — showing the primary model');
-  }, [showToast]);
-
-  const hierarchyLinks = useMemo(() => buildHierarchyLinks(elementNodes, rawLinks), [elementNodes, rawLinks]);
-
-  const { calcNodes, calcLinks, docToElementIds } = useMemo(
-    () => buildCalculationGraph(elementNodes, projectName),
-    [elementNodes, projectName]
-  );
-
-  const { chainNodeIds: activeLoadChainNodeIds } = useMemo(() => {
-    const seeds = selectedNodeIds.size > 0 ? Array.from(selectedNodeIds) : selectedNodeId ? [selectedNodeId] : [];
-    return computeLoadPathTrace(elementNodes, rawLinks, seeds, traceDirection, traceSteps);
-  }, [elementNodes, rawLinks, selectedNodeId, selectedNodeIds, traceDirection, traceSteps]);
+  const overlay = useMemo<HighlightOverlay | null>(() => {
+    if (!impact) return null;
+    const tones = new Map<string, HighlightTone>();
+    impact.hit.forEach((_, id) => tones.set(id, 'hit'));
+    impact.removed.forEach((id) => tones.set(id, 'removed'));
+    impact.stale.forEach((_, key) => tones.set(calcNodeId(key), 'stale'));
+    tones.set(impact.elementId, 'origin');
+    return { tones };
+  }, [impact]);
 
   const categories = useMemo(
     () => (activeView === 'calculation-graph' ? view?.calcNodes ?? [] : elementNodes).filter(isElementTypeNode),
@@ -608,15 +558,9 @@ export const App: React.FC = () => {
   });
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setDocFilterBySelected(false);
-        handleClearSelection();
-        return;
-      }
-
-      const target = e.target;
-      if (e.defaultPrevented || (target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest('input, textarea, select')))) return;
+      const t = e.target as HTMLElement | null;
+      if (e.defaultPrevented || (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable))) return;
+      // groups live on the element graph: Ctrl/Cmd+G elsewhere is the browser's
       if (activeView === 'element-graph' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
@@ -873,10 +817,28 @@ export const App: React.FC = () => {
     showToast('Exited diff mode');
   };
 
-  const handleOpenDocument = useCallback(
-    (nodeId: string, docId?: string, preserveSelection = false) => {
-      if (!preserveSelection && nodeId && selectedNodeId !== nodeId) {
-        handleSelectElementNode(nodeId, { skipZoomFit: true });
+  const handleResetAll = useCallback(() => {
+    setFilters(NO_FILTERS);
+    setDiffFilter('ALL');
+    setImpactReq(null);
+    handleClearSelection();
+    setMoved(new Map());
+    setViewer3dDock('float');
+    setInspectorDock('float');
+    setLeftDockWidth(340);
+    setRightDockWidth(360);
+    setDocFilterBySelected(false);
+    setPdfTarget(null);
+    setDocumentOpenRequest((c) => c + 1);
+    setResetTrigger((c) => c + 1);
+    showToast('View, filters & panels reset');
+  }, [handleClearSelection, showToast]);
+
+  const openTarget = useCallback(
+    (t: PdfTarget, elementId?: string) => {
+      if (elementId) {
+        handleSelectElementNode(elementId, { skipZoomFit: true });
+        setDocFilterBySelected(true);
       }
       setPdfTarget(t);
       setDocumentOpenRequest((c) => c + 1);
@@ -1033,13 +995,11 @@ export const App: React.FC = () => {
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title={diffMode ? '3D Comparison Model' : '3D Structural Model'}
+      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
       indicatorClassName={
-        diffMode
+        diffMode || impact
           ? 'bg-amber-400'
           : selectedNodeId
-          ? 'bg-amber-400'
-          : heatmapMode
           ? 'bg-amber-400'
           : 'bg-cyan-400'
       }
@@ -1054,7 +1014,7 @@ export const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setFit3dTrigger((c) => c + 1)}
-            title="Zoom Fit Selected Element"
+            title="Zoom to selection"
             className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
             FIT
@@ -1072,19 +1032,7 @@ export const App: React.FC = () => {
       }
     >
       <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
-        <Structural3DViewer
-          nodes={elementNodes}
-          selectedNodeId={selectedNodeId}
-          selectedNodeIds={selectedNodeIds}
-          activeLoadChainNodeIds={activeLoadChainNodeIds}
-          matchingNodeIds={matchingNodeIds}
-          isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
-          heatmapMode={heatmapMode}
-          diffMode={diffMode}
-          fitTrigger={fit3dTrigger}
-          resetTrigger={resetTrigger}
-          onSelectNode={handleSelectElementNode}
-        />
+        {viewer3d}
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
           <span className="truncate text-zinc-200">{status3d}</span>
           <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
@@ -1159,10 +1107,10 @@ export const App: React.FC = () => {
   const emptyState = (
     <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
       <div className="bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-7 py-6 text-center max-w-md w-full shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
-        <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-300 flex items-center justify-center mb-3">
+        <div className="w-11 h-11 mx-auto rounded-xl bg-calcmap/15 border border-calcmap/30 text-calcmap flex items-center justify-center mb-3">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Network className="w-5 h-5" />}
         </div>
-        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+        <p className="mono text-[10px] text-calcmap uppercase tracking-widest mb-1">
           {loading ? 'Opening project' : calcOnly ? 'Calc package added' : 'No model in this project yet'}
         </p>
         <h2 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h2>
@@ -1175,9 +1123,9 @@ export const App: React.FC = () => {
           type="button"
           disabled={Boolean(busyText)}
           onClick={handleLoadSample}
-          className="mt-4 w-full bg-indigo-500/25 hover:bg-indigo-500/35 text-white border border-indigo-400/50 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-4 w-full bg-calcmap/20 hover:bg-calcmap/30 text-white border border-calcmap/40 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-200" />}
+          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-calcmap" />}
           {busyText || 'Load sample'}
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
@@ -1188,7 +1136,7 @@ export const App: React.FC = () => {
           ].map((b) => (
             <label
               key={b.label}
-              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-400/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
+              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-calcmap/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
             >
               {b.icon}
               {b.label}
@@ -1259,12 +1207,14 @@ export const App: React.FC = () => {
         onToggleCompare={() => setCompareOpen((v) => !v)}
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
+        onResetAll={handleResetAll}
       />
 
       <FileDropOverlay
         visible={isDragging}
         hoverSlot={hoverSlot}
-        hasBaseModel={Boolean(baseSnapshot)}
+        hasBaseModel={headModelRev != null}
+        acceptedExtensions={DROP_EXTENSIONS}
       />
       {compareOpen && (
         <RevisionPanel
@@ -1332,10 +1282,7 @@ export const App: React.FC = () => {
               {showViewer3d && viewer3dDock === 'left' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'left' && renderInspectorPanel()}
             </div>
-            <div
-              onPointerDown={startDockColumnResize('left')}
-              className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25"
-            />
+            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
           </>
         )}
 
@@ -1400,13 +1347,13 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeView === '3d' && (
+          {hasProject && activeView === '3d' && (
             <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#2d3139]">
               <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] px-3 py-1.5 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
                 <span className="w-2 h-2 rounded-full bg-calcmap" />
-                <span className="mono text-[11px] text-zinc-200 font-medium">
-                  {projectName ? `${projectName} 3D Frame` : '3D Frame'}
-                </span>
+                <span className="mono text-[11px] text-zinc-200 font-medium">{view?.modelName ?? 'Model'}</span>
+                <span className="text-zinc-700">|</span>
+                <span className="mono text-[10px] text-zinc-400">{status3d}</span>
                 <span className="text-zinc-700">|</span>
                 <button
                   type="button"
@@ -1468,14 +1415,8 @@ export const App: React.FC = () => {
 
         {rightDockedHasItems && (
           <>
-            <div
-              onPointerDown={startDockColumnResize('right')}
-              className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25"
-            />
-            <div
-              style={{ width: rightDockWidth }}
-              className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25"
-            >
+            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
+            <div style={{ width: rightDockWidth }} className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25">
               {showViewer3d && viewer3dDock === 'right' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'right' && renderInspectorPanel()}
             </div>
@@ -1495,7 +1436,7 @@ export const App: React.FC = () => {
         aria-atomic="true"
       >
         {busyText || viewBusy ? (
-          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
+          <Loader2 className="w-4 h-4 text-calcmap animate-spin flex-shrink-0" aria-hidden="true" />
         ) : toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
