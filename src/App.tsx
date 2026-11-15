@@ -21,7 +21,9 @@ import {
   isElementTypeNode,
   isInstanceNode,
 } from './utils/graphEngine';
-import { importModel } from './loaders/parsers';
+import { ACCEPTED_EXTENSIONS, importModel } from './loaders/parsers';
+import { DropSlot, useFileDrop } from './hooks/useFileDrop';
+import { FileDropOverlay } from './components/FileDropOverlay';
 import { HeaderBar } from './components/HeaderBar';
 import { FilterBar } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
@@ -181,6 +183,26 @@ export const App: React.FC = () => {
     },
     [baseSnapshot, showToast]
   );
+
+  const handleDropFiles = useCallback(
+    (files: File[], slot: DropSlot) => {
+      const supported = files.filter((f) =>
+        ACCEPTED_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
+      );
+      if (supported.length === 0) {
+        const names = files.map((f) => f.name).join(', ');
+        showToast(`Can’t import ${names}. Drop a ${ACCEPTED_EXTENSIONS.join(' or ')} file.`, true);
+        return;
+      }
+      if (files.length > 1) {
+        console.info(`[drop] importing ${supported[0].name}; ignored ${files.length - 1} other file(s)`);
+      }
+      void handleUploadFile(supported[0], slot);
+    },
+    [handleUploadFile, showToast]
+  );
+
+  const { isDragging, hoverSlot } = useFileDrop(handleDropFiles);
 
   const handleSwapDatabases = useCallback(() => {
     if (!baseSnapshot || !compareSnapshot) return;
@@ -660,6 +682,13 @@ export const App: React.FC = () => {
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
         onResetAll={handleResetAll}
+      />
+
+      <FileDropOverlay
+        visible={isDragging}
+        hoverSlot={hoverSlot}
+        hasBaseModel={Boolean(baseSnapshot)}
+        acceptedExtensions={ACCEPTED_EXTENSIONS}
       />
 
       <FilterBar
