@@ -294,9 +294,10 @@ for (const [i, d] of docs.entries()) {
 
 /** The calc edges, from the engine (one PDF) or from the server once they pass edgeProblems (several). */
 async function serverEdges(label: string): Promise<Edge[]> {
-  const items: Array<Edge & { evidence: Array<Record<string, unknown>> }> = [];
+  type RawEdge = Omit<Edge, "evidence"> & { cross_pdf?: boolean; evidence: Array<Record<string, unknown>> };
+  const items: RawEdge[] = [];
   for (let offset: number | null = 0; offset !== null; ) {
-    const page = (await call("calc_dependencies", { limit: 500, offset })).json;
+    const page: { items: RawEdge[]; next_offset: number | null } = (await call("calc_dependencies", { limit: 500, offset })).json;
     items.push(...page.items);
     offset = page.next_offset;
   }
