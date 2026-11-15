@@ -25,8 +25,9 @@ import {
   type SerializedElementGraph,
 } from "@unloaded/calc-mapper";
 import {
-  ProjectFileError, decodeBase64, decisionsOf, headOf, parseProjectFile, type ProjectFile, type ProjectFileRevision,
-} from "./projectFile.ts";
+  ProjectFileError, decodeBase64, headOf, parseProjectFile, type ProjectFile, type ProjectFileRevision,
+} from "@unloaded/project-file";
+import { decisionsOf } from "./decisionLog.ts";
 
 let pdfjsPromise: Promise<PdfjsLike> | null = null;
 /** pdf.js's legacy build: what pdf.js documents for Node, and what calc-mapper's own Node CLI uses. */

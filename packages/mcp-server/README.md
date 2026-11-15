@@ -12,7 +12,8 @@ page images from your project). The app has no server for this, and doesn't get 
 ## Input: a project file saved from the app
 
 In the app, **Save project** writes one `*.calcgraph.json` file (`src/data/projectStore.ts`
-`exportProject`, format `unloaded.calc-graph-project` v1). It holds every revision's original file
+`exportProject`, format `unloaded.calc-graph-project` v1). The format is declared once, in
+`@unloaded/project-file`, which both the app and this server read and write it through. It holds every revision's original file
 base64-encoded, each model revision's element graph (built in the browser at import), each calc PDF's
 extraction, and the decision log. The server reads exactly that file:
 

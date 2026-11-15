@@ -318,7 +318,9 @@ export interface MappingRun {
 
 // ---------------------------------------------------------------- decisions (append-only log)
 
-export type DecisionAction = "confirm" | "reject" | "manual" | "undo";
+/** The only declaration of the decision actions; DecisionAction, the app and the project file all derive from it. */
+export const DECISION_ACTIONS = ["confirm", "reject", "manual", "undo"] as const;
+export type DecisionAction = (typeof DECISION_ACTIONS)[number];
 
 export interface DecisionIn {
   global_id: string;

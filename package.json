@@ -23,6 +23,7 @@
     "@unloaded/calc-mapper": "0.1.0",
     "@unloaded/element-graph": "0.1.0",
     "@unloaded/ifc-parser": "0.1.0",
+    "@unloaded/project-file": "0.1.0",
     "lucide-react": "^0.460.0",
     "pdfjs-dist": "4.10.38",
     "react": "^18.3.1",

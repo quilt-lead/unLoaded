@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { buildExport, diffGraphs, impactOf, mapCalcs, parseGraph, type CalcPackage } from "@unloaded/calc-mapper";
 import { makeProjectFile } from "../src/makeProjectFile.ts";
 import { loadProject } from "../src/project.ts";
-import { decisionsOf } from "../src/projectFile.ts";
+import { decisionsOf } from "../src/decisionLog.ts";
 import * as tools from "../src/tools.ts";
 import { writeTemp } from "./fixtures.ts";
 

@@ -1,0 +1,97 @@
+import { Buffer } from "node:buffer";
+import { describe, expect, it } from "vitest";
+import type { SerializedElementGraph } from "@unloaded/element-graph";
+import {
+  PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, ProjectFileError, decodeBase64, encodeBase64, headOf, isProjectFileFormat,
+  parseProjectFile, type ProjectFile,
+} from "../src/index.ts";
+
+const graph = (): SerializedElementGraph => ({
+  format: "unloaded.element-graph", version: 1, meta: { version: 1, units: "m" },
+  levels: [{ id: "L1", name: "Level 1", elevation: 0 }],
+  nodes: [
+    { id: "C1", kind: "column", ifcType: "IfcColumn", mark: "C-1", levelId: "L1", params: {} },
+    { id: "B1", kind: "beam", ifcType: "IfcBeam", mark: "B-1", levelId: "L1", params: {} },
+  ],
+  edges: [{ id: "e1", kind: "supports", a: "C1", b: "B1", evidence: [] }],
+} as unknown as SerializedElementGraph);
+
+/** Every byte value, then enough to cross the encoder's 32 KiB chunk boundary. */
+const bytes = (n = 70_000) => Uint8Array.from({ length: n }, (_, i) => (i * 7 + (i >> 8)) % 256);
+
+const base = (): ProjectFile => ({
+  format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: "2026-11-14T21:00:00-05:00",
+  project: { name: "P", createdAt: "2026-11-14T21:00:00-05:00" },
+  revisions: [
+    { id: 4, kind: "model", seq: 2, label: "b", sourceName: "b.ifc", mediaType: "application/x-step", createdAt: "t", meta: { elements: 2, project: null }, blob: encodeBase64(bytes(10)), graph: graph() },
+    { id: 1, kind: "model", seq: 1, label: "a", sourceName: "a.ifc", mediaType: "application/x-step", createdAt: "t", meta: {}, blob: "", graph: graph() },
+    { id: 2, kind: "calcs", seq: 1, label: "c", sourceName: "c.pdf", mediaType: "application/pdf", createdAt: "t", meta: { pages: 3 }, blob: encodeBase64(bytes()), extraction: { calcs: [] } },
+  ],
+  decisions: [
+    { globalId: "G", calcKey: "k", action: "confirm", actor: "r", note: null, at: "t1", modelRev: 1, calcRev: 2 },
+    { globalId: "G", calcKey: "k", action: "reject", actor: "r", note: "no", at: "t2", modelRev: 4, calcRev: null },
+  ],
+});
+
+/** A copy of base() with one change applied, as unknown JSON (so a test can break the shape). */
+const broken = (edit: (f: any) => void): unknown => {
+  const f = JSON.parse(JSON.stringify(base()));
+  edit(f);
+  return f;
+};
+
+describe("project file round trip", () => {
+  it("survives JSON text unchanged, payloads included", () => {
+    const f = base();
+    const back = parseProjectFile(JSON.parse(JSON.stringify(f)));
+    expect(back).toEqual(f);
+    expect(decodeBase64(back.revisions[2]!.blob)).toEqual(bytes());
+  });
+
+  it("base64 codec: round-trips every byte value across chunk boundaries, and matches Node's encoder", () => {
+    for (const n of [0, 1, 2, 3, 0x8000, 0x8001, 70_000]) {
+      const b = bytes(n);
+      const s = encodeBase64(b);
+      expect(s).toBe(Buffer.from(b).toString("base64"));
+      expect(decodeBase64(s)).toEqual(b);
+    }
+  });
+});
+
+describe("parseProjectFile rejects what a reader can't use, naming the field", () => {
+  it("format and version", () => {
+    expect(isProjectFileFormat(base())).toBe(true);
+    expect(isProjectFileFormat({ format: "unloaded.element-graph" })).toBe(false);
+    expect(() => parseProjectFile({ ...base(), format: "unloaded.calc-graph-export" })).toThrow(/not a calc-graph project file/);
+    expect(() => parseProjectFile({ ...base(), version: 2 })).toThrow(/version 2 is not supported/);
+    expect(() => parseProjectFile([])).toThrow(ProjectFileError);
+  });
+
+  const cases: [string, (f: any) => void, RegExp][] = [
+    ["duplicate revision id", (f: any) => { f.revisions[1].id = 4; }, /duplicate revision id 4/],
+    ["unknown kind", (f: any) => { f.revisions[0].kind = "drawings"; }, /revisions\[0\]\.kind must be/],
+    ["non-integer seq", (f: any) => { f.revisions[0].seq = 0; }, /revisions\[0\]\.seq/],
+    ["missing mediaType", (f: any) => { delete f.revisions[2].mediaType; }, /revisions\[2\]\.mediaType must be a string/],
+    ["nested meta", (f: any) => { f.revisions[0].meta.x = { y: 1 }; }, /revisions\[0\]\.meta\.x/],
+    ["blob not base64", (f: any) => { f.revisions[0].blob = "not base64!"; }, /revisions\[0\]\.blob must be a base64 string/],
+    ["model without graph", (f: any) => { delete f.revisions[1].graph; }, /model revision 1 has no element graph/],
+    ["graph edge to a missing node", (f: any) => { f.revisions[0].graph.edges[0].b = "X"; }, /revisions\[0\]\.graph: .*references a node/],
+    ["calc revision with a graph", (f: any) => { f.revisions[2].graph = graph(); }, /calc revision 2 must not carry an element graph/],
+    ["unknown action", (f: any) => { f.decisions[0].action = "approve"; }, /decisions\[0\]\.action must be one of confirm, reject, manual, undo/],
+    ["missing actor", (f: any) => { delete f.decisions[0].actor; }, /decisions\[0\]\.actor must be a string/],
+    ["decision on a revision not in the file", (f: any) => { f.decisions[0].modelRev = 9; }, /decisions\[0\]\.modelRev = 9 is not a model revision/],
+    ["decision's calcRev pointing at a model", (f: any) => { f.decisions[0].calcRev = 1; }, /decisions\[0\]\.calcRev = 1 is not a calcs revision/],
+  ];
+  it.each(cases)("%s", (_name, edit, msg) => {
+    expect(() => parseProjectFile(broken(edit))).toThrow(msg);
+  });
+});
+
+describe("headOf", () => {
+  it("head of a kind = highest id (what importing leaves as head)", () => {
+    const f = base();
+    expect(headOf(f.revisions, "model")?.id).toBe(4);
+    expect(headOf(f.revisions, "calcs")?.id).toBe(2);
+    expect(headOf([], "calcs")).toBeNull();
+  });
+});

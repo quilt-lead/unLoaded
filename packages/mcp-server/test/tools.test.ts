@@ -10,7 +10,8 @@ import {
 } from "@unloaded/calc-mapper";
 import { impact as moveImpact } from "@unloaded/move-impact";
 import { loadProject, type LoadedProject } from "../src/project.ts";
-import { decisionsOf, type ProjectFile } from "../src/projectFile.ts";
+import type { ProjectFile } from "@unloaded/project-file";
+import { decisionsOf } from "../src/decisionLog.ts";
 import * as tools from "../src/tools.ts";
 import { buildProjectFile, writeTemp } from "./fixtures.ts";
 

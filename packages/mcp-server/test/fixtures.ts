@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CalcPackage, SerializedElementGraph } from "@unloaded/calc-mapper";
 import { makeProjectFile, type InputDecision } from "../src/makeProjectFile.ts";
-import type { ProjectFile } from "../src/projectFile.ts";
+import type { ProjectFile } from "@unloaded/project-file";
 
 // ------------------------------------------------------------------ PDF
 

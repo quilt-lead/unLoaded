@@ -17,7 +17,22 @@
 //                                          modelRev, calcRev }   APPEND-ONLY; keyed by (globalId, calcKey),
 //                                                               latest wins, so they carry across revisions
 import type { SerializedElementGraph } from '@unloaded/element-graph';
-import type { DecisionAction } from '../types/bim';
+import {
+  PROJECT_FILE_FORMAT,
+  PROJECT_FILE_VERSION,
+  decodeBase64,
+  encodeBase64,
+  type ProjectFile,
+  type ProjectFileDecision,
+  type ProjectFileRevisionFields,
+} from '@unloaded/project-file';
+import type { DecisionAction as ViewDecisionAction } from '../types/bim';
+
+// The view model declares its own DecisionAction (components never see engine types). It must be
+// exactly the engine's, which the store and the project file use: either direction of drift fails here.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _decisionActionsMatch: Same<ViewDecisionAction, ProjectFileDecision['action']> = true;
+void _decisionActionsMatch;
 
 export interface ProjectRecord {
   id: string;
@@ -28,16 +43,9 @@ export interface ProjectRecord {
   headCalcRev: number | null;
 }
 
-export interface RevisionRecord {
-  id: number;
+/** A revision's fields are the project file's (`@unloaded/project-file`), so Save/Open project cannot drift from the store. */
+export interface RevisionRecord extends ProjectFileRevisionFields {
   projectId: string;
-  kind: 'model' | 'calcs';
-  seq: number;
-  label: string;
-  sourceName: string;
-  mediaType: string;
-  createdAt: string;
-  meta: Record<string, string | number | boolean | null>;
 }
 
 export interface RunRecord<T = unknown> {
@@ -50,17 +58,10 @@ export interface RunRecord<T = unknown> {
   data: T;
 }
 
-export interface DecisionRecord {
+/** A decision's fields are the project file's (`@unloaded/project-file`); the store adds its id and projectId. */
+export interface DecisionRecord extends ProjectFileDecision {
   id: number;
   projectId: string;
-  globalId: string;
-  calcKey: string;
-  action: DecisionAction;
-  actor: string;
-  note: string | null;
-  at: string;
-  modelRev: number | null;
-  calcRev: number | null;
 }
 
 type StoreName = 'projects' | 'revisions' | 'blobs' | 'graphs' | 'extractions' | 'runs' | 'decisions';
@@ -339,33 +340,16 @@ export async function decisionLog(projectId: string): Promise<DecisionRecord[]> 
 }
 
 // ------------------------------------------------------------------------------------------------
-// Whole-project file: one JSON document, blobs base64-encoded. Chosen over a zip because it needs no
-// dependency, round-trips through the same JSON importer as every other file the app opens, and stays
-// inspectable; the ~33 % base64 overhead is small next to the IFC and PDF it carries.
-
-export const PROJECT_FILE_FORMAT = 'unloaded.calc-graph-project' as const;
-
-export interface ProjectFile {
-  format: typeof PROJECT_FILE_FORMAT;
-  version: 1;
-  exportedAt: string;
-  project: { name: string; createdAt: string };
-  revisions: (Omit<RevisionRecord, 'projectId'> & { blob: string; graph?: SerializedElementGraph; extraction?: unknown })[];
-  decisions: Omit<DecisionRecord, 'id' | 'projectId'>[];
-}
+// Whole-project file (`*.calcgraph.json`). The format - its type, validator and base64 codec - is
+// declared once in `@unloaded/project-file`, which the MCP server reads it with too. Files reach
+// importProject only through `parseProjectFile` (src/loaders/parsers.ts).
 
 async function blobToBase64(b: Blob): Promise<string> {
-  const bytes = new Uint8Array(await b.arrayBuffer());
-  let s = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(s);
+  return encodeBase64(new Uint8Array(await b.arrayBuffer()));
 }
 
 function base64ToBlob(b64: string, type: string): Blob {
-  const s = atob(b64);
-  const bytes = new Uint8Array(s.length);
-  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
-  return new Blob([bytes], { type });
+  return new Blob([decodeBase64(b64)], { type });
 }
 
 export async function exportProject(projectId: string): Promise<ProjectFile> {
@@ -375,24 +359,26 @@ export async function exportProject(projectId: string): Promise<ProjectFile> {
   for (const r of await listRevisions(projectId)) {
     const blob = await getBlob(r.id);
     const { projectId: _omit, ...rest } = r;
+    // a model revision without its graph would save a file that no reader can open: fail here instead
+    const graph = r.kind === 'model' ? await getGraph(r.id) : undefined;
+    if (r.kind === 'model' && !graph) throw new Error(`model revision ${r.seq} (${r.sourceName}) has no stored element graph; re-import it before saving`);
     revisions.push({
       ...rest,
       blob: blob ? await blobToBase64(blob) : '',
-      graph: r.kind === 'model' ? await getGraph(r.id) : undefined,
+      graph,
       extraction: r.kind === 'calcs' ? await getExtraction(r.id) : undefined,
     });
   }
   const decisions = (await decisionLog(projectId)).map(({ id: _i, projectId: _p, ...d }) => d);
-  return { format: PROJECT_FILE_FORMAT, version: 1, exportedAt: nowEastern(), project: { name: p.name, createdAt: p.createdAt }, revisions, decisions };
+  return { format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: nowEastern(), project: { name: p.name, createdAt: p.createdAt }, revisions, decisions };
 }
 
-export function isProjectFile(d: unknown): d is ProjectFile {
-  return Boolean(d && typeof d === 'object' && (d as { format?: unknown }).format === PROJECT_FILE_FORMAT);
-}
-
-/** Import a project file as a NEW project (revision ids are re-assigned; decisions keep their keys). */
+/**
+ * Import a project file as a NEW project (revision ids are re-assigned; decisions keep their keys).
+ * `file` must come from `parseProjectFile`, which has already checked every field this reads,
+ * including that each decision's revisions exist in the file.
+ */
 export async function importProject(file: ProjectFile): Promise<ProjectRecord> {
-  if (file.version !== 1) throw new Error(`unsupported project file version ${String(file.version)}`);
   const p = await createProject(file.project.name);
   const idMap = new Map<number, number>();
   for (const r of [...file.revisions].sort((a, b) => a.id - b.id)) {

@@ -1,6 +1,6 @@
 # Calc engine integration: main + hackathon engine + extraction
 
-- **Status:** active (handed over to a new session ~10:30 PM ET; see `~/Documents/claude-prompts/2026-11-14-unloaded-pr4-handover.md`)
+- **Status:** active (handed over to a new session ~10:30 PM ET; see `~/Documents/claude-prompts/2026-11-14-unloaded-pr4-handover.md`). D28 by the successor session.
 - **Branch:** `issy/integrate-calc-graph-engine` (owner: Issy). Draft PR #4 to `prod` (https://github.com/quilt-lead/unLoaded/pull/4), review requested from Carl (`cslotboom`). `prod` has no branch protection, so his review is requested, not enforced. This branch is pushed; `prod` is never pushed to directly.
 - **Owned files:** `backend/`, `.github/workflows/ci.yml`, `src/api/`, `src/data/`, `src/components/pdf/`,
   `src/components/three/`, `src/components/RevisionPanel.tsx`, and the merge of these into main's components.
@@ -383,6 +383,34 @@ called directly, 35/35 checks on each of three files. CI green at `9f93813`.
 **Known duplication, to fix next (not a follow-up ticket):** the project-file type is declared in both
 `src/data/projectStore.ts` and `packages/mcp-server/src/projectFile.ts`; it belongs in one shared package module that
 both import. Also: add the MCP parity script to the CI tooling job.
+
+### D28. One project-file format, declared once (`packages/project-file`)
+**Built 2026-11-14 ~8:35 PM ET by this machine's clock** (earlier entries' clock times run ahead of it) (handover "Do next" 1; the D27 duplication). The `*.calcgraph.json` type was
+declared twice (`src/data/projectStore.ts`, `packages/mcp-server/src/projectFile.ts`). While tracing it, two more
+problems with the same cause turned up. **(a)** The app's reader only checked the `format` string (`isProjectFile`),
+so a malformed file went straight into IndexedDB. **(b)** The decision-action union was declared four times
+(calc-mapper, mcp-server, `src/types/bim.ts`, the store).
+**What changed:** new workspace package `@unloaded/project-file` holds the type, `parseProjectFile` (every field a
+reader uses: revision fields, primitive-only meta, base64 blobs, a required model graph checked with calc-mapper's
+`parseGraph`, decisions whose `modelRev` / `calcRev` must name a revision of that kind in the file), the base64 codec
+(`atob` / `btoa`, the same in the browser and in Node) and `headOf`. All four ends use it: app writer
+(`exportProject`), app reader (`parsers.ts` → `parseProjectFile` → `importProject`), MCP reader (`loadProject`)
+and MCP tooling writer (`makeProjectFile`). The app's `RevisionRecord` / `DecisionRecord` now *extend* the file's
+field types, so the store and the file cannot drift. `exportProject` refuses to save a model revision with no stored
+graph, because no reader could open the result. `DECISION_ACTIONS` in calc-mapper `types.ts` is the only action list.
+`DecisionAction` derives from it. The view model keeps its own copy (components never see engine types, D6), and a
+two-way type equality in `projectStore.ts` fails the typecheck if the two ever differ. What is left in mcp-server is
+`decisionLog.ts` (`decisionsOf`, file → engine fields).
+**Recurrence:** a new reader or writer has no local type to copy: the store records extend the shared one, and
+`parseProjectFile` is the only typed way in. Tests: `packages/project-file/test` (JSON round trip, codec vs Node's
+`Buffer` across chunk boundaries, 13 rejections) and `src/data/projectStore.test.ts` (app export → shared parse →
+app import → export again: equal, PDF bytes identical; a graphless model revision refuses to save).
+**Blast radius:** stricter validation could reject files the old readers accepted. The app has never written a null
+actor or a graphless model revision (`addDecision` always sets the actor, `storeModel` always passes the graph), so
+files saved by this branch still open. Checked on data: a synthetic project file (2 models, PDF, 1 decision) parses,
+and its PDF decodes byte-identical. **MCP parity 35/35** with the shared package (scripts on data, ~8:30 PM ET).
+**CI (Do next 2):** the tooling job now builds a synthetic project file with `make-project-file.ts` and runs
+`mcp-parity.ts` on it (exit 1 on any mismatch).
 
 ## Upstream merges
 

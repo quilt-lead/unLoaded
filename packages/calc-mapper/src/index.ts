@@ -26,7 +26,7 @@ export { normaliseProfile } from "./profile.ts";
 export { inferCalcEdges } from "./calcdeps.ts";
 export { propagate } from "./impact.ts";
 export { diffGraphs, diffElements } from "./diff.ts";
-export { addDecision, applyDecisions, decisionFrom, effectiveDecisions, decisionLog, DECISION_ACTIONS } from "./decisions.ts";
+export { addDecision, applyDecisions, decisionFrom, effectiveDecisions, decisionLog } from "./decisions.ts";
 export {
   parseGraph, graphElements, loadPath, connectivity, elementContentHash, GraphFormatError, GRAPH_FORMAT, GRAPH_VERSION,
 } from "./elements.ts";

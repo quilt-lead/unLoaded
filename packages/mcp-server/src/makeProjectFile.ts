@@ -7,7 +7,7 @@
  */
 import { extractPdf, parseGraph, segmentCalcs } from "@unloaded/calc-mapper";
 import { nodePdfjs } from "./project.ts";
-import { PROJECT_FILE_FORMAT, type ProjectFile, type ProjectFileDecision } from "./projectFile.ts";
+import { PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, encodeBase64, type ProjectFile, type ProjectFileDecision } from "@unloaded/project-file";
 
 export interface InputRevision {
   kind: "model" | "calcs";
@@ -28,12 +28,11 @@ export async function makeProjectFile(opts: {
   at?: string;
 }): Promise<ProjectFile> {
   const at = opts.at ?? "2026-11-14T21:00:00-05:00";
-  const b64 = (u: Uint8Array) => Buffer.from(u).toString("base64");
   const seq = { model: 0, calcs: 0 };
   const revisions: ProjectFile["revisions"] = [];
   for (const r of opts.revisions) {
     const id = revisions.length + 1;
-    const base = { id, seq: ++seq[r.kind], label: r.label ?? r.name, sourceName: r.name, createdAt: at, blob: b64(r.bytes) };
+    const base = { id, seq: ++seq[r.kind], label: r.label ?? r.name, sourceName: r.name, createdAt: at, blob: encodeBase64(r.bytes) };
     if (r.kind === "model") {
       const graph = parseGraph(new TextDecoder().decode(r.bytes));
       revisions.push({ ...base, kind: "model", mediaType: "application/json", meta: { format: "element-graph", elements: graph.nodes.length, project: null }, graph });
@@ -45,7 +44,7 @@ export async function makeProjectFile(opts: {
   }
   const last = (k: "model" | "calcs") => [...revisions].reverse().find((r) => r.kind === k)?.id ?? null;
   return {
-    format: PROJECT_FILE_FORMAT, version: 1, exportedAt: at, project: { name: opts.name, createdAt: at }, revisions,
+    format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: at, project: { name: opts.name, createdAt: at }, revisions,
     decisions: (opts.decisions ?? []).map((d) => ({
       globalId: d.globalId, calcKey: d.calcKey, action: d.action, actor: d.actor ?? "reviewer", note: d.note ?? null, at,
       modelRev: last("model"), calcRev: last("calcs"),

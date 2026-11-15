@@ -15,6 +15,8 @@ export type ColorMode = 'type' | 'review' | 'confidence' | 'utilisation';
 export type LinkReview = 'auto' | 'confirmed' | 'rejected' | 'manual';
 /** Mapping state of an element across all its links. */
 export type MappingStatus = 'confirmed' | 'review' | 'unmapped';
+// The view model's own copy (no engine type reaches a component). src/data/projectStore.ts fails the
+// typecheck if it ever differs from the engine's DECISION_ACTIONS, which the project file uses.
 export type DecisionAction = 'confirm' | 'reject' | 'manual' | 'undo';
 
 export type NodeKind =

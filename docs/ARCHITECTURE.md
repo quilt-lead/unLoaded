@@ -72,7 +72,11 @@ unavailable):
 
 Every added file becomes the head of its kind. **Save project file** writes the whole project (files base64,
 graphs, extractions, decision log) as one JSON document (`*.calcgraph.json`, format
-`unloaded.calc-graph-project`); opening it creates a new project. JSON was chosen over a zip: no dependency,
+`unloaded.calc-graph-project`); opening it creates a new project. The format is declared once, in
+`packages/project-file` (type, `parseProjectFile` validator, base64 codec, head rule): the app's writer
+(`exportProject`) and reader (`parsers.ts` → `importProject`) and the MCP server (`packages/mcp-server`) all use
+it, so a file one writes the others read. An opened file is validated field by field before anything is
+imported, and the error names the field at fault. JSON was chosen over a zip: no dependency,
 it goes through the same content-dispatching importer as every other file, and it stays inspectable; base64
 costs ~33 % on files of a few MB. A plain calc-graph export JSON also opens, read-only.
 

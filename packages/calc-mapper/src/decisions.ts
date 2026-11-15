@@ -10,9 +10,7 @@
  * ("manual") has it as its own provenance.
  */
 import { RULES, humanProvenance } from "./provenance.ts";
-import type { Decision, DecisionFields, DecisionIn, Link } from "./types.ts";
-
-export const DECISION_ACTIONS = ["confirm", "reject", "manual", "undo"] as const;
+import { DECISION_ACTIONS, type Decision, type DecisionFields, type DecisionIn, type Link } from "./types.ts";
 
 /** Append a decision; returns a NEW log (the input is not mutated). Throws on an unknown action. */
 export function addDecision(

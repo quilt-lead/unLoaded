@@ -8,7 +8,7 @@
  *     ModelInput                       -> buildGraph -> ElementGraph
  *     legacy BIM graph ({ nodes, links }) -> legacyBimJson.ts -> ModelInput -> buildGraph -> ElementGraph
  *     calc-graph export                -> returned as-is for src/data/loadProject.ts (read-only view)
- *     calc-graph project file          -> returned as-is for src/data/projectStore.ts importProject
+ *     calc-graph project file          -> validated (@unloaded/project-file parseProjectFile) for projectStore importProject
  *
  * A model's ElementGraph is stored with its revision in the local project store and goes through
  * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter).
@@ -19,7 +19,7 @@ import { buildGraph, ElementGraph, ELEMENT_GRAPH_FORMAT, type ModelInput, type S
 import type { IfcParsePhase } from '@unloaded/ifc-parser';
 import type { Export } from '@unloaded/calc-mapper/types';
 import { isCalcGraphExport, normaliseExport } from '../data/loadProject';
-import { isProjectFile, type ProjectFile } from '../data/projectStore';
+import { isProjectFileFormat, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
 import { isLegacyBimJson, legacyToElementGraph } from './legacyBimJson';
 
 export type ImportResult =
@@ -157,7 +157,8 @@ export const BIM_PARSERS: BimParserPlugin[] = [
         };
       }
       if (isModelInput(data)) return fromModelInput(data, fileName, 'model-input', onProgress);
-      if (isProjectFile(data)) return { kind: 'project-file', project: data, warnings: [] };
+      // a file that says it is a project file is validated in full; its error names the field at fault
+      if (isProjectFileFormat(data)) return { kind: 'project-file', project: parseProjectFile(data), warnings: [] };
       if (isCalcGraphExport(data)) return { kind: 'export', export: normaliseExport(data), warnings: [] };
       if (isLegacyBimJson(data)) {
         onProgress('Converting legacy BIM JSON and inferring connectivity');

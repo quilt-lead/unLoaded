@@ -12,7 +12,7 @@
 import { calcText, diffGraphs, impactOf, sha256Json, type ElementState, type ExportLink, type ImpactMode } from "@unloaded/calc-mapper";
 import { impact as moveImpact, type Move } from "@unloaded/move-impact";
 import { renderPage, type PageImage } from "./pageImage.ts";
-import { ProjectFileError, type ProjectFileRevision } from "./projectFile.ts";
+import { ProjectFileError, type ProjectFileRevision } from "@unloaded/project-file";
 import type { LoadedProject, View } from "./project.ts";
 
 export class ToolInputError extends Error {
