@@ -126,7 +126,7 @@ unloaded-mcp-server --project <project.calcgraph.json | project.json> [--decisio
 | Option | Meaning |
 |---|---|
 | `--model` | `.ifc` (parsed with web-ifc, then connectivity is inferred by `buildGraph`), a serialized element graph `.json` (`format: "unloaded.element-graph"`), or a ModelInput `.json`. The importer dispatches like the app's `src/loaders/parsers.ts`, and the graph is what the app stores (`ElementGraph.serialize()`, read back by calc-mapper's `parseGraph`; a graph not in metres is refused). **Repeat it** to add older revisions, oldest first: the **last** `--model` is the current model, the one the calcs are mapped onto (as in a project file, where the head is the highest revision id). `compare_revisions` diffs any two. |
-| `--calcs` | A calc-package PDF. Repeat the flag for several. The first is the main package. |
+| `--calcs` | A calc PDF (one large package, or one calc). Repeat the flag for several: they become calc documents `d1`, `d2`, ... in that order. |
 | `--project` | Either the app's saved project file (`*.calcgraph.json`, format `unloaded.calc-graph-project`), or a manifest `{"model": "..." \| ["older", "current"], "calcs": ["...", ...], "decisions": "...", "actor": "..."}` with paths relative to it. `--decisions` and `--actor` on the command line override the manifest's. |
 | `--decisions` | The review decisions file. Optional. It is created on the first recorded decision. Without it the server is read-only. |
 | `--actor` | Name recorded on decisions. Default: your OS user name. |
@@ -147,54 +147,39 @@ extraction and the app's decision log.
 
 - **Model revisions:** all of them, oldest first. The head (highest id) is the current model. Revision numbers in
   `project_summary.model_revisions` and `compare_revisions` are the file's revision ids.
-- **Calc package:** the head calc revision (calc revisions are versions of one package; older ones are listed in a
-  warning, not mapped). Its stored extraction is used when `storedExtractionFor` (the app's rule) accepts it for the
-  PDF in the file; otherwise the PDF is re-extracted, and `calc_pdfs[].extraction` / `extraction_note` say why.
+- **Calcs:** the calc set the app maps: every calc document that is not withdrawn, at its head revision
+  (`documentHeads`; older and withdrawn revisions are listed in a warning, not mapped). Version 1 files (one calc
+  package) read as one document `d1`. Each stored extraction is used when `storedExtractionFor` (the app's rule)
+  accepts it for the PDF in the file; otherwise the PDF is re-extracted, and `calc_pdfs[].extraction` /
+  `extraction_note` say why.
 - **Decisions:** the file's decision log is applied first (read-only: the project file is never written), then the
   `--decisions` file, so a later decision recorded through the server wins.
 
-### Several calc PDFs: the calc-key rule
+### Several calc PDFs: the calc set
 
-Calc PDFs are either one calc per file or one large package, and a project can have several. calc-mapper maps **one
-calc package (one PDF) per run**: `packageSha256` refuses pages from two documents, and the app keeps one head calc
-package. So multiple PDFs are not native to the engine. The server runs `mapCalcs` **per PDF**, and page numbers always
-belong to one PDF: a "page 7" reference never resolves into another file. Calc keys must be unique across the set and
-stable for the decisions file:
+Calc PDFs are one large package, one PDF per calc, or a mix. The server maps them exactly as the app does: as one
+**calc set** (calc-mapper `buildCalcSet`), with one `mapCalcs` and one `buildState` on the set.
 
-- The **first** `--calcs` PDF keeps calc-mapper's plain keys (`floor-beam-girder-design-ram-structural-system`). A
-  single-PDF project is therefore exactly the engine's output.
-- Every **further** PDF's keys are prefixed with a slug of its file stem: `Supplement A.pdf` gives
-  `supplement-a/connection-design-check`. The prefix is put on the package's calc keys before `mapCalcs`, so every
-  record the engine makes carries it. If two PDFs give the same prefix, the server refuses to start and asks you to
-  rename one.
+- Each PDF is a **document** with a doc id: `d1`, `d2`, ... in `--calcs` order, or the project file's own documents.
+- Calc keys are **calc refs** `"<docId>#<key>"` (`d1#floor-beam-girder-design-ram-structural-system`), the keys the
+  app and the project file's decision log use, so a decision recorded here means the same calc in the app. Tools also
+  accept a bare key (`connection-design-check`) when only one PDF has it. A bare key in a decisions file names a calc
+  of `d1`, as in the app.
+- **Page numbers** in every tool result are pages of the PDF that result names, so `get_page_image` takes them as
+  they are. (The engine numbers pages across the set; the server subtracts each document's `page_offset`.)
+  `export_mapping` alone returns the app's export unchanged, with set pages, and lists each document's `page_offset`.
+- **Calc edges:** "see page 7" references stay inside the referring PDF; cross-references by element mark work across
+  PDFs (`cross_pdf: true`). Example: a supplement calc that takes a beam's reactions from the main package gets a
+  `d1#beam calc -> d2#supplement calc` edge with the mention as evidence.
+- The same PDF given twice is mapped once (a warning names the copy).
 
-Keep the order of `--calcs` stable. Swapping the main PDF changes which keys are plain.
-
-Across PDFs, everything is still an engine call:
-
-- **Element status:** calc-mapper's `statusOf` over the element's links from every PDF (design links only).
-- **One designer per element.** A cross-reference edge runs from the calc that designs an element to a calc that
-  mentions it. That designer is calc-mapper's `designerOf` over the effective links of **every** PDF, for every edge,
-  within a PDF or across two. An element designed in two PDFs therefore still has one designer (design role first,
-  then the higher tier confidence, then the smaller calc key), and a mention of it gets one fed-by edge.
-- **Calc edges within one PDF:** `inferCalcEdges` on that PDF's calcs, pages and effective links, with the other PDFs'
-  links passed in only as designer candidates (their page nulled, so none is read as a mention on this PDF's pages).
-  Edges whose two calcs are both in that PDF are kept. Page-reference edges always come from here: the page-reference
-  rule only ever sees one PDF, so "page 7" is that PDF's page 7. With one PDF this is exactly `buildState`'s call.
-- **Calc edges between PDFs:** the cross-reference rule only. The server calls `inferCalcEdges` on a combined view:
-  every calc with its pages and regions emptied (this switches off the page-reference rule), every page with its page
-  number offset so numbers are unique (a mention's cue word, such as "carried **to**", is read on its own PDF's page),
-  and every effective link. It keeps only edges whose two calcs are in different PDFs, and maps evidence page numbers
-  back to their own PDF. Example: a supplement calc that takes a beam's reactions from the main package gets a
-  `main beam calc -> supplement calc` edge with the mention as evidence.
-- **Impact:** calc-mapper's `propagate` over the load path, every effective link and every calc edge.
-- **Export:** one `buildExport` per PDF (each is one engine run).
+Keep the order of `--calcs` stable: it decides the doc ids, and the decisions file records calc refs.
 
 ## Tools
 
 | Tool | What it returns |
 |---|---|
-| `project_summary` | Model counts (kinds, categories, storeys, connections, edges by kind), model revisions, each PDF (pages, calcs, prefix, pages with no text layer, extraction), every calc, links by tier / role / band / review status, status counts, calc edges (within / across PDFs), typical groups, findings, decisions, warnings. |
+| `project_summary` | Model counts (kinds, categories, storeys, connections, edges by kind), model revisions, each PDF (doc id, pages, calcs, key prefix, pages with no text layer, extraction), every calc, links by tier / role / band / review status, status counts, calc edges (within / across PDFs), typical groups, findings, decisions, warnings. |
 | `search_elements` | Elements filtered by text query, mark, name, kind, category, profile, storey, status or linked calc; paginated. |
 | `get_element` | Node data, status, links sorted by confidence with every engine field (tier, conf, band, role, reasons = weighted evidence, caveats, rule, page, token, snippet, rects, provenance, review provenance, PDF, decision who / when / note), typical groups and their group links, findings, decisions, connectivity with edge evidence, one hop of the load path. |
 | `list_calcs` | Calcs across PDFs, filtered by PDF, category, software or text; paginated. |
@@ -208,7 +193,7 @@ Across PDFs, everything is still an engine call:
 | `list_typical_groups` | Typical groups (`group:<category>:<storey>:<profile>`, members with marks) and the group links of size-only calcs; filter by kind, storey, profile, linked only. |
 | `compare_revisions` | `diffGraphs` between two model revisions (removed / added / changed elements with per-field before / after, load-path edges removed / added), plus the calcs linked to an element in the diff. Default: the current model against the revision before it. |
 | `move_column` | `@unloaded/move-impact` on the current model and the reviewed links: move a column by dx / dy metres or remove it. Elements on the path with reasons, the geometric screen, re-framing, clashes, notes, assumptions, stale calcs. No calc values are read yet, so no utilisation estimates or health band. |
-| `export_mapping` | calc-mapper's `buildExport`, one report per calc PDF (elements pageable). |
+| `export_mapping` | calc-mapper's `buildExport` on the calc set, as the app exports it (set page numbers; `calc_documents` gives each PDF's `page_offset`; elements pageable). |
 | `get_page_image` | A PDF page as PNG (MCP image content). It can highlight a link's words, a text span (`rectsForSpan`), calc-edge evidence or raw rects, and crop to the evidence with padding. |
 | `record_decision` | **Writes.** Appends one decision (confirm / reject / manual / undo) to the decisions file. Returns the decision (`origin: "decisions_file"` and its id in the file), the link and status before / after, and `reloaded_external_changes`. |
 | `record_decisions` | **Writes.** Batch version, all or nothing. |
@@ -233,7 +218,7 @@ calc-mapper's decision log: a JSON array of `Decision`s, oldest first. It is the
   {
     "id": 1,
     "global_id": "0CvnE_Gs1IsA$admCFuTp2",
-    "calc_key": "column-design-ram-structural-system",
+    "calc_key": "d1#column-design-ram-structural-system",
     "action": "confirm",
     "actor": "Jane Engineer",
     "note": "checked p.13",
@@ -257,11 +242,12 @@ calc-mapper's decision log: a JSON array of `Decision`s, oldest first. It is the
 - `id` orders the log: the latest decision per (GlobalId, calc key) wins (`effectiveDecisions`), and `undo` clears the
   pair: the link goes back to its automatic state, a hand link is removed, and earlier decisions on the pair are NOT
   restored (confirm, then reject, then undo leaves the link unreviewed, not confirmed). Decisions are keyed by GlobalId
-  and calc key, not by revision, so they carry forward to a new model or calc revision as long as both still exist.
+  and calc ref, not by revision, so they carry forward to a new model or calc revision as long as both still exist. A
+  bare calc key (no `<docId>#`, written by hand or before calc sets) names a calc of `d1`, as in the app.
   Decisions naming something that is not in the current project are kept, not applied, and reported as a warning in
-  `project_summary` and `--check`. A missing calc key gets its likely cause: a non-main PDF's prefix that no loaded PDF
-  has (renamed or dropped supplement), a PDF that no longer has that calc (calcs renamed, split or reordered), or a main
-  PDF without it (the `--calcs` order changed). Keep the `--calcs` order and the file names stable.
+  `project_summary` and `--check`. A missing calc ref gets its likely cause: a document id no loaded PDF has (a PDF
+  dropped, or the `--calcs` order changed), a document that no longer has that calc (calcs renamed, split or
+  reordered), and, when another document has a calc with that key, which one. Keep the `--calcs` order stable.
 - **Decision ids are per origin.** Every tool and the `unloaded://project/decisions` resource name a decision by
   `origin` + `id`: `"decisions_file"` ids are the ids in this file (what `record_decision` returns), and
   `"project_file"` ids number a project file's own decision log 1..n in file order. The engine is handed one log with
@@ -316,7 +302,7 @@ bin/unloaded-mcp-server.mjs   Node version check, console -> stderr, then src/cl
 src/cli.ts                    arguments -> loadProject -> --check report or stdio server
 src/inputs.ts                 CLI + manifest parsing and up-front validation
 src/engine.ts                 THE ENGINE BOUNDARY (see below)
-src/project.ts                the loaded project: model revisions, per-PDF mapping, key prefixes, cross-PDF edges, decisions applied
+src/project.ts                the loaded project: model revisions, the calc set mapped once, pages per PDF, decisions applied
 src/decisions.ts              the decisions file: validation, change detection, cross-process lock, atomic append
 src/tools.ts                  tool bodies (lookups, filters, pagination over engine output)
 src/server.ts                 MCP registration: schemas, descriptions, annotations, resources
@@ -324,7 +310,6 @@ src/pageImage.ts              page PNG rendering (pdf.js legacy + @napi-rs/canva
 src/check.ts                  the --check report
 scripts/makeProjectFile.ts    a project file in the app's format without the browser (tooling, CI, tests)
 scripts/make-project-file.ts  its CLI
-scripts/minimalPdf.ts         a minimal PDF written byte by byte (vitest fixtures, parity --two-pdf)
 scripts/mcp-parity.ts         end-to-end parity over stdio
 ```
 
@@ -332,13 +317,12 @@ scripts/mcp-parity.ts         end-to-end parity over stdio
 (`ifc-parser`, `element-graph`, `calc-mapper`, `project-file`, `move-impact`). It exposes a narrow interface:
 `loadModel` / `modelFromRevision` (a read-only `Model` with the serialized graph calc-mapper reads, its sha256, the
 element rows, load path, connectivity and the element-graph queries), `readCalcPackage`, `storedCalcPackage`,
-`mapCalcs`, `buildState`, `buildExport`, `calcEdgesOfPdf`, `crossReferenceEdges`, `designerOf`, `calcRegions`,
-`statusOf`, `rectsForSpan`, `propagateImpact`,
+`buildCalcSet`, `mapCalcs`, `buildState`, `buildExport`, `calcRegions`, `statusOf`, `rectsForSpan`, `propagateImpact`,
 `diffGraphs`, `moveColumn`, `nextDecision`, `decisionFrom`, `effectiveDecisions`, the project-file readers
-(`isProjectFile`, `parseProjectFile`, `headRevision`, `revisionBytes`, `projectFileDecisions`), `ENGINE_VERSION`,
-`ENGINE_PRODUCERS`, `CONFIDENCE_BANDS` and `DECISION_ACTIONS`. The data types the rest of the server uses are
-re-exported from it. Each function is a direct engine call; the three thin compositions (`calcEdgesOfPdf`,
-`crossReferenceEdges`, `projectFileDecisions`) are documented in the file. A test (`test/server.test.ts`, "engine boundary") fails if any
+(`isProjectFile`, `parseProjectFile`, `headRevision`, `calcDocumentHeads`, `calcDocIdOf`, `legacyCalcRef`, `LEGACY_DOC_ID`,
+`revisionBytes`, `projectFileDecisions`), `ENGINE_VERSION`, `ENGINE_PRODUCERS`, `CONFIDENCE_BANDS` and
+`DECISION_ACTIONS`. The data types the rest of the server uses are re-exported from it. Each function is a direct
+engine call; the one thin composition (`projectFileDecisions`) is documented in the file. A test (`test/server.test.ts`, "engine boundary") fails if any
 other file in `src/` imports an engine package, and checks `package.json` declares exactly what `engine.ts` imports.
 
 ## Not included, and why
@@ -362,13 +346,13 @@ other file in `src/` imports an engine package, and checks `package.json` declar
 | `legacy BIM graph JSON` | Use the source `.ifc`, or an element graph saved from the app. |
 | `is a calc-graph project file: pass it with --project` | A `*.calcgraph.json` goes in `--project`. |
 | `graph.meta.units must be "m"` | The element graph is not in metres; rebuild it from the IFC. |
-| `same calc-key prefix` | Two non-main PDFs share a file stem. Rename one. |
+| `calc key "..." is in N calc PDFs` | A bare key two PDFs share: pass the calc ref (`d2#...`) instead. |
 | `has NO text layer` warning / calcs marked scanned | The PDF pages are images. OCR them, then run again. |
 | `decisions_warning` / `the decisions file cannot be read: ...` | Fix what it names (`must be a JSON array`, `entry N: ...`, `is not valid JSON`, `is empty`), or point `--decisions` at a new file. Answers meanwhile use the last good log; writes are refused. |
 | `is locked by another writer` | Another server or tool is writing the decisions file. If none is, delete the `.lock` file it names. |
 | `cannot be read` / `cannot be removed` (lock file) | The `.lock` path is not a regular file or its directory is not writable. Fix or delete the path it names. |
 | `is not writable by this server` | The decisions file's permissions forbid writing it. Make it writable (`chmod u+w`) to record decisions. |
-| `name N calc key(s) that are not in this project` | Decisions recorded against PDFs that are not loaded, or loaded in another order / under another name. The warning names the likely cause; restore the `--calcs` order and names. |
+| `name N calc ref(s) that are not in this project` | Decisions recorded against PDFs that are not loaded, or loaded in another order. The warning names the likely cause; restore the `--calcs` order. |
 | `This server is read-only` from `record_decision` | Add `--decisions /abs/path/decisions.json` to the args and restart the server. |
 | `no automatic link ... use manual` | `confirm` and `reject` act on engine links only. Use `manual` to link by hand. |
 | `compare needs two model revisions` | Repeat `--model` with the older revision first, or use a project file with several. |
@@ -382,7 +366,7 @@ npm test -w @unloaded/mcp-server              # vitest: tools vs the engine, mul
 
 # end-to-end parity: spawn the real CLI over stdio, call every tool, compare with the engine packages called directly
 node packages/mcp-server/scripts/mcp-parity.ts                 # synthetic: model rev 1 + rev 2 (current), calc_package.pdf
-node packages/mcp-server/scripts/mcp-parity.ts --two-pdf       # + a supplement generated on the synthetic marks (cross-PDF edges, one designer)
+node packages/mcp-server/scripts/mcp-parity.ts --two-pdf       # + calc_supplement.pdf as a second calc PDF
 node packages/mcp-server/scripts/mcp-parity.ts --model a.ifc [--model b.ifc] --calcs x.pdf [--calcs y.pdf]
 
 # a project file in the app's format (no browser), then parity on it (what CI runs)
@@ -400,10 +384,9 @@ The vitest suites use committed fixtures only: `test/fixtures.ts` writes two ele
 PDFs byte by byte (the supplement cross-references a beam the main package designs), so nothing generated is needed.
 The parity script runs on the synthetic package (`cd tools/calcgraph-reference && uv run python -m synth.generate`;
 its output is gitignored). It writes decisions to a temp file only, and checks that the inputs' sha256 did not change.
-Its oracle is the engine called directly and never a copy of the server's multi-PDF composition: with one PDF every
-result must equal the engine's; with several, the calc edges are checked against invariants (each PDF's page-reference
-edges are the engine's on that PDF alone, one designer per element, every mention has its edge in the direction the
-engine gives it on its own PDF, evidence pages within their own PDF). It also checks the decisions file end to end: an
-append by someone else between two `record_decision` calls is kept and reported, and earlier entries stay byte for byte.
+Its oracle is the engine called directly on the calc set and never a copy of the server's code. It also checks the
+decisions file end to end: decision ids per origin (a project file's seeded decisions are `project_file` 1..n, this
+file's keep their own ids), an append by someone else between two `record_decision` calls is kept and reported
+(`reloaded_external_changes`), and earlier entries stay byte for byte.
 CI (`.github/workflows/ci.yml`) runs the project-file parity in the `tooling` job and every workspace's typecheck and
 vitest in the `frontend` job.

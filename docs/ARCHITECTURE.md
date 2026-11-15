@@ -29,13 +29,41 @@ connection records (`IfcRelConnects*`). The graph is the single source of truth 
 
 Other inputs reach the same graph:
 - a serialized element graph or a `ModelInput` JSON;
-- legacy BIM JSON (`{ projectName, nodes, links }`, Noah's demo files in `data/`), converted by
-  `src/loaders/legacyBimJson.ts` into a `ModelInput` (boxes from `pos3d`/`size3d`) so it is built, laid out and
-  diffed exactly like an IFC. Its invented `documents` become node links of kind `demo-document`, shown in the
-  inspector labelled **demo data**, never as calc links. Invented utilisation / loads are dropped.
+- a **model bundle** (below), whose element graph is the serialized one, embedded unchanged.
 
-`src/loaders/parsers.ts` dispatches every file by content: IFC, element graph, ModelInput, legacy JSON, a
-calc-graph export, or a project file.
+`src/loaders/parsers.ts` dispatches every file by content: IFC, model bundle, element graph, ModelInput, a
+calc-graph export, or a project file. The retired legacy `{ projectName, nodes, links }` demo format is refused
+with a pointer to `scripts/convert-legacy-demo.ts`, which turns it into a model bundle.
+
+### The model bundle (`packages/calc-mapper/src/bundle.ts`)
+
+One JSON file with the element graph and its calculation graph side by side:
+
+```jsonc
+{ "format": "unloaded.model-bundle", "version": 1,
+  "meta": { "project", "label", "demo", "createdAt" },
+  "elementGraph": { /* ElementGraph.serialize() */ },
+  "calcGraph": null | {
+    "source": { "kind": "demo" } | { "kind": "pdf", "documents": [{ "doc_id", "name", "revision", "sha256", "pages", "page_offset" }] },
+    "calcs": [{ "key", "title", "cat", "pages"?, "spans"?, "code"?, "rev"?, "date"?, "summary"? }],
+    "edges": [{ "src", "dst", "rules"? }],                              // calc feeds calc
+    "links": [{ "element", "calc", "role", "review", "conf"?, "page"?, "rects"?, "note"? }] } }  // element -> calc
+```
+
+- `parseBundle` validates it in full (unique calc keys; links and edges name a node of the graph and a calc of
+  the bundle; one link per pair). Calc records use the engine export's field names, so `exportToCalcGraph(exp)`
+  and `bundleExport(graph, calcGraph, decisions)` convert both ways without renaming.
+- A bundle added as a model revision stores the bundle file as the revision's file, so the IndexedDB store and
+  the project file carry its calc graph with no schema change (`meta.format = "bundle"`, `meta.hasCalcGraph`).
+- `projectSnapshot` shows the model revision's own calc graph **only when the project has no calc PDF**; once a
+  PDF is added, the engine maps it and the bundle's calcs step aside. The project's decision log is applied on
+  top of the review state the bundle states.
+- `source.kind: "demo"` (the Harborview A/B demo in `data/`) means invented calcs with no PDF: every record they
+  yield has provenance `method: "estimate"`, `rule: "bundle.demo"`, each link carries a demo caveat, the calc
+  root is "Demo calcs", and the PDF pane says "DEMO DATA • NO PDF", marks each calc DEMO and shows its stated
+  metadata instead of a page.
+- **Project → Export model + calc graph** writes the model on screen and its calc graph (not rejected links;
+  review state, evidence and provenance kept) as `*.bundle.json`. The PDFs are named by sha256, not included.
 
 ## 2. Calcs: `@unloaded/calc-mapper` in a Web Worker
 
@@ -48,6 +76,7 @@ that calls the package's functions):
 | `extract` | PDF bytes → pages (pdf.js text, word boxes) → segmented calcs as spans of page regions (`extractPdf`, `segmentCalcs`) |
 | `map` | element graph × calc package → auto links (role, band, weighted evidence, caveats), typical groups and their links, size-mismatch findings, calc → calc dependencies (`mapCalcs`) |
 | `export` | graph + package + run + decision log → the export (elements with ranked, evidenced links) (`buildExport`) |
+| `bundleExport` | a model bundle's calc graph against its element graph → the same export shape, decision log applied, no PDF or mapping run (`bundleExport`) |
 | `impact` | what goes stale if an element changes / is removed (`impactOf`) |
 | `diff` | **the one revision diff**: two element graphs → added / removed / changed with per-field before → after (`diffGraphs`) |
 
@@ -95,16 +124,27 @@ TanStack Query and hands components view data only.
   (`applyModelDiff`; elements only in the other revision become ghost nodes).
 
 Components (`src/components/*`) read `src/types/bim.ts` only. Utilisation stays empty until a real source
-exists, so the heatmap toggle is disabled with an explanation.
+exists, so the heatmap toggle is disabled with an explanation. Load-path tracing applies its depth
+setting in the selected direction; the default ALL setting lets upward traces follow connected
+supports through the full structure.
+PDF intake checks the header before starting extraction and identifies Git LFS pointer files with
+instructions to fetch their contents.
 
 ## 5. Views
 
 - **Element graph** (`RadialGraphCanvas`): the hierarchy, review-status rings, traced load path, impact and
-  diff colouring, namable groups.
+  diff colouring, namable groups, and directional box selection (left-to-right encloses; right-to-left crosses;
+  Shift adds). Escape cancels an active box selection and clears the shared selection in the graph and 3D views.
 - **Calculation graph**: calcs by the element type they design, calc → calc dependencies, and the selected
   calc's linked elements with edges styled by review state.
 - **3D** (`Structural3DViewer`, `three/ifcViewer.ts`): the head revision's real IFC meshes via web-ifc, keyed by
   GlobalId; element-graph boxes when there is no IFC; diff ghosts from the other revision.
+- **2D plan** (`PlanView2D`, `plan/`, slicing in `utils/planSlice.ts`): the model panel's second tab. One floor
+  level at a time as a framing plan: slab outline, beams at their section width, braces dashed, columns and walls
+  cut just below the level, columns that start on it dashed, footings, connections. Drawn as SVG from the element
+  graph's bbox / centreline / section (never the meshes), so it works without an IFC. Levels are the storeys plus
+  any slab no storey sits on. Membership is geometric because IFC puts a floor's beams in the storey below. Styling
+  and selection share `utils/elementEmphasis.ts` with the 3D view.
 - **PDF calcs** (`DocumentBrowser`, `pdf/PdfPage.tsx`): the original page with the matched evidence
   highlighted; each calc stepped through by its regions (a calc can start or end mid-page; the region is
   outlined); calc dependencies side by side (`pdf/EvidenceCompare.tsx`); tabs for **typical groups** (elements of
@@ -132,4 +172,4 @@ npm run dev
 **Load sample** (and **Revisions → Add sample calc supplement**, which exercises roles, a typical group and a size
 mismatch) needs the synthetic package generated once:
 `cd tools/calcgraph-reference && uv run python -m synth.generate`, then `npm run assets`. Until then the app
-says the sample is not generated. The Harborview A/B demo (Noah's legacy JSON) needs nothing extra.
+says the sample is not generated. The Harborview A/B demo (two model bundles in `data/`) needs nothing extra.

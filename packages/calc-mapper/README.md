@@ -34,7 +34,7 @@ new field; no field of the export was renamed or removed.
   provenance does not type-check, and `inputList` throws on anything that is not a sha256.
   - Rule ids: `segment.calc-title | scanned-run | front-matter | untitled-start`, `matcher.tier.<tier>`,
     `matcher.typical-group`, `matcher.finding.size-mismatch`,
-    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference` (joined with "+" when an
+    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference`, `calcdeps.calc-reference` (joined with "+" when an
     edge has both), `impact.propagate.<mode>`, `decision.<action>`.
   - A link a person confirmed / rejected keeps the matcher's provenance and gains
     `review_provenance` (the decision's).
@@ -151,6 +151,12 @@ new field; no field of the export was renamed or removed.
     document). Every other page mention is a reference, cue word or not ("max end reaction: page 7").
   - A cross-reference points at the element's designer (`designerOf`): a design-role link beats a
     loads-role one, then the higher tier confidence, then the smaller calc key.
+  - A calc reference names another calc's sheet number ("Gravity loads per S-001"): the hyphenated
+    token its title starts with (`sheetOf`), resolved only when exactly one calc carries it. It works
+    across PDFs and needs no element, so it is how Loading calcs join the graph.
+- **Loading calcs** (`segment.ts` `calcCatOf`): a title naming no element type but a load criteria /
+  analysis ("Wind Load Analysis", "Load Combinations") gets the calc category `Loading`. It designs
+  no element; the Calculation Graph files it under its own Loading section.
 - **Impact** (`impact.ts`): walks the graph's `supports` edges. Connection nodes pass load through,
   so waves count depth the way `ElementGraph.loadPathDown` does.
 - **Diff** (`diff.ts`):
@@ -164,6 +170,22 @@ new field; no field of the export was renamed or removed.
   - The log is append-only and keyed by (global_id, calc_key), not by revision.
   - The latest decision for a pair wins, and "undo" clears it.
   - Decisions carry forward to later revisions while both keys exist.
+
+## Model bundle (`bundle.ts`)
+
+One file, `unloaded.model-bundle` v1: `{ format, version, meta, elementGraph, calcGraph }`. The element
+graph is `ElementGraph.serialize()` unchanged; the calc graph is `{ source, calcs, edges, links }` with the
+export's field names. `docs/ARCHITECTURE.md` has the full shape.
+
+- `parseBundle(json)` validates it in full and throws `BundleFormatError` naming the field at fault.
+- `bundleExport(graph, calcGraph, decisions)` builds the `Export` the app reads. It applies the bundle's own
+  review state as decisions older than any in the log, then `decisions`. Records carry provenance producer
+  `calc-mapper@<v>/bundle`, resting on the graph's sha256 (and each PDF's).
+- `exportToCalcGraph(exp)` is the reverse. It drops rejected links, keeps evidence and provenance, and names
+  the PDFs by sha256.
+- A demo source (`{ kind: "demo" }`) means invented calcs with no PDF. Its records are
+  `method: "estimate"`, `rule: "bundle.demo"`, and links carry `DEMO_CAVEAT`.
+- Links a bundle states use tier `stated` (not matched by this engine) unless the bundle names a tier.
 
 ## Versions that key stored results (`types.ts`)
 

@@ -27,8 +27,9 @@ decided). An element's status counts DESIGN links only: confirmed (a confirmed/m
 unmapped. Findings are size mismatches (the calc designs a different size than the model has). Typical groups are elements of \
 one kind, storey and size that a size-only calc links to once.
 
-Start with project_summary. Elements can be named by GlobalId or (unique) mark. Calc keys come from list_calcs; keys of \
-every calc PDF after the first are prefixed "<file-stem>/". Page numbers are always within one PDF. To show evidence, \
+Start with project_summary. Elements can be named by GlobalId or (unique) mark. Calc keys come from list_calcs: they are calc refs \
+"<docId>#<key>" (each calc PDF is a document d1, d2, ..., as in the app); a bare key works when only one PDF has it. Page \
+numbers are pages of the PDF the result names (export_mapping alone gives the app's set pages). To show evidence, \
 call get_page_image with global_id + calc_key (a link) or edge_src + edge_dst (calc-edge evidence) - it crops to the \
 highlighted words. impact_of_change, move_column and compare_revisions are what-if / read-only analyses.
 
@@ -145,7 +146,7 @@ export function createServer(project: Project): McpServer {
       title: "List calcs",
       description:
         "Calcs across all calc PDFs (key, title, software, category, PDF, pages, scanned / front matter, live link counts by tier, element " +
-        "count, calc edges in / out). Filter by pdf (file name or key prefix), category, software, query (key / title text).",
+        "count, calc edges in / out). Filter by pdf (file name or doc id), category, software, query (key / title text).",
       inputSchema: { pdf: z.string().optional(), category: z.string().optional(), software: z.string().optional(), query: z.string().optional(), offset, limit: limit(100) },
       annotations: RO,
     },

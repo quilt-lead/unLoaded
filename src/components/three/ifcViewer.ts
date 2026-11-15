@@ -70,7 +70,7 @@ export class IfcViewer {
   world = new THREE.Group();
   group = new THREE.Group();
   ghostGroup = new THREE.Group();
-  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / legacy JSON models, their diff ghosts) */
+  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / model bundle models, their diff ghosts) */
   boxGroup = new THREE.Group();
   boxIds = new Set<string>();
   meshes = new Map<string, THREE.Mesh[]>(); // GlobalId -> meshes (head model and ghosts)
@@ -366,8 +366,8 @@ export class IfcViewer {
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const sz = Math.max(box.getSize(new THREE.Vector3()).length(), minSize);
-    // keep the current view direction; move the target and distance only
-    this.controls.moveTo({ target: { x: c.x, y: c.y, z: c.z }, radius: sz * 1.15 }, animateCamera());
+    // Keep the current view direction and leave room around the selection for nearby structure.
+    this.controls.moveTo({ target: { x: c.x, y: c.y, z: c.z }, radius: sz * 1.8 }, animateCamera());
     this.camera.near = Math.max(0.01, sz / 1000);
     this.camera.far = Math.max(1000, sz * 40);
     this.camera.updateProjectionMatrix();
@@ -423,7 +423,13 @@ export class IfcViewer {
       m.visible = s.visible;
       mat.color.set(s.color);
       mat.opacity = s.opacity;
-      mat.transparent = s.opacity < 1;
+      const transparent = s.opacity < 1;
+      if (mat.transparent !== transparent) {
+        mat.transparent = transparent;
+        // Re-select the shader variant: a cached OPAQUE shader forces alpha to 1,
+        // so opacity alone cannot dim a previously solid element.
+        mat.needsUpdate = true;
+      }
       mat.depthWrite = s.opacity >= 0.5;
       mat.emissive.set(s.glow ?? '#000000');
       mat.emissiveIntensity = s.glow ? 0.55 : 0;

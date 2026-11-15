@@ -16,17 +16,15 @@
  * - supports          -> LoadPathEdge, source = supported, target = support (load flows source -> target)
  * - connects/part_of  -> ConnectivityEdge
  * - geometry.bbox     -> bbox (metres, Z up): the 3D view draws real IFC meshes by GlobalId and
- *                        falls back to these boxes only when there is no IFC (ModelInput / legacy JSON)
- * - node.links kind DEMO_DOCUMENT_LINK -> demoDocuments (legacy demo JSON's invented documents,
- *                        shown labelled as demo data; real calc links come from the calc engine)
+ *                        falls back to these boxes only when there is no IFC (ModelInput / model bundle)
+ * Calc links never come from here: they come from the calc engine or a model bundle's calc graph
+ * (src/data/loadProject.ts).
  */
 import type { ElementGraph, LevelInput, ParamValue } from '@unloaded/element-graph';
-import type { BimLink, BimNode, ConnectivityEdge, DemoDocument, ElementTopology, LoadPathEdge } from '../types/bim';
+import type { BimLink, BimNode, ConnectivityEdge, ElementTopology, LoadPathEdge } from '../types/bim';
 import { computeRadialLayout } from '../utils/graphEngine';
 
 export const PROJECT_NODE_ID = 'project';
-/** ElementNode.links kind for a legacy demo document (see src/loaders/legacyBimJson.ts). */
-export const DEMO_DOCUMENT_LINK = 'demo-document';
 
 interface KindCategory {
   id: string;
@@ -250,22 +248,8 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
       const s = str(v);
       if (s !== undefined) params[k] = s;
     }
-    const demoDocuments: DemoDocument[] = el.links
-      .filter((l) => l.kind === DEMO_DOCUMENT_LINK)
-      .map((l) => {
-        const d = l.data ?? {};
-        return {
-          id: l.target,
-          title: str(d.title) ?? l.target,
-          type: str(d.type) ?? '',
-          code: str(d.code) ?? '',
-          rev: str(d.rev) ?? '',
-          pages: typeof d.pages === 'number' ? d.pages : null,
-          date: str(d.date) ?? '',
-          summary: str(d.summary) ?? '',
-        };
-      });
     const bb = el.geometry?.bbox;
+    const ax = el.geometry?.axis;
     nodes.push({
       id: el.id,
       label,
@@ -284,7 +268,8 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
       material: el.material,
       params,
       bbox: bb ? { min: [bb.min[0], bb.min[1], bb.min[2]], max: [bb.max[0], bb.max[1], bb.max[2]] } : undefined,
-      demoDocuments: demoDocuments.length ? demoDocuments : undefined,
+      axis: ax ? { start: [ax.start[0], ax.start[1], ax.start[2]], end: [ax.end[0], ax.end[1], ax.end[2]] } : undefined,
+      section: el.geometry?.section ? { ...el.geometry.section } : undefined,
       r: 8,
       x: 0,
       y: 0,
@@ -305,5 +290,12 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
     }
   }
 
-  return { projectName, elementNodes: computeRadialLayout(nodes), hierarchyLinks: links, loadPath, connectivity };
+  return {
+    projectName,
+    elementNodes: computeRadialLayout(nodes),
+    hierarchyLinks: links,
+    loadPath,
+    connectivity,
+    levels: levels.map((l) => ({ id: l.id, name: storeyOf.get(l.id)!.name, elevation: l.elevation })),
+  };
 }

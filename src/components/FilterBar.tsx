@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react';
 import type { BimNode, ColorMode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
-import { NO_DATA_COLOR, STATUS_COLORS, STATUS_LABELS } from '../utils/colors';
+import { NO_DATA_COLOR, NO_UTILIZATION_COLOR, STATUS_COLORS, STATUS_LABELS } from '../utils/colors';
 
 export type DiffFilter = 'ALL' | 'CHANGED' | DiffStatus;
 
@@ -55,7 +55,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             value={filters.search}
             onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
             placeholder="Search mark, size, level, calc..."
-            className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-48 transition"
+            className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-calcmap/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-48 transition"
           />
         </div>
 
@@ -116,7 +116,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('CHANGED')}
               aria-pressed={diffFilter === 'CHANGED'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
-                diffFilter === 'CHANGED' ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                diffFilter === 'CHANGED'                 ? 'bg-calcmap/20 text-calcmap border border-calcmap/40 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Changed ({diffSummary.addedCount + diffSummary.removedCount + diffSummary.modifiedCount})
@@ -162,7 +162,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 aria-pressed={traceDirection === 'down'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'down'
-                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    ? 'bg-calcmap/15 text-calcmap border border-calcmap/40 font-medium'
                     : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                 }`}
               >
@@ -175,7 +175,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 aria-pressed={traceDirection === 'up'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'up'
-                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    ? 'bg-calcmap/15 text-calcmap border border-calcmap/40 font-medium'
                     : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                 }`}
               >
@@ -188,7 +188,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 aria-pressed={traceDirection === 'both'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'both'
-                    ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
+                    ? 'bg-calcmap/15 text-calcmap border border-calcmap/40 font-medium'
                     : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                 }`}
               >
@@ -201,7 +201,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   
             <div className="flex items-center gap-1.5 pr-2 pl-1">
               <label htmlFor="traceStepsSlider" className="mono text-[9px] text-zinc-500 uppercase cursor-pointer">
-                Steps
+                {traceDirection === 'up' ? 'Up steps' : traceDirection === 'both' ? 'Up & down steps' : 'Down steps'}
               </label>
               <input
                 id="traceStepsSlider"
@@ -210,9 +210,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 max={16}
                 value={traceSteps}
                 onChange={(e) => onChangeTraceSteps(parseInt(e.target.value, 10))}
+                title={`Limit each ${traceDirection === 'both' ? 'upward and downward' : traceDirection === 'up' ? 'upward' : 'downward'} trace to this many steps.`}
                 className="trace-steps-slider w-20"
               />
-              <span className="mono text-[10px] font-semibold text-indigo-300 min-w-[26px] text-right">
+              <span className="mono text-[10px] font-semibold text-calcmap min-w-[26px] text-right">
                 {traceSteps >= 16 ? 'ALL' : traceSteps}
               </span>
             </div>
@@ -263,7 +264,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <div className="w-24 h-2 rounded-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #10b981 35%, #f59e0b 70%, #ef4444 100%)' }} />
             <span className="mono text-[9px] text-rose-400">95%+</span>
             <span className="mono text-[9px] text-zinc-300 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NO_DATA_COLOR }} /> No data
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NO_UTILIZATION_COLOR }} /> No data
             </span>
           </div>
         ) : null}

@@ -31,16 +31,17 @@ export type { BuildingPointFt, Framed, ModelPointM, SheetRect } from "./frames.t
  * only when it was segmented by this version (project-file `storedExtractionFor`), so ANY change to
  * what segmentCalcs returns for the same pages must bump it. v2: unique calc keys; untitled pages
  * continue the most recent calc with text; front matter only on contents / index / cover evidence.
+ * v3: the "Loading" calc category (load criteria / analysis calcs, segment.ts `LOADING_WORDS`).
  */
-export const SEGMENTER_VERSION = "segment-v2" as const;
+export const SEGMENTER_VERSION = "segment-v3" as const;
 
 /**
  * The matcher's version: ANY change to what mapCalcs returns for the same graph and calc package must
  * bump it. v1.1: the provenance contract. v1.2: the calc-text section grammar (complete designations
  * only), whole-word storeys, the folded text, design-role designers, page numbers that are not
- * references.
+ * references. v1.3: calc edges from a calc reference by sheet number (calcdeps rule 3).
  */
-export const MAPPER_VERSION = "mapper-v1.2" as const;
+export const MAPPER_VERSION = "mapper-v1.3" as const;
 
 /**
  * The mapping engine's version, as stored mapping runs are keyed (the app's run cache, MappingRun /
@@ -90,6 +91,13 @@ export type ElementCategory =
   | "Beam" | "Column" | "Slab" | "Wall" | "Footing" | "Pile" | "Brace" | "Connection" | "Other";
 
 /**
+ * What a calc is about: the element category it designs, or "Loading" for a load criteria / load
+ * analysis calc (gravity, wind, seismic, load combinations). A Loading calc designs no element; it
+ * feeds other calcs, which cite it by sheet number (calcdeps rule 3).
+ */
+export type CalcCategory = ElementCategory | "Loading";
+
+/**
  * A region of one page that belongs to a calc: the page's text range [start, end) and the box
  * around it (PDF points; full page width). A region can start mid-page (a calc titled half way
  * down a sheet) and end mid-page (the next calc starts below it).
@@ -113,8 +121,8 @@ export interface Calc {
   ord: number;
   title: string;
   software: string;
-  /** Element category the calc designs ("" when the title / line under it names none). */
-  cat: ElementCategory | "";
+  /** Element category the calc designs, or "Loading" ("" when the title / line under it names none). */
+  cat: CalcCategory | "";
   pages: number[];
   scanned: boolean;
   /** Front matter / contents page. Never mapped. */
@@ -192,7 +200,8 @@ export interface ConnectivityEdge {
 
 // ---------------------------------------------------------------- links (mapping)
 
-export type Tier = "exact" | "range" | "loose" | "family" | "size" | "partial" | "xref" | "type" | "manual";
+/** How a link was made: a matcher tier, "manual" (a person linked it), or "stated" (a model bundle states it; not matched by this engine). */
+export type Tier = "exact" | "range" | "loose" | "family" | "size" | "partial" | "xref" | "type" | "manual" | "stated";
 export type LinkReview = "auto" | "confirmed" | "rejected" | "manual";
 
 export interface Snippet {
@@ -324,8 +333,21 @@ export interface RunProducers {
     source: unknown;
     sha256: string;
   };
-  /** The calc package PDF: sha256 of its bytes. */
-  calc_package: { name: string | null; sha256: string; pages: number };
+  /** The calc package PDF: sha256 of its bytes. Present when the run rests on ONE PDF (a package, or a set of one document). */
+  calc_package?: { name: string | null; sha256: string; pages: number };
+  /** A calc-set run (calcset.ts): every document, in set order, with the offset that turns its page numbers into set pages. */
+  calc_set?: CalcSetDocRecord[];
+}
+
+/** One document of a calc set, as runs and exports record it (calcset.ts CalcSetDoc). */
+export interface CalcSetDocRecord {
+  doc_id: string;
+  name: string | null;
+  revision: string | number | null;
+  sha256: string;
+  /** Set page = document page + page_offset. */
+  page_offset: number;
+  pages: number;
 }
 
 /** One mapping run of a (graph, calc package) pair: the auto links (status "auto") + calc edges. */
@@ -337,7 +359,7 @@ export interface MappingRun {
   group_links: GroupLink[];
   findings: Finding[];
   producers: RunProducers;
-  /** The run's input documents: [element graph sha256, calc PDF sha256]. */
+  /** The run's input documents: [element graph sha256, calc PDF sha256 (a set: every document's, in set order)]. */
   inputs: string[];
 }
 
@@ -417,13 +439,15 @@ export interface ExportCalc {
   key: string;
   title: string;
   software: string;
-  element_type: ElementCategory | "";
+  element_type: CalcCategory | "";
   pages: number[];
   scanned: boolean;
   front_matter: boolean;
   title_box: TitleBox | null;
   spans: CalcSpan[];
   provenance: Provenance;
+  /** Document metadata a model bundle's calc states (a demo calc has no PDF to read it from). */
+  meta?: { code?: string; rev?: string; date?: string; summary?: string };
 }
 
 export interface Export {
@@ -443,6 +467,16 @@ export interface Export {
   groups: TypicalGroup[];
   group_links: GroupLink[];
   findings: Finding[];
+  /**
+   * A calc-set export: the documents. Calc keys are then calc refs "<doc_id>#<key>" and every page
+   * number is a SET page (document page + the document's page_offset). Absent for a one-package export.
+   */
+  documents?: CalcSetDocRecord[];
+  /**
+   * Set when the export was made from a model bundle's calc graph (bundle.ts) rather than by mapping
+   * PDFs: a demo calc graph (no PDF at all) or a PDF one (the PDFs named by sha256, not included).
+   */
+  calc_source?: { kind: "demo" } | { kind: "pdf"; documents: { doc_id: string | null; name: string | null; revision: string | number | null; sha256: string; pages: number; page_offset: number }[] };
 }
 
 /**
@@ -456,6 +490,7 @@ export interface ExportProducers {
   calc_mapper?: RunProducers["calc_mapper"];
   element_graph?: RunProducers["element_graph"];
   calc_package?: RunProducers["calc_package"];
+  calc_set?: RunProducers["calc_set"];
   /** The input documents every derived record rests on: [element graph sha256, calc PDF sha256]. */
   inputs?: string[];
   [key: string]: unknown;

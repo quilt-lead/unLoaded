@@ -1,8 +1,70 @@
-@import url('https://fonts.cdnfonts.com/css/apercu');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-Light.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-LightItalic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-Italic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-Medium.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-MediumItalic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-Bold.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Apercu';
+  src: url('./assets/fonts/apercu/Apercu-BoldItalic.woff2') format('woff2');
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+}
 
 :root {
   color-scheme: dark;
@@ -11,7 +73,7 @@
   --bg-elevated: #383a3c;
   --border-subtle: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.16);
-  --font-sans: 'Apercu Pro', 'Apercu', 'Segoe UI', sans-serif;
+  --font-sans: 'Apercu', 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
 }
 
@@ -58,6 +120,11 @@ body {
   background: linear-gradient(to top, rgba(40, 44, 52, 0.95) 0%, rgba(40, 44, 52, 0.48) 55%, rgba(40, 44, 52, 0) 100%);
 }
 
+.workspace-view-indicator {
+  will-change: transform, width;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), width 180ms ease-out;
+}
+
 input[type="range"].trace-steps-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -73,9 +140,8 @@ input[type="range"].trace-steps-slider::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #818cf8;
-  border: 1.5px solid #e0e7ff;
-  box-shadow: 0 0 8px rgba(129, 140, 248, 0.7);
+  background: #14ae5c;
+  border: 1.5px solid #14ae5c;
   cursor: pointer;
 }
 
@@ -97,12 +163,12 @@ select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid #d2f2df;
   outline-offset: 2px;
 }
 
 input[type="range"].trace-steps-slider:focus-visible {
-  outline: 2px solid #a5b4fc;
+  outline: 2px solid #d2f2df;
   outline-offset: 4px;
 }
 
@@ -111,5 +177,10 @@ input[type="range"].trace-steps-slider:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .workspace-view-indicator {
+    transition: none;
+    will-change: auto;
   }
 }

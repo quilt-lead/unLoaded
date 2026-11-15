@@ -1,34 +1,25 @@
 /**
  * A loaded project: one or more model revisions (the last is the current model), one or more calc
  * PDFs mapped onto the current model by the engine, and the review decisions applied. Everything is
- * computed in-process through ./engine.ts, with the calls the app makes:
+ * computed in-process through ./engine.ts, with the calls the app makes (src/engine/projectService.ts,
+ * src/engine/ops.ts):
  *
  *   graph = the model's element graph as calc-mapper reads it (ElementGraph.serialize + parseGraph;
  *           from a project file: the revision's stored graph)
- *   pkg   = extractPdf + segmentCalcs (from a project file: the stored extraction when
+ *   pkg   = per PDF: extractPdf + segmentCalcs (from a project file: the stored extraction when
  *           storedExtractionFor accepts it, else re-extracted from the PDF in the file)
- *   run   = mapCalcs(graph, pkg)
- *   state = buildState(graph, pkg, run, decisions)    - links with decisions applied, calc edges from
- *                                                        the effective links, findings
+ *   set   = buildCalcSet(every PDF as a document)     - the calc SET, as the app maps it
+ *   run   = mapCalcs(graph, set)
+ *   state = buildState(graph, set, run, decisions)    - links with decisions applied, element status,
+ *                                                        calc edges from the effective links, findings
  *
- * Several calc PDFs: calc-mapper maps ONE calc package (one PDF) per run - `packageSha256` refuses
- * pages from two documents - so the server runs it PER PDF, and page numbers always stay within their
- * own PDF. The first PDF (the main package) keeps the engine's plain calc keys, so a single-PDF
- * project is exactly the engine's output; every further PDF's keys are prefixed "<file-stem>/" (the
- * prefix is put on the package's calc keys before mapCalcs, so every record the engine makes carries
- * it). Across PDFs:
- *   - element status: the engine's `statusOf` over the element's links from every PDF;
- *   - ONE designer per element for every cross-reference edge: the engine's `designerOf` over the
- *     effective links of EVERY PDF (an element designed in two PDFs still has one designer);
- *   - calc edges within one PDF: `calcEdgesOfPdf` (inferCalcEdges on that PDF's calcs, pages and
- *     effective links, the designer chosen over every PDF's links), keeping the edges whose two calcs
- *     are both in that PDF. Page-reference edges are always these: the rule only ever sees one PDF;
- *   - calc edges across PDFs: `crossReferenceEdges` (inferCalcEdges with the page-reference rule
- *     switched off) on a combined view - every calc, every page with its page number offset so numbers
- *     are unique, every effective link - keeping only edges whose two calcs are in different PDFs,
- *     with evidence page numbers mapped back to their own PDF;
- *   - impact: the engine's `propagate` over the load path, every effective link and every calc edge.
- * With one PDF the calc edges are exactly `buildState`'s.
+ * Calc sets (calc-mapper calcset.ts): every PDF is a document with a doc id ("d1", "d2", ... in
+ * --calcs order; from a project file, its documents and their head revisions, withdrawn documents
+ * left out). Calc keys are calc refs "<doc_id>#<key>", the keys the app and the project file's
+ * decision log use, so a decision made here means the same calc in the app. The engine numbers pages
+ * across the set (document page + page_offset); this module turns every page number in the engine's
+ * records back into the page of the record's own PDF, so a page number in any tool result is a page of
+ * the PDF the result names (and get_page_image takes it as is).
  *
  * Decisions: the decisions file (calc-mapper's decision log, written by the server) and, with a
  * project file, the file's own log (read-only here) before it. Calc edges, statuses and findings are
@@ -40,13 +31,16 @@ import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { userInfo } from "node:os";
 import {
+  CALC_REF_SEP,
+  LEGACY_DOC_ID,
   ENGINE_VERSION,
+  buildCalcSet,
   buildState,
-  calcEdgesOfPdf,
-  crossReferenceEdges,
+  calcDocIdOf,
+  calcDocumentHeads,
   effectiveDecisions,
-  headRevision,
   isProjectFile,
+  legacyCalcRef,
   loadModel,
   mapCalcs,
   modelFromRevision,
@@ -54,12 +48,12 @@ import {
   projectFileDecisions,
   readCalcPackage,
   revisionBytes,
-  statusOf,
   storedCalcPackage,
   type Calc,
   type CalcEdge,
   type CalcPackage,
   type CalcPage,
+  type CalcSet,
   type DecisionFields,
   type ElementRow,
   type ElementStatus,
@@ -93,25 +87,31 @@ export interface ModelRev {
 
 export type ExtractionSource = "extracted" | "stored" | "re-extracted";
 
+/** One calc PDF: a document of the calc set. */
 export interface PdfDoc {
-  /** 0 = main package. */
+  /** Position in the set (0 = first). */
   index: number;
+  /** The calc-set document id ("d1", ...); calc refs are "<docId>#<key>". */
+  docId: string;
+  /** Document name (project file: the document's name; else the file name). */
+  docName: string;
   path: string | null;
+  /** File name of the PDF. */
   name: string;
   sha256: string;
-  /** "" for the main PDF, "<stem>/" for the others. */
+  /** "<docId>#": every calc key of this PDF starts with it. */
   prefix: string;
   bytes: Uint8Array;
   title: string;
-  /** The calc package, calc keys prefixed. */
+  /** The PDF's own calc package (bare keys, its own page numbers). */
   pkg: CalcPackage;
-  /** mapCalcs on the current model (keys prefixed). */
-  run: MappingRun;
+  /** Its pages (its own page numbers). */
   pages: CalcPage[];
+  /** Its calcs, keyed by calc ref, with its own page numbers. */
   calcs: Calc[];
   /** Pages with no text layer (pages of the calcs the engine marked `scanned`). */
   noTextPages: number[];
-  /** Offset of this PDF's pages in the combined view used for cross-PDF edges. */
+  /** The engine's set page of this PDF's page n is n + offset. */
   offset: number;
   /** How the package was obtained: extracted from the PDF, or a project file's stored extraction. */
   extraction: ExtractionSource;
@@ -119,10 +119,10 @@ export interface PdfDoc {
   /** Project file: the calc revision's id and label. */
   revision: { id: number; label: string } | null;
   readMs: number;
-  mapMs: number;
 }
 
 export interface CalcEdgeView extends CalcEdge {
+  /** The two calcs are in different PDFs. */
   cross_pdf: boolean;
 }
 
@@ -148,13 +148,6 @@ export function minOf(xs: Iterable<number>, init = Infinity): number {
   let m = init;
   for (const x of xs) if (x < m) m = x;
   return m;
-}
-
-/** Deterministic file-stem slug used as the calc-key prefix of a non-main PDF. */
-export function stemSlug(fileName: string): string {
-  const stem = basename(fileName).replace(/\.[^.]+$/, "");
-  const s = stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return s || "pdf";
 }
 
 const pairKey = (gid: string, key: string) => `${gid}\u0000${key}`;
@@ -184,13 +177,17 @@ export class Project {
   readonly elementById: Map<string, ElementRow>;
   readonly gids: Set<string>;
   readonly pdfs: PdfDoc[];
+  /** The calc set the engine maps (set page numbers). */
+  readonly set: CalcSet;
+  /** mapCalcs(graph, set): the engine's run (set page numbers). */
+  readonly run: MappingRun;
   readonly calcs: Calc[];
   readonly calcByKey: Map<string, Calc>;
   readonly pdfOfCalc: Map<string, PdfDoc>;
   readonly calcKeys: Set<string>;
-  /** The engine's automatic links of every PDF (status "auto"). */
+  /** The engine's automatic links (status "auto"), pages per PDF. */
   readonly rawLinks: Link[];
-  /** Typical groups (the engine's, from the element rows: the same in every run). */
+  /** Typical groups (the engine's, from the element rows). */
   readonly groups: TypicalGroup[];
   readonly projectFile: ProjectFileInfo | null;
   /** The project file's decision log (read-only here), oldest first. */
@@ -200,7 +197,8 @@ export class Project {
   readonly timings: Record<string, number>;
 
   // derived from the decisions (recompute)
-  states: ProjectState[] = [];
+  /** buildState(graph, set, run, log), as the engine returns it (set page numbers). */
+  state!: ProjectState;
   links: Link[] = [];
   linksByElement = new Map<string, Link[]>();
   linksByCalc = new Map<string, Link[]>();
@@ -210,7 +208,10 @@ export class Project {
   findings: Finding[] = [];
   groupLinks: GroupLink[] = [];
   effective = new Map<string, DecisionFields>();
-  /** The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's, ids shifted past them. */
+  /**
+   * The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's,
+   * ids shifted past them.
+   */
   log: DecisionFields[] = [];
   /** Each entry of `log` -> its origin and its id there. */
   private refs = new Map<DecisionFields, DecisionRef>();
@@ -228,6 +229,8 @@ export class Project {
     inputs: ProjectInputs;
     models: ModelRev[];
     pdfs: PdfDoc[];
+    set: CalcSet;
+    run: MappingRun;
     projectFile: ProjectFileInfo | null;
     baseLog: DecisionFields[];
     decisions: DecisionsFile | null;
@@ -243,14 +246,14 @@ export class Project {
     this.elementById = new Map(this.elements.map((e) => [e.global_id, e]));
     this.gids = new Set(this.elementById.keys());
     this.pdfs = init.pdfs;
+    this.set = init.set;
+    this.run = init.run;
     this.calcs = init.pdfs.flatMap((p) => p.calcs);
     this.calcByKey = new Map(this.calcs.map((c) => [c.key, c]));
     this.pdfOfCalc = new Map(init.pdfs.flatMap((p) => p.calcs.map((c) => [c.key, p] as const)));
     this.calcKeys = new Set(this.calcByKey.keys());
-    this.rawLinks = init.pdfs.flatMap((p) => p.run.links);
-    const groups = new Map<string, TypicalGroup>();
-    for (const p of init.pdfs) for (const g of p.run.groups) if (!groups.has(g.id)) groups.set(g.id, g);
-    this.groups = [...groups.values()];
+    this.rawLinks = init.run.links.map((l) => this.linkPages(l));
+    this.groups = init.run.groups;
     this.projectFile = init.projectFile;
     this.baseLog = init.baseLog;
     this.decisions = init.decisions;
@@ -279,7 +282,8 @@ export class Project {
   /**
    * Build the log the engine applies: the project file's decisions (ids 1..n), then the decisions
    * file's, ids shifted past them so they come later (an id only orders decisions; the latest per
-   * pair wins). The shifted ids live only here: `decisionRef` maps every entry back.
+   * pair wins). A bare calc key (no "<docId>#") names a calc of the first document, as in the app.
+   * The shifted ids live only here: `decisionRef` maps every entry back.
    */
   private combinedLog(fileLog: readonly DecisionFields[], ref?: (e: DecisionFields, r: DecisionRef) => void): DecisionFields[] {
     const n = this.baseLog.length;
@@ -289,7 +293,8 @@ export class Project {
       ref?.(d, { origin: "project_file", id: d.id });
     }
     for (const d of fileLog) {
-      const e = n ? { ...d, id: d.id + n } : d;
+      const calc_key = legacyCalcRef(d.calc_key);
+      const e = n || calc_key !== d.calc_key ? { ...d, id: d.id + n, calc_key } : d;
       log.push(e);
       ref?.(e, { origin: "decisions_file", id: d.id });
     }
@@ -309,92 +314,75 @@ export class Project {
     return effectiveDecisions(this.combinedLog(fileLog));
   }
 
+  /** A set page of a calc's record -> the page of that calc's own PDF. */
+  private docPage(calcKey: string, page: number): number {
+    const pdf = this.pdfOfCalc.get(calcKey);
+    return pdf ? page - pdf.offset : page;
+  }
+
+  private linkPages<T extends Link | GroupLink>(l: T): T {
+    const pg = (n: number | null) => (n === null ? null : this.docPage(l.calc_key, n));
+    return { ...l, page: pg(l.page), evidence: l.evidence.map((e) => ({ ...e, page: pg(e.page) })) };
+  }
+
   /**
-   * Apply the decision log: per-PDF state, statuses, calc edges, findings. `fileLog` is the decisions
-   * file's log to apply (default: as last read).
+   * Apply the decision log: one buildState on the set, then page numbers per PDF. `fileLog` is the
+   * decisions file's log to apply (default: as last read).
    */
   recompute(fileLog: readonly DecisionFields[] = this.fileLog): void {
     this.computedLog = fileLog;
     this.buildLog(fileLog);
     const log = this.log;
-    this.states = this.pdfs.map((pdf) => buildState(this.graph.graph, pdf.pkg, pdf.run, log));
-    this.links = this.states.flatMap((s) => s.links);
+    this.state = buildState(this.graph.graph, this.set, this.run, log);
+    this.links = this.state.links.map((l) => this.linkPages(l));
     this.linksByElement = new Map();
     this.linksByCalc = new Map();
     for (const l of this.links) {
       push(this.linksByElement, l.global_id, l);
       push(this.linksByCalc, l.calc_key, l);
     }
-    this.status = new Map();
-    this.counts = { confirmed: 0, review: 0, unmapped: 0 };
-    for (const e of this.elements) {
-      const s = statusOf(this.linksByElement.get(e.global_id) ?? []);
-      this.status.set(e.global_id, s);
-      this.counts[s] += 1;
-    }
-    this.findings = this.states.flatMap((s) => s.findings);
-    this.groupLinks = this.states.flatMap((s) => s.group_links);
+    this.status = new Map(this.state.elements.map((e) => [e.global_id, e.status]));
+    this.counts = { ...this.state.counts };
+    this.findings = this.state.findings.map((f) => ({ ...f, page: this.docPage(f.calc_key, f.page) }));
+    this.groupLinks = this.state.group_links.map((g) => this.linkPages(g));
     this.effective = effectiveDecisions(log);
     this.unappliedDecisions = log.filter((d) => !this.gids.has(d.global_id) || !this.calcKeys.has(d.calc_key)).length;
     this.decisionWarnings = this.checkDecisionKeys();
-
-    // within one PDF: that PDF's calcs / pages / links, the designer chosen over every PDF's links
-    const edges: CalcEdgeView[] = [];
-    for (const [i, pdf] of this.pdfs.entries()) {
-      const others = this.states.flatMap((s, j) => (j === i ? [] : s.links));
-      for (const e of calcEdgesOfPdf(pdf.calcs, pdf.pages, this.states[i]!.links, others)) {
-        if (this.pdfOfCalc.get(e.src) === pdf && this.pdfOfCalc.get(e.dst) === pdf) edges.push({ ...e, cross_pdf: false });
-      }
-    }
-    if (this.pdfs.length > 1) {
-      // combined view: page numbers offset per PDF so they are unique; links' pages offset to match
-      const pages = this.pdfs.flatMap((p) => p.pages.map((pg) => ({ ...pg, n: pg.n + p.offset })));
-      const links = this.links.map((l) => {
-        const p = this.pdfOfCalc.get(l.calc_key)!;
-        return l.page === null ? l : { ...l, page: l.page + p.offset };
-      });
-      for (const e of crossReferenceEdges(this.calcs, pages, links)) {
-        const a = this.pdfOfCalc.get(e.src);
-        const b = this.pdfOfCalc.get(e.dst);
-        if (!a || !b || a === b) continue;
-        edges.push({
-          ...e,
-          evidence: e.evidence.map((ev) => {
-            const p = this.pdfOfCalc.get(ev.calc);
-            return { ...ev, page: p ? ev.page - p.offset : ev.page };
-          }),
-          cross_pdf: true,
-        });
-      }
-    }
-    this.calcEdges = edges;
+    this.calcEdges = this.state.calc_edges.map((e) => ({
+      ...e,
+      evidence: e.evidence.map((ev) => ({ ...ev, page: this.docPage(ev.calc, ev.page) })),
+      cross_pdf: this.pdfOfCalc.get(e.src) !== this.pdfOfCalc.get(e.dst),
+    }));
   }
 
   /**
-   * Decisions that name a calc key or element this project does not have: kept, not applied, and
-   * said loudly with the likely cause (calc keys depend on the PDFs' order and file names).
+   * Decisions that name a calc or element this project does not have: kept, not applied, and said
+   * loudly with the likely cause (a calc ref names a document of the calc set: d1, d2, ... in --calcs
+   * order, or the project file's documents).
    */
   private checkDecisionKeys(): string[] {
     const out: string[] = [];
     const missing = new Map<string, number>();
     for (const d of this.log) if (!this.calcKeys.has(d.calc_key)) missing.set(d.calc_key, (missing.get(d.calc_key) ?? 0) + 1);
     if (missing.size) {
-      const prefixes = new Set(this.pdfs.map((p) => p.prefix).filter(Boolean));
-      const lines = [...missing].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 20).map(([key, n]) => {
-        const slash = key.indexOf("/");
-        const prefix = slash > 0 ? key.slice(0, slash + 1) : "";
+      const docs = this.pdfs.map((p) => `${p.docId} = ${p.name}`).join(", ");
+      const lines = [...missing].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 20).map(([ref, n]) => {
+        const sep = ref.indexOf(CALC_REF_SEP);
+        const docId = sep >= 0 ? ref.slice(0, sep) : "";
+        const key = sep >= 0 ? ref.slice(sep + 1) : ref;
+        const pdf = this.pdfs.find((p) => p.docId === docId);
+        const elsewhere = this.pdfs.filter((p) => p !== pdf && this.calcKeys.has(`${p.prefix}${key}`)).map((p) => `${p.prefix}${key}`);
         let why: string;
-        if (prefix && !prefixes.has(prefix)) {
-          why = `no loaded calc PDF has the key prefix "${prefix}" (the prefix is a non-main PDF's file stem): was that PDF renamed, dropped, or moved to first place in --calcs?`;
-        } else if (prefix) {
-          why = `${this.pdfs.find((p) => p.prefix === prefix)!.name} has no calc with this key: did that PDF change (calcs renamed, split or reordered)?`;
+        if (!pdf) {
+          why = `no loaded calc document is "${docId}" (documents: ${docs}): was a PDF dropped, or the --calcs order changed?`;
         } else {
-          why = `the main PDF (${this.pdfs[0]!.name}, the first --calcs, plain keys) has no calc with this key: was the --calcs order changed, or the main PDF replaced?`;
+          why = `${pdf.name} (${pdf.docId}) has no calc "${key}": did that PDF change (calcs renamed, split or reordered), or the --calcs order?`;
         }
-        return `"${key}" (${n} decision${n === 1 ? "" : "s"}): ${why}`;
+        if (elsewhere.length) why += ` A calc with this key is in ${elsewhere.join(", ")} (a bare key is read as a calc of ${LEGACY_DOC_ID}).`;
+        return `"${ref}" (${n} decision${n === 1 ? "" : "s"}): ${why}`;
       });
       out.push(
-        `decisions: ${[...missing.values()].reduce((a, b) => a + b, 0)} decision(s) name ${missing.size} calc key(s) that are not in this project; they are kept but NOT applied. ` +
+        `decisions: ${[...missing.values()].reduce((a, b) => a + b, 0)} decision(s) name ${missing.size} calc ref(s) that are not in this project; they are kept but NOT applied. ` +
           lines.join("; ") + (missing.size > 20 ? `; and ${missing.size - 20} more` : ""),
       );
     }
@@ -422,16 +410,18 @@ export class Project {
     return this.effective.get(pairKey(gid, key));
   }
 
+  /** A calc PDF by file name, document name, doc id ("d2" or "d2#") or sha256; the first PDF when none is named. */
   pdfByName(name: string | undefined | null): PdfDoc {
     if (name === undefined || name === null || name === "") return this.pdfs[0]!;
-    const n = name.replace(/\/$/, "");
+    const n = name.endsWith(CALC_REF_SEP) ? name.slice(0, -1) : name;
     const hit =
       this.pdfs.find((p) => p.name === name) ??
       this.pdfs.find((p) => p.name.toLowerCase() === name.toLowerCase()) ??
-      this.pdfs.find((p) => p.prefix && p.prefix.slice(0, -1) === n) ??
+      this.pdfs.find((p) => p.docId === n) ??
+      this.pdfs.find((p) => p.docName.toLowerCase() === name.toLowerCase()) ??
       this.pdfs.find((p) => p.sha256 === name);
     if (!hit) {
-      throw new ProjectError(`no calc PDF "${name}" in this project (PDFs: ${this.pdfs.map((p) => p.name).join(", ")})`);
+      throw new ProjectError(`no calc PDF "${name}" in this project (PDFs: ${this.pdfs.map((p) => `${p.docId} = ${p.name}`).join(", ")})`);
     }
     return hit;
   }
@@ -451,7 +441,10 @@ export class Project {
     return hit;
   }
 
-  /** The decisions context of a calc: the revision labels and documents a decision is recorded against. */
+  /**
+   * The decisions context of a calc: the revisions and documents a decision is recorded against. As
+   * in the app, the calc revision is the head revision of the calc's own document.
+   */
   decisionContext(calcKey: string): { model_rev: string | number; calc_rev: string | number | null; inputs: string[] } {
     const pdf = this.pdfOfCalc.get(calcKey);
     return {
@@ -472,7 +465,7 @@ export class Project {
         graph_sha256: this.graph.graphSha256,
         revision: this.current.revision,
       },
-      calc_pdfs: pdfs.map((p) => ({ file: p.name, sha256: p.sha256, key_prefix: p.prefix })),
+      calc_pdfs: pdfs.map((p) => ({ file: p.name, sha256: p.sha256, doc_id: p.docId, key_prefix: p.prefix })),
       ...(this.decisions?.problem ? { decisions_warning: this.decisions.problem } : {}),
       ...(opts.decisions
         ? {
@@ -501,12 +494,9 @@ function safeUser(): string {
   }
 }
 
-/** Put a prefix on every calc key of a package (before mapping, so every record the engine makes carries it). */
-function prefixPackage(pkg: CalcPackage, prefix: string): CalcPackage {
-  return prefix ? { ...pkg, calcs: pkg.calcs.map((c) => ({ ...c, key: `${prefix}${c.key}` })) } : pkg;
-}
-
 interface PdfSource {
+  docId: string;
+  docName: string;
   name: string;
   path: string | null;
   bytes: Uint8Array;
@@ -514,20 +504,19 @@ interface PdfSource {
   stored?: { extraction: unknown; revision: { id: number; label: string } };
 }
 
-async function loadPdfs(sources: PdfSource[], model: Model, warnings: string[], timings: Record<string, number>): Promise<PdfDoc[]> {
-  // prefixes: main = "", others = "<stem>/" (must be unique)
-  const prefixes = sources.map((s, i) => (i === 0 ? "" : `${stemSlug(s.name)}/`));
-  const dup = prefixes.find((p, i) => p && prefixes.indexOf(p) !== i);
-  if (dup) {
-    const who = sources.filter((_, i) => prefixes[i] === dup).map((s) => s.name);
-    throw new ProjectError(`calc PDFs ${who.join(" and ")} give the same calc-key prefix "${dup}". Rename one of them (the prefix is the file stem).`);
-  }
-  const pdfs: PdfDoc[] = [];
-  let offset = 0;
+/** Read every PDF into a calc package, then combine them into the calc set and map it once. */
+async function loadPdfs(
+  sources: PdfSource[], model: Model, warnings: string[], timings: Record<string, number>,
+): Promise<{ pdfs: PdfDoc[]; set: CalcSet; run: MappingRun }> {
+  const read: Omit<PdfDoc, "index" | "offset">[] = [];
   for (const [i, src] of sources.entries()) {
     const hash = sha256(src.bytes);
-    const twin = pdfs.find((p) => p.sha256 === hash);
-    if (twin) warnings.push(`calcs: ${src.name} has the same content as ${twin.name} (sha256 ${hash.slice(0, 12)})`);
+    const twin = read.find((p) => p.sha256 === hash);
+    if (twin) {
+      // a calc set holds a PDF once (buildCalcSet refuses the same PDF twice; the app does not add it again)
+      warnings.push(`calcs: ${src.name} has the same content as ${twin.name} (sha256 ${hash.slice(0, 12)}); it is left out`);
+      continue;
+    }
     const t1 = performance.now();
     let pkg: CalcPackage;
     let title = "";
@@ -549,11 +538,7 @@ async function loadPdfs(sources: PdfSource[], model: Model, warnings: string[], 
       }
     }
     const readMs = Math.round(performance.now() - t1);
-    const prefix = prefixes[i]!;
-    pkg = prefixPackage(pkg, prefix);
-    const t2 = performance.now();
-    const run = await mapCalcs(model.graph, pkg);
-    const mapMs = Math.round(performance.now() - t2);
+    const prefix = `${src.docId}${CALC_REF_SEP}`;
     // the engine's own scanned rule (segment): pages of calcs it flagged as having no text layer
     const noTextPages = [...new Set(pkg.calcs.filter((c) => c.scanned).flatMap((c) => c.pages))].sort((a, b) => a - b);
     if (noTextPages.length === pkg.pages.length) {
@@ -561,16 +546,19 @@ async function loadPdfs(sources: PdfSource[], model: Model, warnings: string[], 
     } else if (noTextPages.length) {
       warnings.push(`calcs: ${src.name} page(s) ${compactRanges(noTextPages)} have no text layer (scanned / handwritten); calcs on them are never mapped`);
     }
-    pdfs.push({
-      index: i, path: src.path, name: src.name, sha256: hash, prefix, bytes: src.bytes, title, pkg, run,
-      pages: pkg.pages, calcs: pkg.calcs, noTextPages, offset, extraction, extractionNote,
-      revision: src.stored?.revision ?? null, readMs, mapMs,
+    read.push({
+      docId: src.docId, docName: src.docName, path: src.path, name: src.name, sha256: hash, prefix, bytes: src.bytes, title, pkg,
+      pages: pkg.pages, calcs: pkg.calcs.map((c) => ({ ...c, key: `${prefix}${c.key}` })), noTextPages, extraction, extractionNote,
+      revision: src.stored?.revision ?? null, readMs,
     });
-    offset += maxOf(pkg.pages.map((p) => p.n), pkg.pages.length);
     timings[`pdf_${i}_read_ms`] = readMs;
-    timings[`pdf_${i}_map_ms`] = mapMs;
   }
-  return pdfs;
+  const set = buildCalcSet(read.map((d) => ({ doc_id: d.docId, name: d.docName, revision: d.revision?.id ?? null, package: d.pkg })));
+  const pdfs: PdfDoc[] = read.map((d, i) => ({ ...d, index: i, offset: set.docs[i]!.page_offset }));
+  const t2 = performance.now();
+  const run = await mapCalcs(model.graph, set);
+  timings.map_ms = Math.round(performance.now() - t2);
+  return { pdfs, set, run };
 }
 
 function modelWarnings(m: ModelRev, warnings: string[], current: boolean): void {
@@ -612,13 +600,18 @@ export async function loadProject(inputs: ProjectInputs): Promise<Project> {
       models.push({ index: models.length, revision: rev.id, label: rev.label, name: rev.sourceName, path: null, sha256: sha256(bytes), model, readMs: Math.round(performance.now() - t) });
     }
     if (!models.length) throw new ProjectError(`${name} has no model revision yet (add an IFC in the app, then save the project again)`);
-    const head = headRevision(file, "calcs");
-    if (!head) throw new ProjectError(`${name} has no calc package yet (add a calc PDF in the app, then save the project again)`);
-    const older = revs.filter((r) => r.kind === "calcs" && r.id !== head.id);
+    // the calc set the app maps: each live document's head revision, in document order
+    const heads = calcDocumentHeads(file);
+    if (!heads.length) throw new ProjectError(`${name} has no calc package yet (add a calc PDF in the app, then save the project again)`);
+    const headIds = new Set(heads.map((h) => h.rev.id));
+    const older = revs.filter((r) => r.kind === "calcs" && !headIds.has(r.id));
     if (older.length) {
-      warnings.push(`project file: serving the head calc package (revision ${head.id}, ${head.sourceName}); ${older.length} older calc revision(s) are not mapped`);
+      warnings.push(`project file: serving the head revision of each calc document (${heads.map((h) => `${h.doc.docId}: revision ${h.rev.id}, ${h.rev.sourceName}`).join("; ")}); ${older.length} older or withdrawn calc revision(s) are not mapped`);
     }
-    sources = [{ name: head.sourceName, path: null, bytes: revisionBytes(head), stored: { extraction: head.extraction, revision: { id: head.id, label: head.label } } }];
+    sources = heads.map(({ doc, rev }) => ({
+      docId: calcDocIdOf(rev), docName: doc.name, name: rev.sourceName, path: null, bytes: revisionBytes(rev),
+      stored: { extraction: rev.extraction, revision: { id: rev.id, label: rev.label } },
+    }));
     baseLog = projectFileDecisions(file);
   } else {
     for (const [i, path] of inputs.models.entries()) {
@@ -628,14 +621,18 @@ export async function loadProject(inputs: ProjectInputs): Promise<Project> {
       const model = await loadModel(bytes, name);
       models.push({ index: i, revision: i + 1, label: name, name, path, sha256: sha256(bytes), model, readMs: Math.round(performance.now() - t) });
     }
+    // documents d1, d2, ... in --calcs order (the ids the app gives documents as they are added)
     sources = [];
-    for (const path of inputs.calcs) sources.push({ name: basename(path), path, bytes: new Uint8Array(await readFile(path)) });
+    for (const [i, path] of inputs.calcs.entries()) {
+      const name = basename(path);
+      sources.push({ docId: `d${i + 1}`, docName: name.replace(/\.[A-Za-z0-9]{2,4}$/, "") || name, name, path, bytes: new Uint8Array(await readFile(path)) });
+    }
   }
   const current = models.at(-1)!;
   for (const m of models) modelWarnings(m, warnings, m === current);
   timings.model_ms = models.reduce((s, m) => s + m.readMs, 0);
 
-  const pdfs = await loadPdfs(sources, current.model, warnings, timings);
+  const { pdfs, set, run } = await loadPdfs(sources, current.model, warnings, timings);
   for (const p of pdfs) {
     if (p.extraction === "re-extracted") warnings.push(`project file: ${p.name}: the stored extraction was not used (${p.extractionNote}); re-read from the PDF in the file`);
   }
@@ -646,7 +643,7 @@ export async function loadProject(inputs: ProjectInputs): Promise<Project> {
     await decisions.load();
   }
   const t3 = performance.now();
-  const project = new Project({ inputs, models, pdfs, projectFile, baseLog, decisions, warnings, timings });
+  const project = new Project({ inputs, models, pdfs, set, run, projectFile, baseLog, decisions, warnings, timings });
   timings.review_ms = Math.round(performance.now() - t3);
   timings.total_ms = Math.round(performance.now() - t0);
   return project;

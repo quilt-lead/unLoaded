@@ -137,6 +137,47 @@ export function getLoadNeighbors(nodeId: string, loadPath: LoadPathEdge[]): { ca
 
 const TYPE_RADIUS = 215;
 
+export interface CalcBubbleLayout {
+  lines: string[];
+  fontSize: number;
+  lineHeight: number;
+  radius: number;
+}
+
+export function getCalcBubbleLayout(label: string): CalcBubbleLayout {
+  const fontSize = 8;
+  const lineHeight = 8.8;
+  const maxChars = 12;
+  const lines: string[] = [];
+  let line = '';
+
+  for (const word of label.trim().split(/\s+/).filter(Boolean)) {
+    let remaining = word;
+    while (remaining.length > maxChars) {
+      if (line) {
+        lines.push(line);
+        line = '';
+      }
+      lines.push(remaining.slice(0, maxChars));
+      remaining = remaining.slice(maxChars);
+    }
+    if (!remaining) continue;
+    if (!line) line = remaining;
+    else if (line.length + remaining.length + 1 <= maxChars) line += ` ${remaining}`;
+    else {
+      lines.push(line);
+      line = remaining;
+    }
+  }
+  if (line) lines.push(line);
+  if (lines.length === 0) lines.push('');
+
+  const maxLineWidth = Math.max(...lines.map((text) => text.length * fontSize * 0.6));
+  const halfHeight = ((lines.length - 1) * lineHeight) / 2 + fontSize / 2;
+  const radius = Math.max(22, Math.ceil(Math.hypot(maxLineWidth / 2, halfHeight) + 3));
+  return { lines, fontSize, lineHeight, radius };
+}
+
 interface Cluster {
   hub: BimNode;
   members: BimNode[];
@@ -186,7 +227,9 @@ export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
     const kids = childrenOf.get(cat.id) ?? [];
     const clusters = kids.filter(isFamilyNode).map((f) => buildCluster(f, (childrenOf.get(f.id) ?? []).filter(isInstanceNode)));
     const leaves = kids.filter(isInstanceNode);
-    const demand = clusters.reduce((acc, c) => acc + 2 * c.R + 22, 0) + leaves.length * 34;
+    const maxLeafRadius = leaves.reduce((max, leaf) => Math.max(max, leaf.r), 0);
+    const leafPitch = Math.max(34, maxLeafRadius * 2 + 10);
+    const demand = clusters.reduce((acc, c) => acc + 2 * c.R + 22, 0) + leaves.length * leafPitch;
     return { cat, clusters, leaves, demand: Math.max(demand, 90) };
   });
   const total = plan.reduce((acc, p) => acc + p.demand, 0);
@@ -250,7 +293,8 @@ export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
     // leaves straight under the category, in arcs
     const leaves = p.leaves;
     if (leaves.length) {
-      const pad = leaves.length > 80 ? 26 : 38;
+      const maxLeafRadius = leaves.reduce((max, leaf) => Math.max(max, leaf.r), 0);
+      const pad = Math.max(leaves.length > 80 ? 26 : 38, maxLeafRadius * 2 + 10);
       const spread = Math.min(arc * 0.82, Math.PI * 1.2);
       let placed = 0;
       let ring = 0;

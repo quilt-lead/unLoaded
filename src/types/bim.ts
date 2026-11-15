@@ -144,7 +144,19 @@ export interface CalcPackage {
   color: string;
   /** the calc as ordered regions of pages (a calc can start half way down a sheet); [] when unknown */
   regions: CalcRegionView[];
+  /** The calc document (PDF) it is in, when the calcs are a set of PDFs; every page above is a page of that PDF. */
+  docId: string | null;
+  docName: string | null;
+  /** Document metadata a model bundle states for the calc (a demo calc has no PDF to show instead). */
+  meta?: { code?: string; rev?: string; date?: string; summary?: string };
 }
+
+/**
+ * Where the view's calcs came from: the engine mapping the project's calc PDFs ('pdf'), or a model
+ * bundle's calc graph - invented demo calcs with no PDF ('bundle-demo'), or calcs mapped elsewhere
+ * whose PDFs are named but not included ('bundle-pdf').
+ */
+export type CalcOrigin = 'pdf' | 'bundle-demo' | 'bundle-pdf';
 
 /** calc -> calc: the source calc's output feeds the target calc's input. */
 export interface CalcDependency {
@@ -159,18 +171,6 @@ export interface LoadPathEdge {
   source: string;
   target: string;
   rule: string;
-}
-
-/** A document attached to an element by a legacy demo JSON. Invented; not a calc, never matched. */
-export interface DemoDocument {
-  id: string;
-  title: string;
-  type: string;
-  code: string;
-  rev: string;
-  pages: number | null;
-  date: string;
-  summary: string;
 }
 
 export interface BimNode {
@@ -201,8 +201,10 @@ export interface BimNode {
   calcLinks?: CalcLink[]; // strongest first, rejected included
   /** world bbox from the element graph (metres, Z up): the 3D fallback when there is no IFC to mesh */
   bbox?: { min: [number, number, number]; max: [number, number, number] };
-  /** invented documents carried by legacy demo JSON - shown labelled "demo data", never as calc links */
-  demoDocuments?: DemoDocument[];
+  /** analytical centreline (metres, Z up) for linear members; for columns `start` is the bottom */
+  axis?: { start: [number, number, number]; end: [number, number, number] };
+  /** cross-section size in metres, when the source states it */
+  section?: { depth?: number; width?: number };
   /** demand / capacity, 0..1. No source provides it yet, so it is always undefined today. */
   utilization?: number;
   // calc / mapped-element nodes
@@ -240,12 +242,39 @@ export interface RevisionInfo {
   isIfc: boolean;
 }
 
+/** A calc document (one logical PDF) and its revisions, newest first; the head is what the calc set maps. */
+export interface CalcDocumentInfo {
+  docId: string;
+  name: string;
+  /** Withdrawn from the calc set: kept, not mapped. */
+  removed: boolean;
+  revisions: RevisionInfo[];
+}
+
+/** Calcs added / removed / changed / moved between two revisions of a calc document. */
+export interface CalcRevisionDiffView {
+  a: number;
+  b: number;
+  added: { key: string; title: string }[];
+  removed: { key: string; title: string }[];
+  changed: { key: string; title: string; beforeTitle: string }[];
+  moved: { key: string; title: string; beforePages: number[]; afterPages: number[] }[];
+  unchanged: number;
+}
+
 /** physical connectivity between two elements (element-graph `connects` / `part_of`), undirected */
 export interface ConnectivityEdge {
   source: string;
   target: string;
   kind: 'connects' | 'part_of';
   rule: string;
+}
+
+/** A building storey of the model (IfcBuildingStorey / LevelInput): metres, Z up. */
+export interface ModelLevel {
+  id: string;
+  name: string;
+  elevation: number;
 }
 
 /** What the element graph says, as view data (built only by src/loaders/elementGraphToBim.ts). */
@@ -256,6 +285,8 @@ export interface ElementTopology {
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
+  /** the model's storeys, lowest first (empty when the source has none) */
+  levels?: ModelLevel[];
 }
 
 /** What the calc engine says, as view data (built only by src/data/loadProject.ts). */
@@ -277,6 +308,7 @@ export interface CalcData {
   groups: TypicalGroupView[];
   findings: FindingView[];
   producers: ProducerRecords | null;
+  calcOrigin: CalcOrigin;
 }
 
 /**
@@ -298,6 +330,8 @@ export interface ProjectViewModel {
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
+  /** the model's storeys, lowest first */
+  levels?: ModelLevel[];
   /** IFC file for the 3D view (an object URL of the model revision's IFC), null when there is none */
   modelFileUrl: string | null;
   calcs: CalcPackage[];
@@ -311,7 +345,9 @@ export interface ProjectViewModel {
   producers: ProducerRecords | null;
   counts: Record<MappingStatus, number>;
   hasUtilization: boolean;
-  /** some elements carry legacy demo documents (invented data, labelled as such) */
+  /** where the calcs came from; null when the view has no calc data */
+  calcOrigin: CalcOrigin | null;
+  /** the calcs are invented demo data (a demo model bundle), labelled as such */
   hasDemoData: boolean;
 }
 
@@ -393,6 +429,18 @@ export interface NodeGroup {
   id: string;
   name: string;
   nodeIds: string[];
+}
+
+/** Which graph workspace a comment sits on. */
+export type CommentGraph = 'element' | 'calc';
+
+/** A free text note placed on a graph workspace; (x, y) is its top-left corner in graph coordinates. */
+export interface GraphComment {
+  id: string;
+  graph: CommentGraph;
+  x: number;
+  y: number;
+  text: string;
 }
 
 export interface FilterState {

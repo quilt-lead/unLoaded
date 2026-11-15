@@ -35,7 +35,7 @@ import type {
   TypicalGroupView,
 } from '../types/bim';
 import { getDisplayType, getLoadNeighbors } from '../utils/graphEngine';
-import { DIFF_PALETTE, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
+import { DIFF_PALETTE, NO_DATA_COLOR, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 import { calcTarget, linkTarget } from './DocumentBrowser';
 import { Chip, ConfidenceChip, RoleChip, StatusDot, TierChip } from './ui/Chips';
 
@@ -120,7 +120,7 @@ const NodeRow: React.FC<{ node: BimNode; right?: React.ReactNode; onClick: () =>
   <button
     type="button"
     onClick={onClick}
-    className={`w-full text-left flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+    className={`w-full text-left flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
       tone ?? 'bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.06]'
     }`}
   >
@@ -177,10 +177,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
                 type="button"
                 key={k}
                 onClick={() => p.onSelectCalc(k)}
-                className="block w-full text-left px-2 py-1 rounded-lg bg-black/25 hover:bg-black/40 border border-white/[0.06] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                className="block w-full text-left px-2 py-1 rounded-lg bg-black/25 hover:bg-black/40 border border-white/[0.06] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} />
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? NO_DATA_COLOR }} />
                   <span className="text-[11px] text-zinc-100 truncate">{c?.title ?? k}</span>
                   {c?.software && <Chip tone="warn">{c.software}</Chip>}
                 </div>
@@ -270,7 +270,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
                   <button
                     type="button"
                     onClick={() => p.onOpenTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize}` }, f.elementId)}
-                    className="w-full text-left px-2 py-1.5 rounded-lg bg-rose-500/[0.06] hover:bg-rose-500/[0.14] border border-rose-400/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                    className="w-full text-left px-2 py-1.5 rounded-lg bg-rose-500/[0.06] hover:bg-rose-500/[0.14] border border-rose-400/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-[11px] text-zinc-100 truncate">{nodeById.get(f.elementId)?.label ?? f.elementId}</span>
@@ -362,7 +362,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
                   e.currentTarget.blur();
                 }
                 if (e.key === 'Escape') {
-                  // an Escape typed in a field is the field's (escapeStack ignores editable targets)
+                  // Stop the global Escape handler from also clearing the selection.
                   e.preventDefault();
                   e.stopPropagation();
                   renameCancelled.current = true;
@@ -406,10 +406,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   );
 
   const multiCard = multiList.length > 1 && (
-    <div className="bg-indigo-500/15 border border-indigo-400/35 rounded-xl p-2.5 space-y-1.5">
+    <div className="bg-calcmap/15 border border-calcmap/35 rounded-xl p-2.5 space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="mono text-[10px] font-semibold text-indigo-200 uppercase tracking-wider flex items-center gap-1">
-          <Layers className="w-3 h-3 text-indigo-300" />
+        <span className="mono text-[10px] font-semibold text-calcmap uppercase tracking-wider flex items-center gap-1">
+          <Layers className="w-3 h-3 text-calcmap" />
           {multiList.length} Selected
         </span>
         <button type="button" onClick={p.onClearSelection} className="mono text-[9px] text-zinc-400 hover:text-white underline">
@@ -424,8 +424,8 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
             onClick={() => p.onSelectNode(mn.id)}
             title="Focus this element alone"
             aria-pressed={mn.id === node.id}
-            className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
-              mn.id === node.id ? 'bg-white text-zinc-900 border-white font-semibold' : 'bg-black/40 text-zinc-200 border-white/15 hover:border-indigo-400/50'
+            className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
+              mn.id === node.id ? 'bg-white text-zinc-900 border-white font-semibold' : 'bg-black/40 text-zinc-200 border-white/15 hover:border-calcmap/50'
             }`}
           >
             {mn.label}
@@ -438,7 +438,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const header = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="mono text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25">
+        <span className="mono text-[10px] font-medium px-2 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25">
           {getDisplayType(node)}
         </span>
         {node.storey && (
@@ -523,21 +523,21 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           Open calc pages
         </button>
         {(inputs.length > 0 || feeds.length > 0) && (
-          <Section title={`Dependencies (${inputs.length + feeds.length})`} tone="text-indigo-300">
+          <Section title={`Dependencies (${inputs.length + feeds.length})`} tone="text-calcmap">
             <div className="space-y-1">
               {inputs.map((d, i) => (
-                <button type="button" key={`i${i}`} onClick={() => p.onSelectCalc(d.source)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400">
+                <button type="button" key={`i${i}`} onClick={() => p.onSelectCalc(d.source)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-calcmap/[0.06] hover:bg-calcmap/[0.14] border border-calcmap/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap">
                   <div className="text-[11px] text-zinc-100 truncate">
-                    <span className="mono text-[9px] text-indigo-300 mr-1.5">INPUT FROM</span>
+                    <span className="mono text-[9px] text-calcmap mr-1.5">INPUT FROM</span>
                     {calcByKey.get(d.source)?.title ?? d.source}
                   </div>
                   <p className="mono text-[9px] text-zinc-500 truncate">{d.rules.join('; ')}</p>
                 </button>
               ))}
               {feeds.map((d, i) => (
-                <button type="button" key={`f${i}`} onClick={() => p.onSelectCalc(d.target)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400">
+                <button type="button" key={`f${i}`} onClick={() => p.onSelectCalc(d.target)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-calcmap/[0.06] hover:bg-calcmap/[0.14] border border-calcmap/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap">
                   <div className="text-[11px] text-zinc-100 truncate">
-                    <span className="mono text-[9px] text-indigo-300 mr-1.5">FEEDS</span>
+                    <span className="mono text-[9px] text-calcmap mr-1.5">FEEDS</span>
                     {calcByKey.get(d.target)?.title ?? d.target}
                   </div>
                   <p className="mono text-[9px] text-zinc-500 truncate">{d.rules.join('; ')}</p>
@@ -652,7 +652,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
     return (
       <div key={l.calcKey} className={`rounded-lg p-2 border ${l.review === 'rejected' ? 'bg-white/[0.02] border-white/[0.06] opacity-70' : 'bg-rose-500/[0.06] border-rose-400/20'}`}>
         <div className="flex items-start gap-2">
-          <span className="w-2 h-2 mt-1 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} />
+          <span className="w-2 h-2 mt-1 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? NO_DATA_COLOR }} />
           <button type="button" onClick={() => p.onSelectCalc(l.calcKey)} className="text-left text-[11px] font-medium text-zinc-100 hover:text-white flex-1 min-w-0 leading-snug">
             {c?.title ?? l.calcKey}
           </button>
@@ -682,7 +682,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
         )}
         {(l.reasons.length > 0 || l.provenance) && (
           <details className="mt-1 ml-4 group">
-            <summary className="mono text-[9px] text-zinc-400 hover:text-zinc-200 cursor-pointer select-none list-none flex items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 rounded">
+            <summary className="mono text-[9px] text-zinc-400 hover:text-zinc-200 cursor-pointer select-none list-none flex items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap rounded">
               <span className="inline-block transition-transform group-open:rotate-90" aria-hidden="true">›</span>
               Why {Math.round(l.confidence * 100)}%: {l.reasons.length} evidence item{l.reasons.length === 1 ? '' : 's'}, provenance
             </summary>
@@ -698,7 +698,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
                     <button
                       type="button"
                       onClick={() => p.onOpenTarget({ calcKey: l.calcKey, page: r.page!, rects: r.rects, caption: r.note }, el.id)}
-                      className="mono text-[9px] text-indigo-300 hover:text-white underline flex-shrink-0"
+                      className="mono text-[9px] text-calcmap hover:text-white underline flex-shrink-0"
                       aria-label={`Show on page ${r.page}: ${r.note}`}
                     >
                       p. {r.page}
@@ -854,7 +854,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           key={i}
           type="button"
           onClick={() => p.onOpenTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize}` }, el.id)}
-          className="w-full text-left rounded-xl p-2.5 border border-rose-400/40 bg-rose-500/[0.08] hover:bg-rose-500/[0.14] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+          className="w-full text-left rounded-xl p-2.5 border border-rose-400/40 bg-rose-500/[0.08] hover:bg-rose-500/[0.14] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
         >
           <span className="mono text-[10px] font-semibold text-rose-200 uppercase tracking-wider flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" aria-hidden="true" />
@@ -881,7 +881,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           }
           tone="text-rose-400"
           action={
-            <button type="button" onClick={() => p.onShowElementCalcs(el.id)} className="mono text-[9px] text-indigo-300 hover:text-white underline">
+            <button type="button" onClick={() => p.onShowElementCalcs(el.id)} className="mono text-[9px] text-calcmap hover:text-white underline">
               PDF Viewer →
             </button>
           }
@@ -899,7 +899,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
               disabled={!p.canWrite || p.busy || candidates.length === 0}
               title={writeTitle}
               onChange={(e) => e.target.value && p.onDecide(el.id, e.target.value, 'manual')}
-              className="w-full bg-[#1e2127]/80 border border-white/[0.14] focus:border-indigo-400/50 focus:outline-none rounded-lg px-2 py-1 text-[11px] text-zinc-300 cursor-pointer disabled:opacity-40"
+              className="w-full bg-[#1e2127]/80 border border-white/[0.14] focus:border-calcmap/50 focus:outline-none rounded-lg px-2 py-1 text-[11px] text-zinc-300 cursor-pointer disabled:opacity-40"
             >
               <option value="" className="bg-[#2d3139]">
                 + Link to a calc by hand…
@@ -969,33 +969,6 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           {p.activeLoadChainNodeIds.size > 1 && (
             <p className="mono text-[9px] text-zinc-500 mt-1.5">{p.activeLoadChainNodeIds.size - 1} elements on the traced chain (see Trace in the filter bar)</p>
           )}
-        </Section>
-      )}
-
-      {el.demoDocuments && el.demoDocuments.length > 0 && (
-        <Section
-          title={`Documents (${el.demoDocuments.length})`}
-          tone="text-zinc-400"
-          action={
-            <span
-              className="mono text-[9px] px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-500/15 text-amber-200 uppercase tracking-wider"
-              title="Invented documents from a legacy demo JSON: not a calc package, never matched or linked"
-            >
-              Demo data
-            </span>
-          }
-        >
-          <ul className="space-y-1">
-            {el.demoDocuments.map((d) => (
-              <li key={d.id} className="px-2 py-1.5 rounded-lg bg-white/[0.02] border border-dashed border-white/[0.12]">
-                <p className="text-[11px] text-zinc-300 leading-snug">{d.title}</p>
-                <p className="mono text-[9px] text-zinc-500 mt-0.5">
-                  {[d.type, d.code, d.rev, d.date].filter(Boolean).join(' · ')}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">From a legacy demo file. There is no PDF behind these; real calc links come only from a calc package.</p>
         </Section>
       )}
 

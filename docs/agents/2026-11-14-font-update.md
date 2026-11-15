@@ -9,6 +9,7 @@ Switched the app's primary UI font from IBM Plex Sans to Apercu and made the cha
 Apercu is the design default for the product, and the previous IBM Plex stack was hard-coded in the main stylesheet and a few canvas-specific inline styles. Keeping the font change at the global layer makes it easier to maintain and ensures the UI remains visually consistent across graph and panel surfaces.
 
 ## Notes
-- The project now loads Apercu via a CSS import and falls back to local system sans-serif stacks if the font is unavailable.
+- Apercu WOFF2 faces are bundled from the user's supplied archive and loaded locally; no external font CDN is required.
+- The supplied archive did not include a separate font license file.
 - Monospace styling remains on IBM Plex Mono so code-like labels and numeric annotations preserve their technical contrast.
 - No structural logic was changed; this is a presentation-only update.

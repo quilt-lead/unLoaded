@@ -16,12 +16,32 @@
  *
  * Head revisions are not stored: importing re-adds revisions in id order and each add becomes the head
  * of its kind, so the head of a kind is the revision with the highest id (`headOf`).
+ *
+ * Version 2 (calc sets): calcs are MANY documents (PDFs), each with its own revisions. Every calc revision
+ * names its document (`docId`), `documents` lists them in set order (a removed one stays, flagged), and a
+ * decision's `calcKey` is a calc ref "<docId>#<key>" (calc-mapper calcset.ts). The head of a document is
+ * its revision with the highest id (`documentHeads`). A version-1 file still opens: its calc revisions
+ * are one document, LEGACY_DOC_ID, and its decisions' bare calc keys become refs into it.
  */
-import { DECISION_ACTIONS, SEGMENTER_VERSION, calcPackageProblem, parseGraph, type CalcPackage, type DecisionAction } from "@unloaded/calc-mapper";
+import { CALC_REF_SEP, DECISION_ACTIONS, SEGMENTER_VERSION, calcPackageProblem, calcRef, parseGraph, type CalcPackage, type DecisionAction } from "@unloaded/calc-mapper";
 import type { SerializedElementGraph } from "@unloaded/element-graph";
 
 export const PROJECT_FILE_FORMAT = "unloaded.calc-graph-project" as const;
-export const PROJECT_FILE_VERSION = 1 as const;
+export const PROJECT_FILE_VERSION = 2 as const;
+/** Versions this reader opens (1: one calc PDF per project; 2: calc sets). */
+export const PROJECT_FILE_VERSIONS_READ = [1, 2] as const;
+
+/** The document every calc revision of a pre-set project (file version 1, or an older store record) belongs to. */
+export const LEGACY_DOC_ID = "d1" as const;
+
+/** A calc document: one logical PDF of the project, with its own revisions. */
+export interface ProjectFileDocument {
+  /** Stable id ("d1", "d2", ...): calc refs and revisions name it. No "#". */
+  docId: string;
+  name: string;
+  /** Withdrawn from the set: its revisions and decisions are kept, its calcs are not mapped. */
+  removed: boolean;
+}
 
 export type RevisionKind = "model" | "calcs";
 export type RevisionMeta = Record<string, string | number | boolean | null>;
@@ -37,6 +57,8 @@ export interface ProjectFileRevisionFields {
   mediaType: string;
   createdAt: string;
   meta: RevisionMeta;
+  /** Calc revisions: the document this is a revision of (absent on records from before calc sets: LEGACY_DOC_ID). */
+  docId?: string;
 }
 
 /** One revision as the file stores it: its fields plus its payloads. */
@@ -56,6 +78,7 @@ export interface ProjectFileRevision extends ProjectFileRevisionFields {
  */
 export interface ProjectFileDecision {
   globalId: string;
+  /** A calc ref "<docId>#<key>" (version 1 files: a bare key, read as a ref into LEGACY_DOC_ID). */
   calcKey: string;
   action: DecisionAction;
   actor: string;
@@ -71,6 +94,8 @@ export interface ProjectFile {
   version: typeof PROJECT_FILE_VERSION;
   exportedAt: string;
   project: { name: string; createdAt: string };
+  /** Calc documents in set order. */
+  documents: ProjectFileDocument[];
   revisions: ProjectFileRevision[];
   decisions: ProjectFileDecision[];
 }
@@ -105,9 +130,10 @@ export function parseProjectFile(data: unknown): ProjectFile {
         `(save one from the app with "Save project")`,
     );
   }
-  if (d.version !== PROJECT_FILE_VERSION) {
-    fail(`project file version ${JSON.stringify(d.version ?? null)} is not supported (this reader reads version ${PROJECT_FILE_VERSION})`);
+  if (!(PROJECT_FILE_VERSIONS_READ as readonly unknown[]).includes(d.version)) {
+    fail(`project file version ${JSON.stringify(d.version ?? null)} is not supported (this reader reads versions ${PROJECT_FILE_VERSIONS_READ.join(", ")})`);
   }
+  const v1 = d.version === 1;
   if (typeof d.exportedAt !== "string") fail("exportedAt must be a string");
   if (!isObj(d.project) || typeof d.project.name !== "string") fail("project.name must be a string");
   const project = d.project as Record<string, unknown>;
@@ -115,6 +141,21 @@ export function parseProjectFile(data: unknown): ProjectFile {
   if (!Array.isArray(d.revisions)) fail("revisions must be a list");
   if (!Array.isArray(d.decisions)) fail("decisions must be a list");
 
+  let documents: ProjectFileDocument[] = [];
+  if (!v1) {
+    if (!Array.isArray(d.documents)) fail("documents must be a list");
+    const seen = new Set<string>();
+    documents = (d.documents as unknown[]).map((x, i): ProjectFileDocument => {
+      const at = `documents[${i}]`;
+      if (!isObj(x)) return fail(`${at} must be an object`);
+      if (!isDocId(x.docId)) fail(`${at}.docId must be a non-empty string without "${CALC_REF_SEP}"`);
+      if (seen.has(x.docId as string)) fail(`${at}: duplicate docId ${String(x.docId)}`);
+      seen.add(x.docId as string);
+      if (typeof x.name !== "string") fail(`${at}.name must be a string`);
+      if (typeof x.removed !== "boolean") fail(`${at}.removed must be a boolean`);
+      return { docId: x.docId as string, name: x.name as string, removed: x.removed as boolean };
+    });
+  }
   const kinds = new Map<number, RevisionKind>();
   const revisions = (d.revisions as unknown[]).map((r, i): ProjectFileRevision => {
     const at = `revisions[${i}]`;
@@ -151,6 +192,13 @@ export function parseProjectFile(data: unknown): ProjectFile {
     } else if (r.graph !== undefined) {
       fail(`${at}: calc revision ${id} must not carry an element graph`);
     }
+    if (kind === "calcs") {
+      if (v1) out.docId = LEGACY_DOC_ID;
+      else if (!documents.some((x) => x.docId === r.docId)) fail(`${at}.docId must name one of documents[] (calc revision ${id})`);
+      else out.docId = r.docId as string;
+    } else if (r.docId !== undefined) {
+      fail(`${at}: model revision ${id} must not name a calc document`);
+    }
     // checked against the PDF by storedExtractionFor when it is used
     if (r.extraction !== undefined) out.extraction = r.extraction;
     return out;
@@ -170,16 +218,83 @@ export function parseProjectFile(data: unknown): ProjectFile {
       if (!isInt(v)) fail(`${at}.${k} must be a revision id or null`);
       if (kinds.get(v as number) !== kind) fail(`${at}.${k} = ${String(v)} is not a ${kind} revision in this file`);
     }
+    const key = x.calcKey as string;
+    if (!v1 && !key.includes(CALC_REF_SEP)) fail(`${at}.calcKey must be a calc ref "<docId>${CALC_REF_SEP}<key>"`);
     return {
-      globalId: x.globalId as string, calcKey: x.calcKey as string, action: x.action as DecisionAction, actor: x.actor as string,
+      globalId: x.globalId as string, calcKey: v1 ? legacyCalcRef(key) : key, action: x.action as DecisionAction, actor: x.actor as string,
       note: x.note as string | null, at: x.at as string, modelRev: x.modelRev as number | null, calcRev: x.calcRev as number | null,
     };
   });
 
+  if (v1) {
+    const first = revisions.filter((r) => r.kind === "calcs").sort((a, b) => a.id - b.id)[0];
+    if (first) documents = [{ docId: LEGACY_DOC_ID, name: documentName(first.sourceName), removed: false }];
+  }
+  for (const x of documents) {
+    if (!revisions.some((r) => r.kind === "calcs" && r.docId === x.docId)) fail(`document ${x.docId} has no calc revision`);
+  }
+
   return {
     format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: d.exportedAt as string,
-    project: { name: project.name as string, createdAt: project.createdAt as string }, revisions, decisions,
+    project: { name: project.name as string, createdAt: project.createdAt as string }, documents, revisions, decisions,
   };
+}
+
+const isDocId = (v: unknown): v is string => typeof v === "string" && v.length > 0 && !v.includes(CALC_REF_SEP);
+
+/** A calc revision's document: its docId, or LEGACY_DOC_ID for a record from before calc sets. */
+export function docIdOf(rev: Pick<ProjectFileRevisionFields, "docId">): string {
+  return rev.docId ?? LEGACY_DOC_ID;
+}
+
+/** A decision's calc key as a ref: a bare key (written before calc sets) names a calc of LEGACY_DOC_ID. */
+export function legacyCalcRef(key: string): string {
+  return key.includes(CALC_REF_SEP) ? key : calcRef(LEGACY_DOC_ID, key);
+}
+
+/** A document's default name: its file name without the extension. */
+export function documentName(sourceName: string): string {
+  return sourceName.replace(/\.[A-Za-z0-9]{2,4}$/, "") || sourceName;
+}
+
+/**
+ * The project's calc documents: the stored list, or (a project from before calc sets, which has none)
+ * one LEGACY_DOC_ID document when it has calc revisions. Any calc revision naming a document the list
+ * lacks gets one appended, so every revision belongs to a listed document.
+ */
+export function projectDocuments<R extends Pick<ProjectFileRevisionFields, "id" | "kind" | "sourceName" | "docId">>(
+  stored: readonly ProjectFileDocument[] | null | undefined, revisions: readonly R[],
+): ProjectFileDocument[] {
+  const out = [...(stored ?? [])];
+  for (const r of [...revisions].filter((x) => x.kind === "calcs").sort((a, b) => a.id - b.id)) {
+    const id = docIdOf(r);
+    if (!out.some((x) => x.docId === id)) out.push({ docId: id, name: documentName(r.sourceName), removed: false });
+  }
+  return out;
+}
+
+/** Each document that is not removed, in set order, with its head revision (the highest id). */
+export function documentHeads<R extends Pick<ProjectFileRevisionFields, "id" | "kind" | "docId">>(
+  documents: readonly ProjectFileDocument[], revisions: readonly R[],
+): { doc: ProjectFileDocument; rev: R }[] {
+  const out: { doc: ProjectFileDocument; rev: R }[] = [];
+  for (const doc of documents) {
+    if (doc.removed) continue;
+    let best: R | null = null;
+    for (const r of revisions) if (r.kind === "calcs" && docIdOf(r) === doc.docId && (!best || r.id > best.id)) best = r;
+    if (best) out.push({ doc, rev: best });
+  }
+  return out;
+}
+
+/** The next free document id: "d<n>" one past the highest numbered one. */
+export function nextDocId(documents: readonly Pick<ProjectFileDocument, "docId">[]): string {
+  let n = 0;
+  for (const d of documents) {
+    const m = /^d(\d+)$/.exec(d.docId);
+    if (m) n = Math.max(n, Number(m[1]));
+  }
+  return `d${n + 1}`;
 }
 
 /**

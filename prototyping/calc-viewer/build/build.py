@@ -32,9 +32,10 @@ REPO = VIEWER.parent.parent
 DATA = VIEWER / "data"
 DOCS = VIEWER / "docs"
 
-PLANS_PDF = REPO / "OC-DPH_PKG21-0516_Bldg12_ApprovedPlans.pdf"
-CALCS_PDF = REPO / "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf"
-STAIR_PDF = REPO / "OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf"
+PDFS = REPO / "pdfs"
+PLANS_PDF = PDFS / "OC-DPH_PKG21-0516_Bldg12_ApprovedPlans.pdf"
+CALCS_PDF = PDFS / "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf"
+STAIR_PDF = PDFS / "OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf"
 
 MATCHER_VERSION = "0.2.0"
 TODAY = dt.date.today().isoformat()
@@ -172,10 +173,10 @@ def build_documents():
          "pages": [{"page": n + 1, "label": labels[n], "title": titles[n], "sourcePage": s_pages[n] + 1}
                    for n in range(len(s_pages))]},
         {"id": "calcs", "kind": "calcs", "title": "Structural calculations (KPFF, 2021)",
-         "file": "../../" + CALCS_PDF.name, "source": CALCS_PDF.name,
+         "file": "../../pdfs/" + CALCS_PDF.name, "source": CALCS_PDF.name,
          "pages": [{"page": i + 1, "label": sheet_no_of_calc_page(calcs[i])} for i in range(calcs.page_count)]},
         {"id": "stair", "kind": "calcs", "title": "Stair & parapet calculations (KPFF, 2023)",
-         "file": "../../" + STAIR_PDF.name, "source": STAIR_PDF.name,
+         "file": "../../pdfs/" + STAIR_PDF.name, "source": STAIR_PDF.name,
          "pages": [{"page": i + 1, "label": None} for i in range(stair.page_count)]},
     ]
     return docs, plans, s_pages, calcs, stair

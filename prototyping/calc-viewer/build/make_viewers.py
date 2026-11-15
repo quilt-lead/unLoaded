@@ -54,8 +54,8 @@ def write_assets():
     (ASSETS / "data.js").write_text("window.CALC_DATA = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n",
                                     encoding="utf-8")
     sources = {"plans": VIEWER / "docs" / "plans-S.pdf",
-               "calcs": REPO / "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf",
-               "stair": REPO / "OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf"}
+               "calcs": REPO / "pdfs" / "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf",
+               "stair": REPO / "pdfs" / "OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf"}
     for doc, path in sources.items():
         out = ASSETS / f"pdf-{doc}.js"
         if out.exists() and out.stat().st_mtime >= path.stat().st_mtime:

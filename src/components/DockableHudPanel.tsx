@@ -35,8 +35,54 @@ interface DockableHudPanelProps {
   onChangeDockSide: (side: DockSide) => void;
   onDragHoverEdge?: (edge: 'left' | 'right' | null) => void;
   headerActions?: React.ReactNode;
+  /** views of the panel, shown as tabs in the title bar; the body is their tab panel */
+  tabs?: PanelTab[];
+  activeTab?: string;
+  onTabChange?: (id: string) => void;
   children: React.ReactNode;
 }
+
+export interface PanelTab {
+  id: string;
+  label: string;
+}
+
+/** WAI-ARIA tabs (automatic activation): arrows / Home / End move and select, the active tab alone is in the tab order. */
+export const PanelTabs: React.FC<{ panelId: string; tabs: PanelTab[]; active: string; onChange: (id: string) => void }> = ({ panelId, tabs, active, onChange }) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const i = tabs.findIndex((t) => t.id === active);
+    const next =
+      e.key === 'ArrowRight' ? (i + 1) % tabs.length : e.key === 'ArrowLeft' ? (i - 1 + tabs.length) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+    if (next < 0) return;
+    e.preventDefault();
+    onChange(tabs[next]!.id);
+    (e.currentTarget.querySelectorAll('[role="tab"]')[next] as HTMLElement | undefined)?.focus();
+  };
+  return (
+    <div role="tablist" aria-label="Model view" onKeyDown={onKeyDown} className="flex items-center gap-0.5 p-0.5 rounded-lg bg-black/25 border border-white/[0.06]">
+      {tabs.map((t) => {
+        const on = t.id === active;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`${panelId}-tab-${t.id}`}
+            aria-selected={on}
+            aria-controls={`${panelId}-tabpanel`}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(t.id)}
+            className={`px-2 py-0.5 rounded-md text-[11px] leading-4 whitespace-nowrap transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
+              on ? 'bg-white/[0.1] text-zinc-100 font-medium shadow-[inset_0_-1.5px_0_#14AE5C]' : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]'
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
   id,
@@ -51,8 +97,12 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
   onChangeDockSide,
   onDragHoverEdge,
   headerActions,
+  tabs,
+  activeTab,
+  onTabChange,
   children,
 }) => {
+  const hasTabs = Boolean(tabs && tabs.length > 1 && activeTab && onTabChange);
   const fitToViewport = (value: PanelRect) => typeof window === 'undefined'
     ? value
     : clampPanelRect(value, { width: window.innerWidth, height: window.innerHeight }, minWidth, minHeight);
@@ -263,7 +313,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
         isDocked
           ? 'relative w-full bg-[#2d3139]/92 flex flex-col overflow-hidden border-b border-white/[0.08] last:border-b-0'
           : `fixed bg-[#2d3139]/92 backdrop-blur-2xl border border-white/[0.16] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden ${
-              isDragging ? 'ring-1 ring-indigo-400/50' : ''
+              isDragging ? 'ring-1 ring-calcmap/50' : ''
             }`
       }
     >
@@ -283,6 +333,11 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
           <h2 id={`${id}-title`} className="mono font-semibold text-[10px] text-zinc-200 uppercase tracking-widest truncate">
             {title}
           </h2>
+          {hasTabs && (
+            <div className="pointer-events-auto pl-1.5 flex-shrink-0" onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+              <PanelTabs panelId={id} tabs={tabs!} active={activeTab!} onChange={onTabChange!} />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-0.5 flex-shrink-0">
@@ -293,7 +348,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('left')}
               title="Dock Left"
               aria-label={`Dock ${title} left`}
-              className="text-zinc-500 hover:text-indigo-300 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
+              className="text-zinc-500 hover:text-calcmap w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
             >
               <ArrowLeftToLine className="w-3 h-3" />
             </button>
@@ -304,7 +359,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('right')}
               title="Dock Right"
               aria-label={`Dock ${title} right`}
-              className="text-zinc-500 hover:text-indigo-300 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
+              className="text-zinc-500 hover:text-calcmap w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
             >
               <ArrowRightToLine className="w-3 h-3" />
             </button>
@@ -315,7 +370,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('float')}
               title="Undock (Floating Window)"
               aria-label={`Undock ${title}`}
-              className="text-indigo-300 hover:text-white w-6 h-6 rounded-lg flex items-center justify-center bg-indigo-500/15 hover:bg-indigo-500/25 transition"
+              className="text-calcmap hover:text-white w-6 h-6 rounded-lg flex items-center justify-center bg-calcmap/15 hover:bg-calcmap/25 transition"
             >
               <ExternalLink className="w-3 h-3" />
             </button>
@@ -324,7 +379,12 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
       </div>
 
       {/* Body */}
-      <div className="relative flex-1 flex flex-col overflow-hidden">{children}</div>
+      <div
+        className="relative flex-1 flex flex-col overflow-hidden"
+        {...(hasTabs ? { id: `${id}-tabpanel`, role: 'tabpanel', 'aria-labelledby': `${id}-tab-${activeTab}` } : {})}
+      >
+        {children}
+      </div>
 
       {/* Floating Resize Handles */}
       {!isDocked && (

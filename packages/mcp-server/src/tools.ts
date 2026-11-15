@@ -89,10 +89,19 @@ export function resolveElement(p: Project, id: string): string {
   throw new ToolInputError(`no element with GlobalId or mark "${q}".${suggest([...new Set(p.elements.map((e) => e.mark).filter(Boolean))], q)} Use search_elements to find it.`);
 }
 
+/** The key of a calc ref "<docId>#<key>" without its document. */
+const bareKey = (ref: string) => ref.slice(ref.indexOf("#") + 1);
+
+/** A calc ref, a bare key that exactly one PDF has, or a title that names exactly one calc. */
 export function resolveCalc(p: Project, key: string): string {
   if (typeof key !== "string" || !key.trim()) throw new ToolInputError("calc key is required");
   const q = key.trim();
   if (p.calcByKey.has(q)) return q;
+  const bare = p.calcs.filter((c) => lc(bareKey(c.key)) === lc(q));
+  if (bare.length === 1) return bare[0]!.key;
+  if (bare.length > 1) {
+    throw new ToolInputError(`calc key "${q}" is in ${bare.length} calc PDFs: name one (${bare.map((c) => c.key).join(", ")})`);
+  }
   const ci = p.calcs.filter((c) => lc(c.key) === lc(q) || lc(c.title) === lc(q));
   if (ci.length === 1) return ci[0]!.key;
   throw new ToolInputError(`no calc "${q}".${suggest(p.calcs.map((c) => c.key), q)} Calc keys come from list_calcs / project_summary.`);
@@ -253,6 +262,8 @@ export function projectSummary(p: Project) {
     calc_pdfs: p.pdfs.map((d) => ({
       file: d.name,
       sha256: d.sha256,
+      doc_id: d.docId,
+      document: d.docName,
       key_prefix: d.prefix,
       main: d.index === 0,
       title: d.title,
@@ -903,33 +914,28 @@ export function moveColumn(p: Project, a: MoveArgs) {
 
 // ------------------------------------------------------------------ export_mapping
 
-export function exportPackages(p: Project) {
-  const log = p.log;
-  return p.pdfs.map((pdf) => ({
-    pdf: pdfRef(pdf)!,
-    report: buildExport(p.graph.graph, pdf.pkg, pdf.run, log, {
-      model: p.current.name,
-      model_revision: p.current.revision,
-      calc_package: pdf.name,
-      calc_revision: pdf.revision?.id ?? null,
-    }),
-  }));
+/** The engine's buildExport on the calc set, with the header labels the app's projectSnapshot passes. */
+export function exportReport(p: Project) {
+  const one = p.pdfs.length === 1 ? p.pdfs[0]! : null;
+  return buildExport(p.graph.graph, p.set, p.run, p.log, {
+    model: p.current.name,
+    model_revision: p.current.revision,
+    calc_package: one ? one.name : `${p.pdfs.length} calc documents`,
+    calc_revision: one ? (one.revision?.id ?? null) : null,
+  });
 }
 
 export function exportMappingTool(p: Project, a: { element_offset?: number; element_limit?: number }) {
-  const packages = exportPackages(p);
+  const report = exportReport(p);
   const paged = a.element_limit !== undefined || a.element_offset !== undefined;
-  const out = packages.map(({ pdf, report }) => {
-    if (!paged) return { pdf, report };
-    const pg = paginate(report.elements, a.element_offset, a.element_limit ?? 100);
-    return { pdf, report: { ...report, elements: pg.items }, elements_page: { total: pg.total, offset: pg.offset, returned: pg.returned, next_offset: pg.next_offset } };
-  });
+  const pg = paged ? paginate(report.elements, a.element_offset, a.element_limit ?? 100) : null;
   return {
     note:
-      p.pdfs.length > 1
-        ? "the engine's buildExport, one report per calc PDF (each is one engine run). An element's status inside a report counts only that PDF's links; project_summary / get_element give the status across every PDF."
-        : "the engine's buildExport for this (model, calc package) pair",
-    packages: out,
+      "the engine's buildExport on the calc set, as the app exports it. Page numbers in the report are SET pages (as the app's " +
+      "export has them): a PDF's own page = set page - its page_offset in calc_documents. Every other tool gives a PDF's own pages.",
+    calc_documents: p.pdfs.map((d) => ({ doc_id: d.docId, file: d.name, page_offset: d.offset, pages: d.pages.length })),
+    report: pg ? { ...report, elements: pg.items } : report,
+    ...(pg ? { elements_page: { total: pg.total, offset: pg.offset, returned: pg.returned, next_offset: pg.next_offset } } : {}),
     source: p.source({ decisions: true }),
   };
 }
@@ -1093,10 +1099,17 @@ export async function recordDecisions(p: Project, a: { decisions: DecisionInput[
         );
         return;
       }
-      if (!p.calcKeys.has(d.calc_key)) {
-        errors.push(`${tag}no calc "${d.calc_key}".${suggest(p.calcs.map((c) => c.key), d.calc_key ?? "")}`);
+      // a calc ref, or a bare key exactly one PDF has (recorded as its calc ref, as the app records it)
+      const refs = p.calcKeys.has(d.calc_key) ? [d.calc_key] : p.calcs.filter((c) => bareKey(c.key) === d.calc_key).map((c) => c.key);
+      if (refs.length !== 1) {
+        errors.push(
+          refs.length
+            ? `${tag}calc key "${d.calc_key}" is in ${refs.length} calc PDFs: name one (${refs.join(", ")})`
+            : `${tag}no calc "${d.calc_key}".${suggest(p.calcs.map((c) => c.key), d.calc_key ?? "")}`,
+        );
         return;
       }
+      d = { ...d, calc_key: refs[0]! };
       const key = pk(d.global_id, d.calc_key);
       if ((d.action === "confirm" || d.action === "reject") && !rawPairs.has(key)) {
         const manual = eff.get(key)?.action === "manual";

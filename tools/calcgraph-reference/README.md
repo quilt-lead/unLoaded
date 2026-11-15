@@ -7,6 +7,8 @@ here is served or bundled.
 | Path | What |
 |---|---|
 | `synth/` | Deterministic synthetic fixture generator. It writes `model_rev1.ifc`, `model_rev2.ifc` (column C8 removed), `calc_package.pdf`, `calc_supplement.pdf` and `ground_truth.json` (IfcOpenShell + PyNite + PyMuPDF). The supplement covers a calc starting mid-page, one continued after a gap, a typical-group calc, a loads-only reference and a planted size mismatch; its truth is in `ground_truth.json["supplement"]`. `--check` proves it is byte-stable. |
+| `synth/harborview/` | The Harborview sample generator. It reads the demo model bundles in `data/harborview/` (plus `legacy_params.json`: per-element demand and utilisation the bundles dropped) and writes, into `data/harborview/` (committed): `harborview-rev{1,2}.ifc`, one calc PDF per calc document (`calcs/rev1/`, 82: 78 design + 4 loading, `synth/harborview/loading.py`), the same pages as one package, the rev 2 reissues and new L06 calcs (`calcs/rev2/`, 23), `ground_truth.json` and the app's `manifest.json`. `--check` proves it is byte-stable. |
+| `scripts/evaluate_harborview.py` | Scores the engine on the Harborview sample: segmentation, design links, load references, calc edges, the planted size mismatch. Reported, not gated. |
 | `scripts/build_graph.mjs` | IFC -> serialized element graph, using the packages the UI runs (`packages/ifc-parser` + `packages/element-graph`). |
 | `scripts/evaluate.py` | The scorer. It builds the graphs, runs `packages/calc-mapper/scripts/run-pipeline.ts`, and scores segmentation, mapping per tier, xref, load path, calc edges, the diff, carried decisions and impact against ground truth. |
 | `scripts/evaluate_all.py` | The scorecard plus the gate against `eval/baseline.json`, over the union of baseline and run keys. Gated metrics may not drop by more than 0.005; error metrics such as `uc_abs_err_p90` may not rise by more than max(25% of the baseline, 0.001) - an absolute 0.005 on a 0.0008 baseline would allow ~7x. Exact counts must match. A metric that disappears, or a new gated / exact one with no baseline, fails. A stage with a baseline that does not run fails, except a declared local-only stage in CI (below). |
@@ -20,6 +22,8 @@ uv run python -m synth.generate --check         # synthetic package -> data/synt
 uv run python scripts/evaluate.py               # score the TypeScript engine on it
 uv run python scripts/evaluate_all.py --synthetic-only   # what CI gates on
 uv run python scripts/evaluate_all.py                    # the full local run: every stage must run
+uv run python -m synth.harborview.generate --check      # Harborview sample -> data/harborview (then npm run assets)
+uv run python scripts/evaluate_harborview.py            # score the engine on it
 ```
 
 What CI gates on: `synthetic_check` and `synthetic_v1` here. **`move_answer_key` is local-only**

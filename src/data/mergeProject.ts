@@ -27,16 +27,16 @@ export interface MergeOptions {
 
 /**
  * Join topology and calc data by GlobalId (= element-graph node id = engine global_id).
- * Elements the calc engine has no row for are "unmapped" when a calc package is loaded, and carry
- * no mapping status when there is no calc data at all (a model revision without a calc package).
+ * Elements the calc engine has no row for are "unmapped" whenever calc data exists, including a
+ * loaded package that extracted zero calculations. Without calc data they carry no mapping status.
  */
 export function mergeProject(topology: ElementTopology, calc: CalcData | null, opts: MergeOptions): ProjectViewModel {
-  const hasCalcs = Boolean(calc && calc.calcs.length > 0);
+  const hasCalcData = calc !== null;
   const counts: Record<MappingStatus, number> = { confirmed: 0, review: 0, unmapped: 0 };
   const elementNodes: BimNode[] = topology.elementNodes.map((n) => {
     if (n.kind !== 'element') return n;
     const links = calc?.linksByElement.get(n.id) ?? [];
-    const status: MappingStatus | undefined = calc?.statusByElement.get(n.id) ?? (hasCalcs ? 'unmapped' : undefined);
+    const status: MappingStatus | undefined = calc?.statusByElement.get(n.id) ?? (hasCalcData ? 'unmapped' : undefined);
     if (status) counts[status] += 1;
     return { ...n, calcLinks: links, mappingStatus: status };
   });
@@ -53,6 +53,7 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
     hierarchyLinks: topology.hierarchyLinks,
     loadPath: topology.loadPath,
     connectivity: topology.connectivity,
+    levels: topology.levels ?? [],
     modelFileUrl: opts.modelFileUrl,
     calcs: calc?.calcs ?? [],
     calcDependencies: calc?.calcDependencies ?? [],
@@ -64,7 +65,8 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
     producers: calc?.producers ?? null,
     counts,
     hasUtilization: elementNodes.some((n) => typeof n.utilization === 'number'),
-    hasDemoData: elementNodes.some((n) => Boolean(n.demoDocuments?.length)),
+    calcOrigin: calc?.calcOrigin ?? null,
+    hasDemoData: calc?.calcOrigin === 'bundle-demo',
   };
 }
 

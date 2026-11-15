@@ -121,12 +121,13 @@ this order (`RuleName` -> evidence `rule`):
 | `connectionContact` | connection contact               | `connects` between the connection and each touching member. For 2 or more ranked members, the members are ordered by rank: footing/pile < column/wall < beam < slab < brace. Between two beams, the one whose **end** is at the connection is the supported one. Ties go to the lower element, and level ties stay ambiguous with no `supports` edge. Each supported member gets `supports` member -> connection, and the connection gets `supports` connection -> supporting member. Every member pair touching the connection is recorded as *joined via connection*. |
 | `slabBearing`       | slab bears on support top        | Slab underside is within `contact` of a beam or wall top, and the plan overlap is at least `minPlanOverlap`. Emits connects and slab supports-> beam/wall. |
 | `columnBase`        | column bottom bears on support   | Column (or wall) bottom is on a column > beam > wall > footing/pile. Columns take the best candidate only; walls take every top-priority candidate. |
+| `footingOnPile`     | footing bears on pile            | A footing (pile cap) touches a pile whose head is at the footing underside or embedded in it (within `contact`), the pile extends below the footing, and the head lies inside the footing in plan. Emits connects and footing supports-> pile, for every pile of a group. |
 | `beamOnColumn`      | beam end bears on column/wall    | A beam end lies against a column or wall within `endZone` and inside its height, or the beam sits on its top. |
 | `beamOnGirder`      | beam frames into girder          | A beam end touches another beam whose ends are not there. Parallel beams and beams that both end at the same point are skipped. Crossing beams stacked on each other: the upper one is supported by the lower one. |
 | `braceEnds`         | brace end                        | Connects to touching columns, beams, walls, footings and connections. The lower end supports-> the element it lands on (priority connection > column > beam > wall > footing). |
 | `bboxContact`       | bbox contact                     | Fallback: any other touching pair with no edge yet gets `connects` only. |
 
-The direct rules (slabBearing, columnBase, beamOnColumn, beamOnGirder, braceEnds, bboxContact) skip
+The direct rules (slabBearing, columnBase, footingOnPile, beamOnColumn, beamOnGirder, braceEnds, bboxContact) skip
 any pair that is *joined via connection*. A beam that is shear-tabbed to a column therefore gives
 beam -> K -> column, never a direct beam -> column.
 

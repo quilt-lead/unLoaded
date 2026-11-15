@@ -17,8 +17,43 @@ import type { ProjectFile } from "@unloaded/project-file";
 
 // ------------------------------------------------------------------ PDF
 
-export { minimalPdf, type PdfLine } from "../scripts/minimalPdf.ts";
-import { minimalPdf, type PdfLine } from "../scripts/minimalPdf.ts";
+export interface PdfLine {
+  text: string;
+  size: number;
+}
+
+const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+
+/** A minimal valid PDF (US Letter pages, Helvetica), one text line per entry, top to bottom. */
+export function minimalPdf(pages: PdfLine[][]): Uint8Array {
+  const objs: string[] = [];
+  const pageIds = pages.map((_, i) => 4 + i * 2);
+  objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objs[2] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`;
+  objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+  pages.forEach((lines, i) => {
+    let y = 740;
+    const ops = lines.map((l) => {
+      const s = `BT /F1 ${l.size} Tf 50 ${y} Td (${esc(l.text)}) Tj ET`;
+      y -= l.size + 10;
+      return s;
+    }).join("\n");
+    const pid = pageIds[i]!, cid = pid + 1;
+    objs[pid] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cid} 0 R >>`;
+    objs[cid] = `<< /Length ${ops.length} >>\nstream\n${ops}\nendstream`;
+  });
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  for (let id = 1; id < objs.length; id++) {
+    offsets[id] = out.length;
+    out += `${id} 0 obj\n${objs[id]}\nendobj\n`;
+  }
+  const xref = out.length;
+  out += `xref\n0 ${objs.length}\n0000000000 65535 f \n`;
+  for (let id = 1; id < objs.length; id++) out += `${String(offsets[id]).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
 
 export const CALC_PDF_PAGES: PdfLine[][] = [
   [
@@ -46,16 +81,14 @@ export const SUPPLEMENT_PDF_PAGES: PdfLine[][] = [
 ];
 
 /**
- * A two-PDF pair that exercises every cross-PDF rule (test/multipdf.test.ts, and the parity script's
- * --two-pdf mode has its own on the synthetic marks):
- *   - B-101 is designed in BOTH PDFs (main "beam-design-check" and "supplement-b/beam-design-check",
- *     same tier and confidence): `designerOf` over every PDF's links picks ONE designer (the smaller
- *     calc key), so the supplement's mention of B-101 gets one fed-by edge, not two;
- *   - the supplement says "see page 2" (its own page 2): resolved in the supplement only. In a combined
- *     view whose page-reference rule were not switched off it would hit the MAIN PDF's page 2;
+ * A two-PDF pair that exercises the cross-PDF cases of a calc set (test/multipdf.test.ts):
+ *   - B-101 is designed in BOTH PDFs ("d1#beam-design-check" and "d2#beam-design-check", same tier and
+ *     confidence): the engine picks ONE designer, so the supplement's mention of B-101 gets one fed-by
+ *     edge, not two;
+ *   - the supplement says "see page 2" (its own page 2): resolved in the supplement, never the main
+ *     PDF's page 2;
  *   - the main column calc says "carried to shear tab ST-2" (designed only in the supplement, on ITS
- *     page 2): the "to" cue is read from the main PDF's page 2. Were the combined view's page numbers
- *     not offset, the supplement's page 2 would be read instead and the edge would point the other way.
+ *     page 2): the "to" cue is read from the main PDF's page 2, so the edge runs column -> connection.
  */
 export const CROSS_MAIN_PDF_PAGES: PdfLine[][] = [
   CALC_PDF_PAGES[0]!,
@@ -140,7 +173,13 @@ export function graphRev2(): SerializedElementGraph {
  * heads 3 and 2. `stripExtraction` drops the document hashes from the stored extraction, as an
  * extraction saved before the provenance contract has none.
  */
-export async function buildProjectFile(opts: { decisions?: InputDecision[]; stripExtraction?: boolean } = {}): Promise<{ file: ProjectFile; pdf: Uint8Array }> {
+/**
+ * Model rev 1 (id 1), the calc PDF (id 2, document d1), model rev 2 (id 3); with `supplement`, the
+ * supplement PDF as a second calc document d2 (id 4).
+ */
+export async function buildProjectFile(
+  opts: { decisions?: InputDecision[]; stripExtraction?: boolean; supplement?: boolean } = {},
+): Promise<{ file: ProjectFile; pdf: Uint8Array }> {
   const pdf = minimalPdf(CALC_PDF_PAGES);
   const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
   const file = await makeProjectFile({
@@ -149,6 +188,9 @@ export async function buildProjectFile(opts: { decisions?: InputDecision[]; stri
       { kind: "model", name: "test_rev1.graph.json", bytes: enc(graphRev1()), label: "rev 1" },
       { kind: "calcs", name: "test_calcs.pdf", bytes: pdf, label: "calcs" },
       { kind: "model", name: "test_rev2.graph.json", bytes: enc(graphRev2()), label: "rev 2" },
+      ...(opts.supplement
+        ? [{ kind: "calcs" as const, name: "Supplement A.pdf", bytes: minimalPdf(SUPPLEMENT_PDF_PAGES), label: "supplement", docId: "d2" }]
+        : []),
     ],
     decisions: opts.decisions ?? [],
   });

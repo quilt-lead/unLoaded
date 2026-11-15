@@ -9,11 +9,9 @@
  *
  * No logic of its own lives here: every function is a direct call into the engine packages, made
  * the way the app makes it (src/loaders/parsers.ts for models, src/engine/projectService.ts and
- * src/engine/ops.ts for calc packages, runs and decisions). Three thin compositions, each documented
- * where it is: `calcEdgesOfPdf` (inferCalcEdges on one PDF, the designer chosen over every PDF's
- * links), `crossReferenceEdges` (inferCalcEdges with the page-reference rule switched off, for edges
- * between two PDFs) and `projectFileDecisions` (the project file's log as DecisionFields, numbered in
- * file order).
+ * src/engine/ops.ts for calc packages, calc sets, runs and decisions). One thin composition,
+ * documented where it is: `projectFileDecisions` (the project file's log as DecisionFields, numbered
+ * in file order).
  */
 import { parseIfc, hasStepHeader } from "@unloaded/ifc-parser";
 import {
@@ -39,6 +37,8 @@ export type {
   Calc,
   CalcPage,
   CalcPackage,
+  CalcSet,
+  CalcSetDocument,
   CalcEdge,
   CalcEdgeEvidence,
   Link,
@@ -64,7 +64,7 @@ export type {
   ProjectState,
   Provenance,
 } from "@unloaded/calc-mapper";
-export type { ProjectFile, ProjectFileRevision } from "@unloaded/project-file";
+export type { ProjectFile, ProjectFileDocument, ProjectFileRevision } from "@unloaded/project-file";
 export type { Move, ImpactResult as MoveResult } from "@unloaded/move-impact";
 /** An element-graph node (elements and connections are both nodes). */
 export type ModelNode = ElementNode;
@@ -300,6 +300,27 @@ export function headRevision(file: pf.ProjectFile, kind: "model" | "calcs"): pf.
   return pf.headOf(file.revisions, kind);
 }
 
+/**
+ * The calc set the app maps (`documentHeads`): every calc document that is not withdrawn, in set
+ * order, with its head revision (the highest id of that document).
+ */
+export function calcDocumentHeads(file: pf.ProjectFile): { doc: pf.ProjectFileDocument; rev: pf.ProjectFileRevision }[] {
+  return pf.documentHeads(file.documents, file.revisions);
+}
+
+/** A calc revision's document id (`docIdOf`: LEGACY_DOC_ID for a revision from before calc sets). */
+export function calcDocIdOf(rev: pf.ProjectFileRevision): string {
+  return pf.docIdOf(rev);
+}
+
+/** The document a bare calc key (no "<docId>#") names (`LEGACY_DOC_ID`: the first document). */
+export const LEGACY_DOC_ID: string = pf.LEGACY_DOC_ID;
+
+/** A calc key as a calc ref (`legacyCalcRef`): a bare key names a calc of the first document (LEGACY_DOC_ID). */
+export function legacyCalcRef(key: string): string {
+  return pf.legacyCalcRef(key);
+}
+
 /** A revision's original file (base64 in the project file). */
 export function revisionBytes(rev: pf.ProjectFileRevision): Uint8Array {
   return pf.decodeBase64(rev.blob);
@@ -347,25 +368,37 @@ export async function readCalcPackage(bytes: Uint8Array, sourceName: string): Pr
   return { pkg: cm.segmentCalcs(text.pages, sourceName), title: text.meta.title };
 }
 
-/** Map a calc package onto a graph: auto links, calc edges, typical groups, group links, findings (`mapCalcs`). */
-export function mapCalcs(graph: SerializedElementGraph, pkg: cm.CalcPackage): Promise<cm.MappingRun> {
-  return cm.mapCalcs(graph, pkg);
+/**
+ * Combine calc PDFs into one calc set (`buildCalcSet`), as the app's worker does: calc keys become
+ * calc refs "<doc_id>#<key>" and pages get SET page numbers (document page + page_offset). Throws on
+ * a duplicate doc_id or the same PDF twice.
+ */
+export function buildCalcSet(documents: readonly cm.CalcSetDocument[]): cm.CalcSet {
+  return cm.buildCalcSet(documents);
+}
+
+/** The calc-ref separator ("#"): a calc ref is "<doc_id>#<key>". */
+export const CALC_REF_SEP: string = cm.CALC_REF_SEP;
+
+/** Map a calc package or set onto a graph: auto links, calc edges, typical groups, group links, findings (`mapCalcs`). */
+export function mapCalcs(graph: SerializedElementGraph, calcs: cm.CalcPackage | cm.CalcSet): Promise<cm.MappingRun> {
+  return cm.mapCalcs(graph, calcs);
 }
 
 /** Elements with status, links with decisions applied, calc edges from the effective links, findings (`buildState`). */
 export function buildState(
   graph: SerializedElementGraph,
-  pkg: cm.CalcPackage,
+  pkg: cm.CalcPackage | cm.CalcSet,
   run: cm.MappingRun,
   decisions: readonly cm.DecisionFields[],
 ): cm.ProjectState {
   return cm.buildState(graph, pkg, run, decisions);
 }
 
-/** The engine's export of one (graph, calc package) pair (`buildExport`). */
+/** The engine's export of one (graph, calc package or set) pair (`buildExport`). */
 export function buildExport(
   graph: SerializedElementGraph,
-  pkg: cm.CalcPackage,
+  pkg: cm.CalcPackage | cm.CalcSet,
   run: cm.MappingRun,
   decisions: readonly cm.DecisionFields[],
   info: cm.ExportInfo,
@@ -373,46 +406,9 @@ export function buildExport(
   return cm.buildExport(graph, pkg, run, decisions, info);
 }
 
-/**
- * `inferCalcEdges` on ONE PDF (its calcs, its pages, its effective links), with the designer of each
- * element chosen by the engine's `designerOf` over the links of EVERY PDF (`otherLinks`: the other
- * PDFs' effective links). The other PDFs' links take part only as designer candidates: their page is
- * nulled, so none of them is read as a mention on one of this PDF's pages (designerOf never reads a
- * page). The page-reference rule sees only this PDF. With no other PDF this is exactly the engine's
- * own call in `buildState`.
- */
-export function calcEdgesOfPdf(
-  calcs: cm.Calc[],
-  pages: cm.CalcPage[],
-  links: cm.Link[],
-  otherLinks: readonly cm.Link[],
-): cm.CalcEdge[] {
-  return cm.inferCalcEdges(calcs, pages, otherLinks.length ? [...links, ...otherLinks.map((l) => ({ ...l, page: null }))] : links);
-}
-
-/** The calc that designs each element (`designerOf`: design role first, then tier confidence, then calc key). */
-export function designerOf(links: readonly cm.Link[]): Map<string, cm.Link> {
-  return cm.designerOf(links);
-}
-
 /** The [start, end) regions of a page's text that belong to a calc (`calcRegions`: its spans, else its whole pages). */
 export function calcRegions(calc: cm.Calc, pages: cm.CalcPage[]): { page: number; start: number; end: number }[] {
   return cm.calcRegions(calc, pages);
-}
-
-/**
- * Only the cross-reference rule of `inferCalcEdges`, on any view of calcs / pages / links. The
- * page-reference rule walks each calc's regions (its `spans`, else its `pages`); passing calcs with
- * neither switches it off, while the cross-reference rule (which reads a link's page only to find the
- * cue word on its line) still runs. Used for calc edges between two PDFs, so "page 7" is never
- * resolved into another file.
- */
-export function crossReferenceEdges(
-  calcs: readonly cm.Calc[],
-  pages: cm.CalcPage[],
-  links: cm.Link[],
-): cm.CalcEdge[] {
-  return cm.inferCalcEdges(calcs.map((c) => ({ ...c, pages: [], spans: [] })), pages, links);
 }
 
 /** Element status from its links (design links only; `statusOf`). */

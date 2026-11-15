@@ -1,21 +1,25 @@
 // Project operations: the local project store (src/data/projectStore.ts) + the calc engine worker
 // (src/engine/engineClient.ts). This is what the old HTTP routes did, now in the browser:
 //   upload model     -> parse IFC / JSON into an element graph (main thread, web-ifc), store file + graph
-//   upload calcs     -> extract + segment the PDF in the worker, store file + extraction
-//   project export   -> a model revision's graph (default the head) x head package -> mapping run
-//                       (cached per revision pair) -> export with the decision log applied (worker)
+//   upload calcs     -> extract + segment the PDF in the worker, place it (a new calc document, or a
+//                       new revision of one), store file + extraction
+//   project export   -> a model revision's graph (default the head) x the calc SET (every calc
+//                       document's head revision) -> mapping run (cached per model rev + set) -> export
+//                       with the decision log applied (worker)
 //   decide / impact / compare / revision files
 // Results are handed back as engine types; src/data/loadProject.ts converts them to view data.
 import { ENGINE_VERSION } from '@unloaded/calc-mapper/types';
-import { sha256 } from '@unloaded/calc-mapper';
-import { storedExtractionFor } from '@unloaded/project-file';
+import { makeBundle, parseBundle, exportToCalcGraph, sha256, type BundleCalcGraph, type ModelBundle } from '@unloaded/calc-mapper';
+import { documentHeads, docIdOf, LEGACY_DOC_ID, storedExtractionFor, type ProjectFileDocument } from '@unloaded/project-file';
 import type { CalcPackage, Compare, DecisionFields, Export, Impact, ImpactMode, MappingRun, SerializedElementGraph } from '@unloaded/calc-mapper/types';
+import type { CalcSetDiff, CalcSetDocument, KnownDocument, RevisionTarget } from '@unloaded/calc-mapper';
 import type { DecisionAction } from '../types/bim';
 import { importModel, type ImportResult } from '../loaders/parsers';
 import {
   addDecision,
   addRevision,
   addRun,
+  calcSetKey,
   createProject,
   decisionLog,
   exportProject,
@@ -26,9 +30,13 @@ import {
   getProject,
   getRevision,
   importProject,
+  listDocuments,
   listProjects,
+  newDocumentId,
   replaceExtraction,
   listRevisions,
+  setRevisionDocument,
+  updateDocument,
   type DecisionRecord,
   type ProjectRecord,
   type RevisionRecord,
@@ -39,6 +47,14 @@ type Progress = (message: string) => void;
 
 const MEDIA: Record<string, string> = { ifc: 'application/x-step', json: 'application/json', pdf: 'application/pdf' };
 const mediaOf = (name: string) => MEDIA[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
+
+function pdfHeaderWindow(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes.subarray(0, 1024));
+}
+
+function isGitLfsPointer(bytes: Uint8Array): boolean {
+  return /^version https:\/\/git-lfs\.github\.com\/spec\/v1(?:\r?\n|$)/.test(pdfHeaderWindow(bytes));
+}
 
 // ---------------------------------------------------------------- projects
 
@@ -125,12 +141,48 @@ export function revisionFileUrl(rid: number): Promise<string | null> {
 
 export { revisionGraph as getRevisionGraph };
 
+const bundleCache = new Map<number, Promise<BundleCalcGraph | null>>();
+
+/**
+ * The decision log keyed as a bundle's calcs are. The store reads a bare calc key back as a ref into
+ * the legacy document ("doc-fdn-a1" -> "d1#doc-fdn-a1": projects from before calc sets); a bundle's
+ * own keys are bare (one key space, no calc documents), so such a ref is turned back into the bare
+ * key when that key is a calc of the bundle. Refs to calcs the bundle does not have are left alone.
+ */
+function bundleKeyed(decisions: DecisionFields[], calcGraph: BundleCalcGraph): DecisionFields[] {
+  const keys = new Set(calcGraph.calcs.map((c) => c.key));
+  const legacy = `${LEGACY_DOC_ID}#`;
+  return decisions.map((d) => {
+    const bare = d.calc_key.startsWith(legacy) ? d.calc_key.slice(legacy.length) : null;
+    return bare !== null && !keys.has(d.calc_key) && keys.has(bare) ? { ...d, calc_key: bare } : d;
+  });
+}
+
+/**
+ * A model revision's own calc graph: the calcGraph of the model bundle the revision was added from
+ * (its stored file IS the bundle, so a project file carries it too). null for any other model, and
+ * for a bundle without one.
+ */
+function bundleCalcGraphOf(rev: RevisionRecord): Promise<BundleCalcGraph | null> {
+  if (rev.kind !== 'model' || rev.meta.format !== 'bundle' || rev.meta.hasCalcGraph !== true) return Promise.resolve(null);
+  let p = bundleCache.get(rev.id);
+  if (!p) {
+    p = getBlob(rev.id).then(async (blob) => {
+      if (!blob) throw new Error(`Model revision #${rev.id} (${rev.sourceName}) has no stored file, so its calc graph cannot be read.`);
+      return parseBundle(await blob.text()).calcGraph;
+    });
+    p.catch(() => bundleCache.delete(rev.id));
+    bundleCache.set(rev.id, p);
+  }
+  return p;
+}
+
 // ---------------------------------------------------------------- ingest
 
 /** A model revision: the file + the element graph built from it in the browser (never re-parsed later). */
 export async function addModelRevision(projectId: string, file: File, label: string | undefined, onProgress: Progress): Promise<{ revision: RevisionRecord; warnings: string[] }> {
   const res = await importModel(file.name, new Uint8Array(await file.arrayBuffer()), onProgress);
-  if (res.kind !== 'model') throw new Error(`${file.name} is not a model (IFC, element graph, ModelInput or legacy BIM JSON)`);
+  if (res.kind !== 'model') throw new Error(`${file.name} is not a model (IFC, model bundle, element graph or ModelInput)`);
   return storeModel(projectId, file, res, label, onProgress);
 }
 
@@ -146,10 +198,17 @@ async function storeModel(
     projectId,
     {
       kind: 'model',
-      label: label ?? res.projectName ?? file.name,
+      label: label ?? res.bundleMeta?.label ?? res.projectName ?? file.name,
       sourceName: file.name,
       mediaType: mediaOf(file.name),
-      meta: { format: res.format, elements: res.elementGraph.nodeCount, project: res.projectName ?? null },
+      meta: {
+        format: res.format,
+        elements: res.elementGraph.nodeCount,
+        project: res.projectName ?? null,
+        ...(res.format === 'bundle'
+          ? { hasCalcGraph: Boolean(res.calcGraph), calcs: res.calcGraph?.calcs.length ?? 0, demo: Boolean(res.bundleMeta?.demo) }
+          : {}),
+      },
     },
     file,
     { graph: res.elementGraph.serialize() },
@@ -157,14 +216,74 @@ async function storeModel(
   return { revision, warnings: res.warnings };
 }
 
-/** A calc revision: the PDF + its extracted pages and calcs (the worker reads the PDF). */
-export async function addCalcRevision(projectId: string, file: File, label: string | undefined, onProgress: Progress): Promise<RevisionRecord> {
+/** What the project holds of each calc document, for placing a new PDF (calc-mapper resolveRevisionTarget). */
+async function knownDocuments(projectId: string): Promise<KnownDocument[]> {
+  const [documents, revisions] = await Promise.all([listDocuments(projectId), listRevisions(projectId)]);
+  const heads = new Map(documentHeads(documents.map((d) => ({ ...d, removed: false })), revisions).map((h) => [h.doc.docId, h.rev]));
+  return Promise.all(documents.map(async (d) => {
+    const revs = revisions.filter((r) => r.kind === 'calcs' && docIdOf(r) === d.docId);
+    const head = heads.get(d.docId);
+    const keys = head ? await revisionPackage(head.id).then((p) => p.calcs.map((c) => c.key), () => []) : [];
+    return {
+      doc_id: d.docId,
+      names: revs.map((r) => r.sourceName),
+      shas: revs.map((r) => r.meta.fileSha256).filter((x): x is string => typeof x === 'string' && !!x),
+      keys,
+    };
+  }));
+}
+
+/** Where an added PDF went: which document, and the rule that placed it (the UI shows it and offers to move it). */
+export interface CalcPlacement {
+  kind: 'revision' | 'new' | 'duplicate';
+  docId: string;
+  docName: string;
+  /** Why (the engine's suggestion), or "chosen" when the caller named the document. */
+  note: string;
+  rule: string;
+}
+
+/**
+ * A calc revision: the PDF + its extracted pages and calcs (the worker reads the PDF), placed in a calc
+ * document. `target`: a document id to add it to, 'new' for a new document, or 'auto' (default): the
+ * engine's suggestion - the same PDF already loaded is not added again (placement "duplicate", revision
+ * null); a file name or calcs matching one document make it that document's next revision; else a new one.
+ */
+export async function addCalcRevision(
+  projectId: string, file: File, label: string | undefined, onProgress: Progress, target: string | 'new' | 'auto' = 'auto',
+): Promise<{ revision: RevisionRecord | null; placement: CalcPlacement }> {
   onProgress(`Reading ${file.name}`);
-  const pkg = await runEngine('extract', { bytes: new Uint8Array(await file.arrayBuffer()), sourceName: file.name }, onProgress);
-  return addRevision(
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (isGitLfsPointer(bytes)) {
+    throw new Error(`${file.name} is a Git LFS pointer, not PDF content. Install Git LFS and run "git lfs pull" before adding this file.`);
+  }
+  if (!pdfHeaderWindow(bytes).includes('%PDF-')) {
+    throw new Error(`${file.name} is not a readable PDF: no PDF header was found in the first 1024 bytes.`);
+  }
+  const known = target === 'auto' ? await knownDocuments(projectId) : [];
+  const { pkg, target: suggested }: { pkg: CalcPackage; target: RevisionTarget | null } = target === 'auto'
+    ? await runEngine('extractPlaced', { bytes, sourceName: file.name, known }, onProgress)
+    : { pkg: await runEngine('extract', { bytes, sourceName: file.name }, onProgress), target: null };
+  const documents = await listDocuments(projectId);
+  const nameOf = (id: string) => documents.find((d) => d.docId === id)?.name ?? id;
+  if (suggested?.kind === 'duplicate') {
+    return { revision: null, placement: { kind: 'duplicate', docId: suggested.doc_id, docName: nameOf(suggested.doc_id), note: suggested.note, rule: suggested.rule } };
+  }
+  let docId: string;
+  let kind: CalcPlacement['kind'];
+  if (target !== 'auto' && target !== 'new') {
+    if (!documents.some((d) => d.docId === target)) throw new Error(`Calc document ${target} is not in this project.`);
+    [docId, kind] = [target, 'revision'];
+  } else if (suggested?.kind === 'revision') {
+    [docId, kind] = [suggested.doc_id, 'revision'];
+  } else {
+    [docId, kind] = [await newDocumentId(projectId), 'new'];
+  }
+  const revision = await addRevision(
     projectId,
     {
       kind: 'calcs',
+      docId,
       label: label ?? file.name,
       sourceName: file.name,
       mediaType: mediaOf(file.name),
@@ -173,23 +292,39 @@ export async function addCalcRevision(projectId: string, file: File, label: stri
     file,
     { extraction: pkg },
   );
+  const docName = kind === 'new' ? file.name.replace(/\.[A-Za-z0-9]{2,4}$/, '') : nameOf(docId);
+  const note = suggested ? suggested.note : 'chosen';
+  return { revision, placement: { kind, docId, docName, note, rule: suggested?.rule ?? 'chosen' } };
+}
+
+/** Move a calc revision to another document, or to a new one of its own (overriding where an upload was placed). */
+export async function moveCalcRevision(projectId: string, revisionId: number, docId: string | 'new'): Promise<string> {
+  const to = docId === 'new' ? await newDocumentId(projectId) : docId;
+  await setRevisionDocument(projectId, revisionId, to);
+  return to;
+}
+
+/** Rename a calc document, or withdraw it from / restore it to the calc set. */
+export async function changeDocument(projectId: string, docId: string, change: { name?: string; removed?: boolean }): Promise<void> {
+  await updateDocument(projectId, docId, change);
 }
 
 export type OpenedFile =
-  | { kind: 'revision'; revision: RevisionRecord; warnings: string[] }
+  | { kind: 'revision'; revision: RevisionRecord; warnings: string[]; placement?: CalcPlacement }
+  | { kind: 'duplicate'; placement: CalcPlacement }
   | { kind: 'project'; projectId: string }
   | { kind: 'export'; export: Export };
 
 /**
  * Any file the app accepts, dispatched by content: a calc PDF or a model (IFC, element graph,
- * ModelInput, legacy BIM JSON) becomes a revision of the current project; a project file becomes a
+ * ModelInput, model bundle) becomes a revision of the current project; a project file becomes a
  * new project; a plain calc-graph export opens read-only.
  */
 export async function openAnyFile(projectId: string, file: File, onProgress: Progress): Promise<OpenedFile> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const head = new TextDecoder().decode(bytes.subarray(0, 5));
-  if (/\.pdf$/i.test(file.name) || head === '%PDF-') {
-    return { kind: 'revision', revision: await addCalcRevision(projectId, file, undefined, onProgress), warnings: [] };
+  if (/\.pdf$/i.test(file.name) || pdfHeaderWindow(bytes).includes('%PDF-') || isGitLfsPointer(bytes)) {
+    const { revision, placement } = await addCalcRevision(projectId, file, undefined, onProgress);
+    return revision ? { kind: 'revision', revision, warnings: [], placement } : { kind: 'duplicate', placement };
   }
   const res = await importModel(file.name, bytes, onProgress);
   if (res.kind === 'project-file') {
@@ -218,26 +353,60 @@ const toDecision = (d: DecisionRecord): DecisionFields => ({
   calc_rev: d.calcRev,
 });
 
-/** The mapping run of a (model, calcs) revision pair: from the store, else computed once in the worker and stored. */
-async function pairRun(projectId: string, modelRev: number, calcRev: number, graph: SerializedElementGraph, pkg: CalcPackage, onProgress: Progress): Promise<MappingRun> {
-  const stored = await findRun<MappingRun>(projectId, modelRev, calcRev, ENGINE_VERSION);
+/** The calc set of a project: every calc document's head revision with its package, in set order. */
+export interface CalcSetHead {
+  doc: ProjectFileDocument;
+  rev: RevisionRecord;
+}
+
+/** The mapping run of a (model revision, calc set): from the store, else computed once in the worker and stored. */
+async function setRun(
+  projectId: string, modelRev: number, heads: CalcSetHead[], graph: SerializedElementGraph, docs: CalcSetDocument[], onProgress: Progress,
+): Promise<MappingRun> {
+  const calcSet = calcSetKey(heads);
+  const stored = await findRun<MappingRun>(projectId, modelRev, calcSet, ENGINE_VERSION);
   // runs stored before typical groups / findings existed are recomputed rather than read half-empty
   if (stored && Array.isArray(stored.data.groups) && Array.isArray(stored.data.findings)) return stored.data;
   onProgress('Mapping calcs onto the model');
-  const run = await runEngine('map', { graph, pkg }, onProgress);
-  await addRun({ projectId, modelRev, calcRev, engine: ENGINE_VERSION, data: run });
+  const run = await runEngine('map', { graph, docs }, onProgress);
+  await addRun({ projectId, modelRev, calcRev: Math.max(...heads.map((h) => h.rev.id)), calcSet, engine: ENGINE_VERSION, data: run });
   return run;
+}
+
+/**
+ * The project's calc set: each document's head and its package. A document whose package cannot be read
+ * is left out of the set and named in `errors` (the rest still map).
+ */
+async function calcSetOf(projectId: string, revisions: RevisionRecord[]): Promise<{ heads: CalcSetHead[]; docs: CalcSetDocument[]; errors: string[] }> {
+  const all = documentHeads(await listDocuments(projectId), revisions);
+  const read = await Promise.all(all.map((h) => revisionPackage(h.rev.id).then(
+    (pkg) => ({ h, pkg, error: null as string | null }),
+    (e: unknown) => ({ h, pkg: null, error: e instanceof Error ? e.message : String(e) }),
+  )));
+  const ok = read.filter((x): x is { h: CalcSetHead; pkg: CalcPackage; error: null } => x.pkg !== null);
+  return {
+    heads: ok.map((x) => x.h),
+    docs: ok.map((x) => ({ doc_id: x.h.doc.docId, name: x.h.doc.name, revision: x.h.rev.id, package: x.pkg })),
+    errors: read.filter((x) => x.error).map((x) => `${x.h.doc.name}: ${x.error}`),
+  };
 }
 
 export interface ProjectSnapshot {
   project: ProjectRecord;
   revisions: RevisionRecord[];
   modelRev: RevisionRecord | null;
+  /** The calc revision when the set is one document, else the newest head (labels only: the set is `calcSet`). */
   calcRev: RevisionRecord | null;
+  /** Every calc document (removed ones too), in set order. */
+  documents: ProjectFileDocument[];
+  /** The calc set mapped: each live document's head revision (documents whose package could not be read are left out). */
+  calcSet: CalcSetHead[];
+  /** Set page = document page + offset, per document of the set (the export's `documents`). */
+  pageOffsets: Map<string, number>;
   graph: SerializedElementGraph | null;
   /** null until the project has both a model and a calc package (or when the package failed: calcError) */
   exp: Export | null;
-  /** why the head calc package could not be read; the model is still shown, without calc data */
+  /** why a calc document's package could not be read; the model (and the other documents) are still shown */
   calcError: string | null;
 }
 
@@ -258,45 +427,84 @@ async function chosenModelRev(project: ProjectRecord, modelRev: number | null | 
 export async function projectSnapshot(projectId: string, onProgress: Progress = () => {}, modelRev?: number | null): Promise<ProjectSnapshot> {
   const project = await getProject(projectId);
   if (!project) throw new Error('This project no longer exists.');
-  const k = project.headCalcRev;
   // the revision asked for is checked before any engine work starts, so a refused snapshot never
   // leaves a PDF extraction running in the background
   const model = await chosenModelRev(project, modelRev);
-  // a calc package that cannot be read degrades the view (model without calc data, calcError says
+  const revisions = await listRevisions(projectId);
+  // a calc package that cannot be read degrades the view (that document left out, calcError says
   // why) rather than failing it: the element graph does not depend on it
-  const [revisions, calcRev, calc] = await Promise.all([
-    listRevisions(projectId),
-    k != null ? getRevision(k).then((r) => r ?? null) : null,
-    k != null
-      ? revisionPackage(k).then(
-          (pkg) => ({ pkg, error: null }),
-          (e: unknown) => ({ pkg: null, error: e instanceof Error ? e.message : String(e) }),
-        )
-      : { pkg: null, error: null },
-  ]);
-  const pkg = calc.pkg;
+  const [documents, set] = await Promise.all([listDocuments(projectId), calcSetOf(projectId, revisions)]);
   const graph = model ? ((await revisionGraph(model.id)) ?? null) : null;
+  const one = set.heads.length === 1 ? set.heads[0]!.rev : null;
+  const calcRev = one ?? (set.heads.length ? set.heads.reduce((a, b) => (b.rev.id > a.rev.id ? b : a)).rev : null);
   let exp: Export | null = null;
-  if (model && calcRev && graph && pkg) {
-    const run = await pairRun(projectId, model.id, calcRev.id, graph, pkg, onProgress);
+  let calcError = set.errors.length ? set.errors.join('; ') : null;
+  // no calc PDF in the project: the model's own calc graph, when it came from a model bundle that has one
+  // (a calc PDF, once added, is what the project maps; the bundle's calcs then step aside)
+  if (model && graph && !set.heads.length && model.meta.hasCalcGraph === true) {
+    try {
+      const calcGraph = await bundleCalcGraphOf(model);
+      if (calcGraph) {
+        const decisions = bundleKeyed((await decisionLog(projectId)).map(toDecision), calcGraph);
+        exp = await runEngine('bundleExport', { graph, calcGraph, decisions, info: { model: model.sourceName, model_revision: model.id } });
+      }
+    } catch (e) {
+      calcError = `${model.sourceName}: its calc graph could not be read (${e instanceof Error ? e.message : String(e)})`;
+    }
+  }
+  if (model && graph && set.heads.length) {
+    const run = await setRun(projectId, model.id, set.heads, graph, set.docs, onProgress);
     const decisions = (await decisionLog(projectId)).map(toDecision);
     exp = await runEngine('export', {
       graph,
-      pkg,
+      docs: set.docs,
       run,
       decisions,
-      info: { model: model.sourceName, model_revision: model.id, calc_package: calcRev.sourceName, calc_revision: calcRev.id },
+      info: {
+        model: model.sourceName,
+        model_revision: model.id,
+        calc_package: one ? one.sourceName : `${set.heads.length} calc documents`,
+        calc_revision: one ? one.id : null,
+      },
     });
   }
-  return { project, revisions, modelRev: model, calcRev, graph, exp, calcError: calc.error };
+  let offset = 0;
+  const pageOffsets = new Map<string, number>();
+  for (const d of set.docs) {
+    pageOffsets.set(d.doc_id, offset);
+    offset += Math.max(...d.package.pages.map((p) => p.n));
+  }
+  return {
+    project, revisions, modelRev: model, calcRev, documents, calcSet: set.heads, pageOffsets, graph, exp, calcError,
+  };
 }
 
-/** Record a review decision against the model revision on screen (default: the head) and the head calc package. */
+/** Calc revision diff: a calc document's revision `a` against `b` (both of this project), or the whole set at two moments. */
+export async function compareCalcRevisions(projectId: string, a: number, b: number): Promise<CalcSetDiff> {
+  const [ra, rb] = await Promise.all([getRevision(a), getRevision(b)]);
+  for (const [id, r] of [[a, ra], [b, rb]] as const) {
+    if (!r || r.projectId !== projectId || r.kind !== 'calcs') throw new Error(`Revision #${id} is not a calc revision of this project.`);
+  }
+  const [pa, pb] = await Promise.all([revisionPackage(a), revisionPackage(b)]);
+  // the two revisions are compared as one document (a later revision of the same, or a document moved)
+  const doc = docIdOf(rb!);
+  return runEngine('calcDiff', {
+    before: [{ doc_id: doc, name: ra!.sourceName, revision: a, package: pa }],
+    after: [{ doc_id: doc, name: rb!.sourceName, revision: b, package: pb }],
+  });
+}
+
+/**
+ * Record a review decision against the model revision on screen (default: the head) and the head revision
+ * of the calc's document. `calcKey` is the calc ref the export gave ("<docId>#<key>").
+ */
 export async function decide(projectId: string, elementId: string, calcKey: string, action: DecisionAction, modelRev?: number | null): Promise<void> {
   const p = await getProject(projectId);
   if (!p) throw new Error('This project no longer exists.');
   const m = await chosenModelRev(p, modelRev);
-  await addDecision({ projectId, globalId: elementId, calcKey, action, actor: 'reviewer', note: null, modelRev: m?.id ?? null, calcRev: p.headCalcRev });
+  const docId = calcKey.includes('#') ? calcKey.slice(0, calcKey.indexOf('#')) : null;
+  const head = docId ? documentHeads(await listDocuments(projectId), await listRevisions(projectId)).find((h) => h.doc.docId === docId) : null;
+  await addDecision({ projectId, globalId: elementId, calcKey, action, actor: 'reviewer', note: null, modelRev: m?.id ?? null, calcRev: head?.rev.id ?? p.headCalcRev });
 }
 
 /** Impact of changing / removing an element in a model revision (default: the head) with the head calc package. */
@@ -307,10 +515,11 @@ export async function impactOf(projectId: string, globalId: string, mode: Impact
   if (!m) throw new Error('No model in this project.');
   const graph = await revisionGraph(m.id);
   if (!graph) throw new Error(`Model revision #${m.id} has no element graph.`);
-  const pkg = project.headCalcRev != null ? await revisionPackage(project.headCalcRev) : null;
-  const run = pkg && project.headCalcRev != null ? await pairRun(projectId, m.id, project.headCalcRev, graph, pkg, () => {}) : null;
+  const set = await calcSetOf(projectId, await listRevisions(projectId));
+  const docs = set.heads.length ? set.docs : null;
+  const run = docs ? await setRun(projectId, m.id, set.heads, graph, docs, () => {}) : null;
   const decisions = (await decisionLog(projectId)).map(toDecision);
-  return runEngine('impact', { graph, pkg, run, decisions, globalId, mode });
+  return runEngine('impact', { graph, docs, run, decisions, globalId, mode });
 }
 
 type Box = { min: [number, number, number]; max: [number, number, number] };
@@ -351,8 +560,36 @@ export async function revisionCounts(revs: RevisionRecord[]): Promise<Map<number
 /** Save the whole project (files, graphs, extractions, decision log) as one file for a colleague. */
 export async function downloadProjectFile(projectId: string): Promise<string> {
   const file = await exportProject(projectId);
-  const name = `${file.project.name.replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'project'}.calcgraph.json`;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
+  return saveJson(`${fileStem(file.project.name)}.calcgraph.json`, file);
+}
+
+/**
+ * A model revision (default: the head) and the calc graph the view shows for it, as one model bundle
+ * file: the element graph, and the calcs, calc edges and links (not rejected; review state kept). The
+ * calc PDFs are named by sha256 but not included (the project file carries them).
+ */
+export async function buildModelBundle(projectId: string, modelRev?: number | null): Promise<{ bundle: ModelBundle; name: string }> {
+  const snap = await projectSnapshot(projectId, () => {}, modelRev);
+  if (!snap.modelRev || !snap.graph) throw new Error('This project has no model to export.');
+  const calcGraph = snap.exp ? exportToCalcGraph(snap.exp) : null;
+  const bundle = makeBundle(snap.graph, calcGraph, {
+    project: snap.project.name,
+    label: snap.modelRev.label,
+    ...(calcGraph?.source.kind === 'demo' ? { demo: true } : {}),
+    createdAt: new Date().toISOString(),
+  });
+  return { bundle, name: `${fileStem(`${snap.project.name}-${snap.modelRev.label}`)}.bundle.json` };
+}
+
+export async function downloadModelBundle(projectId: string, modelRev?: number | null): Promise<string> {
+  const { bundle, name } = await buildModelBundle(projectId, modelRev);
+  return saveJson(name, bundle);
+}
+
+const fileStem = (s: string) => s.replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'project';
+
+function saveJson(name: string, data: unknown): string {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

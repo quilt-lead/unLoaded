@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
 import { sha256 } from '@unloaded/calc-mapper';
-import { decodeBase64, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
+import { decodeBase64, documentHeads, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
 import {
   __testing,
   addDecision,
@@ -17,8 +17,12 @@ import {
   getGraph,
   getProject,
   importProject,
+  listDocuments,
   listProjects,
   listRevisions,
+  newDocumentId,
+  setRevisionDocument,
+  updateDocument,
 } from './projectStore';
 
 const graph = (mark: string): SerializedElementGraph =>
@@ -54,8 +58,8 @@ describe('project file: app writer -> shared reader -> app importer', () => {
     const m1 = await addRevision(p.id, { kind: 'model', label: 'rev 1', sourceName: 'a.ifc', mediaType: 'application/x-step', meta: { elements: 1, project: null } }, new Blob(['ISO-10303-21;']), { graph: graph('C-1') });
     const c1 = await addRevision(p.id, { kind: 'calcs', label: 'calcs', sourceName: 'c.pdf', mediaType: 'application/pdf', meta: { pages: 1 } }, new Blob([pdfBytes]), { extraction: { calcs: [], pages: [] } });
     const m2 = await addRevision(p.id, { kind: 'model', label: 'rev 2', sourceName: 'b.ifc', mediaType: 'application/x-step', meta: {} }, new Blob(['ISO-10303-21;2']), { graph: graph('C-1A') });
-    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'k1', action: 'confirm', actor: 'reviewer', note: null, modelRev: m1.id, calcRev: c1.id });
-    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'k1', action: 'reject', actor: 'reviewer', note: 'wrong size', modelRev: m2.id, calcRev: null });
+    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'd1#k1', action: 'confirm', actor: 'reviewer', note: null, modelRev: m1.id, calcRev: c1.id });
+    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'd1#k1', action: 'reject', actor: 'reviewer', note: 'wrong size', modelRev: m2.id, calcRev: null });
 
     const saved = await exportProject(p.id);
     const read = parseProjectFile(JSON.parse(JSON.stringify(saved)));
@@ -167,7 +171,7 @@ describe('save / open refuse what they cannot round-trip', () => {
   it("an imported decision never takes another record's id", async () => {
     const other = await createProject('Other');
     const m = await addRevision(other.id, model('m'), new Blob(['a']), { graph: graph('C-1') });
-    const mine = await addDecision({ projectId: other.id, globalId: 'C1', calcKey: 'k', action: 'confirm', actor: 'me', note: null, modelRev: m.id, calcRev: null });
+    const mine = await addDecision({ projectId: other.id, globalId: 'C1', calcKey: 'd1#k', action: 'confirm', actor: 'me', note: null, modelRev: m.id, calcRev: null });
     const file = await exportProject(other.id);
     const hostile = { ...file, decisions: file.decisions.map((d) => ({ ...d, id: mine.id, projectId: other.id, action: 'reject' as const })) };
     const q = await importProject(hostile as ProjectFile);
@@ -211,5 +215,66 @@ describe('the store refuses what a saved project could not reopen with', () => {
     const q = await importProject(parseProjectFile(JSON.parse(JSON.stringify(forged))));
     const [r] = await listRevisions(q.id);
     expect(r?.meta.fileSha256).toBe(await sha256(pdfBytes));
+  });
+});
+
+describe('calc documents (calc sets)', () => {
+  afterEach(() => __testing.useBackend(new __testing.MemoryBackend()));
+  const pdf = (n: number) => new Blob([Uint8Array.from({ length: 64 }, (_, i) => (i * n + 1) % 256)]);
+  const calcRev = (label: string, docId?: string) => ({ ...calcs(label), ...(docId ? { docId } : {}) });
+
+  it('a project from before calc sets reads as one legacy document, and its bare decision keys as refs into it', async () => {
+    const mem = new __testing.MemoryBackend();
+    __testing.useBackend(mem);
+    const p = await createProject('Old');
+    // records as the store wrote them before calc sets: no docId, no documents, a bare calc key
+    const r = await addRevision(p.id, calcs('Calc Package'), pdf(3), { extraction: {} });
+    await mem.run(['revisions', 'projects'], 'readwrite', async (t) => {
+      const { docId: _d, ...old } = r;
+      await t.put('revisions', old);
+      const { documents: _x, ...proj } = (await t.get<Record<string, unknown>>('projects', p.id))!;
+      await t.put('projects', proj);
+    });
+    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'beam-1', action: 'confirm', actor: 'r', note: null, modelRev: null, calcRev: r.id });
+    expect(await listDocuments(p.id)).toEqual([{ docId: 'd1', name: 'Calc Package', removed: false }]);
+    expect((await decisionLog(p.id)).map((d) => d.calcKey)).toEqual(['d1#beam-1']);
+    const saved = parseProjectFile(JSON.parse(JSON.stringify(await exportProject(p.id))));
+    expect(saved.revisions.find((x) => x.kind === 'calcs')!.docId).toBe('d1');
+    expect(saved.decisions[0]!.calcKey).toBe('d1#beam-1');
+  });
+
+  it('documents get revisions, heads, moves and withdrawals; all of it survives save and open', async () => {
+    const p = await createProject('Set');
+    const a1 = await addRevision(p.id, calcRev('Beams', 'd1'), pdf(3), { extraction: {} });
+    expect(await newDocumentId(p.id)).toBe('d2');
+    const b1 = await addRevision(p.id, calcRev('Columns', 'd2'), pdf(5), { extraction: {} });
+    const a2 = await addRevision(p.id, calcRev('Beams rev B', 'd1'), pdf(7), { extraction: {} });
+    const c1 = await addRevision(p.id, calcRev('Stairs', 'd3'), pdf(9), { extraction: {} });
+    const docs = await listDocuments(p.id);
+    expect(docs.map((d) => [d.docId, d.name])).toEqual([['d1', 'Beams'], ['d2', 'Columns'], ['d3', 'Stairs']]);
+    expect(documentHeads(docs, await listRevisions(p.id)).map((h) => h.rev.id)).toEqual([a2.id, b1.id, c1.id]);
+
+    // the stairs PDF was really a revision of the columns document: moved, and the empty document goes
+    await setRevisionDocument(p.id, c1.id, 'd2');
+    expect((await listDocuments(p.id)).map((d) => d.docId)).toEqual(['d1', 'd2']);
+    expect(documentHeads(await listDocuments(p.id), await listRevisions(p.id)).map((h) => h.rev.id)).toEqual([a2.id, c1.id]);
+    // and back out to a document of its own
+    await setRevisionDocument(p.id, c1.id, await newDocumentId(p.id));
+    expect((await listDocuments(p.id)).map((d) => d.docId)).toEqual(['d1', 'd2', 'd3']);
+
+    await updateDocument(p.id, 'd1', { name: 'Beam calcs', removed: true });
+    const after = await listDocuments(p.id);
+    expect(after[0]).toEqual({ docId: 'd1', name: 'Beam calcs', removed: true });
+    expect(documentHeads(after, await listRevisions(p.id)).map((h) => h.doc.docId)).toEqual(['d2', 'd3']);
+
+    const read = parseProjectFile(JSON.parse(JSON.stringify(await exportProject(p.id))));
+    expect(read.documents).toEqual(after);
+    const q = await importProject(read);
+    expect(await listDocuments(q.id)).toEqual(after);
+    expect((await listRevisions(q.id)).filter((r) => r.kind === 'calcs').map((r) => r.docId)).toEqual(['d1', 'd2', 'd1', 'd3']);
+    // a new revision of a withdrawn document restores it
+    await addRevision(p.id, calcRev('Beams rev C', 'd1'), pdf(11), { extraction: {} });
+    expect((await listDocuments(p.id))[0]!.removed).toBe(false);
+    void a1;
   });
 });

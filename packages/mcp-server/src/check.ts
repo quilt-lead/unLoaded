@@ -33,7 +33,7 @@ export function checkReport(p: Project, opts: { serverName: string; version: str
   L.push("Calc PDFs");
   for (const d of s.calc_pdfs) {
     const pdf = p.pdfs.find((x) => x.name === d.file)!;
-    L.push(`  ${d.main ? "[main]" : `[${d.key_prefix}]`} ${d.file}  ${d.pages} pages, ${d.calcs} calcs, ${d.links} live links`);
+    L.push(`  [${d.doc_id}] ${d.file}  ${d.pages} pages, ${d.calcs} calcs, ${d.links} live links`);
     L.push(`    sha256  ${d.sha256}`);
     if (d.extraction !== "extracted") L.push(`    calcs   ${d.extraction === "stored" ? "the project file's stored extraction" : `re-extracted (${d.extraction_note})`}`);
     if (d.no_text_pages.length) L.push(`    no text layer on page(s) ${compactRanges(d.no_text_pages)}`);
@@ -68,7 +68,7 @@ export function checkReport(p: Project, opts: { serverName: string; version: str
   L.push(`Warnings    ${warnings.length ? "" : "none"}`);
   for (const w of warnings) L.push(`  - ${w}`);
   const t = p.timings;
-  const pdfT = p.pdfs.map((d) => `${d.name} read ${d.readMs} ms + map ${d.mapMs} ms`).join(", ");
+  const pdfT = `${p.pdfs.map((d) => `${d.name} read ${d.readMs} ms`).join(", ")}, map ${t.map_ms} ms`;
   L.push(`Timings     model${p.models.length > 1 ? "s" : ""} ${t.model_ms} ms, ${pdfT}, review ${t.review_ms} ms, total ${t.total_ms} ms`);
   L.push("");
   if (p.decisions?.problem) {

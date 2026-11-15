@@ -333,16 +333,16 @@ describe("record_decision / record_decisions over MCP", () => {
     const file = JSON.parse(readFileSync(path, "utf8"));
     expect(file).toHaveLength(1);
     expect(file[0]).toMatchObject({
-      id: 1, global_id: "B1", calc_key: "beam-design-check", action: "reject", actor: "Jane Engineer", note: "wrong calc",
+      id: 1, global_id: "B1", calc_key: "d1#beam-design-check", action: "reject", actor: "Jane Engineer", note: "wrong calc",
       model_rev: "test_rev1.graph.json", calc_rev: "test_calcs.pdf",
       provenance: { method: "human", rule: "decision.reject", actor: "Jane Engineer", at: file[0].at },
     });
     expect([...file[0].provenance.inputs].sort()).toEqual([p.graph.graphSha256, p.pdfs[0]!.sha256].sort());
     // the engine applies the file as written
-    const applied = applyDecisions(p.rawLinks, file, p.gids, p.calcKeys).find((l) => l.global_id === "B1" && l.calc_key === "beam-design-check");
+    const applied = applyDecisions(p.rawLinks, file, p.gids, p.calcKeys).find((l) => l.global_id === "B1" && l.calc_key === "d1#beam-design-check");
     expect(applied?.status).toBe("rejected");
     const ge = await call(client, "get_element", { id: "B1" });
-    expect(ge.json.links.find((x: { calc_key: string }) => x.calc_key === "beam-design-check").decision).toMatchObject({ action: "reject", decided_by: "Jane Engineer", note: "wrong calc" });
+    expect(ge.json.links.find((x: { calc_key: string }) => x.calc_key === "d1#beam-design-check").decision).toMatchObject({ action: "reject", decided_by: "Jane Engineer", note: "wrong calc" });
     expect(ge.json.source.decisions.sha256).toMatch(/^[0-9a-f]{64}$/);
     // findings on a rejected link are left out (buildState)
     const c2 = await call(client, "record_decision", { global_id: "C2", calc_key: "column-design-check", action: "reject" });
@@ -389,8 +389,9 @@ describe("record_decision / record_decisions over MCP", () => {
     const cur = JSON.parse(readFileSync(path, "utf8"));
     const id = Math.max(...cur.map((d: { id: number }) => d.id)) + 1;
     writeFileSync(path, JSON.stringify([...cur, { id, global_id: "C1", calc_key: "column-design-check", action: "reject", at: new Date().toISOString(), actor: "colleague", note: null }]));
+    // a bare key (written by hand, or before calc sets) names a calc of the first document, as in the app
     const ge = await call(client, "get_element", { id: "C1" });
-    expect(ge.json.links.find((x: { calc_key: string }) => x.calc_key === "column-design-check").status).toBe("rejected");
+    expect(ge.json.links.find((x: { calc_key: string }) => x.calc_key === "d1#column-design-check").status).toBe("rejected");
     await client.close();
   });
 });
@@ -414,7 +415,7 @@ describe("the decisions file over MCP: external writers, a malformed file, calc 
     // every earlier entry written back byte for byte: the old file minus its closing bracket is a prefix of the new one
     expect(after.startsWith(before.slice(0, before.lastIndexOf("\n]")))).toBe(true);
     expect(JSON.parse(after)[1]).toEqual(ext);
-    expect((await call(client, "get_element", { id: "C1" })).json.links.find((l: { calc_key: string }) => l.calc_key === "column-design-check").status).toBe("rejected");
+    expect((await call(client, "get_element", { id: "C1" })).json.links.find((l: { calc_key: string }) => l.calc_key === "d1#column-design-check").status).toBe("rejected");
     await client.close();
   }, 120_000);
 
@@ -431,7 +432,7 @@ describe("the decisions file over MCP: external writers, a malformed file, calc 
     const ge = await call(client, "get_element", { id: "B1" });
     expect(ge.isError).toBe(false);
     expect(ge.json.source.decisions_warning).toMatch(/last good copy of the log \(1 entry\)/);
-    expect(ge.json.links.find((l: { calc_key: string }) => l.calc_key === "beam-design-check").status).toBe("rejected"); // the last good log
+    expect(ge.json.links.find((l: { calc_key: string }) => l.calc_key === "d1#beam-design-check").status).toBe("rejected"); // the last good log
     const w = await call(client, "record_decision", { global_id: "C1", calc_key: "column-design-check", action: "confirm" });
     expect(w.isError).toBe(true);
     expect(w.text).toMatch(/nothing was written: the decisions file cannot be read/);
@@ -452,19 +453,30 @@ describe("the decisions file over MCP: external writers, a malformed file, calc 
     expect(checkReport(p, { serverName: "unloaded", version: "0" })).toMatch(/NOT READY: the decisions file cannot be read/);
   }, 120_000);
 
-  it("warns loudly when decisions name calc keys this project does not have, naming the likely cause", async () => {
+  it("warns loudly when decisions name calc refs this project does not have, naming the likely cause", async () => {
     const path = join(tempDir(), "decisions.json");
     const d = (id: number, calc_key: string) => ({ id, global_id: "B1", calc_key, action: "confirm", at, actor: "x", note: null });
-    writeFileSync(path, JSON.stringify([d(1, "supplement-a/connection-design-check"), d(2, "beam-design-chek"), d(3, "beam-design-check")]));
-    const p = await loadProject(inputs({ decisions: path })); // one PDF: Supplement A is not loaded
+    writeFileSync(path, JSON.stringify([d(1, "d2#connection-design-check"), d(2, "beam-design-chek"), d(3, "beam-design-check")]));
+    const p = await loadProject(inputs({ decisions: path })); // one PDF: there is no document d2
     const w = tools.projectSummary(p).warnings.join("\n");
-    expect(w).toMatch(/2 decision\(s\) name 2 calc key\(s\) that are not in this project; they are kept but NOT applied/);
-    expect(w).toMatch(/"supplement-a\/connection-design-check" .* no loaded calc PDF has the key prefix "supplement-a\/"/);
-    expect(w).toMatch(/"beam-design-chek" .* the main PDF \(test_calcs\.pdf.* has no calc with this key: was the --calcs order changed/);
-    expect(checkReport(p, { serverName: "unloaded", version: "0" })).toMatch(/no loaded calc PDF has the key prefix/);
-    // loaded with the supplement, that key applies and its warning goes
+    expect(w).toMatch(/2 decision\(s\) name 2 calc ref\(s\) that are not in this project; they are kept but NOT applied/);
+    expect(w).toMatch(/"d2#connection-design-check" .* no loaded calc document is "d2" \(documents: d1 = test_calcs\.pdf\)/);
+    // a bare key is read as a calc of d1, as in the app
+    expect(w).toMatch(/"d1#beam-design-chek" .* test_calcs\.pdf \(d1\) has no calc "beam-design-chek"/);
+    expect(checkReport(p, { serverName: "unloaded", version: "0" })).toMatch(/no loaded calc document is "d2"/);
+    // loaded with the supplement, that ref applies and its warning goes
     const p2 = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
-    expect(tools.projectSummary(p2).warnings.join("\n")).not.toMatch(/supplement-a\/connection-design-check/);
+    expect(tools.projectSummary(p2).warnings.join("\n")).not.toMatch(/d2#connection-design-check/);
+  }, 120_000);
+
+  it("says where a bare key's calc is when it is not in the first document", async () => {
+    const path = join(tempDir(), "decisions.json");
+    writeFileSync(path, JSON.stringify([{ id: 1, global_id: "K1", calc_key: "connection-design-check", action: "confirm", at, actor: "x", note: null }]));
+    const p = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
+    expect(p.unappliedDecisions).toBe(1);
+    expect(tools.projectSummary(p).warnings.join("\n")).toMatch(
+      /"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check \(a bare key is read as a calc of d1\)/,
+    );
   }, 120_000);
 });
 
@@ -499,7 +511,7 @@ describe("record_decisions refused after a colleague appended", () => {
     writeFileSync(path, JSON.stringify([...cur, { id: 2, global_id: "C1", calc_key: "column-design-check", action: "reject", at, actor: "colleague", note: null }]));
     // undo on a pair with no decision is refused, after the append re-read the file
     await expect(tools.recordDecisions(p, { decisions: [{ global_id: "C1", calc_key: "beam-design-check", action: "undo" }] })).rejects.toThrow(/nothing was written/);
-    const link = (p.linksByElement.get("C1") ?? []).find((l) => l.calc_key === "column-design-check");
+    const link = (p.linksByElement.get("C1") ?? []).find((l) => l.calc_key === "d1#column-design-check");
     expect(link?.status).toBe("rejected");
     expect(p.computedLog).toBe(p.decisions!.log);
   }, 120_000);

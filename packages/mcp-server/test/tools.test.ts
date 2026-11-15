@@ -1,6 +1,6 @@
 /**
  * Tools on the fixture project (one model, one calc PDF), compared with calc-mapper / element-graph /
- * move-impact called directly: the same check the parity script makes over stdio, here in-process
+ * move-impact called directly, on the calc set the app maps (one document "d1"): the same check the parity script makes over stdio, here in-process
  * so CI runs it.
  */
 import { readdirSync, readFileSync } from "node:fs";
@@ -8,8 +8,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { ElementGraph, type SerializedElementGraph } from "@unloaded/element-graph";
 import {
-  ENGINE_VERSION, buildExport, buildState, diffGraphs, extractPdf, impactOf, mapCalcs, parseGraph, segmentCalcs, sha256Json,
-  type CalcPackage, type MappingRun, type PdfjsLike, type ProjectState,
+  ENGINE_VERSION, buildCalcSet, buildExport, buildState, diffGraphs, extractPdf, impactOf, mapCalcs, parseGraph, segmentCalcs, sha256Json,
+  type CalcPackage, type CalcSet, type MappingRun, type PdfjsLike, type ProjectState,
 } from "@unloaded/calc-mapper";
 import { impact as moveImpact } from "@unloaded/move-impact";
 import { maxOf, minOf, type PdfDoc, type Project } from "../src/project.ts";
@@ -20,6 +20,7 @@ let p: Project;
 let graph: SerializedElementGraph;
 let eg: ElementGraph;
 let pkg: CalcPackage;
+let set: CalcSet;
 let run: MappingRun;
 let state: ProjectState;
 
@@ -31,14 +32,16 @@ beforeAll(async () => {
   graph = graphOf(MODEL);
   eg = ElementGraph.deserialize(graph);
   pkg = segmentCalcs((await extractPdf(new Uint8Array(readFileSync(PDF)), { pdfjs: pdfjs as unknown as PdfjsLike })).pages, "test_calcs.pdf");
-  run = await mapCalcs(graph, pkg);
-  state = buildState(graph, pkg, run, []);
+  set = buildCalcSet([{ doc_id: "d1", name: "test_calcs", package: pkg }]);
+  run = await mapCalcs(graph, set);
+  state = buildState(graph, set, run, []);
 }, 120_000);
 
-describe("single PDF: the engine's output, unchanged", () => {
-  it("keeps calc-mapper's plain calc keys, links, calc edges, statuses, groups and findings", async () => {
+describe("single PDF: the engine's calc-set output, unchanged", () => {
+  it("keeps calc-mapper's calc refs, links, calc edges, statuses, groups and findings", async () => {
     expect(p.graph.graphSha256).toBe(await sha256Json(graph));
-    expect(p.calcs.map((c) => c.key)).toEqual(pkg.calcs.map((c) => c.key));
+    expect(p.calcs.map((c) => c.key)).toEqual(set.combined.calcs.map((c) => c.key));
+    expect(p.calcs.map((c) => c.key)).toEqual(pkg.calcs.map((c) => `d1#${c.key}`));
     expect(plain(p.rawLinks)).toEqual(plain(run.links));
     expect(plain(p.links)).toEqual(plain(state.links));
     expect(p.calcEdges.map(({ cross_pdf, ...e }) => (expect(cross_pdf).toBe(false), plain(e)))).toEqual(plain(state.calc_edges));
@@ -54,7 +57,7 @@ describe("single PDF: the engine's output, unchanged", () => {
     expect(s.model.supports_edges).toBe(graph.edges.filter((e) => e.kind === "supports").length);
     expect(s.findings.total).toBe(state.findings.length);
     expect(s.source).toMatchObject({ model: { file: "test_rev1.graph.json", graph_sha256: p.graph.graphSha256 }, engine: ENGINE_VERSION });
-    expect(s.calc_pdfs[0]).toMatchObject({ file: "test_calcs.pdf", key_prefix: "", main: true, extraction: "extracted" });
+    expect(s.calc_pdfs[0]).toMatchObject({ file: "test_calcs.pdf", doc_id: "d1", key_prefix: "d1#", main: true, extraction: "extracted" });
     expect(s.model_revisions).toHaveLength(1);
   });
 
@@ -73,7 +76,7 @@ describe("single PDF: the engine's output, unchanged", () => {
     const r = tools.listFindings(p, {});
     expect(plain(r.items.map(({ element: _e, calc_title: _t, pdf: _p, ...f }) => f))).toEqual(plain(state.findings));
     expect(r.items).toHaveLength(1);
-    expect(r.items[0]).toMatchObject({ kind: "size-mismatch", global_id: "C2", calc_key: "column-design-check" });
+    expect(r.items[0]).toMatchObject({ kind: "size-mismatch", global_id: "C2", calc_key: "d1#column-design-check" });
     expect(r.items[0]!.model_size).toMatch(/W12X53/);
     expect(r.items[0]!.calc_size).toMatch(/W12X40/);
     expect(tools.getElement(p, { id: "C-2" }).findings).toHaveLength(1);
@@ -86,15 +89,15 @@ describe("single PDF: the engine's output, unchanged", () => {
 
   it("impact_of_change is the engine's impactOf", async () => {
     for (const mode of ["change", "remove"] as const) {
-      expect(plain(tools.impactOfChange(p, { id: "C-1", mode }).impact)).toEqual(plain(await impactOf(graph, pkg, run, [], "C1", mode)));
+      expect(plain(tools.impactOfChange(p, { id: "C-1", mode }).impact)).toEqual(plain(await impactOf(graph, set, run, [], "C1", mode)));
     }
   });
 
   it("export_mapping is buildExport", () => {
     const r = tools.exportMappingTool(p, {});
-    expect(r.packages).toHaveLength(1);
-    expect(plain(r.packages[0]!.report)).toEqual(
-      plain(buildExport(graph, pkg, run, [], { model: "test_rev1.graph.json", model_revision: 1, calc_package: "test_calcs.pdf", calc_revision: null })),
+    expect(r.calc_documents).toEqual([{ doc_id: "d1", file: "test_calcs.pdf", page_offset: 0, pages: pkg.pages.length }]);
+    expect(plain(r.report)).toEqual(
+      plain(buildExport(graph, set, run, [], { model: "test_rev1.graph.json", model_revision: 1, calc_package: "test_calcs.pdf", calc_revision: null })),
     );
   });
 
@@ -124,7 +127,7 @@ describe("single PDF: the engine's output, unchanged", () => {
     expect(r.total).toBe(2);
     for (const h of r.items) expect(h.snippet.match.toLowerCase()).toBe("b-101");
     const scoped = tools.searchCalcText(p, { query: "b-101", calc: "column-design-check" });
-    expect(scoped.items.map((h) => h.calc_key)).toEqual(["column-design-check"]);
+    expect(scoped.items.map((h) => h.calc_key)).toEqual(["d1#column-design-check"]);
   });
 
   it("get_page_image highlights a link's rects and crops around them", async () => {
@@ -138,7 +141,7 @@ describe("single PDF: the engine's output, unchanged", () => {
 
   it("bad references are actionable errors", () => {
     expect(() => tools.getElement(p, { id: "nope" })).toThrow(/no element with GlobalId or mark "nope"/);
-    expect(() => tools.getCalc(p, { key: "column-desig" })).toThrow(/Did you mean: column-design-check/);
+    expect(() => tools.getCalc(p, { key: "column-desig" })).toThrow(/Did you mean: d1#column-design-check/);
     expect(() => tools.listCalcs(p, { pdf: "other.pdf" })).toThrow(/no calc PDF "other.pdf"/);
   });
 });
@@ -153,7 +156,7 @@ describe("two model revisions", () => {
     expect(plain(r.compare)).toEqual(plain(want));
     expect(r.compare.removed.map((x) => x.global_id)).toEqual(["F2"]);
     expect(r.compare.changed.map((x) => x.global_id)).toEqual(["C2"]);
-    expect(r.calcs_linked_to_diff!.map((x) => x.calc_key)).toContain("column-design-check");
+    expect(r.calcs_linked_to_diff!.map((x) => x.calc_key)).toContain("d1#column-design-check");
     expect(plain(tools.compareRevisions(p2, { a: 2, b: "test_rev1.graph.json" }).compare)).toEqual(
       plain(diffGraphs(graphOf(MODEL_REV2), graphOf(MODEL), { a: "test_rev2.graph.json", b: "test_rev1.graph.json" })),
     );

@@ -19,12 +19,12 @@ describe("parseCli", () => {
   it("explains missing or wrong files", () => {
     expect(cli("--calcs", PDF)).toThrow(/--model is required/);
     expect(cli("--model", MODEL)).toThrow(/at least one --calcs PDF is required/);
-    expect(cli("--model", "/no/such.ifc", "--calcs", PDF)).toThrow(/model file not found: \/no\/such.ifc/);
+    expect(cli("--model", "/no/such.ifc", "--calcs", PDF)).toThrow(/model file not found: .*no[\\/]such\.ifc/); // resolved: C:\no\such.ifc on Windows
     expect(cli("--model", PDF, "--calcs", PDF)).toThrow(/is a PDF\. Pass the IFC model with --model/);
     expect(cli("--model", MODEL, "--calcs", MODEL)).toThrow(/is not a PDF \(no "%PDF-" header\)/);
     expect(cli("--model", MODEL, "--calcs", PDF, "--calcs", PDF)).toThrow(/is given twice/);
     expect(cli("--model", MODEL, "--model", MODEL, "--calcs", PDF)).toThrow(/--model .* is given twice/);
-    expect(cli("--model", MODEL, "--calcs", PDF, "--decisions", "/no/dir/d.json")).toThrow(/directory \/no\/dir does not exist/);
+    expect(cli("--model", MODEL, "--calcs", PDF, "--decisions", "/no/dir/d.json")).toThrow(/directory .*no[\\/]dir does not exist/);
     const fake = join(tempDir(), "fake.ifc");
     writeFileSync(fake, "hello");
     expect(cli("--model", fake, "--calcs", PDF)).toThrow(/no "ISO-10303-21" STEP header/);
@@ -74,7 +74,7 @@ describe("loadModel (JSON models)", () => {
   });
   it("refuses a graph the calc engine cannot read (units other than metres)", async () => {
     const g = { format: "unloaded.element-graph", version: 1, meta: { version: 1, units: "mm" }, levels: [], nodes: [], edges: [] };
-    await expect(loadModel(json(g), "mm.json")).rejects.toThrow(/calc engine cannot read .*units must be "m" \(got "mm"\)/);
+    await expect(loadModel(json(g), "mm.json")).rejects.toThrow(/calc engine cannot read .*units must be "m"/);
   });
   it("loads a ModelInput and a serialized element graph like the app, as calc-mapper element rows", async () => {
     const mi = { meta: { version: 1, units: "m", source: { format: "test" } }, levels: [], warnings: [], relations: [],

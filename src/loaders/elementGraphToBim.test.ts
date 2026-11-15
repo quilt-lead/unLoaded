@@ -15,6 +15,17 @@ describe('elementGraphToBim on simple-frame', () => {
   const topo = elementGraphToBim(eg);
   const byId = new Map(topo.elementNodes.map((n) => [n.id, n]));
 
+  it('carries the storeys and each member\'s centreline and section for the 2D plan', () => {
+    expect(topo.levels).toEqual([
+      { id: 'L0', name: 'Foundation', elevation: 0 },
+      { id: 'L1', name: 'Level 1', elevation: 3.5 },
+    ]);
+    const beam = topo.elementNodes.find((n) => n.mark === 'B101')!;
+    expect(beam.axis).toEqual({ start: [0.14, 0, 3.3], end: [5.86, 0, 3.3] });
+    expect(beam.section).toEqual({ depth: 0.4, width: 0.14 });
+    expect(topo.elementNodes.find((n) => n.mark === 'S1')!.axis).toBeUndefined();
+  });
+
   it('builds project -> kind category -> family -> element', () => {
     expect(topo.elementNodes.filter(isProjectNode)).toHaveLength(1);
     expect(topo.projectName).toBe('Simple frame fixture');
@@ -71,6 +82,56 @@ describe('elementGraphToBim on simple-frame', () => {
     expect(up.has('F1')).toBe(false);
   });
 
+  it('traces down a stacked column to its lower segment and footing', () => {
+    const stacked: ModelInput = {
+      meta: { version: 1, project: 'Stacked columns', units: 'm', source: { format: 'fixture', file: 'stacked-columns.json' } },
+      levels: [
+        { id: 'L0', name: 'Foundation', elevation: 0 },
+        { id: 'L1', name: 'Level 1', elevation: 3.5 },
+        { id: 'L2', name: 'Level 2', elevation: 7 },
+      ],
+      elements: [
+        {
+          id: 'F1',
+          kind: 'footing',
+          mark: 'F1',
+          levelId: 'L0',
+          params: {},
+          geometry: { bbox: { min: [-0.75, -0.75, -0.6], max: [0.75, 0.75, 0] } },
+          source: { format: 'fixture', nativeType: 'IfcFooting' },
+        },
+        {
+          id: 'C1-L1',
+          kind: 'column',
+          mark: 'C1',
+          levelId: 'L1',
+          params: {},
+          geometry: { bbox: { min: [-0.13, -0.13, 0], max: [0.13, 0.13, 3.5] } },
+          source: { format: 'fixture', nativeType: 'IfcColumn' },
+        },
+        {
+          id: 'C1-L2',
+          kind: 'column',
+          mark: 'C1',
+          levelId: 'L2',
+          params: {},
+          geometry: { bbox: { min: [-0.13, -0.13, 3.5], max: [0.13, 0.13, 7] } },
+          source: { format: 'fixture', nativeType: 'IfcColumn' },
+        },
+      ],
+      relations: [
+        { a: 'C1-L2', b: 'C1-L1', kind: 'supports', evidence: { rule: 'column-on-column support', source: 'explicit' } },
+        { a: 'C1-L1', b: 'F1', kind: 'supports', evidence: { rule: 'column bears on footing', source: 'explicit' } },
+      ],
+      warnings: [],
+    };
+    const topology = elementGraphToBim(buildGraph(stacked, { infer: false }).graph);
+    const trace = computeLoadPathTrace(topology.loadPath, ['C1-L2'], 'down', 16);
+
+    expect(topology.elementNodes.some((n) => n.kind === 'family' && n.id.startsWith('stack-'))).toBe(true);
+    expect(trace.chainNodeIds).toEqual(new Set(['C1-L2', 'C1-L1', 'F1']));
+  });
+
   it('exposes beam <-> connection <-> column connectivity', () => {
     expect(getConnectivityNeighbors('K1', topo.connectivity).sort()).toEqual(['B1', 'C1']);
   });
@@ -102,6 +163,8 @@ describe('elementGraphToBim on simple-frame', () => {
       calcs: [
         {
           key: 'beam-calc',
+          docId: null,
+          docName: null,
           title: 'BEAM DESIGN',
           software: '',
           elementType: 'Beam',
@@ -122,6 +185,7 @@ describe('elementGraphToBim on simple-frame', () => {
       groups: [],
       findings: [],
       producers: null,
+      calcOrigin: 'pdf',
     };
     const view = mergeProject(topo, calc, { source: 'project', projectId: 'p1', modelFileUrl: null });
     const b1 = view.elementNodes.find((n) => n.id === 'B1')!;

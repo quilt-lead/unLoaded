@@ -5,7 +5,7 @@ import { DROP_SLOT_ATTR, DropSlot } from '../hooks/useFileDrop';
 interface FileDropOverlayProps {
   visible: boolean;
   hoverSlot: DropSlot | null;
-  /** A base model (DB A) is loaded, so the compare target is offered. */
+  /** A base model is loaded, so the compare target is offered. */
   hasBaseModel: boolean;
   acceptedExtensions: string[];
 }
@@ -20,10 +20,10 @@ interface ZoneProps {
 
 const ZONE_TONE: Record<DropSlot, { idle: string; active: string; icon: string; eyebrow: string }> = {
   base: {
-    idle: 'border-indigo-400/35 bg-[#2d3139]/80',
-    active: 'border-indigo-300 bg-indigo-500/20',
-    icon: 'text-indigo-300',
-    eyebrow: 'text-indigo-300',
+    idle: 'border-calcmap/35 bg-[#2d3139]/80',
+    active: 'border-calcmap bg-calcmap/20',
+    icon: 'text-calcmap',
+    eyebrow: 'text-calcmap',
   },
   compare: {
     idle: 'border-amber-400/35 bg-[#2d3139]/80',
@@ -66,7 +66,7 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
   return (
     <>
       <div role="status" aria-live="polite" className="sr-only">
-        {visible ? `Drop a ${extList} file to import it.` : ''}
+        {visible ? `Drop a ${extList} file to import or compare.` : ''}
       </div>
       {visible && (
         <div
@@ -79,25 +79,25 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
                 <DropZone
                   slot="base"
                   active={hoverSlot !== 'compare'}
-                  eyebrow="Add to project"
-                  title="Add as Newest Revision"
-                  detail="A model or calc PDF becomes the newest revision of this project. A saved project file opens as its own project."
+                  eyebrow="Primary model"
+                  title="Replace Base Model"
+                  detail="Replaces the current model, groups and selection."
                 />
                 <DropZone
                   slot="compare"
                   active={hoverSlot === 'compare'}
-                  eyebrow="Compare"
-                  title="Compare With Current Model"
-                  detail="Adds the model as a new revision and opens Diff Mode against the current one, across the graph, 3D model and PDFs."
+                  eyebrow="Comparison model"
+                  title="Compare with Base Model"
+                  detail="Opens a comparison across the graph, 3D model and PDFs."
                 />
               </>
             ) : (
               <DropZone
                 slot="base"
                 active
-                eyebrow="Open"
-                title="Drop to Open"
-                detail="An IFC or JSON model, a calc package PDF, or a saved project file."
+                eyebrow="Import model"
+                title="Drop to Load Model"
+                detail="Import a structural model to build the element graph."
               />
             )}
           </div>

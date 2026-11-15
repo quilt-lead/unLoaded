@@ -19,6 +19,7 @@ import type {
   DecisionAction,
   DockSide,
   FilterState,
+  GraphComment,
   HighlightOverlay,
   HighlightTone,
   NodeGroup,
@@ -34,6 +35,7 @@ import {
   useImpact,
   useInitialProject,
   useLoadDemo,
+  useLoadHarborview,
   useLoadSample,
   useLoadSupplement,
   useProjectList,
@@ -41,9 +43,18 @@ import {
   useRevisionUrls,
   useStoreInfo,
   useUploadCalcs,
+  useMoveCalcRevision,
+  useChangeDocument,
   useUploadModel,
 } from './engine/hooks';
-import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
+import { downloadModelBundle, downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
+
+/** Where an added calc PDF went, in words (a toast): a new calc document, a new revision of one, or already loaded. */
+function calcPlacementText(fileName: string, p: CalcPlacement, revisionId: number | null): string {
+  if (p.kind === 'duplicate') return `${fileName} is already loaded (in ${p.docName}); not added again`;
+  if (p.kind === 'new') return `${fileName} added as a new calc document, ${p.docName} (revision #${revisionId})`;
+  return `${fileName} added as revision #${revisionId} of ${p.docName}${p.note && p.note !== 'chosen' ? ` (${p.note})` : ''}`;
+}
 import { calcNodeId } from './data/loadProject';
 import { applyModelDiff } from './data/mergeProject';
 import { diffRevisionsError, keepWhatExists } from './data/viewState';
@@ -58,8 +69,10 @@ import { HeaderBar } from './components/HeaderBar';
 import { FilterBar, type DiffFilter } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
 import { Structural3DViewer } from './components/Structural3DViewer';
+import { countRoles, PlanView2D } from './components/PlanView2D';
+import { buildPlanIndex, formatElevation, levelForElement } from './utils/planSlice';
 import { PropertyInspector } from './components/PropertyInspector';
-import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
+import { DocumentBrowser, calcTarget, linkTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
 import { RevisionPanel } from './components/RevisionPanel';
 import { useEscapeFallback } from './components/escapeStack';
@@ -71,6 +84,11 @@ import { ACCEPTED_EXTENSIONS } from './loaders/parsers';
 const DROP_EXTENSIONS = [...new Set([...ACCEPTED_EXTENSIONS, '.pdf'])];
 
 const EMPTY_SET = new Set<string>();
+
+interface ToastAction {
+  label: string;
+  run: () => void;
+}
 const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
 
 /**
@@ -131,10 +149,13 @@ export const App: React.FC = () => {
   const decide = useDecide(pid);
   const sample = useLoadSample(setBusyText);
   const demo = useLoadDemo(setBusyText);
+  const harborview = useLoadHarborview(setBusyText);
   const supplement = useLoadSupplement(setBusyText);
   // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
   const uploadModel = useUploadModel(setBusyText);
   const uploadCalcs = useUploadCalcs(setBusyText);
+  const moveCalcRevision = useMoveCalcRevision(pid);
+  const changeDocument = useChangeDocument(pid);
   const createProject = useCreateProject();
   const revisions = projectQ.data?.revisions ?? null;
   /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
@@ -167,7 +188,13 @@ export const App: React.FC = () => {
 
   // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
+  // comments on the two graph workspaces; project-scoped like groups and moved nodes
+  const [comments, setComments] = useState<GraphComment[]>([]);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(new Set());
   const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
+  // Calc graph drags are stored as cumulative offsets, not absolute positions: the mapped-element
+  // satellites are laid out around their anchor calc, so an offset on the anchor carries its fan with it.
+  const [calcMoved, setCalcMoved] = useState<Map<string, { dx: number; dy: number }>>(new Map());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [selectedCalcNodeId, setSelectedCalcNodeId] = useState<string | null>(null);
@@ -178,8 +205,13 @@ export const App: React.FC = () => {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
-  const [viewer3dDock, setViewer3dDock] = useState<DockSide>('float');
-  const [inspectorDock, setInspectorDock] = useState<DockSide>('float');
+  // the model panel's views: the 3D model and the 2D plan of one level
+  const [modelTab, setModelTab] = useState<'3d' | 'plan'>('3d');
+  const [planLevelPick, setPlanLevelPick] = useState<string | null>(null);
+  const [planFitTrigger, setPlanFitTrigger] = useState(0);
+  const [planResetTrigger, setPlanResetTrigger] = useState(0);
+  const [viewer3dDock, setViewer3dDock] = useState<DockSide>('right');
+  const [inspectorDock, setInspectorDock] = useState<DockSide>('left');
   const [leftDockWidth, setLeftDockWidth] = useState(340);
   const [rightDockWidth, setRightDockWidth] = useState(360);
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
@@ -191,12 +223,58 @@ export const App: React.FC = () => {
    */
   const activeViewRef = useRef(activeView);
   activeViewRef.current = activeView;
-  const changeView = useCallback((next: WorkspaceView) => {
+  const applyView = useCallback((next: WorkspaceView) => {
     if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
       setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
     }
+    // each graph has its own comments; a selection on the hidden one must not be deletable
+    if (next !== activeViewRef.current) setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
+    activeViewRef.current = next;
     setActiveView(next);
   }, []);
+
+  /**
+   * View history, browser style: every view change pushes the view being left onto `back` and clears
+   * `forward`; Alt+Left / Alt+Right step through it (e.g. back to the graph after a Ctrl+Click jump to
+   * the PDF). Views only: selection is shared across views and is not rewound.
+   */
+  const viewHistory = useRef<{ back: WorkspaceView[]; forward: WorkspaceView[] }>({ back: [], forward: [] });
+  const changeView = useCallback(
+    (next: WorkspaceView) => {
+      const cur = activeViewRef.current;
+      if (cur === next) return;
+      const h = viewHistory.current;
+      h.back.push(cur);
+      if (h.back.length > 50) h.back.shift();
+      h.forward = [];
+      applyView(next);
+    },
+    [applyView],
+  );
+  const stepView = useCallback(
+    (dir: 'back' | 'forward') => {
+      const h = viewHistory.current;
+      const from = dir === 'back' ? h.back : h.forward;
+      const to = dir === 'back' ? h.forward : h.back;
+      const next = from.pop();
+      if (!next) return false;
+      to.push(activeViewRef.current);
+      applyView(next);
+      return true;
+    },
+    [applyView],
+  );
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      // always swallow it: the browser's own Alt+Left would navigate away from the app
+      e.preventDefault();
+      stepView(e.key === 'ArrowLeft' ? 'back' : 'forward');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [stepView]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedNodeId(null);
@@ -204,7 +282,39 @@ export const App: React.FC = () => {
     setSelectedCalcNodeId(null);
     setSelectedCalcNodeIds(new Set());
     setCalcAnchorKey(null);
+    setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
   }, []);
+
+  const handleSelectComments = useCallback((ids: string[], opts?: { additive?: boolean }) => {
+    setSelectedCommentIds((prev) => {
+      if (!opts?.additive) return new Set(ids);
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const makeAddComment = useCallback(
+    (graph: GraphComment['graph']) => (x: number, y: number) => {
+      const id = `cmt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      setComments((prev) => [...prev, { id, graph, x, y, text: '' }]);
+      return id;
+    },
+    [],
+  );
+  const handleAddElementComment = useMemo(() => makeAddComment('element'), [makeAddComment]);
+  const handleAddCalcComment = useMemo(() => makeAddComment('calc'), [makeAddComment]);
+
+  const handleMoveComments = useCallback((ids: Set<string>, dx: number, dy: number) => {
+    setComments((prev) => prev.map((c) => (ids.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c)));
+  }, []);
+
+  const handleEditComment = useCallback((id: string, text: string) => {
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, text } : c)));
+  }, []);
+
+  const elementComments = useMemo(() => comments.filter((c) => c.graph === 'element'), [comments]);
+  const calcComments = useMemo(() => comments.filter((c) => c.graph === 'calc'), [comments]);
 
   /**
    * The one way the open project changes (picker, sample, demo, new project, project or export
@@ -235,7 +345,9 @@ export const App: React.FC = () => {
         setCompareOpen(false);
         setDocFilterBySelected(false);
         setGroups([]);
+        setComments([]);
         setMoved(new Map());
+        setCalcMoved(new Map());
         handleClearSelection();
         setImpactReq(null);
         setPdfTarget(null);
@@ -250,15 +362,50 @@ export const App: React.FC = () => {
   );
   const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
-  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
+  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean; action?: ToastAction }>({
+    message: '',
+    isError: false,
+    visible: false,
+  });
   // one timer: a newer toast restarts the countdown; cleared on unmount
   const toastTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-  const showToast = useCallback((message: string, isError = false) => {
-    setToast({ message, isError, visible: true });
+  const showToast = useCallback((message: string, isError = false, action?: ToastAction) => {
+    setToast({ message, isError, visible: true, action });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
+    toastTimer.current = window.setTimeout(
+      () => setToast((prev) => (prev.message === message ? { ...prev, visible: false, action: undefined } : prev)),
+      isError ? 7000 : action ? 6000 : 3400,
+    );
   }, []);
+
+  /** Deleting comments that have text offers Undo; an empty new comment just disappears. */
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+  const handleDeleteComments = useCallback(
+    (ids: string[]) => {
+      const gone = new Set(ids);
+      const removed = commentsRef.current.filter((c) => gone.has(c.id));
+      setComments((prev) => prev.filter((c) => !gone.has(c.id)));
+      setSelectedCommentIds((prev) => {
+        if (![...prev].some((id) => gone.has(id))) return prev;
+        return new Set([...prev].filter((id) => !gone.has(id)));
+      });
+      const withText = removed.filter((c) => c.text);
+      if (withText.length === 0) return;
+      const scopeAtDelete = scopeRef.current.epoch;
+      showToast(withText.length === 1 ? 'Comment deleted' : `${withText.length} comments deleted`, false, {
+        label: 'Undo',
+        run: () => {
+          // a project change in between has its own comments; don't bring these back into it
+          if (scopeRef.current.epoch !== scopeAtDelete) return;
+          setComments((prev) => [...prev, ...withText.filter((c) => !prev.some((p) => p.id === c.id))]);
+          setSelectedCommentIds(new Set(withText.map((c) => c.id)));
+        },
+      });
+    },
+    [showToast],
+  );
 
   // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
   // the head, which has its own view) with the reason, rather than leaving an empty workspace.
@@ -323,10 +470,33 @@ export const App: React.FC = () => {
   }, [view, moved]);
   const elementById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
 
-  const calcGraph = useMemo(
-    () => withMappingSatellites(view?.calcNodes ?? [], view?.calcLinks ?? [], calcAnchorKey, elementNodes),
-    [view, calcAnchorKey, elementNodes],
-  );
+  // the 2D plan: every level sliced once per model (graph layout moves don't re-slice)
+  const planIndex = useMemo(() => buildPlanIndex(view?.elementNodes ?? [], view?.levels ?? []), [view]);
+  // the level picked, if the model still has it; else the lowest floor with a slab, else the lowest level
+  const planLevelId =
+    (planLevelPick && planIndex.plans.has(planLevelPick) ? planLevelPick : null) ??
+    planIndex.levels.find((l) => l.hasSlab)?.id ??
+    planIndex.levels[0]?.id ??
+    null;
+  // a selection elsewhere (graph, inspector, 3D) takes the plan to a level the element is drawn on
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const lv = levelForElement(planIndex, selectedNodeId, planLevelId);
+    if (lv && lv !== planLevelId) setPlanLevelPick(lv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, planIndex]);
+
+  const calcGraph = useMemo(() => {
+    const offset = (n: BimNode): BimNode => {
+      const m = calcMoved.get(n.id);
+      return m ? { ...n, x: n.x + m.dx, y: n.y + m.dy } : n;
+    };
+    const calcNodes = view?.calcNodes ?? [];
+    const g = withMappingSatellites(calcMoved.size ? calcNodes.map(offset) : calcNodes, view?.calcLinks ?? [], calcAnchorKey, elementNodes);
+    if (!calcMoved.size) return g;
+    // satellites are placed from the (already offset) anchor; apply their own drag offsets on top
+    return { ...g, nodes: g.nodes.map((n) => (n.kind === 'mapped-element' ? offset(n) : n)) };
+  }, [view, calcAnchorKey, elementNodes, calcMoved]);
 
   const hasProject = Boolean(view && (view.elementNodes.length > 1 || view.calcs.length > 0));
 
@@ -409,8 +579,62 @@ export const App: React.FC = () => {
     [],
   );
 
+  const handleSelectElementNodes = useCallback(
+    (ids: string[], opts?: { additive?: boolean }) => {
+      const next = new Set(opts?.additive ? selectedNodeIds : []);
+      ids.forEach((id) => next.add(id));
+      setSelectedNodeIds(next);
+      setSelectedNodeId(ids[ids.length - 1] ?? (opts?.additive ? selectedNodeId : null));
+      if (next.size > 0) setFit3dTrigger((c) => c + 1);
+    },
+    [selectedNodeId, selectedNodeIds],
+  );
+
+  const handleSelectCalcNodes = useCallback(
+    (ids: string[], opts?: { additive?: boolean }) => {
+      const calcNodesById = new Map(calcGraph.nodes.map((node) => [node.id, node]));
+      const next = new Set(opts?.additive ? selectedCalcNodeIds : []);
+      ids.forEach((id) => {
+        if (calcNodesById.has(id)) next.add(id);
+      });
+
+      const primaryId = ids[ids.length - 1] ?? (opts?.additive ? selectedCalcNodeId : null);
+      const primaryNode = primaryId ? calcNodesById.get(primaryId) : undefined;
+      const elementIds = new Set<string>();
+      next.forEach((id) => {
+        const node = calcNodesById.get(id);
+        if (node?.kind === 'mapped-element' && node.elementId) elementIds.add(node.elementId);
+        if (node?.kind === 'calc' && node.calcKey) {
+          (view?.calcToElementIds.get(node.calcKey) ?? []).forEach((elementId) => elementIds.add(elementId));
+        }
+      });
+
+      setSelectedCalcNodeIds(next);
+      setSelectedCalcNodeId(primaryId);
+      setCalcAnchorKey(primaryNode?.kind === 'calc' ? primaryNode.calcKey ?? null : null);
+      setSelectedNodeIds(elementIds);
+      setSelectedNodeId([...elementIds][0] ?? null);
+      if (elementIds.size > 0) setFit3dTrigger((c) => c + 1);
+    },
+    [calcGraph.nodes, selectedCalcNodeId, selectedCalcNodeIds, view],
+  );
+
   const handleSelectCalcNode = useCallback(
-    (id: string) => {
+    (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean }) => {
+      if (opts?.toggleMulti) {
+        // Shift + click: add to / remove from the calc selection (linked elements follow)
+        if (selectedCalcNodeIds.has(id)) {
+          handleSelectCalcNodes([...selectedCalcNodeIds].filter((x) => x !== id));
+        } else {
+          handleSelectCalcNodes([id], { additive: true });
+        }
+        return;
+      }
+      if (opts?.preserveMulti) {
+        // pressing on a node already in a multi-selection (to drag it): keep the selection as is
+        setSelectedCalcNodeId(id);
+        return;
+      }
       const node = calcGraph.nodes.find((n) => n.id === id);
       setSelectedCalcNodeId(id);
       setSelectedCalcNodeIds(new Set([id]));
@@ -431,7 +655,7 @@ export const App: React.FC = () => {
       }
       setCalcAnchorKey(null);
     },
-    [calcGraph.nodes, view],
+    [calcGraph.nodes, view, selectedCalcNodeIds, handleSelectCalcNodes],
   );
 
   const selectCalcByKey = useCallback(
@@ -498,6 +722,17 @@ export const App: React.FC = () => {
     },
     [elementById],
   );
+
+  const handleMoveCalcNodes = useCallback((movedIds: Set<string>, dx: number, dy: number) => {
+    setCalcMoved((prev) => {
+      const next = new Map(prev);
+      movedIds.forEach((id) => {
+        const m = next.get(id);
+        next.set(id, { dx: (m?.dx ?? 0) + dx, dy: (m?.dy ?? 0) + dy });
+      });
+      return next;
+    });
+  }, []);
 
   const handleGroupSelection = useCallback(() => {
     const ids = Array.from(selectedNodeIds).filter((id) => elementById.has(id));
@@ -627,17 +862,18 @@ export const App: React.FC = () => {
   const handleLoadSupplement = () =>
     run('Adding the sample calc supplement…', async () => {
       if (!pid) throw new Error('Open a project first (Load sample).');
+      let placed;
       try {
-        await supplement.mutateAsync(pid);
+        placed = await supplement.mutateAsync(pid);
       } catch (e) {
         throw new Error(sampleError(e));
       }
       setCompareOpen(false);
-      return 'Calc supplement added as the head calc package';
+      return calcPlacementText('calc_supplement.pdf', placed.placement, placed.revision?.id ?? null);
     });
 
   const handleLoadDemo = () =>
-    run('Loading the Harborview A/B demo (legacy JSON, demo data)…', async () => {
+    run('Loading the Harborview A/B demo (demo data)…', async () => {
       let out: { projectId: string; a: number; b: number };
       try {
         out = await demo.mutateAsync();
@@ -648,21 +884,37 @@ export const App: React.FC = () => {
       return 'Harborview demo loaded as two model revisions, compared A → B';
     });
 
+  const handleLoadHarborview = () =>
+    run('Loading the Harborview sample (IFC + calc PDFs)…', async () => {
+      let out: { projectId: string; a: number; b: number };
+      try {
+        out = await harborview.mutateAsync();
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      enterScope({ projectId: out.projectId }, { a: out.a, b: out.b });
+      return 'Harborview sample loaded: IFC rev 1 and 2 with their calc PDFs, compared A → B';
+    });
+
   /**
    * The one path a chosen file becomes a revision of the store project (header menu, empty state,
    * revision panel, Open file). The revision goes to the project open when the action started (also
    * when an export view is shown over it); once added it is shown through showAddedRevision. With
    * `compareWithHead`, a new model revision is shown as the diff (previous head -> new revision).
    * `kind: 'any'` dispatches by content (openAnyFile): a project file opens as a new project and an
-   * export JSON as a read-only view instead.
+   * export JSON as a read-only view instead. Calcs take several PDFs at once (one large package, one PDF
+   * per calc, or a new revision of some): each is placed in turn, and the toast says where each went.
    */
-  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', file: File, opts?: { compareWithHead?: boolean }) =>
-    run(`${kind === 'any' ? 'Opening' : 'Reading'} ${file.name}…`, async () => {
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', files: File | File[], opts?: { compareWithHead?: boolean }) => {
+    const list = Array.isArray(files) ? files : [files];
+    const file = list[0];
+    if (!file) return;
+    return run(`${kind === 'any' ? 'Opening' : 'Reading'} ${list.length > 1 ? `${list.length} PDFs` : file.name}…`, async () => {
       const target = projectId;
       if (!target) throw new Error('The project store is still opening; try again in a moment.');
       const startEpoch = scopeRef.current.epoch;
       const before = headModelRev;
-      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[] };
+      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[]; placement?: CalcPlacement };
       if (kind === 'any') {
         const opened = await openAnyFile(target, file, setBusyText);
         if (opened.kind === 'export') {
@@ -675,27 +927,65 @@ export const App: React.FC = () => {
           switchProject(opened.projectId);
           return `Imported project from ${file.name}`;
         }
-        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings };
+        if (opened.kind === 'duplicate') return calcPlacementText(file.name, opened.placement, null);
+        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings, placement: opened.placement };
       } else if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ projectId: target, file });
         added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
       } else {
-        const out = await uploadCalcs.mutateAsync({ projectId: target, file });
-        added = { kind: 'calcs', id: out.revisionId, warnings: [] };
+        // one at a time: each placement sees the documents the PDFs before it made
+        const placed: { name: string; placement: CalcPlacement; id: number | null }[] = [];
+        for (const [i, f] of list.entries()) {
+          if (list.length > 1) setBusyText(`Reading ${f.name} (${i + 1} of ${list.length})…`);
+          const out = await uploadCalcs.mutateAsync({ projectId: target, file: f });
+          placed.push({ name: f.name, placement: out.placement, id: out.revisionId });
+        }
+        const last = [...placed].reverse().find((x) => x.id != null);
+        if (!last) return placed.map((x) => calcPlacementText(x.name, x.placement, null)).join('; ');
+        if (list.length > 1) {
+          showAddedRevision(target, startEpoch, undefined);
+          const fresh = placed.filter((x) => x.placement.kind === 'new').length;
+          const revs = placed.filter((x) => x.placement.kind === 'revision').length;
+          const dups = placed.length - fresh - revs;
+          return `${list.length} calc PDFs: ${fresh} new document${fresh === 1 ? '' : 's'}, ${revs} new revision${revs === 1 ? '' : 's'}${dups ? `, ${dups} already loaded` : ''}. See Revisions to move any.`;
+        }
+        added = { kind: 'calcs', id: last.id!, warnings: [], placement: last.placement };
       }
       if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
       const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
       const shown = showAddedRevision(target, startEpoch, diff);
-      const what = `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+      const what = added.placement
+        ? calcPlacementText(file.name, added.placement, added.id)
+        : `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
       return shown ? what : `${what} of ${projectName(target)}`;
     });
-  const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);
+  };
+  const handleUpload = (kind: 'model' | 'calcs', file: File | File[]) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) => addRevisionFile('any', file);
 
-  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. The "compare" zone (shown
-  // once a model is loaded) adds a model revision and diffs it against the current head.
+  const handleMoveCalcRevision = (revisionId: number, docId: string | 'new') =>
+    run('Moving the calc revision…', async () => {
+      const to = await moveCalcRevision.mutateAsync({ revisionId, docId });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === to)?.name;
+      return `Calc revision #${revisionId} moved to ${docId === 'new' ? 'a new document' : name ?? to}`;
+    });
+  const handleSetDocumentRemoved = (docId: string, removed: boolean) =>
+    run(removed ? 'Withdrawing the calc document…' : 'Restoring the calc document…', async () => {
+      await changeDocument.mutateAsync({ docId, removed });
+      const name = projectQ.data?.calcDocuments.find((d) => d.docId === docId)?.name ?? docId;
+      return removed ? `${name} withdrawn from the calc set (kept; restore it from Revisions)` : `${name} restored to the calc set`;
+    });
+
+  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. Calc PDFs dropped together
+  // are one upload (placed per document, like "Add calc PDFs"); anything else opens one file at a time. The
+  // "compare" zone (shown once a model is loaded) adds a model revision and diffs it against the current head.
   const handleDropFiles = (files: File[], slot: DropSlot) => {
+    const pdfs = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (slot !== 'compare' && pdfs.length > 0 && pdfs.length === files.length) {
+      void handleUpload('calcs', pdfs);
+      return;
+    }
     const file = files.find((f) => DROP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
     if (!file) {
       showToast(`Can't open ${files.map((f) => f.name).join(', ')}. Drop a ${DROP_EXTENSIONS.join(' / ')} file.`, true);
@@ -711,6 +1001,12 @@ export const App: React.FC = () => {
     run('Packing the project…', async () => {
       if (!pid) throw new Error('No project to save.');
       return `Saved ${await downloadProjectFile(pid)}`;
+    });
+
+  const handleExportBundle = () =>
+    run('Packing the model bundle…', async () => {
+      if (!pid) throw new Error('No project to export.');
+      return `Saved ${await downloadModelBundle(pid, shownModelRev)}`;
     });
 
   const handleNewProject = () =>
@@ -763,23 +1059,6 @@ export const App: React.FC = () => {
     showToast('Exited diff mode');
   };
 
-  const handleResetAll = useCallback(() => {
-    setFilters(NO_FILTERS);
-    setDiffFilter('ALL');
-    setImpactReq(null);
-    handleClearSelection();
-    setMoved(new Map());
-    setViewer3dDock('float');
-    setInspectorDock('float');
-    setLeftDockWidth(340);
-    setRightDockWidth(360);
-    setDocFilterBySelected(false);
-    setPdfTarget(null);
-    setDocumentOpenRequest((c) => c + 1);
-    setResetTrigger((c) => c + 1);
-    showToast('View, filters & panels reset');
-  }, [handleClearSelection, showToast]);
-
   const openTarget = useCallback(
     (t: PdfTarget, elementId?: string) => {
       if (elementId) {
@@ -805,6 +1084,30 @@ export const App: React.FC = () => {
       changeView('docs');
     },
     [elementById, view, handleSelectElementNode, changeView],
+  );
+
+  // Ctrl / Cmd + click on a graph node: jump to its calculation in the PDF view (Alt+Left comes back)
+  const handleOpenNode = useCallback(
+    (node: BimNode) => {
+      if (node.kind === 'element') {
+        if (node.calcLinks?.some((l) => l.review !== 'rejected')) showElementCalcs(node.id);
+        else showToast(`${node.label} has no linked calculation`, true);
+        return;
+      }
+      if (node.kind === 'calc' && node.calcKey) {
+        const c = view?.calcs.find((x) => x.key === node.calcKey);
+        if (!c) return;
+        handleSelectCalcNode(node.id);
+        openTarget(calcTarget(c));
+        return;
+      }
+      if (node.kind === 'mapped-element' && node.link && node.elementId) {
+        openTarget(linkTarget(node.link, view?.calcs.find((x) => x.key === node.link!.calcKey)), node.elementId);
+        return;
+      }
+      showToast('Ctrl+Click an element or a calc to open its calculation', true);
+    },
+    [view, showElementCalcs, handleSelectCalcNode, openTarget, showToast],
   );
 
   const dropFromHash = (key: string) => {
@@ -842,7 +1145,9 @@ export const App: React.FC = () => {
     // a refused pair is dropped from the URL too, so a reload does not refuse it again
     if (cmp && !(cmp.length === 2 && requestDiff(cmp[0], cmp[1]))) dropFromHash('compare');
     const color = h.get('color') as ColorMode | null;
-    if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
+    if (color === 'review' || color === 'confidence' || color === 'type' || color === 'utilisation') {
+      setColorMode(color);
+    }
   }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs, changeView]);
 
   // ---------------------------------------------------------------- panels
@@ -891,6 +1196,7 @@ export const App: React.FC = () => {
   const ghostRids = (diffApplied?.ghosts ?? []).map((g) => g.revisionId).filter((rid) => revisions?.find((r) => r.id === rid)?.isIfc);
   const ghostUrls = useRevisionUrls(ghostRids);
   const pdfUrl = exportView ? null : (projectQ.data?.pdfUrl ?? null);
+  const pdfUrls = exportView ? undefined : projectQ.data?.pdfUrls;
   const ghostSources = useMemo(
     () =>
       (diffApplied?.ghosts ?? [])
@@ -922,6 +1228,10 @@ export const App: React.FC = () => {
       resetTrigger={resetTrigger}
       emptyText={model3dEmpty}
       onSelectNode={handleSelectElementNode}
+      onOpenNode={(id) => {
+        const n = elementById.get(id);
+        if (n) handleOpenNode(n);
+      }}
     />
   );
 
@@ -935,18 +1245,53 @@ export const App: React.FC = () => {
     ? 'Mapping status'
     : colorMode === 'confidence'
     ? 'Link confidence'
+    : colorMode === 'utilisation'
+    ? 'Utilisation'
     : 'IFC Model';
+
+  const planView = (
+    <PlanView2D
+      nodes={elementNodes}
+      index={planIndex}
+      levelId={planLevelId}
+      onLevelChange={setPlanLevelPick}
+      selectedNodeId={selectedNodeId}
+      selectedNodeIds={selectedNodeIds}
+      activeLoadChainNodeIds={activeLoadChainNodeIds}
+      matchingNodeIds={matchingNodeIds}
+      isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
+      colorMode={colorMode}
+      diffMode={diffMode}
+      overlay={overlay}
+      fitTrigger={planFitTrigger}
+      resetTrigger={planResetTrigger}
+      revealTrigger={fit3dTrigger}
+      emptyText={view?.source === 'file' ? 'An export JSON carries no geometry; open the project file or add the IFC to see the plan.' : undefined}
+      onSelectNode={handleSelectElementNode}
+    />
+  );
+  const shownPlan = planLevelId ? planIndex.plans.get(planLevelId) : undefined;
+  const statusPlan = shownPlan
+    ? `${shownPlan.level.name}  ${formatElevation(shownPlan.level.elevation)}  ·  ${countRoles(shownPlan.items)}`
+    : 'No levels';
+  const onPlanTab = modelTab === 'plan';
 
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
+      title={diffMode ? 'Diff A vs B' : 'Model'}
+      tabs={[
+        { id: '3d', label: '3D' },
+        { id: 'plan', label: 'Plan' },
+      ]}
+      activeTab={modelTab}
+      onTabChange={(t) => setModelTab(t === 'plan' ? 'plan' : '3d')}
       indicatorClassName={
         diffMode || impact
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
+          ? 'bg-amber-400'
           : selectedNodeId
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] motion-safe:animate-pulse'
-          : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
+          ? 'bg-amber-400'
+          : 'bg-cyan-400'
       }
       dockSide={viewer3dDock}
       defaultPos={defaultV3dPos}
@@ -958,17 +1303,17 @@ export const App: React.FC = () => {
         <>
           <button
             type="button"
-            onClick={() => setFit3dTrigger((c) => c + 1)}
+            onClick={() => (onPlanTab ? setPlanFitTrigger : setFit3dTrigger)((c) => c + 1)}
             title="Zoom to selection"
-            className="mono text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition mr-0.5"
+            className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
             FIT
           </button>
           <button
             type="button"
-            onClick={() => setResetTrigger((c) => c + 1)}
-            title="Reset 3D camera"
-            aria-label="Reset 3D camera"
+            onClick={() => (onPlanTab ? setPlanResetTrigger : setResetTrigger)((c) => c + 1)}
+            title={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
+            aria-label={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
             className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
           >
             <RotateCcw className="w-3 h-3" />
@@ -976,11 +1321,21 @@ export const App: React.FC = () => {
         </>
       }
     >
-      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#282c34]">
-        {viewer3d}
+      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
+        {/* both views stay mounted: switching tabs must not drop the WebGL context or reload the IFC */}
+        <div className="absolute inset-0" hidden={onPlanTab}>
+          {viewer3d}
+        </div>
+        <div className="absolute inset-0" hidden={!onPlanTab}>
+          {planView}
+        </div>
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
-          <span className="truncate text-zinc-200">{status3d}</span>
-          <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          <span className="truncate text-zinc-200">{onPlanTab ? statusPlan : status3d}</span>
+          {onPlanTab ? (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: pan · Wheel or + / −: zoom · Page Up / Page Down or [ ]: change level">Drag Pan • Wheel Zoom • PgUp/PgDn Level</span>
+          ) : (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          )}
         </div>
       </div>
     </DockableHudPanel>
@@ -997,7 +1352,7 @@ export const App: React.FC = () => {
     <DockableHudPanel
       id="inspectorPanel"
       title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
-      indicatorClassName={inspectorNode ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] motion-safe:animate-pulse' : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] motion-safe:animate-pulse'}
+      indicatorClassName="bg-calcmap"
       dockSide={inspectorDock}
       defaultPos={defaultInspPos}
       zIndex={topHudZ.insp}
@@ -1052,10 +1407,10 @@ export const App: React.FC = () => {
   const emptyState = (
     <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
       <div className="bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-7 py-6 text-center max-w-md w-full shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
-        <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-300 flex items-center justify-center mb-3">
+        <div className="w-11 h-11 mx-auto rounded-xl bg-calcmap/15 border border-calcmap/30 text-calcmap flex items-center justify-center mb-3">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Network className="w-5 h-5" />}
         </div>
-        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+        <p className="mono text-[10px] text-calcmap uppercase tracking-widest mb-1">
           {loading ? 'Opening project' : calcOnly ? 'Calc package added' : 'No model in this project yet'}
         </p>
         <h2 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h2>
@@ -1068,30 +1423,31 @@ export const App: React.FC = () => {
           type="button"
           disabled={Boolean(busyText)}
           onClick={handleLoadSample}
-          className="mt-4 w-full bg-indigo-500/25 hover:bg-indigo-500/35 text-white border border-indigo-400/50 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-4 w-full bg-calcmap/20 hover:bg-calcmap/30 text-white border border-calcmap/40 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-200" />}
+          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-calcmap" />}
           {busyText || 'Load sample'}
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           {[
-            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', on: (f: File) => handleUpload('model', f) },
-            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f) },
-            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', on: handleOpenFile },
+            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', multiple: false, on: (f: File[]) => handleUpload('model', f[0]!) },
+            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDFs', accept: '.pdf,application/pdf', multiple: true, on: (f: File[]) => handleUpload('calcs', f) },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', multiple: false, on: (f: File[]) => handleOpenFile(f[0]!) },
           ].map((b) => (
             <label
               key={b.label}
-              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-400/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
+              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-calcmap/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
             >
               {b.icon}
               {b.label}
               <input
                 type="file"
                 accept={b.accept}
+                multiple={b.multiple}
                 className="sr-only"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) b.on(f);
+                  const fs = [...(e.target.files ?? [])];
+                  if (fs.length) b.on(fs);
                   e.target.value = '';
                 }}
               />
@@ -1101,10 +1457,18 @@ export const App: React.FC = () => {
         <button
           type="button"
           disabled={Boolean(busyText)}
+          onClick={handleLoadHarborview}
+          className="mt-2 w-full text-[11px] text-zinc-300 hover:text-white py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
+        >
+          Load the Harborview tower sample <span className="text-emerald-300/90">(IFC + calc PDFs, rev 1 and 2)</span>
+        </button>
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
           onClick={handleLoadDemo}
           className="mt-2 w-full text-[11px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
         >
-          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(legacy JSON, demo data)</span>
+          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(invented calcs, demo data)</span>
         </button>
         {storeInfo.data && !storeInfo.data.persistent && (
           <p className="mt-3 text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/25 rounded-lg px-3 py-2 leading-snug text-left">
@@ -1116,23 +1480,16 @@ export const App: React.FC = () => {
     </div>
   );
 
-  const subtitle = view
-    ? `${view.modelName ?? 'no model'} ⇄ ${view.calcPackageName ?? 'no calc package'}${view.engine ? ` · ${view.engine}` : ''}`
-    : '';
-
   return (
     <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
       <HeaderBar
-        projectName={hasProject && view ? view.projectName : 'No Model Loaded'}
-        subtitle={subtitle}
         activeView={activeView}
         onChangeView={changeView}
         calcCount={view?.calcs.length ?? 0}
         colorMode={colorMode}
         onChangeColorMode={setColorMode}
-        hasUtilization={Boolean(view?.hasUtilization)}
+        hasUtilization={view?.hasUtilization ?? false}
         persistent={storeInfo.data?.persistent ?? true}
-        hasDemoData={Boolean(view?.hasDemoData)}
         source={view?.source ?? null}
         busy={Boolean(busyText)}
         projects={(projectsQ.data ?? []).map((x) => ({ id: x.id, name: x.name }))}
@@ -1140,18 +1497,18 @@ export const App: React.FC = () => {
         onSwitchProject={switchProject}
         onNewProject={handleNewProject}
         onSaveProject={pid ? handleSaveProject : null}
+        onExportBundle={pid && view?.source === 'project' ? handleExportBundle : null}
         onLoadSample={handleLoadSample}
         onLoadDemo={handleLoadDemo}
+        onLoadHarborview={handleLoadHarborview}
         onUploadModel={(f) => handleUpload('model', f)}
-        onUploadCalcs={(f) => handleUpload('calcs', f)}
+        onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
-        diffSummary={diffSummary}
         diffRevs={diffRevs}
         compareOpen={compareOpen}
         onToggleCompare={() => setCompareOpen((v) => !v)}
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
-        onResetAll={handleResetAll}
       />
 
       <FileDropOverlay
@@ -1163,7 +1520,12 @@ export const App: React.FC = () => {
       {compareOpen && (
         <RevisionPanel
           key={scope.epoch}
+          projectId={pid}
           revisions={revisions}
+          calcDocuments={projectQ.data?.calcDocuments ?? []}
+          onAddCalcs={(fs) => handleUpload('calcs', fs)}
+          onMoveCalcRevision={handleMoveCalcRevision}
+          onSetDocumentRemoved={handleSetDocumentRemoved}
           loading={projectQ.isLoading}
           active={diffRevs}
           busy={Boolean(busyText)}
@@ -1178,6 +1540,9 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* the filter bar (level, type, trace, mapping legend) acts on the graphs and 3D only; the PDF
+          view has its own calc search, so it gives the bar's height to the page */}
+      {activeView !== 'docs' && (
       <FilterBar
         filters={filters}
         onChangeFilters={setFilters}
@@ -1200,15 +1565,16 @@ export const App: React.FC = () => {
         matchedCount={matchingNodeIds.size}
         totalInstances={totalInstances}
       />
+      )}
 
       {hoverEdge === 'left' && (
-        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Left</span>
         </div>
       )}
       {hoverEdge === 'right' && (
-        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Right</span>
         </div>
@@ -1221,7 +1587,7 @@ export const App: React.FC = () => {
               {showViewer3d && viewer3dDock === 'left' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'left' && renderInspectorPanel()}
             </div>
-            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
+            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
           </>
         )}
 
@@ -1258,11 +1624,20 @@ export const App: React.FC = () => {
               showStatusRings={colorMode === 'type'}
               resetTrigger={resetTrigger}
               onSelectNode={handleSelectElementNode}
+              onSelectNodes={handleSelectElementNodes}
               onSelectGroup={handleSelectGroup}
               onRenameGroup={handleRenameGroup}
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveNodes}
               onGroupSelection={handleGroupSelection}
+              onOpenNode={handleOpenNode}
+              comments={elementComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddElementComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
@@ -1279,17 +1654,26 @@ export const App: React.FC = () => {
               colorMode={colorMode}
               overlay={overlay}
               resetTrigger={resetTrigger}
-              onSelectNode={(id) => handleSelectCalcNode(id)}
+              onSelectNode={handleSelectCalcNode}
+              onOpenNode={handleOpenNode}
+              onSelectNodes={handleSelectCalcNodes}
               onClearSelection={handleClearSelection}
-              onMoveNodes={() => {}}
+              onMoveNodes={handleMoveCalcNodes}
               onGroupSelection={() => {}}
+              comments={calcComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddCalcComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
           {hasProject && activeView === '3d' && (
-            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#282c34]">
+            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#2d3139]">
               <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] px-3 py-1.5 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                <span className="w-2 h-2 rounded-full bg-calcmap" />
                 <span className="mono text-[11px] text-zinc-200 font-medium">{view?.modelName ?? 'Model'}</span>
                 <span className="text-zinc-700">|</span>
                 <span className="mono text-[10px] text-zinc-400">{status3d}</span>
@@ -1297,7 +1681,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFit3dTrigger((c) => c + 1)}
-                  className="mono text-[10px] px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition flex items-center gap-1"
+                  className="mono text-[10px] px-2 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition flex items-center gap-1"
                 >
                   <Crosshair className="w-3 h-3" />
                   Zoom Fit
@@ -1323,7 +1707,9 @@ export const App: React.FC = () => {
               key={scope.epoch}
               calcs={view.calcs}
               calcPackageName={view.calcPackageName}
+              calcOrigin={view.calcOrigin}
               pdfUrl={pdfUrl}
+              pdfUrls={pdfUrls}
               elementNodes={elementNodes}
               calcToElementIds={view.calcToElementIds}
               calcDependencies={view.calcDependencies}
@@ -1353,7 +1739,7 @@ export const App: React.FC = () => {
 
         {rightDockedHasItems && (
           <>
-            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
+            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
             <div style={{ width: rightDockWidth }} className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25">
               {showViewer3d && viewer3dDock === 'right' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'right' && renderInspectorPanel()}
@@ -1374,13 +1760,25 @@ export const App: React.FC = () => {
         aria-atomic="true"
       >
         {busyText || viewBusy ? (
-          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
+          <Loader2 className="w-4 h-4 text-calcmap animate-spin flex-shrink-0" aria-hidden="true" />
         ) : toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
-          <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-calcmap flex-shrink-0" />
         )}
         <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
+        {!busyText && !viewBusy && toast.visible && toast.action && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action?.run();
+              setToast((prev) => ({ ...prev, visible: false, action: undefined }));
+            }}
+            className="ml-1 px-2 py-0.5 rounded-md text-xs font-semibold text-calcmap border border-calcmap/40 bg-calcmap/10 hover:bg-calcmap/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-calcmap/70"
+          >
+            {toast.action.label}
+          </button>
+        )}
       </div>
     </div>
   );
