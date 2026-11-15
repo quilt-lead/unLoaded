@@ -251,7 +251,7 @@ export const V2_HELP = {
   "legend.move-uc": {
     title: "Estimated UC",
     short:
-      "After a move, affected members are coloured by their estimated new unity check at their current size.",
+      "After a move, affected members are coloured by their estimated new unity check at their current size. While a new approval date is being estimated, the previous date's colours stay, dimmed.",
     terms: ["term.estimate", "term.unity-check"],
   },
   "legend.uc-ok": {
@@ -347,7 +347,7 @@ export const V2_HELP = {
   "panel.move-rerun-all": {
     title: "Re-run all stale",
     short:
-      "Re-runs every stale record with the design code in load-path order (beams, girders, columns, footings, connections, then the lateral system as one job). Writes a new calc revision.",
+      "Re-runs every stale record with the design code in load-path order (beams, girders, columns, footings, connections, then the lateral system as one job). Writes a new calc revision; the Re-run tab shows each stage while it runs.",
     real: "This is calc-graph's own design code (PyNite + AISC 360 / 341 + ACI 318 checks), not ETABS.",
     terms: ["term.minimum-change"],
   },
@@ -403,7 +403,7 @@ export const V2_HELP = {
   "panel.rerun-page-style": {
     title: "New page style",
     short:
-      "Package style = the revised sheet in the calc package's own layout. Re-run sheet = the same calc as rendered math from the Python that computed it (handcalcs).",
+      "Package style = the revised sheet in the calc package's own layout. Re-run sheet = the same calc as rendered math from the Python that computed it (handcalcs). When a record has no math sheet, the reason is shown beside the button.",
   },
   "evidence.rerun-compare": {
     title: "Old vs new calc page",
@@ -661,12 +661,12 @@ export const V2_HELP = {
   "stat.reg-drawings": {
     title: "Drawings",
     short:
-      "Plan tags, elevation tags, schedule rows and detail callouts on the drawing set.",
+      "Plan tags, elevation tags, schedule rows and detail callouts on the drawing set. Each place appears once; a schedule row carries its row header from the drawing (for a column, the storey tier, e.g. L3 - ROOF).",
   },
   "stat.reg-specs": {
     title: "Specs",
     short:
-      "Spec articles that point at this element directly. Most specs govern types and materials, so look at the type's page too.",
+      "Spec articles that govern this element: its own links plus those of its type, the type's material and the frames it belongs to. Each row says which link brought the article in (via).",
   },
   "stat.reg-calcs": {
     title: "Calcs",

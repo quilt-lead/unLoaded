@@ -1,8 +1,8 @@
 """Synthetic v2 API: move a column, health meter, redo calcs, registry element pages, original
 documents with highlights, construction platforms (live when configured, else mock), ETABS (mock). Mounted from api.py
 with one include line. Every route is read-only on the source data except /apply, /rerun and the
-two /revisions/{model,calc}/restore routes (undo / redo), which write NEW revisions (store /
-data/synthetic_v2/revisions) and never overwrite or delete.
+two /revisions/{model,calc}/restore routes (undo / redo), which write NEW revisions (the revision
+store and <store>/calc_revisions, both under store_root.py's CALCGRAPH_STORE) and never overwrite or delete.
 
 All routes are under /api/v2. Route list + response shapes: docs/2026-11-14-move-a-column-notes.md.
 """
@@ -14,13 +14,15 @@ import logging
 import os
 import tempfile
 import threading
+import time
 
 import pymupdf
 from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from . import move_impact, recalc
+from .move_model import Move  # noqa: F401 - re-exported: move_api.Move is the name callers use
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 V2 = os.path.join(ROOT, "data", "synthetic_v2")
@@ -73,11 +75,22 @@ def _adapters_derived(name: str, build):
     return der[name]
 
 
+def _doc_words(doc: str, page: int) -> list[tuple]:
+    """The words of one page of an original document (DOCS), cached with the design; for occurrence
+    labels (registry_view: a schedule row's row header)."""
+    words = _CACHE.setdefault("doc_words", {})
+    k = (doc, page)
+    if k not in words:
+        with pymupdf.open(os.path.join(V2, DOCS[doc])) as pdf:
+            words[k] = [tuple(w[:5]) for w in pdf[page - 1].get_text("words")]
+    return words[k]
+
+
 def _registry():
     from .registry_view import RegistryView
     d = _design()
     if "registry_view" not in _CACHE:
-        _CACHE["registry_view"] = RegistryView(d)
+        _CACHE["registry_view"] = RegistryView(d, words=_doc_words)
     return _CACHE["registry_view"]
 
 
@@ -89,16 +102,6 @@ def _status_fn(ads=None):
         return lambda eid: construction_status(eid, ads, d)
     except Exception:
         return None
-
-
-class Move(BaseModel):
-    column: str                 # "COL-2B" or "2B"
-    dx: float = 0.0             # ft
-    dy: float = 0.0
-    remove: bool = False
-    records: list[str] | None = None
-    label: str | None = None
-    as_of: str | None = None    # approval date (as_of.py): today | +1w | +2w | +1m | YYYY-MM-DD; None = today
 
 
 def _adapters_as_of(as_of: str | None):
@@ -259,9 +262,8 @@ def _change_order_input(d: dict, res: dict) -> dict:
                          "old_h_in": els[k]["h_in"], "new_h_in": els[k]["h_in"]})
     touched = sorted({e for s in res["stale"] for e in d_rec(d, s["record"])["elements"]} | {res["column"]})
     sheets = sorted({o.get("sheet") for e in touched for o in res["occurrences"].get(e, []) if o.get("doc") == "drawings" and o.get("sheet")})
-    specs = sorted({o["ref"] for o in d.get("occurrences", []) if o.get("doc") == "specs" and o["ref"].startswith("SPEC:")
-                    and any(r["src"] in {els.get(e, {}).get("size") and f"TYPE:{els[e]['size']}" for e in touched}
-                            and r["dst"] == o["ref"] for r in d["relations"] if r["kind"] == "specified-by")})
+    reg = _registry()   # the ONE derivation of what governs an element (registry_view.governing_specs)
+    specs = sorted({a for e in touched for a in reg.governing_specs(e)})
     return {"elements": touched, "resized": resized, "connections_changed": conns, "footings_changed": ftgs,
             "records": [s["record"] for s in res["stale"] if s["screened"]], "sheets": sheets, "spec_articles": specs}
 
@@ -319,17 +321,67 @@ def _warm_heat_bg() -> None:
 router.add_event_handler("startup", _warm_heat_bg)
 
 
+class RerunProgress(BaseModel):
+    """Where the re-run in flight is (one at a time: /rerun holds the move lock)."""
+    running: bool = Field(description="a /rerun is in progress")
+    column: str | None = Field(default=None, description="the column of the move being re-run")
+    stage: str | None = Field(default=None, description="design | math | layout | package_sheets | done | failed")
+    stage_label: str | None = Field(default=None, description="what the stage is doing, for the UI")
+    done: int = Field(default=0, description="units of the stage finished (layout: sheet chunks laid out, incl. cached)")
+    total: int = Field(default=0, description="units in the stage")
+    seconds: float = Field(default=0.0, description="seconds since the re-run started")
+    rev_id: str | None = Field(default=None, description="the calc revision written, once done")
+
+
+STAGE_LABEL = {"design": "re-running the design", "math": "printing the math (handcalcs + KaTeX)",
+               "layout": "laying out the re-run sheets", "package_sheets": "writing the package-style revised sheets",
+               "done": "done", "failed": "failed"}
+_PROGRESS: dict = {"running": False}
+_PROGRESS_LOCK = threading.Lock()
+
+
+def _set_progress(**kw) -> None:
+    with _PROGRESS_LOCK:
+        _PROGRESS.update(kw)
+        if "stage" in kw:
+            _PROGRESS["stage_label"] = STAGE_LABEL.get(kw["stage"], kw["stage"])
+        if _PROGRESS.get("t0"):
+            _PROGRESS["seconds"] = round(time.time() - _PROGRESS["t0"], 1)
+
+
 @router.post("/rerun")
 def rerun(m: Move):
     """Redo calcs directly: re-run the stale records (or m.records) with the v2 design code; old
-    vs new per record in load-path order; regenerated calc pages as a NEW calc revision."""
+    vs new per record in load-path order; regenerated calc pages (package style + handcalcs re-run
+    sheets) as a NEW calc revision. Progress while it runs: GET /api/v2/rerun/progress."""
     d = _design()
     recs = m.records
     if recs is None:
         res = _impact(d, m)
         recs = [s["record"] for s in res["stale"]]
     with _LOCK:
-        return JSONResponse(_safe(recalc.rerun(d, _change(m), recs)))
+        with _PROGRESS_LOCK:
+            _PROGRESS.clear()
+            _PROGRESS.update({"running": True, "column": _col(m.column), "t0": time.time(), "done": 0, "total": 0, "rev_id": None})
+        try:
+            out = recalc.rerun(d, _change(m), recs, progress=lambda st, dn, tot: _set_progress(stage=st, done=dn, total=tot))
+        except Exception:
+            _set_progress(stage="failed", running=False)
+            raise
+        _set_progress(stage="done", running=False, rev_id=out["rev_id"])
+        return JSONResponse(_safe(out))
+
+
+@router.get("/rerun/progress", response_model=RerunProgress)
+def rerun_progress() -> RerunProgress:
+    """The /rerun in flight: stage, units done of total, seconds so far (the last re-run's final
+    state when none is running). Read only."""
+    with _PROGRESS_LOCK:
+        p = dict(_PROGRESS)
+    if p.get("running") and p.get("t0"):
+        p["seconds"] = round(time.time() - p["t0"], 1)
+    p.pop("t0", None)
+    return RerunProgress(**p)
 
 
 @router.get("/revisions")
@@ -505,8 +557,8 @@ _DOCS_OPEN: dict[str, pymupdf.Document] = {}
 
 
 def _local_only(request: Request) -> None:
-    if request.client and request.client.host not in ("127.0.0.1", "::1", "localhost", "testclient"):
-        raise HTTPException(403, "localhost only")
+    from .access import require_local
+    require_local(request, "source documents")
 
 
 @router.get("/docs/{doc}/file")

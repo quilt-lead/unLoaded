@@ -22,7 +22,7 @@ Flow per item:
 Every step lands on the elements' history (GET /api/v2/inbox/history/{element_id}), shown on the element
 page's Platforms tab.
 
-State (readings confirmed, impact summaries, replies, history) lives in data/store/inbox/state.json
+State (readings confirmed, impact summaries, replies, history) lives in <store>/inbox/state.json (store_root.py)
 (gitignored), keyed by item key and content hash. Times are US Eastern.
 """
 from __future__ import annotations
@@ -42,9 +42,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from . import ai
 from .ai.tasks import TaskSpec, register_task
 from .ai.types import AIInputs, AIOutput
+from .store_root import store_path
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-STATE_PATH = os.path.join(ROOT, "data", "store", "inbox", "state.json")
+def _state_path() -> str:
+    """inbox/state.json under THE store root (store_root.py: CALCGRAPH_STORE)."""
+    return store_path("inbox", "state.json")
 ET = ZoneInfo("America/New_York")
 router = APIRouter(prefix="/api/v2/inbox", tags=["synthetic-v2-inbox"])
 _LOCK = threading.Lock()
@@ -139,18 +142,19 @@ INBOUND_ITEM_READING = register_task(TaskSpec(
 # ===================================================================== state file
 def _load() -> dict:
     try:
-        with open(STATE_PATH) as fh:
+        with open(_state_path()) as fh:
             return json.load(fh)
     except FileNotFoundError:
         return {"items": {}, "history": []}
 
 
 def _save(s: dict) -> None:
-    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
-    tmp = STATE_PATH + ".tmp"
+    p = _state_path()
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    tmp = p + ".tmp"
     with open(tmp, "w") as fh:
         json.dump(s, fh, indent=1, sort_keys=True)
-    os.replace(tmp, STATE_PATH)
+    os.replace(tmp, p)
 
 
 def _event(s: dict, item: dict, event: str, text: str, element_ids: list[str]) -> None:

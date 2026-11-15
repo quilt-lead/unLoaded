@@ -40,8 +40,7 @@ _STORES: dict[str, Store] = {}
 _LOCK = threading.RLock()
 
 
-def store_dir() -> str:
-    return os.environ.get("CALCGRAPH_STORE", os.path.join(ROOT, "data", "store"))
+from .store_root import store_dir  # noqa: E402,F401 - THE store root (CALCGRAPH_STORE), re-exported
 
 
 def open_store(root: str | None = None) -> Store:

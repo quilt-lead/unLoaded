@@ -239,6 +239,8 @@ export interface RerunResult {
       recomputed?: boolean;
       asserts?: number;
       mismatches?: unknown[];
+      /** set when this record's block could not be placed on the re-run sheets: why */
+      missing?: string;
     };
   };
 }
@@ -459,12 +461,20 @@ export const useHealthHeat = (probe = 2) =>
 
 /** POST /impact as a query keyed by the move (the call is read-only on the server). */
 /** asOf = the approval date (as_of.py): "today" (default, current behaviour), "+1w", "+2w", "+1m" or a date */
+/** While only the approval date changed, the previous date's impact stays as placeholder data
+ * (isPlaceholderData = true: show it dimmed as "updating"), so the colouring never drops back to the
+ * heat view between dates. A different move never inherits another move's impact. Responses are
+ * keyed by (move, date), so a slow answer for an earlier date can never replace the current one. */
 export const useMoveImpact = (m: Move | null, asOf = "today") =>
   useQuery({
     queryKey: ["v2", "impact", m?.column, m?.dx, m?.dy, m?.remove, asOf],
     enabled: !!m && (m.remove || m.dx !== 0 || m.dy !== 0),
     staleTime: 5 * 60_000,
     queryFn: () => post<Impact>("/api/v2/impact", { ...moveBody(m!), as_of: asOf }),
+    placeholderData: (prev, prevQuery) => {
+      const k = prevQuery?.queryKey;
+      return k && k[2] === m?.column && k[3] === m?.dx && k[4] === m?.dy && k[5] === m?.remove ? prev : undefined;
+    },
   });
 
 export const useConstructionStatus = (eid: string | null | undefined, asOf = "today") =>

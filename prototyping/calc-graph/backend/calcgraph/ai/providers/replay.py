@@ -6,7 +6,7 @@ run) and the pipeline replays it byte-for-byte forever after.
 
 Fixture file: ``<root>/<task>/<inputs_key>.json`` =
 ``{"output": {...}, "model_id": "<model that produced it, or 'hand-authored'>"}``.
-Default root ``data/store/ai_fixtures`` (gitignored); override ``CALCGRAPH_AI_FIXTURES``.
+Default root ``<store>/ai_fixtures`` (store_root.py, CALCGRAPH_STORE; gitignored); override ``CALCGRAPH_AI_FIXTURES``.
 Fixtures derived from copyrighted documents must stay in gitignored dirs.
 """
 from __future__ import annotations
@@ -16,7 +16,8 @@ import os
 from pathlib import Path
 from typing import Mapping
 
-from ..cache import REPO_ROOT, canonical_json
+from ...store_root import store_path
+from ..cache import canonical_json
 from ..types import Usage
 from .base import Provider, ProviderRequest, ProviderResponse
 
@@ -27,7 +28,7 @@ class ReplayMiss(LookupError):
 
 def default_fixture_root() -> Path:
     env = os.environ.get("CALCGRAPH_AI_FIXTURES")
-    return Path(env) if env else REPO_ROOT / "data" / "store" / "ai_fixtures"
+    return Path(env) if env else Path(store_path("ai_fixtures"))   # THE store root (store_root.py)
 
 
 class ReplayProvider(Provider):

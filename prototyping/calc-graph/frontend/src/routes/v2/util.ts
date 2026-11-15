@@ -157,8 +157,8 @@ export function occSource(o: V2Occurrence): PdfSource | null {
     url: urls.v2DocFile(o.doc),
     page: o.page,
     rects: o.bbox ? [o.bbox] : [],
-    label: `${o.ref} - ${howLabel(o.how)}`,
-    sub: `${DOC_NAME[o.doc] ?? o.doc} p.${o.page}${o.sheet ? `, sheet ${o.sheet}` : ""}${o.text ? ` - "${o.text.slice(0, 80)}"` : ""}${o.text_layer === false ? " (scanned page, no text layer)" : ""}`,
+    label: `${o.article ?? o.ref} - ${howLabel(o.how)}${o.label && o.doc !== "etabs" ? ` (${o.label})` : ""}`,
+    sub: `${DOC_NAME[o.doc] ?? o.doc} p.${o.page}${o.sheet ? `, sheet ${o.sheet}` : ""}${o.via?.length ? `, via ${o.via.join(", ")}` : ""}${o.text ? ` - "${o.text.slice(0, 80)}"` : ""}${o.text_layer === false ? " (scanned page, no text layer)" : ""}`,
   };
 }
 
@@ -186,6 +186,7 @@ export const HOW_LABEL: Record<string, string> = {
   elevation_tag: "elevation tag",
   section: "section",
   spec_article: "spec article",
+  "governing-spec": "governing spec",
   "etabs-object": "ETABS object",
 };
 export const howLabel = (h: string) => HOW_LABEL[h] ?? h.replace(/[_-]/g, " ");
@@ -196,3 +197,19 @@ export const PLATFORM_LABEL: Record<string, string> = {
   acc: "Autodesk Build",
   forma: "Autodesk Forma",
 };
+
+/** Why the handcalcs re-run sheet (math) of one re-run record cannot be shown, or null when it can.
+ * Every reason comes from the revision itself: the render error, the record's own `missing` note, or
+ * a revision written without re-run sheets (restored from one that had none). */
+export function rerunSheetUnavailable(
+  result: { new_page?: { rerun_sheet?: { page: number | null; missing?: string } } },
+  rev: { files?: Record<string, unknown> },
+): string | null {
+  const err = rev.files?.rerun_sheets_error;
+  if (typeof err === "string" && err) return `The re-run sheets failed to render: ${err.split("\n")[0].slice(0, 300)}`;
+  const rs = result.new_page?.rerun_sheet;
+  if (rs?.missing) return `No math sheet for this record: ${rs.missing}`;
+  if (!rev.files?.rerun_sheets_pdf) return "This calc revision has no re-run sheets (it was written without them).";
+  if (!rs || rs.page == null) return "No math sheet for this record in this revision.";
+  return null;
+}

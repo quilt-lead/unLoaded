@@ -20,7 +20,8 @@ PDF metadata and identifier, no clock reads (the date is taken from rerun_result
 
 Setup: `npm ci` in backend/calcgraph/recalc_pages_assets (katex 0.19.1; run automatically on
 first use if node_modules is missing). WeasyPrint needs pango/cairo (Homebrew on macOS: found in
-/opt/homebrew/lib or /usr/local/lib without DYLD_* variables, see _import_weasyprint).
+/opt/homebrew/lib or /usr/local/lib without DYLD_* variables, see recalc_pages_layout.import_weasyprint).
+Layout (parallel, batched, cached by content) is recalc_pages_layout.py.
 """
 from __future__ import annotations
 
@@ -39,7 +40,6 @@ from handcalcs.decorator import handcalc
 
 from synth.v2 import aisc
 from synth.v2 import gravity as G
-from synth.v2.model import GRADE_BEAM_LINES, GX
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "recalc_pages_assets")
@@ -782,12 +782,15 @@ def do_pier(b: Block, res: dict):
     b.expect("UC", u, new["uc"], tol_rel=0.01, tol_abs=0.006)
 
 
-def do_grade_beam(b: Block, res: dict):
+def do_grade_beam(b: Block, res: dict, topo_gbs: dict):
     new, old = res["new"], res["old"]
     v, vo = new["values"], (old or {}).get("values") or {}
     gid = b.rid.split(":", 1)[1]
-    line = gid.split("-")[1]
-    wall = line in GRADE_BEAM_LINES["x"] or line in (GX[0][0], GX[-1][0])   # model.py: every X-line grade beam and the end Y-lines carry the wall
+    # whether the beam carries the perimeter wall is a fact of the re-run design's topology (the
+    # lateral scheme decides the grade-beam lines), never a module constant restated here
+    if gid not in topo_gbs:
+        raise KeyError(f"grade beam {gid} is not in the re-run design's topology")
+    wall = bool(topo_gbs[gid]["wall"])
     bw, h = Q(v["b_in"], inch), Q(v["h_in"], inch)
     L = Q(v["span_ft"], ft)
     b.inp("b", bw, was=_q(vo.get("b_in"), inch), src="grade beam width", n=0)
@@ -883,14 +886,14 @@ def _ratio(vals: dict, a: str, b: str):
         return None
 
 
-KIND_FN = {"beam_design": do_beam, "column_design": do_column, "brace": do_brace, "pier": do_pier, "grade_beam": do_grade_beam}
+KIND_FN = {"beam_design": do_beam, "column_design": do_column, "brace": do_brace, "pier": do_pier}
 KIND_LABEL = {"beam_design": "Steel beam - AISC 360-16 F2/F3/G2", "column_design": "Steel column - AISC 360-16 E3/F2/H1",
               "footing": "Spread footing - ACI 318-19 22.5/22.6", "connection": "Shear tab - AISC 360-16 J3/J4",
               "base_plate": "Base plate bearing - AISC 360-16 J8", "pier": "Concrete pier - ACI 318-19 22.4",
               "grade_beam": "Grade beam - ACI 318-19 22.2/22.5", "brace": "SCBF brace - AISC 360-16 E3/D2, AISC 341-16 F2"}
 
 
-def build_block(res: dict, method: str, new_recs: dict, shown: set, sheet: str) -> Block:
+def build_block(res: dict, method: str, new_recs: dict, shown: set, sheet: str, topo_gbs: dict) -> Block:
     b = Block(res, method)
     if res.get("new") is None:
         b.table_only = True
@@ -905,6 +908,8 @@ def build_block(res: dict, method: str, new_recs: dict, shown: set, sheet: str) 
             do_footing(b, res, new_recs)
         elif kind == "base_plate":
             do_base_plate(b, res, new_recs)
+        elif kind == "grade_beam":
+            do_grade_beam(b, res, topo_gbs)
         elif kind == "connection":
             do_connection(b, res, shown, sheet)
         else:
@@ -1066,47 +1071,22 @@ def _ensure_katex():
         subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=ASSETS, check=True, capture_output=True)
 
 
-def _import_weasyprint():
-    """WeasyPrint dlopens pango/gobject by bare name; on macOS Homebrew keeps them in
-    /opt/homebrew/lib (or /usr/local/lib), which dyld does not search unless DYLD_* is set at
-    process start. Retry those names under the Homebrew prefixes, only while importing."""
-    try:
-        import weasyprint
-        return weasyprint
-    except OSError:
-        if sys.platform != "darwin":
-            raise
-    for k in [m for m in sys.modules if m == "weasyprint" or m.startswith("weasyprint.")]:
-        del sys.modules[k]
-    import cffi
-    orig = cffi.FFI.dlopen
-
-    def dlopen(self, name, flags=0):
-        try:
-            return orig(self, name, flags)
-        except OSError:
-            if isinstance(name, str) and "/" not in name:
-                stem = name[:-2] if name.endswith("-0") else name
-                for d in ("/opt/homebrew/lib", "/usr/local/lib"):
-                    for cand in (name, stem + ".dylib", name + ".dylib"):
-                        p = os.path.join(d, cand)
-                        if os.path.exists(p):
-                            return orig(self, p, flags)
-            raise
-    cffi.FFI.dlopen = dlopen
-    try:
-        import weasyprint
-    finally:
-        cffi.FFI.dlopen = orig
-    return weasyprint
-
-
 SECTION_SEP = "\x01SECTION\x01"
+BLOCK_SEP = "\x01BLOCK\x01"
 
 
-def build_html(rerun_result: dict, base: dict, new: dict, rev_no: int = 1) -> tuple[str, list[tuple[str, str]], list[Block], list[str]]:
-    """-> (head html, [(calc id, body html)], blocks, KaTeX errors). One body per calc sheet; each
-    starts on a new page, so sheets can be laid out independently (in parallel) and concatenated."""
+def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no: int = 1):
+    """-> (head html, [(calc id, body html)], chunks, blocks, KaTeX errors).
+
+    One body per calc sheet (the .html beside the PDF). `chunks` = [(chunk head, chunk body, [block
+    element ids])]: each calc sheet cut at record-block boundaries into pieces of about
+    recalc_pages_layout.CHUNK_BYTES, every piece its own document (the running title block on every
+    page, the REVISED banner on the first piece of a calc), so pieces lay out in parallel and are
+    cached by content. A piece's text depends only on its records and the date (the revision id is
+    stamped into the PDF footer after layout, and is in the .html title only), so unchanged blocks
+    are laid out once.
+    topo_gbs: the re-run design's topology grade beams ({id: {"wall", ...}})."""
+    from .recalc_pages_layout import CHUNK_BYTES
     method = rerun_result.get("method") or "calc-graph re-run"
     new_recs = {r["id"]: r for r in (new or {}).get("records", [])}
     calcs = {c["id"]: c for c in (new or {}).get("calcs", []) or (base or {}).get("calcs", [])}
@@ -1121,29 +1101,48 @@ def build_html(rerun_result: dict, base: dict, new: dict, rev_no: int = 1) -> tu
     tp = TexPool()
     blocks: list[Block] = []
     shown: set = set()
-    bodies = []
+    bodies, pageheads, block_ids = [], {}, {}
     for calc in order:
         info = calcs.get(calc, {"title": calc, "software": ""})
         sheet = f"{calc}-{rev}"
-        body = [f"<section class='calc'>", _pagehead(sheet, info.get("title", calc), date, rev, rerun_result["rev_id"])]
+        pageheads[calc] = _pagehead(sheet, info.get("title", calc), date, rev, rerun_result["rev_id"])
         nrec = len(by_calc[calc])
         nres = sum(1 for r in by_calc[calc] if str(r.get("status", "")).startswith("re-sized"))
-        body.append(f"<div class='banner'><b>REVISED - re-run after {_esc(change)}</b> &nbsp; "
-                    f"Replaces the {_esc(info.get('software', ''))} output of calc {calc} for the {nrec} record(s) below ({nres} re-sized); "
-                    f"revision {rerun_result['rev_id']}, {date}. Math printed from the same Python that recomputed it (handcalcs).</div>")
+        parts = ["<section class='calc'>" + pageheads[calc]
+                 + f"<div class='banner'><b>REVISED - re-run after {_esc(change)}</b> &nbsp; "
+                 f"Replaces the {_esc(info.get('software', ''))} output of calc {calc} for the {nrec} record(s) below ({nres} re-sized); "
+                 f"{date} (the calc revision id is in every page footer). Math printed from the same Python that recomputed it (handcalcs).</div>"]
+        block_ids[calc] = []
         for r in by_calc[calc]:
-            b = build_block(r, method, new_recs, shown, sheet)
+            b = build_block(r, method, new_recs, shown, sheet, topo_gbs)
             blocks.append(b)
-            body.append(_block_html(b, tp, rev))
-        body.append("</section>")
-        bodies.append("".join(body))
+            block_ids[calc].append(f"blk-{_slug(b.rid)}")
+            parts.append(_block_html(b, tp, rev))
+        parts.append("</section>")
+        bodies.append(BLOCK_SEP.join(parts))
     css = open(os.path.join(HERE, "recalc_pages.css")).read()
-    head = (f"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Re-run calc sheets {_esc(rerun_result['rev_id'])}</title>"
-            f"<meta name='author' content='{_esc(FIRM_FULL)}'><meta name='generator' content='calc-graph recalc_pages'>"
-            f"<style>{_katex_css()}</style><style>{css}</style>"
-            f"<style>@page {{ @bottom-left {{ content: 'Method: {_esc(method)}'; }} }}</style></head>")
+    style = (f"<meta name='author' content='{_esc(FIRM_FULL)}'><meta name='generator' content='calc-graph recalc_pages'>"
+             f"<style>{_katex_css()}</style><style>{css}</style>"
+             f"<style>@page {{ @bottom-left {{ content: 'Method: {_esc(method)}'; }} }}</style></head>")
+    head = f"<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Re-run calc sheets {_esc(rerun_result['rev_id'])}</title>" + style
+    chunk_head = "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Re-run calc sheet</title>" + style
     joined, errors = tp.render(SECTION_SEP.join(bodies))
-    return head, list(zip(order, joined.split(SECTION_SEP))), blocks, errors
+    sheets, chunks = [], []
+    for calc, body in zip(order, joined.split(SECTION_SEP)):
+        prefix, *blks, suffix = body.split(BLOCK_SEP)
+        sheets.append((calc, prefix + "".join(blks) + suffix))
+        groups: list[list[int]] = []
+        size = CHUNK_BYTES
+        for i, h in enumerate(blks):
+            if size + len(h) > CHUNK_BYTES and (not groups or groups[-1]):
+                groups.append([])
+                size = 0
+            groups[-1].append(i)
+            size += len(h)
+        for gi, g in enumerate(groups):
+            lead = prefix if gi == 0 else "<section class='calc'>" + pageheads[calc]
+            chunks.append((chunk_head, lead + "".join(blks[i] for i in g) + suffix, [block_ids[calc][i] for i in g]))
+    return head, sheets, chunks, blocks, errors
 
 
 def _katex_css() -> str:
@@ -1164,48 +1163,24 @@ def _pagehead(sheet: str, title: str, date: str, rev: str, rev_id: str) -> str:
 
 
 # ================================================================ render
-def _render_chunk(args: tuple[str, list[str]]) -> tuple[bytes, dict]:
-    """Lay out one calc sheet (its own HTML document) -> (PDF bytes, {block id: page/bbox})."""
-    doc_html, want = args
-    weasyprint = _import_weasyprint()
-    document = weasyprint.HTML(string=doc_html, base_url=KATEX_DIST + "/").render()
-    want = set(want)
-    found: dict[str, dict] = {}
-    k = 0.75   # CSS px -> PDF pt
-    for pno, page in enumerate(document.pages, 1):
-        for box in _walk(page._page_box):
-            el = getattr(box, "element", None)
-            bid = el.get("id") if el is not None else None
-            if bid not in want:
-                continue
-            x0, y0 = box.border_box_x(), box.border_box_y()
-            x1, y1 = x0 + box.border_width(), y0 + box.border_height()
-            bb = [round(x0 * k, 2), round(y0 * k, 2), round(x1 * k, 2), round(y1 * k, 2)]
-            f = found.get(bid)
-            if f is None:
-                found[bid] = {"page": pno, "bbox": bb, "parts": [{"page": pno, "bbox": bb}]}
-            elif f["parts"][-1]["page"] != pno:
-                f["parts"].append({"page": pno, "bbox": bb})
-    document.metadata.created = None
-    document.metadata.modified = None
-    return document.write_pdf(identifier=b"calc-graph-recalc-pages"), found
-
-
-def render(rerun_result: dict, base: dict, new: dict, path: str, rev_no: int = 1, workers: int | None = None) -> dict:
-    """Write the re-run calc sheets PDF to `path` (and the HTML beside it). Returns {record id:
-    {"page": n (1-based), "bbox": [x0, y0, x1, y1] (PDF points, top-left origin, the record's
-    block), "sheet", "split_across_pages", "recomputed", "asserts", "mismatches"}}."""
+def render(rerun_result: dict, base: dict, new: dict, path: str, topo_gbs: dict, rev_no: int = 1, workers: int | None = None,
+           progress=None) -> tuple[dict, dict]:
+    """Write the re-run calc sheets PDF to `path` (and the HTML beside it). Returns (pages, layout):
+    pages = {record id: {"page": n (1-based), "bbox": [x0, y0, x1, y1] (PDF points, top-left origin,
+    the record's block), "sheet", "split_across_pages", "recomputed", "asserts", "mismatches"}};
+    layout = {chunks, cached, laid_out, workers, seconds, pages, katex_errors}.
+    progress(stage, done, total) is called as the sheets are built ("math") and laid out ("layout")."""
     import pymupdf
-    head, sheets, blocks, katex_errors = build_html(rerun_result, base, new, rev_no)
+    from . import recalc_pages_layout as LAY
+    if progress:
+        progress("math", 0, 1)
+    head, sheets, chunks, blocks, katex_errors = build_html(rerun_result, base, new, topo_gbs, rev_no)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(os.path.splitext(path)[0] + ".html", "w") as fh:
         fh.write(head + "<body>" + "".join(b for _, b in sheets) + "</body></html>")
-    by_calc: dict[str, list[str]] = {}
-    for b in blocks:
-        by_calc.setdefault(b.res["calc"], []).append(f"blk-{_slug(b.rid)}")
-    jobs = [(head + "<body>" + body + "</body></html>", by_calc.get(calc, [])) for calc, body in sheets]
-    n = workers or min(len(jobs), os.cpu_count() or 1, 8)
-    parts = _render_parallel(jobs, n) if n > 1 and len(jobs) > 1 else [_render_chunk(j) for j in jobs]
+    jobs = [(ch + "<body>" + body + "</body></html>", want) for ch, body, want in chunks]
+    parts, stats = LAY.layout_all(jobs, KATEX_DIST + "/", workers,
+                                  progress=(lambda d, t: progress("layout", d, t)) if progress else None)
     out_doc = pymupdf.open()
     found: dict[str, dict] = {}
     for pdf, f in parts:
@@ -1216,7 +1191,9 @@ def render(rerun_result: dict, base: dict, new: dict, path: str, rev_no: int = 1
             found[bid] = {**v, "page": v["page"] + off, "parts": [{**p, "page": p["page"] + off} for p in v["parts"]]}
     total = out_doc.page_count
     for i, pg in enumerate(out_doc, 1):
-        s = f"page {i} of {total}"
+        # stamped after layout (with the page count): the laid-out chunks carry nothing per-revision,
+        # so their layout is reused from the content cache by any revision with the same records
+        s = f"calc revision {rerun_result['rev_id']} - page {i} of {total}"
         pg.insert_text((pg.rect.width - 30 - pymupdf.get_text_length(s, "helv", 6.5), pg.rect.height - 22), s, fontname="helv", fontsize=6.5,
                        color=(0.2, 0.2, 0.2))
     out_doc.set_metadata({"title": f"Re-run calc sheets {rerun_result['rev_id']}", "author": FIRM_FULL, "subject": rerun_result.get("method", ""),
@@ -1236,72 +1213,9 @@ def render(rerun_result: dict, base: dict, new: dict, path: str, rev_no: int = 1
                       "recomputed": bool(b.asserts) and not b.table_only, "asserts": len(b.asserts), "mismatches": mism}
     if katex_errors:
         print(f"recalc_pages: {len(katex_errors)} KaTeX error(s)", file=sys.stderr)
-    return out
-
-
-def _render_parallel(jobs: list, n: int) -> list:
-    """Lay out sheets in separate worker processes (`python -m calcgraph.recalc_pages --chunk`):
-    WeasyPrint layout is pure Python and single-threaded. Subprocesses rather than
-    multiprocessing so a caller's unguarded __main__ is never re-imported."""
-    import tempfile
-    import time
-    root = os.path.dirname(os.path.dirname(HERE))
-    env = {**os.environ, "PYTHONPATH": os.pathsep.join([os.path.dirname(HERE), root, os.environ.get("PYTHONPATH", "")])}
-    with tempfile.TemporaryDirectory(prefix="recalc_pages_") as td:
-        pending = list(enumerate(jobs))
-        running: list = []
-        while pending or running:
-            while pending and len(running) < n:
-                i, (doc_html, want) = pending.pop(0)
-                base = os.path.join(td, f"c{i}")
-                with open(base + ".html", "w") as fh:
-                    fh.write(doc_html)
-                with open(base + ".want.json", "w") as fh:
-                    json.dump(want, fh)
-                pr = subprocess.Popen([sys.executable, "-m", "calcgraph.recalc_pages", "--chunk", base], env=env,
-                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                running.append((i, base, pr))
-            for item in list(running):
-                i, base, pr = item
-                if pr.poll() is not None:
-                    running.remove(item)
-                    err = pr.stderr.read().decode(errors="replace")
-                    if pr.returncode != 0:
-                        raise RuntimeError(f"recalc_pages chunk {i} failed: {err[-2000:]}")
-            time.sleep(0.05)
-        out = []
-        for i in range(len(jobs)):
-            base = os.path.join(td, f"c{i}")
-            with open(base + ".pdf", "rb") as fh:
-                pdf = fh.read()
-            with open(base + ".found.json") as fh:
-                out.append((pdf, json.load(fh)))
-        return out
-
-
-def _chunk_main(base: str):
-    with open(base + ".html") as fh:
-        doc_html = fh.read()
-    with open(base + ".want.json") as fh:
-        want = json.load(fh)
-    pdf, found = _render_chunk((doc_html, want))
-    with open(base + ".pdf", "wb") as fh:
-        fh.write(pdf)
-    with open(base + ".found.json", "w") as fh:
-        json.dump(found, fh)
-
-
-def _walk(box):
-    yield box
-    for ch in getattr(box, "children", []) or []:
-        yield from _walk(ch)
+    return out, {**stats, "pages": total, "katex_errors": katex_errors[:20]}
 
 
 def _title_block_matches() -> bool:
     from synth.v2 import calc_pdf_v2 as C
     return (C.FIRM_FULL, C.FIRM_ADDR, C.PROJECT, C.CITY, C.JOB, C.BY, C.CHK) == (FIRM_FULL, FIRM_ADDR, PROJECT, CITY, JOB, BY, CHK)
-
-
-if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "--chunk":
-        _chunk_main(sys.argv[2])

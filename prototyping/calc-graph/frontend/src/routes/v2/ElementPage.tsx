@@ -227,8 +227,11 @@ export default function ElementPage() {
                       <li key={key}>
                         <button type="button" className={`v2-occ${view?.key === key ? " on" : ""}`} onClick={() => openOcc(o, i)}>
                           <span className="v2-chip">{howLabel(o.how)}</span>
-                          {o.sheet && <span className="mono">{o.sheet}</span>}
+                          {o.sheet && !o.article && <span className="mono">{o.sheet}</span>}
                           {o.page && <span className="muted">p.{o.page}</span>}
+                          {o.doc !== "etabs" && o.label && <span className="v2-chip" title="read from the document">{o.label}</span>}
+                          {o.article && <span className="mono">{o.article.replace(/^SPEC:/, "")}</span>}
+                          {o.via?.length ? <span className="muted">via {o.via.join(", ")}</span> : null}
                           {o.doc === "ifc" && <span className="mono muted">{o.global_id}</span>}
                           {o.doc === "etabs" && (
                             <span className="mono">

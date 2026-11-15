@@ -251,6 +251,22 @@ def sweep(design: dict, estimate_fn, element_ids: list[str], dates: list[dt.date
     return points
 
 
+def _money(v) -> str:
+    return f"${(v or 0):,.0f}"
+
+
+def step_change(j: dict) -> str:
+    """What one step of the timeline changes, worded from its numbers: the cost when the cost moves,
+    the forecast slip when the slip moves, both when both do. A quantity that does not change is not
+    printed (a jump is a step where at least one rises, so the text is never empty)."""
+    parts = []
+    if abs((j.get("cost_after") or 0) - (j.get("cost_before") or 0)) > 0.5:
+        parts.append(f"{_money(j['cost_before'])} -> {_money(j['cost_after'])}")
+    if (j.get("slip_after") or 0) != (j.get("slip_before") or 0):
+        parts.append(f"slip {(j.get('slip_before') or 0):g} -> {(j.get('slip_after') or 0):g} wd")
+    return ", ".join(parts) or "no change in cost or slip"
+
+
 def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date | None,
              default_adapters=None, horizon_days: int = 120) -> dict:
     """Cost + slip vs approval date for one change.
@@ -302,9 +318,6 @@ def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date |
     stage_jump = next((j for j in jumps if j["drivers"]), None)
     jump = jumps[0] if jumps else None
 
-    def money(v):
-        return f"${(v or 0):,.0f}"
-
     line = None
     if stage_jump:
         j = stage_jump
@@ -313,15 +326,15 @@ def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date |
         line = (f"Approve by {j['approve_by']} or {worst['element']} becomes {worst['to']}"
                 + (f" ({len(j['drivers'])} elements change stage)" if len(j["drivers"]) > 1 else "")
                 + (f" when '{act}' finishes on {j['date']}" if act else "")
-                + f": {money(j['cost_before'])} -> {money(j['cost_after'])}, slip {j['slip_before']:g} -> {j['slip_after']:g} wd")
+                + f": {step_change(j)}")
         if jump is not stage_jump:
             a = " / ".join(jump["activities"][:2]) or None
-            line += (f" (a smaller step first: {money(jump['cost_before'])} -> {money(jump['cost_after'])} on {jump['date']}"
+            line += (f" (a smaller step first: {step_change(jump)} on {jump['date']}"
                      + (f" when '{a}' finishes" if a else "") + ")")
     elif jump:
         a = " / ".join(jump["activities"][:2]) or None
         line = (f"Approve by {jump['approve_by']} or the estimate rises" + (f" when '{a}' finishes" if a else "")
-                + f": {money(jump['cost_before'])} -> {money(jump['cost_after'])}, slip {jump['slip_before']:g} -> {jump['slip_after']:g} wd")
+                + f": {step_change(jump)}")
     return {"points": points, "next_jump": stage_jump or jump, "first_jump": jump, "jumps": jumps,
             "approve_by_line": line, "boundaries": bnds,
             "selected": sel.isoformat(), "assumption": ASSUMPTION, "horizon_days": horizon_days}
@@ -329,6 +342,8 @@ def timeline(design: dict, estimate_fn, element_ids: list[str], as_of: dt.date |
 
 # ------------------------------------------------------------------ routes (/api/v2, included from api.py)
 from fastapi import APIRouter, HTTPException  # noqa: E402
+
+from .move_model import Move  # noqa: E402
 
 router = APIRouter(prefix="/api/v2", tags=["synthetic-v2-as-of"])
 _TL_CACHE: dict = {}
@@ -341,11 +356,12 @@ def as_of_presets():
 
 
 @router.post("/impact/timeline")
-def impact_timeline(m: dict):
+def impact_timeline(mv: Move):
     """Cost + forecast slip of one move vs approval date, and the 'approve by <date> or it becomes
-    <stage>' line. Body = the /impact body (column, dx, dy, remove, as_of)."""
+    <stage>' line. Body = the /impact body (column, dx, dy, remove, as_of; records / label are
+    ignored). Compute only: reads the design and the projected construction state, writes nothing
+    (results are memoised in-process per design, move, as-of date and today)."""
     from . import move_api
-    mv = move_api.Move(**m)
     try:
         d_as_of = parse(mv.as_of)
     except ValueError as e:

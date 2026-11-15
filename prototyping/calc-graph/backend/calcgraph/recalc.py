@@ -9,7 +9,7 @@ implies ETABS / RAM / RISA ran.
   returns old vs new per requested record (values, UC, size/detail change, NG -> OK) in
   load-path order (beams -> girders -> columns -> footings -> connections; lateral as one job).
 - Writes a NEW calc revision (id from new_revision(): never reused, so a revision folder is
-  written once and never overwritten): data/synthetic_v2/revisions/<rev>/calc_revision.pdf (revised sheets
+  written once and never overwritten): <store>/calc_revisions/<rev>/calc_revision.pdf (revised sheets
   in the package's own style, if the calc-package writer provides write_revision) plus
   revision.json (old vs new) - and, when asked, ingests it into the revision store.
 - `restore(target, reverts, of, verb)`: undo / redo of a re-run without deleting history - writes
@@ -24,6 +24,8 @@ import os
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from .store_root import is_default_store, store_path
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 V2 = os.path.join(ROOT, "data", "synthetic_v2")
@@ -90,11 +92,15 @@ def _cmp(old: dict | None, new: dict | None) -> dict:
             "ng_to_ok": ok(old) is False and ok(new) is True}
 
 
-def rerun(base: dict, change: dict, records: list[str] | None = None, write_pages: bool = True) -> dict:
+def rerun(base: dict, change: dict, records: list[str] | None = None, write_pages: bool = True, progress=None) -> dict:
     """Re-run the design for `change` and compare the requested records (default: every record
-    whose value moved). Returns {rev_id, method, order, results, lateral_job, files}."""
+    whose value moved). Returns {rev_id, method, order, results, lateral_job, files, summary (with
+    seconds and per-stage timings)}. progress(stage, done, total), when given, is called as the
+    stages run (design, package_sheets, math, layout)."""
     from synth.v2.generate import build, _clean
     t = time.time()
+    if progress:
+        progress("design", 0, 1)
     L = layout_from_change(change)
     d_new, exp = build(L, keep={e["id"]: e for e in base["elements"]})
     old = {r["id"]: r for r in base["records"]}
@@ -124,20 +130,9 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
         results.append(row)
     content_key = hashlib.sha1(json.dumps({"change": change, "records": order}, sort_keys=True).encode()).hexdigest()[:10]
     key, rev_id, rdir = new_revision({"change": change, "records": order})
-    files = {}
-    pages = {}
-    if write_pages:
-        try:
-            from synth.v2 import calc_pdf_v2
-            if hasattr(calc_pdf_v2, "write_revision"):
-                pdf = os.path.join(rdir, "calc_revision.pdf")
-                pages = calc_pdf_v2.write_revision(exp, d_new, [r for r in order if r in new], pdf,
-                                                   rev_label=f"Rev {key[:4]}", prev_exp=base) or {}
-                files["calc_revision_pdf"] = pdf
-            else:
-                files["note"] = "calc package writer has no write_revision yet - values only"
-        except Exception as e:   # pages are a convenience; the values are the result
-            files["page_error"] = f"{type(e).__name__}: {e}"
+    files: dict = {}
+    pages: dict = {}
+    timings = {"design_and_compare": round(time.time() - t, 1)}
     out = {"rev_id": rev_id, "content_key": content_key,
            "created_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M ET"),
            "change": change, "method": METHOD, "order_rule": "gravity in load-path order (inputs first: beams -> girders -> "
@@ -150,19 +145,10 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
                "removed": sum(1 for r in results if r["status"].startswith("record removed")),
                "seconds": round(time.time() - t, 1)},
            "files": files}
-    # handcalcs re-run sheets (math rendered from the code that recomputes each check), when present
     if write_pages:
-        try:
-            from . import recalc_pages
-            hpdf = os.path.join(rdir, "rerun_sheets.pdf")
-            hp = recalc_pages.render(out, base, exp, hpdf) or {}
-            files["rerun_sheets_pdf"] = hpdf
-            for rid_, v in hp.items():
-                pages.setdefault(rid_, {})["rerun_sheet"] = v
-        except ImportError:
-            files.setdefault("note", "handcalcs re-run sheets not available yet")
-        except Exception as e:
-            files["rerun_sheets_error"] = f"{type(e).__name__}: {e}"
+        _write_pages(out, base, exp, d_new, [r for r in order if r in new], key, rdir, files, pages, timings, progress)
+    out["summary"]["seconds"] = round(time.time() - t, 1)
+    out["summary"]["timings"] = timings
     for r in results:
         if r["record"] in pages:
             r["new_page"] = pages[r["record"]]
@@ -174,9 +160,96 @@ def rerun(base: dict, change: dict, records: list[str] | None = None, write_page
     return _clean(out)
 
 
+def _write_pages(out: dict, base: dict, exp: dict, d_new: dict, recs: list[str], key: str, rdir: str, files: dict,
+                 pages: dict, timings: dict, progress=None) -> None:
+    """Both page sets of a re-run, at the same time on different cores: the package-style revised
+    sheets (calc_pdf_v2.write_revision, in a worker process: recalc_package.py) and the handcalcs
+    re-run sheets (recalc_pages: math here, layout in worker processes). Each failure is recorded in
+    `files` under its own key (page_error / rerun_sheets_error) and never hides the other set or the
+    values. Every record of a re-run that wrote its sheets carries new_page.rerun_sheet; a record
+    whose block could not be placed says why (rerun_sheet.missing)."""
+    import tempfile
+    from synth.v2 import calc_pdf_v2
+    from . import recalc_package
+    t0 = time.time()
+    pkg = None
+    job_dir = tempfile.mkdtemp(prefix="recalc_package_")
+    job = os.path.join(job_dir, "job.pickle")
+    pdf = os.path.join(rdir, "calc_revision.pdf")
+    if hasattr(calc_pdf_v2, "write_revision"):
+        try:
+            pkg = recalc_package.start({"exp": exp, "d_new": d_new, "recs": recs, "pdf": pdf, "rev_label": f"Rev {key[:4]}",
+                                        "base": base}, job)
+        except Exception as e:
+            files["page_error"] = f"{type(e).__name__}: {e}"
+    else:
+        files["note"] = "calc package writer has no write_revision yet - values only"
+    sheet_pages: dict = {}
+    try:   # handcalcs re-run sheets (math rendered from the code that recomputes each check)
+        from . import recalc_pages
+        hpdf = os.path.join(rdir, "rerun_sheets.pdf")
+        hp, lay = recalc_pages.render(out, base, exp, hpdf, d_new["topo"].grade_beams, progress=progress)
+        files["rerun_sheets_pdf"] = hpdf
+        files["rerun_sheets_layout"] = lay
+        for r in out["results"]:
+            v = hp.get(r["record"])
+            if v is None:
+                v = {"page": None, "missing": "no block was built for this record"}
+            elif v.get("page") is None:
+                v = {**v, "missing": "the record's block was not found in the laid-out sheets"}
+            sheet_pages[r["record"]] = v
+    except Exception as e:   # incl. ImportError: a module that fails to import is a failure, said out loud
+        files["rerun_sheets_error"] = f"{type(e).__name__}: {e}"
+    timings["rerun_sheets"] = round(time.time() - t0, 1)
+    pkg_pages: dict = {}
+    if pkg is not None:
+        if progress:
+            progress("package_sheets", 0, 1)
+        try:   # pages are a convenience; the values are the result
+            pkg_pages = recalc_package.finish(pkg, job)
+            files["calc_revision_pdf"] = pdf
+        except Exception as e:
+            files["page_error"] = f"{type(e).__name__}: {e}"
+        timings["package_sheets"] = round(time.time() - t0, 1)
+    import shutil
+    shutil.rmtree(job_dir, ignore_errors=True)
+    for rid_ in set(pkg_pages) | set(sheet_pages):
+        pages[rid_] = {**(pkg_pages.get(rid_) or {}), **({"rerun_sheet": sheet_pages[rid_]} if rid_ in sheet_pages else {})}
+
+
+LEGACY_REVISIONS = os.path.join(V2, "revisions")   # where calc revisions lived before store_root.py
+
+
+def revisions_root() -> str:
+    """<store>/calc_revisions (store_root.py: CALCGRAPH_STORE) - every calc revision read and write
+    goes through here, so a run against a copied store never writes the real one.
+
+    One-time move: calc revisions used to be written under data/synthetic_v2/revisions regardless of
+    CALCGRAPH_STORE. When the default store has none yet and that legacy folder exists, it is moved
+    here whole (same filesystem: a rename) and the absolute file paths inside each revision.json are
+    re-pointed; revision ids are unchanged, so every link to a revision keeps resolving."""
+    root = store_path("calc_revisions")
+    if not os.path.isdir(root) and is_default_store() and os.path.isdir(LEGACY_REVISIONS):
+        os.makedirs(os.path.dirname(root), exist_ok=True)
+        os.rename(LEGACY_REVISIONS, root)
+        for name in os.listdir(root):
+            p = os.path.join(root, name, "revision.json")
+            if not os.path.exists(p):
+                continue
+            txt = open(p).read()
+            if LEGACY_REVISIONS in txt:
+                st = os.stat(p)
+                tmp = p + ".tmp"
+                with open(tmp, "w") as fh:
+                    fh.write(txt.replace(json.dumps(LEGACY_REVISIONS)[1:-1], json.dumps(root)[1:-1]))
+                os.replace(tmp, p)
+                os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns))   # the write time is part of the record
+    return root
+
+
 def revision_dir(rev_id: str) -> str:
-    """The folder of calc revision `rev_id` (basename only: an id can never point outside revisions/)."""
-    return os.path.join(V2, "revisions", os.path.basename(rev_id))
+    """The folder of calc revision `rev_id` (basename only: an id can never point outside the root)."""
+    return os.path.join(revisions_root(), os.path.basename(rev_id))
 
 
 def new_revision(seed: dict) -> tuple[str, str, str]:
@@ -187,7 +260,7 @@ def new_revision(seed: dict) -> tuple[str, str, str]:
     exist_ok=False, so a re-run of the exact same move gets its own revision instead of landing in
     (and overwriting) an earlier one. A collision on the 10-hex key retries with a new instant.
     Identical content is still recognisable through the revision's `content_key`."""
-    os.makedirs(os.path.join(V2, "revisions"), exist_ok=True)
+    os.makedirs(revisions_root(), exist_ok=True)
     while True:
         key = hashlib.sha1(json.dumps({"seed": seed, "t": time.time_ns()}, sort_keys=True,
                                       default=str).encode()).hexdigest()[:10]
@@ -248,13 +321,14 @@ def restore(target: str | None, reverts: str, of: str, verb: str) -> dict:
 
 
 def list_revisions() -> list[dict]:
-    """Oldest first, by when each revision.json was written (rev ids are content hashes, so their
-    names say nothing about order)."""
-    d = os.path.join(V2, "revisions")
+    """Oldest first, by the creation time each revision records (created_at, US Eastern, to the
+    minute), then by when its revision.json was written (rev ids are content hashes, so their names
+    say nothing about order). created_at first: a file's mtime does not survive a copy or a move."""
+    d = revisions_root()
     paths = [os.path.join(d, n, "revision.json") for n in (os.listdir(d) if os.path.isdir(d) else [])]
+    revs = [(json.load(open(p)), os.path.getmtime(p)) for p in paths if os.path.exists(p)]
     out = []
-    for p in sorted((p for p in paths if os.path.exists(p)), key=os.path.getmtime):
-        r = json.load(open(p))
+    for r, _ in sorted(revs, key=lambda x: (x[0].get("created_at") or "", x[1])):
         out.append({"rev_id": r["rev_id"], "content_key": r.get("content_key"), "created_at": r["created_at"], "change": r["change"], "summary": r["summary"],
                     "files": r["files"], **({"restore": r["restore"]} if r.get("restore") else {})})
     return out

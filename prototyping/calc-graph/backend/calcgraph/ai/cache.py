@@ -7,7 +7,7 @@ Keys:
 * ``cache_key``  = sha256 of {inputs_key, provider, model_id}. One result per model.
 
 Entries live at ``<root>/<task>/<cache_key>.json``. Default root is under
-``data/store/`` (already gitignored); override with ``CALCGRAPH_AI_CACHE``. A cached
+the store root (store_root.py, ``CALCGRAPH_STORE``, default ``data/store/``, gitignored); override with ``CALCGRAPH_AI_CACHE``. A cached
 entry is re-validated against the current schema on read; a stale one is a miss.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from ..store_root import store_path
 
 
 def canonical_json(obj: Any) -> str:
@@ -32,7 +32,7 @@ def sha256_json(obj: Any) -> str:
 
 def default_cache_root() -> Path:
     env = os.environ.get("CALCGRAPH_AI_CACHE")
-    return Path(env) if env else REPO_ROOT / "data" / "store" / "ai_cache"
+    return Path(env) if env else Path(store_path("ai_cache"))   # THE store root (store_root.py)
 
 
 class ResultCache:

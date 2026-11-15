@@ -14,6 +14,9 @@ records; the seeder's dry run / refusals / idempotence / typed write bodies; OAu
 storage, and that no secret or token reaches logs or output. H: on a daily sweep of approval dates (today to
 +6 weeks, three moves) every decrease in forecast slip is explained by a completed driving activity (as_of.
 explain_slip_drop), stage work is cumulative, and no element's schedule work vanishes or starts before approval.
+I: every runtime writer (revision store, inbox state, calc revisions, heat cache, AI cache / fixtures) takes its
+paths from store_root.py (CALCGRAPH_STORE): no backend module builds a data/store, data/cache or revisions path
+itself, and with CALCGRAPH_STORE set every writer resolves inside it.
 What it cannot prove: that the REAL Procore sandbox / ACC trial / Forma answer like the recordings - that
 needs real sandbox credentials (docs/platforms-real.md, "What is not verified").
 """
@@ -550,10 +553,88 @@ def h_slip_sweep():
         ok(f"H6 {tag}: no inserted work starts before the approval's data date", not early, f"{early[:3]}")
 
 
+# ------------------------------------------------------------------ I. one store root for every writer
+STORE_ROOT_EXEMPT = {
+    "store_root.py": "THE resolver: the only place CALCGRAPH_STORE and data/store are named",
+    "recalc.py:LEGACY_REVISIONS": "names the pre-store_root calc revision folder only to move it into the store once",
+}
+
+
+def _store_path_violations(path: str, rel: str) -> list[str]:
+    """Code (not docstrings / comments) in one backend module that builds a store-like path itself:
+    a data/store, data/cache or synthetic_v2/revisions literal, "data" joined to "store" / "cache",
+    V2 joined to "revisions", or a CALCGRAPH_STORE read."""
+    import ast
+    tree = ast.parse(open(path).read(), path)
+    docs = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+                docs.add(id(first.value))
+    legacy = set()   # nodes under an exempt assignment (recalc.LEGACY_REVISIONS)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and f"{rel}:{t.id}" in STORE_ROOT_EXEMPT for t in node.targets):
+            legacy |= {id(n) for n in ast.walk(node)}
+    out = []
+    for node in ast.walk(tree):
+        if id(node) in legacy:
+            continue
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs:
+            if re.search(r"data/(store|cache)\b|synthetic_v2/revisions", node.value) or node.value == "CALCGRAPH_STORE":
+                out.append(f"{rel}:{node.lineno} literal {node.value[:60]!r}")
+        parts = None
+        if isinstance(node, ast.Call) and getattr(node.func, "attr", getattr(node.func, "id", "")) == "join":
+            parts = node.args
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and isinstance(node.right, ast.Constant):
+            parts = [node.left.right if isinstance(node.left, ast.BinOp) else node.left, node.right]
+        for a, b in zip(parts or [], (parts or [])[1:]):
+            av = a.value if isinstance(a, ast.Constant) else (a.id if isinstance(a, ast.Name) else None)
+            bv = b.value if isinstance(b, ast.Constant) else None
+            if (av, bv) in (("data", "store"), ("data", "cache"), ("V2", "revisions")):
+                out.append(f"{rel}:{node.lineno} builds {av}/{bv}")
+    return out
+
+
+def i_store_root():
+    """Every runtime writer takes its paths from store_root.store_path (CALCGRAPH_STORE): statically (no
+    backend module builds a store path itself) and dynamically (with CALCGRAPH_STORE pointed at a temp
+    dir, every writer's path resolves inside it)."""
+    base = os.path.join(ROOT, "backend", "calcgraph")
+    bad = []
+    for dp, dns, fns in os.walk(base):
+        dns[:] = [d for d in dns if d not in ("node_modules", "__pycache__", "recorded", "generated")]
+        for fn in fns:
+            if fn.endswith(".py") and fn not in STORE_ROOT_EXEMPT:
+                full = os.path.join(dp, fn)
+                bad += _store_path_violations(full, os.path.relpath(full, base))
+    ok("I1 no backend module builds a data/store, data/cache or revisions path, or reads CALCGRAPH_STORE, itself",
+       not bad, f"{len(bad)} found: {bad[:6]}" if bad else "store_root.py is the only resolver")
+    from calcgraph import heat_cache, inbox, recalc, revstore
+    from calcgraph.ai import cache as ai_cache
+    from calcgraph.ai.providers import replay
+    tmp_store = os.path.join(TMP, "store-root")
+    prev = os.environ.get("CALCGRAPH_STORE")
+    os.environ["CALCGRAPH_STORE"] = tmp_store
+    try:
+        paths = {"revision store": revstore.store_dir(), "inbox state": inbox._state_path(),
+                 "calc revisions": recalc.revision_dir("calcrev-x"), "heat cache": heat_cache._path("k"),
+                 "ai cache": str(ai_cache.default_cache_root()) if not os.environ.get("CALCGRAPH_AI_CACHE") else tmp_store,
+                 "ai fixtures": str(replay.default_fixture_root()) if not os.environ.get("CALCGRAPH_AI_FIXTURES") else tmp_store}
+    finally:
+        if prev is None:
+            os.environ.pop("CALCGRAPH_STORE", None)
+        else:
+            os.environ["CALCGRAPH_STORE"] = prev
+    outside = {k: v for k, v in paths.items() if not os.path.abspath(v).startswith(tmp_store + os.sep) and os.path.abspath(v) != tmp_store}
+    ok("I2 with CALCGRAPH_STORE set, every writer's path is inside it", not outside, f"outside: {outside}" if outside else
+       ", ".join(sorted(paths)))
+
+
 def main() -> int:
     for name, fn in [("A", a_recordings), ("B-procore", b_procore), ("B-acc", b_acc), ("B-forma", b_forma), ("C", c_sourced),
                      ("D", d_change_order), ("E", e_seed), ("F-secrets", f_secrets), ("F-oauth", f_oauth), ("G", g_logs),
-                     ("H", h_slip_sweep)]:
+                     ("H", h_slip_sweep), ("I", i_store_root)]:
         run(name, fn)
     width = max(len(n) for n, _, _ in RESULTS)
     for n, passed, ev in RESULTS:

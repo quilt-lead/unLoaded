@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from . import pipeline, revstore, set_pipeline
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-STORE_DIR = os.environ.get("CALCGRAPH_STORE", os.path.join(ROOT, "data", "store"))
+STORE_DIR = revstore.store_dir()   # THE store root (store_root.py: CALCGRAPH_STORE)
 SYNTH_DIR = os.path.join(ROOT, "data", "synthetic")
 DIST = os.path.join(ROOT, "frontend", "dist")
 

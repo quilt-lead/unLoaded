@@ -23,7 +23,12 @@ export interface V2Occurrence {
   text?: string;
   text_layer?: boolean;
   global_id?: string;
+  /** doc "etabs": the object label; PDF docs: the label read from the document (a schedule row's row header) */
   label?: string;
+  label_error?: string;
+  /** how "governing-spec": the spec article that governs this element, and which links brought it in (type, material, frame) */
+  article?: string;
+  via?: string[];
   story?: string;
   object_type?: string;
   error?: string;

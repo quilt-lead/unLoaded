@@ -1,7 +1,7 @@
 """Disk cache for the v2 heat view (GET /api/v2/health): move_impact.heat() re-runs ~80 probe impacts
 (4 probes x every column), tens of seconds cold, so a server restart must not recompute it.
 
-The result is stored under data/cache/heat/<key>.json (gitignored), where key is a sha256 over EVERY
+The result is stored under <store>/cache/heat/<key>.json (store_root.py; gitignored), where key is a sha256 over EVERY
 input heat() reads - traced, not guessed:
 
   design      the bytes of data/synthetic_v2/design.json (heat(exp) reads elements, relations, records,
@@ -27,8 +27,12 @@ from datetime import datetime
 from importlib import metadata
 from zoneinfo import ZoneInfo
 
+from .store_root import store_path
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-CACHE_DIR = os.path.join(ROOT, "data", "cache", "heat")
+def _cache_dir() -> str:
+    """cache/heat under THE store root (store_root.py: CALCGRAPH_STORE)."""
+    return store_path("cache", "heat")
 _HERE = os.path.dirname(__file__)
 CODE_FILES = (os.path.join(_HERE, "move_impact.py"),
               os.path.join(ROOT, "synth", "v2", "aisc.py"),
@@ -74,7 +78,7 @@ def key_of(inp: dict) -> str:
 
 
 def _path(key: str) -> str:
-    return os.path.join(CACHE_DIR, f"{key}.json")
+    return os.path.join(_cache_dir(), f"{key}.json")
 
 
 def load(key: str) -> dict | None:
@@ -101,7 +105,7 @@ def get_or_compute(inp: dict, compute) -> tuple[dict, str, dict]:
         heat = compute()
         meta = {"key": key, "inputs": inp, "seconds": round(time.time() - t, 1),
                 "computed_at": datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M:%S ET")}
-        os.makedirs(CACHE_DIR, exist_ok=True)
+        os.makedirs(_cache_dir(), exist_ok=True)
         tmp = _path(key) + f".tmp{os.getpid()}.{threading.get_ident()}"
         with open(tmp, "w") as fh:
             json.dump({"meta": meta, "heat": heat}, fh)

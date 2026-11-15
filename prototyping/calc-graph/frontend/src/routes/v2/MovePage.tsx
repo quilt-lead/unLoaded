@@ -34,7 +34,7 @@ import { AsOfControl, AsOfTimeline } from "./AsOfPanel";
 import { RevisionPanel } from "./RevisionPanel";
 import { EtabsPanel } from "./EtabsPanel";
 import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
-import { BAND_COLOR, BAND_LABEL, BAND_TONE, UC_COLOR, colShort, fmtUc, fmtUsd, recordSource, ucTone, useDesignIndex } from "./util";
+import { BAND_COLOR, BAND_LABEL, BAND_TONE, UC_COLOR, colShort, fmtUc, fmtUsd, recordSource, rerunSheetUnavailable, ucTone, useDesignIndex } from "./util";
 
 type SideTab = "health" | "calcs" | "rerun" | "co" | "revision" | "etabs";
 type Dock =
@@ -106,6 +106,8 @@ export default function MovePage() {
   }, [params, record, setParams]);
   const impactQ = useMoveImpact(committed, asOf);
   const impact = committed && impactQ.data && impactQ.data.column === committed.column ? impactQ.data : undefined;
+  // the previous approval date's impact, shown dimmed while the new date's estimate is on its way
+  const impactUpdating = !!impact && impactQ.isPlaceholderData;
   const rerun = useRerun();
   const apply = useApply();
   const loaded = useCalcRevision(loadRev);
@@ -404,7 +406,9 @@ export default function MovePage() {
             {hist.error}
           </span>
         )}
-        {impactQ.isFetching && <span className="muted v2-small">Estimating impact...</span>}
+        {impactQ.isFetching && (
+          <span className="muted v2-small">{impactUpdating ? "Updating the impact for the new approval date (previous date shown dimmed)..." : "Estimating impact..."}</span>
+        )}
         {impactQ.error && <span className="v2-error v2-small">{errMsg(impactQ.error)}</span>}
         {!selected && <span className="muted v2-small">Click a column in the 3D model or the plan to start.</span>}
         {selected && mode === "move" && !hasMove && !pendingDraft && <span className="muted v2-small">Drag the blue ghost (3D) or the column (plan), or type offsets.</span>}
@@ -456,8 +460,10 @@ export default function MovePage() {
                 onDrag={(dx, dy) => preview({ dx, dy })}
                 onDrop={(dx, dy) => commit(dx, dy, "drag")}
               >
+                {impactUpdating && <div className="v2-updating-veil" data-testid="impact-updating" aria-hidden="true" />}
+                {impactUpdating && <div className="v2-3d-note">Updating impact for the new approval date...</div>}
                 {showUc ? (
-                  <Legend variant="overlay" title="Estimated UC" info="legend.move-uc" items={ucLegend} />
+                  <Legend variant="overlay" title={impactUpdating ? "Estimated UC (updating)" : "Estimated UC"} info="legend.move-uc" items={ucLegend} />
                 ) : (
                   <Legend variant="overlay" title="How hard to move" info="legend.move-heat" items={heatLegend} />
                 )}
@@ -494,12 +500,18 @@ export default function MovePage() {
                       <button
                         type="button"
                         className={`btn sm${newStyle === "handcalcs" ? " on" : ""}`}
-                        disabled={!dock.result.new_page?.rerun_sheet || !dock.rev.files?.rerun_sheets_pdf}
+                        disabled={!!rerunSheetUnavailable(dock.result, dock.rev)}
+                        title={rerunSheetUnavailable(dock.result, dock.rev) ?? undefined}
                         onClick={() => setNewStyle("handcalcs")}
                       >
                         Re-run sheet (math)
                       </button>
                       <InfoTip id="panel.rerun-page-style" />
+                      {rerunSheetUnavailable(dock.result, dock.rev) && (
+                        <span className="v2-small v2-error" data-testid="rerun-sheet-unavailable">
+                          {rerunSheetUnavailable(dock.result, dock.rev)}
+                        </span>
+                      )}
                     </span>
                   )}
                   <span className="spacer" />

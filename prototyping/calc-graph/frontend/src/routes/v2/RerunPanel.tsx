@@ -4,6 +4,7 @@ import { StatPill, StatRow } from "../../components/StatPill";
 import type { CalcRevision, RerunResult } from "./api";
 import { useRevisions } from "./api";
 import { fmtUc, ucTone } from "./util";
+import { progressText, useRerunProgress } from "./rerunProgress";
 
 export interface RerunPanelProps {
   rev: CalcRevision | undefined;
@@ -33,6 +34,8 @@ function Status({ r }: { r: RerunResult }) {
 /** Re-run results: old vs new per record in load-path order; picking one shows the two calc pages side by side. */
 export function RerunPanel({ rev, busy, error, selected, onSelect, onLoadRev }: RerunPanelProps) {
   const revs = useRevisions();
+  const progress = useRerunProgress(busy);
+  const p = busy ? progress.data : undefined;
   const [onlyChanged, setOnlyChanged] = useState(true);
   const results = useMemo(
     () => (rev?.results ?? []).filter((r) => !onlyChanged || r.ng_to_ok || r.ok_new === false || (r.size_new && r.size_new !== r.size_old)),
@@ -41,8 +44,15 @@ export function RerunPanel({ rev, busy, error, selected, onSelect, onLoadRev }: 
   return (
     <div className="v2-rerun">
       {busy && (
-        <p className="v2-busy" role="status">
-          Re-running the design for these records (load-path order; the lateral system as one job)... this takes about 10 to 20 seconds for all stale records.
+        <p className="v2-busy" role="status" aria-live="polite" data-testid="rerun-progress">
+          {p?.running ? (
+            <>
+              Re-running {p.column}: {progressText(p)}
+              {p.stage === "layout" && p.total > 0 && <progress max={p.total} value={p.done} style={{ marginLeft: 8, verticalAlign: "middle" }} />}
+            </>
+          ) : (
+            "Re-running the design for these records (load-path order; the lateral system as one job)..."
+          )}
         </p>
       )}
       {error && (

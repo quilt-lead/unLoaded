@@ -323,6 +323,15 @@
   padding: 3px 8px;
   font-size: 12px;
 }
+/* the previous approval date's impact colouring, kept dimmed while the new date's estimate loads */
+.v2-updating-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 1;
+}
 .v2-x-btn {
   all: unset;
   cursor: pointer;
