@@ -1,6 +1,6 @@
 {
  "meta": {
-  "builtAt": "2026-11-14T18:10:46",
+  "builtAt": "2026-11-14T18:25:23",
   "matcher": "0.2.0",
   "scope": [
    "S0.0.1",
@@ -309,10 +309,10 @@
    "description": null
   },
   {
-   "id": "group/elevation/stud/600S137-54",
+   "id": "group/elevation/stud/H1 600S162-54",
    "level": "Elevation",
    "type": "stud",
-   "size": "600S137-54",
+   "size": "H1 600S162-54",
    "system": "Exterior walls",
    "sheets": [
     "S4.0.1",
@@ -321,11 +321,42 @@
    "ifc": {
     "typeClass": "IfcMemberType",
     "predefinedType": "STUD",
-    "name": "600S137-54",
+    "name": "H1 600S162-54",
     "material": "steel",
     "storey": null
    },
-   "title": "Elevation studs 600S137-54 (typ.)",
+   "title": "Elevation studs H1 600S162-54 (typ.)",
+   "members": [
+    "elevation/stud/N:4–5/h",
+    "elevation/stud/N:3–4/h",
+    "elevation/stud/W:B–C/h",
+    "elevation/stud/W:A–B/h",
+    "elevation/stud/W:A–B/h#2",
+    "elevation/stud/W:B/h",
+    "elevation/stud/W:D–E/h",
+    "elevation/stud/W:B–C/h#2",
+    "elevation/stud/W:C–D/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/stud/J1 600S137-54",
+   "level": "Elevation",
+   "type": "stud",
+   "size": "J1 600S137-54",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1",
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STUD",
+    "name": "J1 600S137-54",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation studs J1 600S137-54 (typ.)",
    "members": [
     "elevation/stud/N:4–5/v",
     "elevation/stud/N:4–5/v#2",
@@ -349,10 +380,10 @@
    "description": null
   },
   {
-   "id": "group/elevation/stud/600S162-54",
+   "id": "group/elevation/stud/ST-1 600S162-54",
    "level": "Elevation",
    "type": "stud",
-   "size": "600S162-54",
+   "size": "ST-1 600S162-54",
    "system": "Exterior walls",
    "sheets": [
     "S4.0.1",
@@ -361,22 +392,13 @@
    "ifc": {
     "typeClass": "IfcMemberType",
     "predefinedType": "STUD",
-    "name": "600S162-54",
+    "name": "ST-1 600S162-54",
     "material": "steel",
     "storey": null
    },
-   "title": "Elevation studs 600S162-54 (typ.)",
+   "title": "Elevation stud ST-1 600S162-54",
    "members": [
-    "elevation/stud/schedule/h",
-    "elevation/stud/N:4–5/h",
-    "elevation/stud/N:3–4/h",
-    "elevation/stud/W:B–C/h",
-    "elevation/stud/W:A–B/h",
-    "elevation/stud/W:A–B/h#2",
-    "elevation/stud/W:B/h",
-    "elevation/stud/W:D–E/h",
-    "elevation/stud/W:B–C/h#2",
-    "elevation/stud/W:C–D/h"
+    "elevation/stud/schedule/h"
    ],
    "description": null
   },
@@ -422,8 +444,8 @@
    },
    "title": "Foundation columns HSS4X4X1/4 (typ.)",
    "members": [
-    "foundation/column/?/h",
-    "foundation/column/?/h#2",
+    "foundation/column/E(ext)@6(ext)/h",
+    "foundation/column/E(ext)@6(ext)/h#2",
     "foundation/column/A(ext)@5–4/h",
     "foundation/column/A(ext)@5–4/h#2"
    ],
@@ -832,6 +854,8 @@
    },
    "title": "Foundation stringers C12X20.7 (typ.)",
    "members": [
+    "foundation/stringer/E(ext)@6(ext)/v",
+    "foundation/stringer/E@6(ext)/v",
     "foundation/stringer/A@5–4/h",
     "foundation/stringer/A(ext)@5–4/h"
    ],
@@ -879,8 +903,8 @@
    "members": [
     "level-2/beam/E–F@6(ext)/h",
     "level-2/beam/E–F@6(ext)/v#2",
-    "level-2/beam/A–E@5–4/v",
-    "level-2/beam/A–E@5–4/v#2"
+    "level-2/beam/A(ext)@5–4/v",
+    "level-2/beam/A(ext)@5–4/v#2"
    ],
    "description": null
   },
@@ -1375,10 +1399,8 @@
     "level-2/stringer/E–F@6(ext)/v",
     "level-2/stringer/E–F@6(ext)/v#2",
     "level-2/stringer/E–F@6(ext)/h",
-    "level-2/stringer/A–E@5–4/h",
-    "level-2/stringer/A–E@5–4/h#2",
-    "level-2/stringer/A–E@6(ext)/v",
-    "level-2/stringer/E@6(ext)/v"
+    "level-2/stringer/A(ext)@5–4/h",
+    "level-2/stringer/A(ext)@5–4/h#2"
    ],
    "description": null
   },

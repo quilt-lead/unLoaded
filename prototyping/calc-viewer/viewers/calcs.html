@@ -98,7 +98,9 @@ button { font: inherit; color: inherit; }
 .pg-links li.none .from { color: var(--muted); font-weight: 500; }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pdf-bg); }
 .pane-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); min-height: 40px; }
-.pane-bar .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-bar .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.pane-bar button { white-space: nowrap; flex: none; }
+.pane-bar select { min-width: 0; flex: 0 1 auto; max-width: 300px; text-overflow: ellipsis; }
 .pane-bar .sub { color: var(--muted); white-space: nowrap; }
 .pane-bar .grow { flex: 1; }
 .pane-bar select, .pane-bar button, .tool { background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
@@ -119,6 +121,12 @@ button { font: inherit; color: inherit; }
 .ov.el:hover, .ov.el.hover { outline: 2px solid var(--c); outline-offset: 1px; }
 .ov.el.callout { border-style: dashed; border-radius: 50%; }
 .ov.el.sel { outline: 3px solid var(--accent); outline-offset: 2px; background: var(--accent-soft); z-index: 3; }
+/* detail views: only the title bar is clickable, so members inside the view stay clickable */
+.ov.el.detail { border-width: 1px; border-style: solid; background: transparent; border-radius: 3px; }
+.ov.el.detail.b-none { border-color: #9aa5b8; }
+.ov.el.detail:hover { background: var(--cs, rgba(43, 89, 195, .06)); }
+.ov.region { border: 2px dashed var(--accent); background: rgba(43, 89, 195, .04); pointer-events: none; z-index: 1; }
+.pg-item .cnt.el-cnt { background: transparent; border-color: transparent; }
 .b-high { --c: var(--high); --cs: var(--high-soft); }
 .b-medium { --c: var(--medium); --cs: var(--medium-soft); }
 .b-low { --c: var(--low); --cs: var(--low-soft); }
@@ -286,6 +294,9 @@ async function loadData(base = "data/") {
   D.el = Object.fromEntries(D.elements.map((e) => [e.id, e]));
   D.group = Object.fromEntries(D.groups.map((g) => [g.id, g]));
   D.calc = Object.fromEntries(D.calcs.map((c) => [c.id, c]));
+  // callouts that point at each detail view (for "called out from" and the Connections tab)
+  D.refBy = {};
+  for (const e of D.elements) for (const r of e.refs || []) if (r.detail) (D.refBy[r.detail] ??= []).push(e);
   D.linksBySource = {};
   D.linksByCalc = {};
   for (const l of D.links) {
@@ -342,8 +353,21 @@ function drawingStops(D, link) {
 
 /** Stops for "go to the detail sheet" on a callout. */
 function refStops(D, el) {
-  return (el.refs || []).map((r) => ({ kind: "sheet", sheet: r.sheet, doc: r.doc, title: `${r.sheet} ${r.title || ""}`.trim(), regions: [{ page: r.page, rect: [0.005, 0.005, 0.995, 0.995], fullPage: true }] }));
+  // a callout points at its detail view's region when the view was found, otherwise at the whole sheet
+  return (el.refs || []).map((r) => ({ kind: "sheet", sheet: r.sheet, detail: r.detail || null, doc: r.doc,
+    title: r.detail ? `${D.el[r.detail]?.tag || r.sheet} – ${r.title || ""}` : `${r.sheet} ${r.title || ""}`.trim(),
+    regions: [r.rect ? { page: r.page, rect: r.rect } : { page: r.page, rect: [0.005, 0.005, 0.995, 0.995], fullPage: true }] }));
 }
+
+/** Scroll options that frame a drawing rect: small labels zoom in, whole views fit the pane. */
+function frameOpts(rect, paneH) {
+  const w = rect[2] - rect[0];
+  return w > 0.12 ? { zoomFor: 0.94, maxZoom: 5, smooth: false, topMargin: 34 } : { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: paneH * 0.4 };
+}
+
+/** Is an element a drawn member (vs. a callout or detail view)? */
+const isMember = (e) => e.type !== "callout" && e.type !== "detail";
+const LEVELS = ["Foundation", "Level 2", "Roof", "Elevation", "Details"];
 
 function pageLabel(D, docId, page) {
   return D.doc[docId].pages[page - 1]?.label || null;
@@ -452,6 +476,70 @@ class PdfPane {
       // a resize right after a jump (e.g. the pane just opened) must not lose that jump
       if (t && Date.now() - t.at <= 2500) this.scrollTo(t.page, t.rect, { ...t.opts, smooth: false });
     }).observe(scroller);
+    this._bindGestures();
+  }
+
+  /** Pinch to zoom: touchscreen (two fingers), trackpad pinch / ctrl+wheel, and Safari gesture events. */
+  _bindGestures() {
+    const sc = this.scroller;
+    sc.style.touchAction = "pan-x pan-y"; // browser keeps one-finger panning; we own pinch
+    const local = (x, y) => { const r = sc.getBoundingClientRect(); return [x - r.left, y - r.top]; };
+
+    // trackpad pinch arrives as ctrl+wheel in Chromium/Firefox; also ctrl+mouse wheel
+    sc.addEventListener("wheel", (e) => {
+      if (!e.ctrlKey || !this.pdf) return;
+      e.preventDefault();
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      this.setZoomAt(this.zoom * Math.exp(-dy * 0.01), ...local(e.clientX, e.clientY));
+    }, { passive: false });
+
+    // touchscreen two-finger pinch (pans with the midpoint too)
+    let pinch = null;
+    const two = (e) => {
+      const [a, b] = e.touches;
+      return { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    };
+    sc.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 2 || !this.pdf) return;
+      const t = two(e);
+      pinch = { d: t.d, zoom: this.zoom, x: t.x, y: t.y };
+    }, { passive: true });
+    sc.addEventListener("touchmove", (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const t = two(e);
+      sc.scrollLeft -= t.x - pinch.x;
+      sc.scrollTop -= t.y - pinch.y;
+      pinch.x = t.x; pinch.y = t.y;
+      this.setZoomAt(pinch.zoom * (t.d / Math.max(1, pinch.d)), ...local(t.x, t.y));
+    }, { passive: false });
+    const end = (e) => { if (pinch && e.touches.length < 2) pinch = null; };
+    sc.addEventListener("touchend", end);
+    sc.addEventListener("touchcancel", end);
+
+    // Safari (macOS trackpad) sends proprietary gesture events instead of ctrl+wheel
+    let g0 = 1;
+    sc.addEventListener("gesturestart", (e) => { e.preventDefault(); g0 = this.zoom; });
+    sc.addEventListener("gesturechange", (e) => { e.preventDefault(); this.setZoomAt(g0 * e.scale, ...local(e.clientX, e.clientY)); });
+    sc.addEventListener("gestureend", (e) => e.preventDefault());
+  }
+
+  /** Zoom keeping the content under (px, py) — pane-local coords — fixed. Re-renders once the gesture settles. */
+  setZoomAt(z, px, py) {
+    z = Math.min(8, Math.max(0.25, z));
+    if (!this.pdf || Math.abs(z - this.zoom) < 1e-3) return;
+    const sc = this.scroller;
+    const cy = sc.scrollTop + py, cx = sc.scrollLeft + px;
+    let d = this.pageEls[0];
+    for (const p of this.pageEls) { if (p.offsetTop <= cy) d = p; else break; }
+    const fx = (cx - d.offsetLeft) / d.offsetWidth, fy = (cy - d.offsetTop) / d.offsetHeight;
+    this.zoom = z;
+    this._target = null;
+    this._layout(false, true); // resize boxes now; existing canvases stretch until re-rendered
+    sc.scrollLeft = d.offsetLeft + fx * d.offsetWidth - px;
+    sc.scrollTop = d.offsetTop + fy * d.offsetHeight - py;
+    clearTimeout(this._rerender);
+    this._rerender = setTimeout(() => { for (const i of this.visible) this._render(i); }, 160);
   }
 
   async open(url, docId) {
@@ -486,7 +574,7 @@ class PdfPane {
   get fitScale() { return Math.max(0.05, (this.scroller.clientWidth - 28) / this.refWidth); }
   get scale() { return this.fitScale * this.zoom; }
 
-  _layout(keepPosition) {
+  _layout(keepPosition, deferRender = false) {
     const anchor = keepPosition ? this._anchor() : null;
     this.pageEls.forEach((d, i) => {
       const [w, h] = this.sizes[i];
@@ -496,7 +584,7 @@ class PdfPane {
       d.style.height = `${h * s}px`;
       d.dataset.scale = s;
     });
-    for (const i of this.visible) this._render(i);
+    if (!deferRender) for (const i of this.visible) this._render(i);
     if (anchor) this._restore(anchor);
   }
 
@@ -636,6 +724,8 @@ const store = {
  *  drawings: {page, el, occ, link?}   calcs: {page, calc, span, link?} */
 function linksByPage(D, mode, docId) {
   const pages = new Map();
+  const els = new Map(); // page -> element count (drawings)
+  pages.els = els;
   const add = (p, row, key) => {
     const list = pages.get(p) || (pages.set(p, []), pages.get(p));
     if (!list.some((r) => r.key === key)) list.push({ ...row, key });
@@ -647,9 +737,10 @@ function linksByPage(D, mode, docId) {
       e.occurrences.forEach((o, occ) => {
         if (o.doc !== docId) return;
         const at = { page: o.page, el: e.id, occ };
-        for (const r of e.refs || []) add(o.page, { band: "none", from, to: `→ Detail sheet ${r.sheet}`, pct: "", at: { ...at, ref: r.sheet } }, `${e.id}|${occ}|ref|${r.sheet}`);
+        els.set(o.page, (els.get(o.page) || 0) + 1);
+        for (const r of e.refs || []) add(o.page, { band: "none", from, to: r.detail ? `→ Detail ${e.fields.detail}/${r.sheet} ${r.title || ""}` : `→ Detail sheet ${r.sheet}`, pct: "", ref: true, at: { ...at, ref: r.sheet } }, `${e.id}|${occ}|ref|${r.sheet}`);
         for (const l of links) add(o.page, { band: l.band, from, to: `→ ${D.calc[l.calc].title} (${l.role})`, pct: pct(l.confidence), at: { ...at, link: l.id } }, `${e.id}|${occ}|${l.id}`);
-        if (!links.length && !(e.refs || []).length) add(o.page, { band: "none", from, to: "→ no calc found", pct: "", none: true, at }, `${e.id}|${occ}|none`);
+        if (!links.length && !(e.refs || []).length && e.type !== "detail") add(o.page, { band: "none", from, to: "→ no calc found", pct: "", none: true, at }, `${e.id}|${occ}|none`);
       });
     }
   } else {
@@ -671,10 +762,12 @@ function buildPageNav(host, D, mode, docId, { goToPage, showLink, app, toggleBtn
   const doc = D.doc[docId];
   const byPage = linksByPage(D, mode, docId);
   const onlyLinked = store.get("nav.onlyLinked", mode === "calcs");
-  const total = [...byPage.values()].reduce((n, l) => n + l.filter((r) => !r.none).length, 0);
+  // calc links only: callout -> detail-view rows are navigation, not calc links
+  const nLinks = (rows) => rows.filter((r) => !r.none && !r.ref).length;
+  const total = [...byPage.values()].reduce((n, l) => n + nLinks(l), 0);
 
   host.innerHTML = `
-    <div class="nav-head"><b>Pages</b><span class="empty" style="font-size:12px">${doc.pages.length} pages · ${total} links</span>
+    <div class="nav-head"><b>Pages</b><span class="empty" style="font-size:12px" title="${mode === "drawings" ? "grey count = elements, outlined = calc links" : ""}">${doc.pages.length} pages · ${total} calc links</span>
       <button class="tool" data-act="hide" title="Collapse the page list">«</button></div>
     <div class="nav-tools"><button data-act="expand">Expand all</button><button data-act="collapse">Collapse all</button>
       <label><input type="checkbox" data-act="only" ${onlyLinked ? "checked" : ""}> with links only</label></div>
@@ -687,10 +780,12 @@ function buildPageNav(host, D, mode, docId, { goToPage, showLink, app, toggleBtn
       if (only && !rows.length) return "";
       const label = mode === "drawings" ? p.label || `p. ${p.page}` : `p. ${p.page}`;
       const title = mode === "drawings" ? p.title || "" : p.label ? `Sheet ${p.label}` : "";
-      const n = rows.filter((r) => !r.none).length;
+      const n = nLinks(rows);
+      const ne = byPage.els.get(p.page) || 0;
+      const counts = `${mode === "drawings" && ne ? `<span class="cnt el-cnt" title="${ne} elements on this page">${ne}</span>` : ""}${n ? `<span class="cnt" title="${n} calc links">${n}</span>` : ""}`;
       const items = rows.map((r, i) => `<li class="${r.none ? "none" : ""}" data-i="${i}" title="Show this on the page"><span class="dot b-${r.band}"></span><span class="txt"><span class="from">${esc(r.from)}</span><span class="to" title="${esc(r.to)}">${esc(r.to)}</span></span><span class="pct">${r.pct}</span></li>`).join("");
       return `<details class="pg-item${rows.length ? "" : " empty-page"}" data-page="${p.page}">
-        <summary title="Go to ${esc(label)}"><span class="caret" title="Show / hide links"></span><span class="pgl">${esc(label)}</span><span class="pgt">${esc(title)}</span>${rows.length ? `<span class="cnt">${n}</span>` : ""}</summary>
+        <summary title="Go to ${esc(label)}"><span class="caret" title="Show / hide links"></span><span class="pgl">${esc(label)}</span><span class="pgt">${esc(title)}</span>${counts}</summary>
         ${rows.length ? `<ul class="pg-links">${items}</ul>` : ""}</details>`;
     }).join("") || `<div class="empty" style="padding:12px">No pages with links.</div>`;
     setCurrent(current, false);
@@ -915,7 +1010,22 @@ catch (e) { side.innerHTML = `<section><div class="flag">Could not load data: ${
 $("#built").textContent = `data built ${D.meta.builtAt.replace("T", " ")} · matcher ${D.meta.matcher}`;
 
 const src = new PdfPane($("#src .pages"), { onPage: () => srcBar() });
-const state = { srcDoc: mode === "drawings" ? "plans" : "calcs", sel: null, arrival: null, params: {} };
+const state = { srcDoc: mode === "drawings" ? "plans" : "calcs", sel: null, arrival: null, params: {}, filter: { kind: "all", level: "" } };
+const frame = (rect) => frameOpts(rect, src.scroller.clientHeight);
+// drawing filter: which elements get boxes (dense sheets get busy with callouts and detail views)
+const KINDS = { all: "All elements", members: "Members only", foundations: "Foundations", callouts: "Callouts", details: "Detail views", review: "Needs review" };
+function passes(e, band, occ) {
+  const f = state.filter;
+  if (f.level && (occ.level || e.level) !== f.level) return false;
+  switch (f.kind) {
+    case "members": return isMember(e);
+    case "foundations": return ["footing", "grade-beam", "pile"].includes(e.type);
+    case "callouts": return e.type === "callout";
+    case "details": return e.type === "detail";
+    case "review": return isMember(e) && (band === "low" || band === "none");
+    default: return true;
+  }
+}
 const visited = new Map();
 const visitSet = (key) => (visited.has(key) ? visited.get(key) : visited.set(key, new Set()).get(key));
 const linkById = (id) => D.links.find((l) => l.id === id) || null;
@@ -956,17 +1066,20 @@ function buildTabs() {
 function buildSrcBar() {
   const bar = $("#src .pane-bar");
   const doc = D.doc[state.srcDoc];
-  const scoped = new Set(D.elements.map((e) => e.sheet));
+  const memberSheets = new Set(D.meta.memberSheets || []);
   const opts = doc.pages.map((p) => {
-    const inScope = mode === "drawings" && scoped.has(p.label);
+    const inScope = mode === "drawings" && memberSheets.has(p.label);
     const text = mode === "drawings" ? `${p.label}${p.title ? " – " + p.title : ""}${inScope ? "  ●" : ""}` : `p. ${p.page}${p.label ? " · " + p.label : ""}`;
     return `<option value="${p.page}">${esc(text)}</option>`;
   }).join("");
   bar.innerHTML = `<button id="nav-toggle" title="Show / hide the page list">☰</button><span class="title">${esc(doc.title)}</span><span class="sub"></span><span class="grow"></span>
     <button data-act="back" title="Scroll back to the linked box" hidden>↺ Box</button>
+    ${mode === "drawings" ? `<select id="f-kind" title="Which elements to outline">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}"${k === state.filter.kind ? " selected" : ""}>${v}</option>`).join("")}</select>
+    <select id="f-level" title="Only elements on this level"><option value="">All levels</option>${LEVELS.map((l) => `<option${l === state.filter.level ? " selected" : ""}>${l}</option>`).join("")}</select>` : ""}
     <select id="src-jump" title="Go to page">${opts}</select>
     <button data-z="-1" title="Zoom out">−</button><button data-z="0" title="Fit width">Fit</button><button data-z="1" title="Zoom in">+</button>`;
   $("#src-jump").addEventListener("change", (e) => src.scrollTo(+e.target.value, [0, 0, 1, 0], { smooth: false, topMargin: 10 }));
+  for (const k of ["kind", "level"]) $("#f-" + k)?.addEventListener("change", (e) => { state.filter[k] = e.target.value; paintSource(); });
   bar.querySelectorAll("[data-z]").forEach((b) => b.addEventListener("click", () => {
     const z = +b.dataset.z;
     src.setZoom(z === 0 ? 1 : src.zoom * (z > 0 ? 1.4 : 1 / 1.4));
@@ -997,10 +1110,10 @@ function paintSource() {
       const best = bestDesign(links);
       const tip = `${e.tag}${e.grid ? " · grid " + e.grid : ""} — ${best ? `design calc ${pct(best.confidence)} (${best.band})` : "no design calc found"}${links.length ? ` · ${links.length} link${links.length > 1 ? "s" : ""}` : ""}${e.refs?.length ? " · detail sheet " + e.refs[0].sheet : ""}`;
       e.occurrences.forEach((o, k) => {
-        if (o.doc !== state.srcDoc) return;
+        if (o.doc !== state.srcDoc || !passes(e, band, o)) return;
         items.push({
-          page: o.page, rect: o.rect, title: tip, attrs: { id: e.id, occ: k },
-          cls: `el b-${band}${e.type === "callout" ? " callout" : ""}`,
+          page: o.page, rect: o.hot || o.rect, title: e.type === "detail" ? `${e.tag} – ${e.fields.title} — ${tip.split(" — ")[1]}` : tip, attrs: { id: e.id, occ: k },
+          cls: `el b-${band}${e.type === "callout" ? " callout" : ""}${e.type === "detail" ? " detail" : ""}`,
           on: { click: (ev) => { ev.stopPropagation(); select({ kind: "element", id: e.id, occ: k }); } },
         });
       });
@@ -1028,7 +1141,11 @@ function paintSource() {
 
 function markSourceSelection() {
   const id = state.sel?.id;
-  if (mode === "drawings") src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.id === id));
+  if (mode === "drawings") {
+    src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.id === id));
+    const e = state.sel?.kind === "element" ? D.el[id] : null;
+    src.setLayer("region", e?.type === "detail" ? e.occurrences.filter((o) => o.doc === state.srcDoc).map((o) => ({ page: o.page, rect: o.rect, cls: "region" })) : []);
+  }
   else src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.calc === id));
   if (mode === "calcs") {
     const links = state.sel?.kind === "calc" ? D.linksByCalc[id] || [] : [];
@@ -1088,7 +1205,7 @@ function clearArrival() {
 
 function scrollToStop(stop) {
   const r0 = stop.regions[0];
-  if (docKind(stop.doc) === "drawings" && !r0.fullPage) src.scrollTo(r0.page, r0.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 });
+  if (docKind(stop.doc) === "drawings" && !r0.fullPage) src.scrollTo(r0.page, r0.rect, frame(r0.rect));
   else if (docKind(stop.doc) === "drawings") { src.setZoom(1, false); src.scrollTo(r0.page, r0.rect, { smooth: false, topMargin: 10 }); }
   else src.scrollTo(r0.page, r0.rect, { smooth: false, topMargin: 64 });
 }
@@ -1139,7 +1256,7 @@ async function showLinkHere(at) {
     const e = D.el[at.el];
     const o = e.occurrences[at.occ];
     await select({ kind: "element", id: e.id, occ: at.occ }, { fromNav: true });
-    src.scrollTo(o.page, o.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 });
+    src.scrollTo(o.page, o.rect, frame(o.rect));
     setTimeout(() => flash(src.nodes("items").filter((n) => n.dataset.id === e.id && +n.dataset.occ === at.occ)), 60);
   } else {
     const c = D.calc[at.calc];
@@ -1168,7 +1285,7 @@ async function showLinkHere(at) {
 
 // ------------------------------------------------------------------ following a link (to the other window)
 function follow(stop, link) {
-  if (stop.kind === "sheet") return show({ sheet: stop.sheet }); // a drawing sheet: stays in this window
+  if (stop.kind === "sheet") return stop.detail ? show({ el: stop.detail, occ: 0 }) : show({ sheet: stop.sheet }); // stays in this window
   const params = stop.kind === "calc"
     ? { calc: link.calc, span: stop.span, link: link.id }
     : { el: stop.elId, occ: stop.occ, link: link.id };
@@ -1224,7 +1341,7 @@ function linkCard({ key, title, sub, link, stops, label, chipText, opensIn }) {
       const here = docKind(where.doc) === (mode === "drawings" ? "drawings" : "calcs");
       if (!here) { openViewer(other, { doc: where.doc, page: where.page, rect: where.rect.join(","), link: link.id }); return; }
       if (where.doc !== state.srcDoc) await openSrcDoc(where.doc);
-      src.scrollTo(where.page, where.rect, docKind(where.doc) === "drawings" ? { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 } : { topMargin: 80 });
+      src.scrollTo(where.page, where.rect, docKind(where.doc) === "drawings" ? frame(where.rect) : { topMargin: 80 });
       setTimeout(() => {
         src.nodes("marks").concat(src.nodes("hits"), src.nodes("items"))
           .filter((n) => n.textContent === String(e.n) || n.title?.startsWith(where.text))
@@ -1241,10 +1358,11 @@ function renderSide() {
   if (!sel) {
     side.innerHTML = mode === "drawings"
       ? `<section><h2>Drawings → calcs</h2><p>Click any highlighted element on the drawing. The sidebar lists the calcs it links to. Following a link opens the <b>calc viewer</b> window at that calc's bounding box, or reuses it if it's already open.</p>
-         <p><span class="badge b-high">high</span> <span class="badge b-medium">medium</span> <span class="badge b-low">low</span> <span class="badge b-none">no calc</span> — box colour shows the best design link's confidence. Dashed circles are detail callouts.</p>
-         <p class="empty">In scope: ${[...new Set(D.elements.map((e) => e.sheet))].join(", ")} (marked ● in the sheet list).</p></section>`
+         <p><span class="badge b-high">high</span> <span class="badge b-medium">medium</span> <span class="badge b-low">low</span> <span class="badge b-none">no calc</span> — box colour shows the best design link's confidence. Dashed circles are detail callouts; a detail view is clickable on its title bar.</p>
+         <p>Use the <b>filter</b> above the drawing to show only members, foundations, callouts, detail views or what needs review, on one level.</p>
+         <p class="empty">Scope: callouts and detail views on all ${D.doc.plans.pages.length} S-sheets; members on ${(D.meta.memberSheets || []).join(", ")} (marked ● in the sheet list). ${D.elements.length} elements, ${D.links.length} links.</p></section>`
       : `<section><h2>Calcs → drawings</h2><p>Click a calc box on the page. The sidebar lists the drawn elements it designs. Following a link opens the <b>drawing viewer</b> window at that element, or reuses it if it's already open. Yellow marks are the text that supports a link.</p>
-         <p class="empty">Each calc PDF has its own tab above the page.</p></section>`;
+         <p class="empty">Each calc PDF has its own tab above the page. Every page belongs to a calc (${D.calcs.length} calcs); calcs with no drawing link say so.</p></section>`;
     return;
   }
   if (sel.kind === "element") renderElementSide(D.el[sel.id], sel.occ ?? 0);
@@ -1256,7 +1374,10 @@ function renderElementSide(e, occIdx) {
   const g = e.group ? D.group[e.group] : null;
   const s1 = document.createElement("section");
   s1.innerHTML = `<h3>${esc(e.type)}</h3><h2>${esc(e.tag)}</h2>
-    ${kv([["Grid", esc(e.grid)], ["Sheet", esc(e.sheet)], ["View", esc(e.view)], ["Level", esc(e.level)],
+    ${kv([["Grid", esc(e.grid)], ["Sheet", esc(e.sheet)], ["View", esc(e.view)], ["Level", esc(e.level)], ["System", esc(e.system)],
+      ["Floor", esc(e.fields.floor)], ["Mark", esc(e.fields.mark)],
+      ["Schedule", esc([e.fields.length && `${e.fields.length} × ${e.fields.width} × ${e.fields.thickness}`, e.fields.diameter && `Ø ${e.fields.diameter}, ${e.fields.depth} deep`,
+        e.fields.track && `track ${e.fields.track}`, e.fields.reinforcing].filter(Boolean).join(" · "))],
       ["IFC", e.ifc ? `<code>${esc(e.ifc.class)}${e.ifc.predefinedType ? "." + esc(e.ifc.predefinedType) : ""}</code>` : ""],
       ["Typical group", g && g.members.length > 1 ? `${esc(g.title)} · ${g.members.length} members` : ""], ["ID", `<code>${esc(e.id)}</code>`]])}`;
   side.appendChild(s1);
@@ -1264,17 +1385,28 @@ function renderElementSide(e, occIdx) {
     const s = document.createElement("section");
     s.innerHTML = `<h3>On the drawings</h3>`;
     const st = makeStepper({ count: e.occurrences.length, index: occIdx, visited: visitSet("occ:" + e.id), label: (i) => `${e.occurrences[i].sheet} · ${e.occurrences[i].view}`,
-      onGo: (i) => { const o = e.occurrences[i]; src.scrollTo(o.page, o.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 }); } });
+      onGo: (i) => { const o = e.occurrences[i]; src.scrollTo(o.page, o.rect, frame(o.rect)); } });
     s.appendChild(st.el);
     side.appendChild(s);
   }
   const s2 = document.createElement("section");
   s2.innerHTML = `<h3>Linked calcs (${links.length})</h3>`;
   if (e.refs?.length) {
-    s2.appendChild(linkCard({ key: "ref:" + e.id, title: `Detail sheet ${e.refs[0].sheet}`, sub: e.refs[0].title, stops: refStops(D, e), chipText: "callout",
+    const r = e.refs[0];
+    s2.appendChild(linkCard({ key: "ref:" + e.id, title: r.detail ? `Detail view ${e.fields.detail}/${r.sheet}` : `Detail sheet ${r.sheet}`, sub: r.title, stops: refStops(D, e), chipText: r.detail ? "detail view" : "sheet",
       label: (s) => stopLabel(D, s).short, opensIn: "Opens in this window" }));
   }
-  if (!links.some((l) => l.role === "design")) s2.insertAdjacentHTML("beforeend", `<div class="flag">No design calc found for this element. ${e.type === "callout" ? "No calc names this detail." : "No calc in the packages sizes this member on this level."} Flagged for review.</div>`);
+  if (e.type === "detail") {
+    const from = (D.refBy[e.id] || []).flatMap((c) => c.occurrences.map((o, k) => ({ ...o, c, k })));
+    const s = document.createElement("section");
+    s.innerHTML = `<h3>Called out from (${from.length})</h3>${from.length ? "" : `<div class="empty">No callout on the drawings points at this view.</div>`}`;
+    if (from.length) s.appendChild(makeStepper({ count: from.length, visited: visitSet("from:" + e.id), label: (i) => `${from[i].sheet} · ${from[i].view || "notes"}`,
+      onGo: (i) => { const o = from[i]; src.scrollTo(o.page, o.rect, frame(o.rect)); setTimeout(() => flash(src.nodes("items").filter((n) => n.dataset.id === o.c.id && +n.dataset.occ === o.k)), 60); } }).el);
+    side.appendChild(s);
+  }
+  if (!links.some((l) => l.role === "design")) s2.insertAdjacentHTML("beforeend", isMember(e)
+    ? `<div class="flag">No design calc found for this element. No calc in the packages sizes this ${esc(e.type)} on this level. Flagged for review.</div>`
+    : `<div class="empty">No calc names this detail – typical details usually aren't calculated.</div>`);
   for (const l of links) {
     const c = D.calc[l.calc];
     s2.appendChild(linkCard({

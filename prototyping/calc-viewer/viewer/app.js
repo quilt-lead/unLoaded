@@ -2,7 +2,7 @@
 // Left: page list. Centre: this window's PDF with clickable items. Right: sidebar for the selected item.
 // Following a link opens the *other* viewer (reusing it if it's already open) at the linked bounding box;
 // arriving here from the other viewer draws that box on this window's PDF.
-import { loadData, linksForElement, bestBand, bestDesign, sourceName, calcStops, drawingStops, refStops, stopLabel, pageLabel, pct, esc } from "./data.js";
+import { loadData, linksForElement, bestBand, bestDesign, sourceName, calcStops, drawingStops, refStops, stopLabel, pageLabel, pct, esc, frameOpts, isMember, LEVELS } from "./data.js";
 import { PdfPane } from "./pdfpane.js";
 import { makeStepper } from "./stepper.js";
 import { buildPageNav } from "./pagenav.js";
@@ -20,7 +20,22 @@ catch (e) { side.innerHTML = `<section><div class="flag">Could not load data: ${
 $("#built").textContent = `data built ${D.meta.builtAt.replace("T", " ")} · matcher ${D.meta.matcher}`;
 
 const src = new PdfPane($("#src .pages"), { onPage: () => srcBar() });
-const state = { srcDoc: mode === "drawings" ? "plans" : "calcs", sel: null, arrival: null, params: {} };
+const state = { srcDoc: mode === "drawings" ? "plans" : "calcs", sel: null, arrival: null, params: {}, filter: { kind: "all", level: "" } };
+const frame = (rect) => frameOpts(rect, src.scroller.clientHeight);
+// drawing filter: which elements get boxes (dense sheets get busy with callouts and detail views)
+const KINDS = { all: "All elements", members: "Members only", foundations: "Foundations", callouts: "Callouts", details: "Detail views", review: "Needs review" };
+function passes(e, band, occ) {
+  const f = state.filter;
+  if (f.level && (occ.level || e.level) !== f.level) return false;
+  switch (f.kind) {
+    case "members": return isMember(e);
+    case "foundations": return ["footing", "grade-beam", "pile"].includes(e.type);
+    case "callouts": return e.type === "callout";
+    case "details": return e.type === "detail";
+    case "review": return isMember(e) && (band === "low" || band === "none");
+    default: return true;
+  }
+}
 const visited = new Map();
 const visitSet = (key) => (visited.has(key) ? visited.get(key) : visited.set(key, new Set()).get(key));
 const linkById = (id) => D.links.find((l) => l.id === id) || null;
@@ -61,17 +76,20 @@ function buildTabs() {
 function buildSrcBar() {
   const bar = $("#src .pane-bar");
   const doc = D.doc[state.srcDoc];
-  const scoped = new Set(D.elements.map((e) => e.sheet));
+  const memberSheets = new Set(D.meta.memberSheets || []);
   const opts = doc.pages.map((p) => {
-    const inScope = mode === "drawings" && scoped.has(p.label);
+    const inScope = mode === "drawings" && memberSheets.has(p.label);
     const text = mode === "drawings" ? `${p.label}${p.title ? " – " + p.title : ""}${inScope ? "  ●" : ""}` : `p. ${p.page}${p.label ? " · " + p.label : ""}`;
     return `<option value="${p.page}">${esc(text)}</option>`;
   }).join("");
   bar.innerHTML = `<button id="nav-toggle" title="Show / hide the page list">☰</button><span class="title">${esc(doc.title)}</span><span class="sub"></span><span class="grow"></span>
     <button data-act="back" title="Scroll back to the linked box" hidden>↺ Box</button>
+    ${mode === "drawings" ? `<select id="f-kind" title="Which elements to outline">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}"${k === state.filter.kind ? " selected" : ""}>${v}</option>`).join("")}</select>
+    <select id="f-level" title="Only elements on this level"><option value="">All levels</option>${LEVELS.map((l) => `<option${l === state.filter.level ? " selected" : ""}>${l}</option>`).join("")}</select>` : ""}
     <select id="src-jump" title="Go to page">${opts}</select>
     <button data-z="-1" title="Zoom out">−</button><button data-z="0" title="Fit width">Fit</button><button data-z="1" title="Zoom in">+</button>`;
   $("#src-jump").addEventListener("change", (e) => src.scrollTo(+e.target.value, [0, 0, 1, 0], { smooth: false, topMargin: 10 }));
+  for (const k of ["kind", "level"]) $("#f-" + k)?.addEventListener("change", (e) => { state.filter[k] = e.target.value; paintSource(); });
   bar.querySelectorAll("[data-z]").forEach((b) => b.addEventListener("click", () => {
     const z = +b.dataset.z;
     src.setZoom(z === 0 ? 1 : src.zoom * (z > 0 ? 1.4 : 1 / 1.4));
@@ -102,10 +120,10 @@ function paintSource() {
       const best = bestDesign(links);
       const tip = `${e.tag}${e.grid ? " · grid " + e.grid : ""} — ${best ? `design calc ${pct(best.confidence)} (${best.band})` : "no design calc found"}${links.length ? ` · ${links.length} link${links.length > 1 ? "s" : ""}` : ""}${e.refs?.length ? " · detail sheet " + e.refs[0].sheet : ""}`;
       e.occurrences.forEach((o, k) => {
-        if (o.doc !== state.srcDoc) return;
+        if (o.doc !== state.srcDoc || !passes(e, band, o)) return;
         items.push({
-          page: o.page, rect: o.rect, title: tip, attrs: { id: e.id, occ: k },
-          cls: `el b-${band}${e.type === "callout" ? " callout" : ""}`,
+          page: o.page, rect: o.hot || o.rect, title: e.type === "detail" ? `${e.tag} – ${e.fields.title} — ${tip.split(" — ")[1]}` : tip, attrs: { id: e.id, occ: k },
+          cls: `el b-${band}${e.type === "callout" ? " callout" : ""}${e.type === "detail" ? " detail" : ""}`,
           on: { click: (ev) => { ev.stopPropagation(); select({ kind: "element", id: e.id, occ: k }); } },
         });
       });
@@ -133,7 +151,11 @@ function paintSource() {
 
 function markSourceSelection() {
   const id = state.sel?.id;
-  if (mode === "drawings") src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.id === id));
+  if (mode === "drawings") {
+    src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.id === id));
+    const e = state.sel?.kind === "element" ? D.el[id] : null;
+    src.setLayer("region", e?.type === "detail" ? e.occurrences.filter((o) => o.doc === state.srcDoc).map((o) => ({ page: o.page, rect: o.rect, cls: "region" })) : []);
+  }
   else src.nodes("items").forEach((n) => n.classList.toggle("sel", n.dataset.calc === id));
   if (mode === "calcs") {
     const links = state.sel?.kind === "calc" ? D.linksByCalc[id] || [] : [];
@@ -193,7 +215,7 @@ function clearArrival() {
 
 function scrollToStop(stop) {
   const r0 = stop.regions[0];
-  if (docKind(stop.doc) === "drawings" && !r0.fullPage) src.scrollTo(r0.page, r0.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 });
+  if (docKind(stop.doc) === "drawings" && !r0.fullPage) src.scrollTo(r0.page, r0.rect, frame(r0.rect));
   else if (docKind(stop.doc) === "drawings") { src.setZoom(1, false); src.scrollTo(r0.page, r0.rect, { smooth: false, topMargin: 10 }); }
   else src.scrollTo(r0.page, r0.rect, { smooth: false, topMargin: 64 });
 }
@@ -244,7 +266,7 @@ async function showLinkHere(at) {
     const e = D.el[at.el];
     const o = e.occurrences[at.occ];
     await select({ kind: "element", id: e.id, occ: at.occ }, { fromNav: true });
-    src.scrollTo(o.page, o.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 });
+    src.scrollTo(o.page, o.rect, frame(o.rect));
     setTimeout(() => flash(src.nodes("items").filter((n) => n.dataset.id === e.id && +n.dataset.occ === at.occ)), 60);
   } else {
     const c = D.calc[at.calc];
@@ -273,7 +295,7 @@ async function showLinkHere(at) {
 
 // ------------------------------------------------------------------ following a link (to the other window)
 function follow(stop, link) {
-  if (stop.kind === "sheet") return show({ sheet: stop.sheet }); // a drawing sheet: stays in this window
+  if (stop.kind === "sheet") return stop.detail ? show({ el: stop.detail, occ: 0 }) : show({ sheet: stop.sheet }); // stays in this window
   const params = stop.kind === "calc"
     ? { calc: link.calc, span: stop.span, link: link.id }
     : { el: stop.elId, occ: stop.occ, link: link.id };
@@ -329,7 +351,7 @@ function linkCard({ key, title, sub, link, stops, label, chipText, opensIn }) {
       const here = docKind(where.doc) === (mode === "drawings" ? "drawings" : "calcs");
       if (!here) { openViewer(other, { doc: where.doc, page: where.page, rect: where.rect.join(","), link: link.id }); return; }
       if (where.doc !== state.srcDoc) await openSrcDoc(where.doc);
-      src.scrollTo(where.page, where.rect, docKind(where.doc) === "drawings" ? { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 } : { topMargin: 80 });
+      src.scrollTo(where.page, where.rect, docKind(where.doc) === "drawings" ? frame(where.rect) : { topMargin: 80 });
       setTimeout(() => {
         src.nodes("marks").concat(src.nodes("hits"), src.nodes("items"))
           .filter((n) => n.textContent === String(e.n) || n.title?.startsWith(where.text))
@@ -346,10 +368,11 @@ function renderSide() {
   if (!sel) {
     side.innerHTML = mode === "drawings"
       ? `<section><h2>Drawings → calcs</h2><p>Click any highlighted element on the drawing. The sidebar lists the calcs it links to. Following a link opens the <b>calc viewer</b> window at that calc's bounding box, or reuses it if it's already open.</p>
-         <p><span class="badge b-high">high</span> <span class="badge b-medium">medium</span> <span class="badge b-low">low</span> <span class="badge b-none">no calc</span> — box colour shows the best design link's confidence. Dashed circles are detail callouts.</p>
-         <p class="empty">In scope: ${[...new Set(D.elements.map((e) => e.sheet))].join(", ")} (marked ● in the sheet list).</p></section>`
+         <p><span class="badge b-high">high</span> <span class="badge b-medium">medium</span> <span class="badge b-low">low</span> <span class="badge b-none">no calc</span> — box colour shows the best design link's confidence. Dashed circles are detail callouts; a detail view is clickable on its title bar.</p>
+         <p>Use the <b>filter</b> above the drawing to show only members, foundations, callouts, detail views or what needs review, on one level.</p>
+         <p class="empty">Scope: callouts and detail views on all ${D.doc.plans.pages.length} S-sheets; members on ${(D.meta.memberSheets || []).join(", ")} (marked ● in the sheet list). ${D.elements.length} elements, ${D.links.length} links.</p></section>`
       : `<section><h2>Calcs → drawings</h2><p>Click a calc box on the page. The sidebar lists the drawn elements it designs. Following a link opens the <b>drawing viewer</b> window at that element, or reuses it if it's already open. Yellow marks are the text that supports a link.</p>
-         <p class="empty">Each calc PDF has its own tab above the page.</p></section>`;
+         <p class="empty">Each calc PDF has its own tab above the page. Every page belongs to a calc (${D.calcs.length} calcs); calcs with no drawing link say so.</p></section>`;
     return;
   }
   if (sel.kind === "element") renderElementSide(D.el[sel.id], sel.occ ?? 0);
@@ -361,7 +384,10 @@ function renderElementSide(e, occIdx) {
   const g = e.group ? D.group[e.group] : null;
   const s1 = document.createElement("section");
   s1.innerHTML = `<h3>${esc(e.type)}</h3><h2>${esc(e.tag)}</h2>
-    ${kv([["Grid", esc(e.grid)], ["Sheet", esc(e.sheet)], ["View", esc(e.view)], ["Level", esc(e.level)],
+    ${kv([["Grid", esc(e.grid)], ["Sheet", esc(e.sheet)], ["View", esc(e.view)], ["Level", esc(e.level)], ["System", esc(e.system)],
+      ["Floor", esc(e.fields.floor)], ["Mark", esc(e.fields.mark)],
+      ["Schedule", esc([e.fields.length && `${e.fields.length} × ${e.fields.width} × ${e.fields.thickness}`, e.fields.diameter && `Ø ${e.fields.diameter}, ${e.fields.depth} deep`,
+        e.fields.track && `track ${e.fields.track}`, e.fields.reinforcing].filter(Boolean).join(" · "))],
       ["IFC", e.ifc ? `<code>${esc(e.ifc.class)}${e.ifc.predefinedType ? "." + esc(e.ifc.predefinedType) : ""}</code>` : ""],
       ["Typical group", g && g.members.length > 1 ? `${esc(g.title)} · ${g.members.length} members` : ""], ["ID", `<code>${esc(e.id)}</code>`]])}`;
   side.appendChild(s1);
@@ -369,17 +395,28 @@ function renderElementSide(e, occIdx) {
     const s = document.createElement("section");
     s.innerHTML = `<h3>On the drawings</h3>`;
     const st = makeStepper({ count: e.occurrences.length, index: occIdx, visited: visitSet("occ:" + e.id), label: (i) => `${e.occurrences[i].sheet} · ${e.occurrences[i].view}`,
-      onGo: (i) => { const o = e.occurrences[i]; src.scrollTo(o.page, o.rect, { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: src.scroller.clientHeight * 0.4 }); } });
+      onGo: (i) => { const o = e.occurrences[i]; src.scrollTo(o.page, o.rect, frame(o.rect)); } });
     s.appendChild(st.el);
     side.appendChild(s);
   }
   const s2 = document.createElement("section");
   s2.innerHTML = `<h3>Linked calcs (${links.length})</h3>`;
   if (e.refs?.length) {
-    s2.appendChild(linkCard({ key: "ref:" + e.id, title: `Detail sheet ${e.refs[0].sheet}`, sub: e.refs[0].title, stops: refStops(D, e), chipText: "callout",
+    const r = e.refs[0];
+    s2.appendChild(linkCard({ key: "ref:" + e.id, title: r.detail ? `Detail view ${e.fields.detail}/${r.sheet}` : `Detail sheet ${r.sheet}`, sub: r.title, stops: refStops(D, e), chipText: r.detail ? "detail view" : "sheet",
       label: (s) => stopLabel(D, s).short, opensIn: "Opens in this window" }));
   }
-  if (!links.some((l) => l.role === "design")) s2.insertAdjacentHTML("beforeend", `<div class="flag">No design calc found for this element. ${e.type === "callout" ? "No calc names this detail." : "No calc in the packages sizes this member on this level."} Flagged for review.</div>`);
+  if (e.type === "detail") {
+    const from = (D.refBy[e.id] || []).flatMap((c) => c.occurrences.map((o, k) => ({ ...o, c, k })));
+    const s = document.createElement("section");
+    s.innerHTML = `<h3>Called out from (${from.length})</h3>${from.length ? "" : `<div class="empty">No callout on the drawings points at this view.</div>`}`;
+    if (from.length) s.appendChild(makeStepper({ count: from.length, visited: visitSet("from:" + e.id), label: (i) => `${from[i].sheet} · ${from[i].view || "notes"}`,
+      onGo: (i) => { const o = from[i]; src.scrollTo(o.page, o.rect, frame(o.rect)); setTimeout(() => flash(src.nodes("items").filter((n) => n.dataset.id === o.c.id && +n.dataset.occ === o.k)), 60); } }).el);
+    side.appendChild(s);
+  }
+  if (!links.some((l) => l.role === "design")) s2.insertAdjacentHTML("beforeend", isMember(e)
+    ? `<div class="flag">No design calc found for this element. No calc in the packages sizes this ${esc(e.type)} on this level. Flagged for review.</div>`
+    : `<div class="empty">No calc names this detail – typical details usually aren't calculated.</div>`);
   for (const l of links) {
     const c = D.calc[l.calc];
     s2.appendChild(linkCard({

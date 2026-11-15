@@ -207,9 +207,10 @@ def find_views(page, sheet):
         bar = union([x["bbox"] for x in title_lines] + [n["bbox"]])
         views.append({"num": n["text"], "title": re.sub(r"\s+", " ", title).strip(), "bar": bar,
                       "right": n["bbox"][2] + 14, "bottom": bar[3] + 8, "tleft": bar[0], "ttop": bar[1]})
-    # regions: left bound = the right edge of the nearest view in the same row; top = the bottom of the view above
+    # regions: left bound = the right edge of the nearest view to the left that reaches down to this view's title bar
+    # (same row, or a taller view beside it); top = the bottom of the view above
     for v in views:
-        lefts = [o["right"] for o in views if o is not v and o["right"] <= v["tleft"] + 5 and abs(o["bottom"] - v["bottom"]) < 60]
+        lefts = [o["right"] for o in views if o is not v and o["right"] <= v["tleft"] + 5 and o["bottom"] >= v["ttop"] - 20]
         v["left"] = max(lefts) if lefts else 40
     for v in views:
         span = v["right"] - v["left"]
@@ -652,7 +653,9 @@ def build_groups(elements):
     by = defaultdict(list)
     for e in elements:
         if e["type"] in MEMBER_TYPES:
-            by[(e["level"], e["type"], e["fields"]["size"].upper())].append(e)
+            # studs group by schedule mark: H1 headers and the typical stud ST-1 share a section but not a design
+            key = f'{e["fields"]["mark"]} {e["fields"]["size"].upper()}' if e["type"] == "stud" else e["fields"]["size"].upper()
+            by[(e["level"], e["type"], key)].append(e)
     groups = []
     for (level, t, size), members in sorted(by.items()):
         gid = f"group/{slug(level)}/{t}/{size}"
@@ -1083,7 +1086,7 @@ def build_links(elements, groups, calcs_list, pdfs):
         size = g["size"].upper()
         floors = sorted({els[m]["fields"].get("floor") for m in g["members"] if els[m]["fields"].get("floor")})
         fl = f" ({' & '.join(floors)})" if floors else ""
-        if g["type"] == "beam":
+        if g["type"] in ("beam", "column"):
             sh = hits_in(P, "calcs", smfc, size, limit=20)
             ev = [evidence(1, "system-match", 0.3, first_occ(rep), None,
                            "Element is drawn on the SMF elevations (S3.0.1); calc is the RISA-3D SMF member code check")]
@@ -1091,8 +1094,8 @@ def build_links(elements, groups, calcs_list, pdfs):
             if sh:
                 ev.append(evidence(2, "size-match", 0.35, None, at(sh[0]), f"{size} is checked in the SMF member table ({len(sh)}×)"))
             else:
-                ev.append(evidence(2, "size-conflict", -0.1, None, None, f"Plan shows {size}{fl}; calc checks {', '.join(calc_beams)}"))
-                cav.append(f"Size mismatch: S3.0.1 shows {size}{fl}, the SMF code checks size the beams {', '.join(calc_beams)}. "
+                ev.append(evidence(2, "size-conflict", -0.1, None, None, f"Plan shows {size}{fl}; the SMF checks cover {', '.join(calc_beams)}"))
+                cav.append(f"Size mismatch: S3.0.1 shows {size}{fl}; the SMF code checks cover {', '.join(calc_beams)}. "
                            "The calc (May 2021) and the approved elevations disagree – check which governs.")
             sh2 = sh or hits_in(P, "calcs", smfc, "AISC 15TH", limit=1)
             links.append(make_link("group", g["id"], smfc, "design", ev, sh2, cav, "rules"))
@@ -1102,6 +1105,10 @@ def build_links(elements, groups, calcs_list, pdfs):
         cav = ["The drift check names its frames by the calc grid system (1.3, 2.5, 4, A, B, D); S3.0.1 draws the frames on plan grids 2, 5, E and B."]
         if dh:
             ev.append(evidence(2, "size-match", 0.35, None, at(dh[0]), f"Drift sheet note names {size}"))
+            placed = {"ROOF": "Roof", "FLOOR": "Level 2"}
+            m = re.search(rf"{size.replace('X', 'x')} @ (roof|floor)", drift_note, re.I)
+            if m and floors and placed[m.group(1).upper()] not in floors:
+                cav.append(f"Floor differs: the drift note puts {size} at the {m.group(1).lower()}; S3.0.1 draws it at {' & '.join(floors)}.")
         else:
             ev.append(evidence(2, "size-conflict", -0.1, None, None, f"Plan shows {size}{fl}; drift sheet note lists {drift_note}"))
             cav.append(f"Size mismatch: S3.0.1 {size}{fl} is not among the sizes the drift sheet lists ({drift_note}).")
@@ -1147,7 +1154,7 @@ def build_links(elements, groups, calcs_list, pdfs):
         if g["type"] != "stud":
             continue
         rep = els[g["members"][0]]
-        size = g["size"].upper()
+        size = rep["fields"]["size"].upper()
         marks = sorted({els[m]["fields"].get("mark", "") for m in g["members"]})
         if any(m.startswith("ST") for m in marks):
             sh = hits_in(P, "calcs", typ, size, limit=10)

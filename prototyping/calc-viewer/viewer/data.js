@@ -12,6 +12,9 @@ export async function loadData(base = "data/") {
   D.el = Object.fromEntries(D.elements.map((e) => [e.id, e]));
   D.group = Object.fromEntries(D.groups.map((g) => [g.id, g]));
   D.calc = Object.fromEntries(D.calcs.map((c) => [c.id, c]));
+  // callouts that point at each detail view (for "called out from" and the Connections tab)
+  D.refBy = {};
+  for (const e of D.elements) for (const r of e.refs || []) if (r.detail) (D.refBy[r.detail] ??= []).push(e);
   D.linksBySource = {};
   D.linksByCalc = {};
   for (const l of D.links) {
@@ -68,8 +71,21 @@ export function drawingStops(D, link) {
 
 /** Stops for "go to the detail sheet" on a callout. */
 export function refStops(D, el) {
-  return (el.refs || []).map((r) => ({ kind: "sheet", sheet: r.sheet, doc: r.doc, title: `${r.sheet} ${r.title || ""}`.trim(), regions: [{ page: r.page, rect: [0.005, 0.005, 0.995, 0.995], fullPage: true }] }));
+  // a callout points at its detail view's region when the view was found, otherwise at the whole sheet
+  return (el.refs || []).map((r) => ({ kind: "sheet", sheet: r.sheet, detail: r.detail || null, doc: r.doc,
+    title: r.detail ? `${D.el[r.detail]?.tag || r.sheet} – ${r.title || ""}` : `${r.sheet} ${r.title || ""}`.trim(),
+    regions: [r.rect ? { page: r.page, rect: r.rect } : { page: r.page, rect: [0.005, 0.005, 0.995, 0.995], fullPage: true }] }));
 }
+
+/** Scroll options that frame a drawing rect: small labels zoom in, whole views fit the pane. */
+export function frameOpts(rect, paneH) {
+  const w = rect[2] - rect[0];
+  return w > 0.12 ? { zoomFor: 0.94, maxZoom: 5, smooth: false, topMargin: 34 } : { zoomFor: 0.16, maxZoom: 5, smooth: false, topMargin: paneH * 0.4 };
+}
+
+/** Is an element a drawn member (vs. a callout or detail view)? */
+export const isMember = (e) => e.type !== "callout" && e.type !== "detail";
+export const LEVELS = ["Foundation", "Level 2", "Roof", "Elevation", "Details"];
 
 export function pageLabel(D, docId, page) {
   return D.doc[docId].pages[page - 1]?.label || null;

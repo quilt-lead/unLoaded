@@ -8,7 +8,14 @@ Links the Building 12 structural drawings to the calc packages that size them, w
 | `calcs.html` | Calc packages with clickable calc boxes and evidence marks → the drawn elements they cover |
 | `index.html` | Every element: **List** (filters, links both ways), **Hierarchy** (building → level → system → typical group), **Connections** (focus graph of real relationships) |
 
-First scope: roof framing plan **S2.0.3** and enlarged stair plan **S5.0.1**, with their detail callouts.
+Scope: **all 37 S-sheets** and **every page** of both calc PDFs.
+
+- Members on the plans and elevations: S2.0.1 foundation, S2.0.2 Level 2, S2.0.3 roof, S3.0.1 moment frames,
+  S4.0.1/S4.0.2 exterior walls, S5.0.1 stair, S5.0.2 elevator, S5.0.3 trellis.
+- Footings, grade beams and piles on the foundation plans, with sizes from the S2.0.1 schedules.
+- Detail callouts and **detail views** on every sheet. A detail view is clickable on its title bar and covers the area
+  above it; callouts point at that area.
+- 871 elements, 64 typical groups, 35 calcs, 145 links (43 high, 52 medium, 50 low). Every link has a hand-written summary.
 
 ## Double-click version (`viewers/`)
 
@@ -30,7 +37,7 @@ python prototyping/calc-viewer/build/build.py           # writes data/*.json and
 python prototyping/calc-viewer/build/serve.py           # http://127.0.0.1:8765/prototyping/calc-viewer/drawings.html
 ```
 
-`build.py --force` regenerates `docs/plans-S.pdf` (otherwise it's reused unless the plan set is newer).
+`build.py --force` regenerates `docs/plans-S.pdf` (otherwise it's reused unless the plan set is newer).  `--no-viewers` skips the `viewers/` refresh.
 The server serves the repo root so the pages can reach the source PDFs, binds to 127.0.0.1 only, and disables caching.
 
 ## Data (`data/`)
@@ -60,20 +67,84 @@ Each group carries the matching type object (`typeClass`, e.g. `IfcBeamType` nam
 | `stringer` | `IfcMember.STRINGER` | steel |
 | `post` | `IfcColumn.COLUMN` if "POST ABOVE", else `IfcMember.POST` (parapet) | steel |
 | `hss-member` | `IfcMember.MEMBER` | steel |
-| `callout` | `IfcAnnotation` (not a building element) | – |
+| `column` | `IfcColumn.COLUMN` (HSS on plans, vertical W labels on S3.0.1) | steel |
+| `stud` | `IfcMember.STUD` (schedule marks ST-1, J1, H1) | steel |
+| `footing` | `IfcFooting.PAD_FOOTING` | concrete |
+| `grade-beam` | `IfcFooting.FOOTING_BEAM` | concrete |
+| `pile` | `IfcPile.NOTDEFINED` | concrete |
+| `callout`, `detail` | `IfcAnnotation` (not a building element) | – |
 
 `ifc.objectType` is the section as drawn, `ifc.storey` the `IfcBuildingStorey` name (the level). No IFC file is
 written. These are the classes an exporter would use.
 
-## What the first run found
+## Extraction notes
+
+- **Views:** a title line (font ~19) with the view number (font ~25) to its right. The region runs up to the view above
+  and left to the nearest view that reaches down to this title bar. Members are assigned to the view they sit in, and
+  the level comes from the view title (FOUNDATION / LEVEL 2 / ROOF / ELEVATION).
+- **Labels:** S3.0.1 puts two labels in one text line (`٭W21x44٭W21x44`), so labels are split per character run.
+  Upper beams in each frame are the roof, lower ones Level 2 (`fields.floor`).
+- **Studs:** the elevations draw marks, not sizes. J1 and H1 marks get their section from the jamb and header schedules
+  beside the views. The typical stud ST-1 appears only in the stud schedule. Studs group by mark.
+- **Same member, two sheets:** an element with the same level, type, grid, orientation and size on another sheet
+  becomes a second occurrence, e.g. a roof beam on the enlarged elevator plan.
+- **Calcs** (PDF pages): A loads (3 roof, 4 floor, 5 balcony, 6 walls, 7–22 tsunami); B RISAFloor roof and Level 2,
+  79–97 gravity columns; C lateral (98–107 sketches, seismic loads and drift; 108–185 RISA-3D input and results;
+  185–186 SMF code checks); D RISAFoundation (187–200 model, 200–204 footing results, 205 beams); E studs (wind C&C,
+  CFS openings A and B, typical studs, high parapet, high canopy, HSS headers and jamb); stair package.
+  A `_break` region starts a new stepper stop, e.g. one per typical-stud case.
+
+## What the full run found
+
+- **P2.5 is a pile, not a pedestal.** The S2.0.1 pile schedule gives a 2'-6" diameter, 8'-3" deep. No calc in the
+  packages covers the piles.
+- **Footings (medium / low):** F4, F5 and F9 match RISAFoundation footing sizes. F4 is 18" thick on the schedule vs
+  24" in the calc; F9 is 30" vs 24"/36". F4.5 (6×4), F10 and F12 have no counterpart: the calc's footings are 4, 5 and
+  9 ft square (gravity) and 9, 11, 14 and 15 ft square (lateral). RISAFoundation names footings by joint
+  (R3D_N…, FLR_1_N…), so no footing links to a specific drawn footing.
+- **GB1 isn't designed:** every RISAFoundation beam and strip table prints "No Data to Print". It's linked as a
+  reference to show the gap.
+- **Moment frames (S3.0.1) don't match the calc:** only W24x94 is among the sections the RISA-3D SMF code checks cover
+  (W21X83, W24X84, W24X94, W27X114, W18X211/283/311). W21x44, W21x93, W18x158, W18x258 and W14x193 aren't. The drift
+  check puts W24x94 at the roof; S3.0.1 draws it at Level 2. The drift check names frames on the calc grid
+  (1.3, 2.5, 4, A, B, D), not the plan's 2, 5, E, B.
+- **Level 2 framing (low):** like the roof, it links to the RISAFloor Level 2 model by size and level only, because
+  the model's grids differ. The floor and balcony load sheets are headed **"Bldg 10"** – flagged on every Level 2 loads link.
+- **HSS columns (low):** RISAFloor truncates HSS names in the column code checks (`HSS6X6X2`…), so columns match on
+  nominal size only.
+- **Exterior walls:** callouts and detail views 1/S4.0.1 and 2/S4.0.2 link exactly to the CFS opening A / B calcs and
+  the ENERCALC headers and jamb. The HSS sizes labelled in those views (HSS6x6x1/4, HSS8x6x5/16, HSS14x6x5/8) aren't
+  the sizes the HSS calcs check, which is flagged on the detail-view links. J1 jambs ((2) 600S137-54) match opening B
+  but not opening A, which uses 600S250-54 jamb studs.
+- **Parapet calc sketch callout 17/S8.2.2** points at a view titled "WUF-W beam geometry" – worth checking.
+- **Unlinked calcs:** balcony loads, tsunami, RISA-3D input and results, lateral sketches, RISAFoundation model input,
+  high parapet (MEP well), high canopy beam. **Unlinked members:** wood (Level 2, roof, trellis), the W8x10 hoist beams,
+  elevator HSS10x6x1/2 columns, and the SMF columns' gravity checks (sizes differ).
+
+## What the first run found (S2.0.3 and S5.0.1 only)
 
 - **Detail callouts → stud calcs (high):** the E-section ENERCALC calcs name their sections (`HSS HDR(A) – 1/S4.0.1`), so the roof plan's section callouts link exactly.
 - **Stair (mostly high):** the stair calc sketches are drawn at the same grids and with the same `n/S8.8.1` callouts as S5.0.1. Size mismatches are flagged: plan MC18x42.7 and C12x20.7 (grid 5/A) vs calc C15x33.9.
 - **Roof gravity (low):** the 2021 RISAFloor roof model uses different grids (1–5 / A–E) and layout from the approved roof plan (1–6 / A–F). W16x26 and W18x35 link by size only; **W12x14, W14x22, W8x35, W12x79 have no roof sizing calc** in these packages.
 - **Unlinked:** wood trellis members, SMF callouts to S3.0.1, most S8.x detail callouts.
 
+## Pages
+
+- **Drawings:** an element filter (all / members / foundations / callouts / detail views / needs review) and a level
+  filter in the pane bar. The page list shows element and calc-link counts per sheet. A selected detail view outlines
+  its region and lists the callouts that point at it ("Called out from"). Following a callout's detail link selects the
+  view and zooms to fit it.
+- **Index:** sheet and system filters. The hierarchy is Foundation → Level 2 → Roof → Moment frames → Exterior walls →
+  Details & callouts, then system, then typical group. Callouts and detail views never mark a node as needing review.
+  Connections includes detail views: the callouts that point at a view, the members drawn in it, and its calcs.
+
+Tested with headless Chrome over CDP and real mouse clicks, served and from disk (27 checks each): new window, reuse,
+tab switch, 1-of-1 reopen, page list, filters, callout → detail view, calc → drawings, and the List, Hierarchy and
+Connections tabs.
+
 ## Next
 
-- Extend `SCOPE_SHEETS` in `build.py` to the other S-sheets (mostly matcher work, not viewer work).
+- The UI should move to React + TypeScript (see `mission.md`); this prototype is still plain JS modules.
+- Link the remaining calcs (high canopy, high parapet, balcony) by keyword in detail-view titles, with low confidence.
 - Load-path edges (beam → girder → column → footing) for the Connections tab.
 - Revision diffs on top of the IDs, field fingerprints and span text hashes.

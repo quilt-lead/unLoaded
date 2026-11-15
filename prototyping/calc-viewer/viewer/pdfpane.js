@@ -50,6 +50,70 @@ export class PdfPane {
       // a resize right after a jump (e.g. the pane just opened) must not lose that jump
       if (t && Date.now() - t.at <= 2500) this.scrollTo(t.page, t.rect, { ...t.opts, smooth: false });
     }).observe(scroller);
+    this._bindGestures();
+  }
+
+  /** Pinch to zoom: touchscreen (two fingers), trackpad pinch / ctrl+wheel, and Safari gesture events. */
+  _bindGestures() {
+    const sc = this.scroller;
+    sc.style.touchAction = "pan-x pan-y"; // browser keeps one-finger panning; we own pinch
+    const local = (x, y) => { const r = sc.getBoundingClientRect(); return [x - r.left, y - r.top]; };
+
+    // trackpad pinch arrives as ctrl+wheel in Chromium/Firefox; also ctrl+mouse wheel
+    sc.addEventListener("wheel", (e) => {
+      if (!e.ctrlKey || !this.pdf) return;
+      e.preventDefault();
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      this.setZoomAt(this.zoom * Math.exp(-dy * 0.01), ...local(e.clientX, e.clientY));
+    }, { passive: false });
+
+    // touchscreen two-finger pinch (pans with the midpoint too)
+    let pinch = null;
+    const two = (e) => {
+      const [a, b] = e.touches;
+      return { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    };
+    sc.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 2 || !this.pdf) return;
+      const t = two(e);
+      pinch = { d: t.d, zoom: this.zoom, x: t.x, y: t.y };
+    }, { passive: true });
+    sc.addEventListener("touchmove", (e) => {
+      if (!pinch || e.touches.length !== 2) return;
+      e.preventDefault();
+      const t = two(e);
+      sc.scrollLeft -= t.x - pinch.x;
+      sc.scrollTop -= t.y - pinch.y;
+      pinch.x = t.x; pinch.y = t.y;
+      this.setZoomAt(pinch.zoom * (t.d / Math.max(1, pinch.d)), ...local(t.x, t.y));
+    }, { passive: false });
+    const end = (e) => { if (pinch && e.touches.length < 2) pinch = null; };
+    sc.addEventListener("touchend", end);
+    sc.addEventListener("touchcancel", end);
+
+    // Safari (macOS trackpad) sends proprietary gesture events instead of ctrl+wheel
+    let g0 = 1;
+    sc.addEventListener("gesturestart", (e) => { e.preventDefault(); g0 = this.zoom; });
+    sc.addEventListener("gesturechange", (e) => { e.preventDefault(); this.setZoomAt(g0 * e.scale, ...local(e.clientX, e.clientY)); });
+    sc.addEventListener("gestureend", (e) => e.preventDefault());
+  }
+
+  /** Zoom keeping the content under (px, py) — pane-local coords — fixed. Re-renders once the gesture settles. */
+  setZoomAt(z, px, py) {
+    z = Math.min(8, Math.max(0.25, z));
+    if (!this.pdf || Math.abs(z - this.zoom) < 1e-3) return;
+    const sc = this.scroller;
+    const cy = sc.scrollTop + py, cx = sc.scrollLeft + px;
+    let d = this.pageEls[0];
+    for (const p of this.pageEls) { if (p.offsetTop <= cy) d = p; else break; }
+    const fx = (cx - d.offsetLeft) / d.offsetWidth, fy = (cy - d.offsetTop) / d.offsetHeight;
+    this.zoom = z;
+    this._target = null;
+    this._layout(false, true); // resize boxes now; existing canvases stretch until re-rendered
+    sc.scrollLeft = d.offsetLeft + fx * d.offsetWidth - px;
+    sc.scrollTop = d.offsetTop + fy * d.offsetHeight - py;
+    clearTimeout(this._rerender);
+    this._rerender = setTimeout(() => { for (const i of this.visible) this._render(i); }, 160);
   }
 
   async open(url, docId) {
@@ -84,7 +148,7 @@ export class PdfPane {
   get fitScale() { return Math.max(0.05, (this.scroller.clientWidth - 28) / this.refWidth); }
   get scale() { return this.fitScale * this.zoom; }
 
-  _layout(keepPosition) {
+  _layout(keepPosition, deferRender = false) {
     const anchor = keepPosition ? this._anchor() : null;
     this.pageEls.forEach((d, i) => {
       const [w, h] = this.sizes[i];
@@ -94,7 +158,7 @@ export class PdfPane {
       d.style.height = `${h * s}px`;
       d.dataset.scale = s;
     });
-    for (const i of this.visible) this._render(i);
+    if (!deferRender) for (const i of this.visible) this._render(i);
     if (anchor) this._restore(anchor);
   }
 

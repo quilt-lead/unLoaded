@@ -13,6 +13,8 @@ const store = {
  *  drawings: {page, el, occ, link?}   calcs: {page, calc, span, link?} */
 function linksByPage(D, mode, docId) {
   const pages = new Map();
+  const els = new Map(); // page -> element count (drawings)
+  pages.els = els;
   const add = (p, row, key) => {
     const list = pages.get(p) || (pages.set(p, []), pages.get(p));
     if (!list.some((r) => r.key === key)) list.push({ ...row, key });
@@ -24,9 +26,10 @@ function linksByPage(D, mode, docId) {
       e.occurrences.forEach((o, occ) => {
         if (o.doc !== docId) return;
         const at = { page: o.page, el: e.id, occ };
-        for (const r of e.refs || []) add(o.page, { band: "none", from, to: `→ Detail sheet ${r.sheet}`, pct: "", at: { ...at, ref: r.sheet } }, `${e.id}|${occ}|ref|${r.sheet}`);
+        els.set(o.page, (els.get(o.page) || 0) + 1);
+        for (const r of e.refs || []) add(o.page, { band: "none", from, to: r.detail ? `→ Detail ${e.fields.detail}/${r.sheet} ${r.title || ""}` : `→ Detail sheet ${r.sheet}`, pct: "", ref: true, at: { ...at, ref: r.sheet } }, `${e.id}|${occ}|ref|${r.sheet}`);
         for (const l of links) add(o.page, { band: l.band, from, to: `→ ${D.calc[l.calc].title} (${l.role})`, pct: pct(l.confidence), at: { ...at, link: l.id } }, `${e.id}|${occ}|${l.id}`);
-        if (!links.length && !(e.refs || []).length) add(o.page, { band: "none", from, to: "→ no calc found", pct: "", none: true, at }, `${e.id}|${occ}|none`);
+        if (!links.length && !(e.refs || []).length && e.type !== "detail") add(o.page, { band: "none", from, to: "→ no calc found", pct: "", none: true, at }, `${e.id}|${occ}|none`);
       });
     }
   } else {
@@ -48,10 +51,12 @@ export function buildPageNav(host, D, mode, docId, { goToPage, showLink, app, to
   const doc = D.doc[docId];
   const byPage = linksByPage(D, mode, docId);
   const onlyLinked = store.get("nav.onlyLinked", mode === "calcs");
-  const total = [...byPage.values()].reduce((n, l) => n + l.filter((r) => !r.none).length, 0);
+  // calc links only: callout -> detail-view rows are navigation, not calc links
+  const nLinks = (rows) => rows.filter((r) => !r.none && !r.ref).length;
+  const total = [...byPage.values()].reduce((n, l) => n + nLinks(l), 0);
 
   host.innerHTML = `
-    <div class="nav-head"><b>Pages</b><span class="empty" style="font-size:12px">${doc.pages.length} pages · ${total} links</span>
+    <div class="nav-head"><b>Pages</b><span class="empty" style="font-size:12px" title="${mode === "drawings" ? "grey count = elements, outlined = calc links" : ""}">${doc.pages.length} pages · ${total} calc links</span>
       <button class="tool" data-act="hide" title="Collapse the page list">«</button></div>
     <div class="nav-tools"><button data-act="expand">Expand all</button><button data-act="collapse">Collapse all</button>
       <label><input type="checkbox" data-act="only" ${onlyLinked ? "checked" : ""}> with links only</label></div>
@@ -64,10 +69,12 @@ export function buildPageNav(host, D, mode, docId, { goToPage, showLink, app, to
       if (only && !rows.length) return "";
       const label = mode === "drawings" ? p.label || `p. ${p.page}` : `p. ${p.page}`;
       const title = mode === "drawings" ? p.title || "" : p.label ? `Sheet ${p.label}` : "";
-      const n = rows.filter((r) => !r.none).length;
+      const n = nLinks(rows);
+      const ne = byPage.els.get(p.page) || 0;
+      const counts = `${mode === "drawings" && ne ? `<span class="cnt el-cnt" title="${ne} elements on this page">${ne}</span>` : ""}${n ? `<span class="cnt" title="${n} calc links">${n}</span>` : ""}`;
       const items = rows.map((r, i) => `<li class="${r.none ? "none" : ""}" data-i="${i}" title="Show this on the page"><span class="dot b-${r.band}"></span><span class="txt"><span class="from">${esc(r.from)}</span><span class="to" title="${esc(r.to)}">${esc(r.to)}</span></span><span class="pct">${r.pct}</span></li>`).join("");
       return `<details class="pg-item${rows.length ? "" : " empty-page"}" data-page="${p.page}">
-        <summary title="Go to ${esc(label)}"><span class="caret" title="Show / hide links"></span><span class="pgl">${esc(label)}</span><span class="pgt">${esc(title)}</span>${rows.length ? `<span class="cnt">${n}</span>` : ""}</summary>
+        <summary title="Go to ${esc(label)}"><span class="caret" title="Show / hide links"></span><span class="pgl">${esc(label)}</span><span class="pgt">${esc(title)}</span>${counts}</summary>
         ${rows.length ? `<ul class="pg-links">${items}</ul>` : ""}</details>`;
     }).join("") || `<div class="empty" style="padding:12px">No pages with links.</div>`;
     setCurrent(current, false);

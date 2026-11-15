@@ -90,7 +90,9 @@ button { font: inherit; color: inherit; }
 .pg-links li.none .from { color: var(--muted); font-weight: 500; }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pdf-bg); }
 .pane-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); min-height: 40px; }
-.pane-bar .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-bar .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; }
+.pane-bar button { white-space: nowrap; flex: none; }
+.pane-bar select { min-width: 0; flex: 0 1 auto; max-width: 300px; text-overflow: ellipsis; }
 .pane-bar .sub { color: var(--muted); white-space: nowrap; }
 .pane-bar .grow { flex: 1; }
 .pane-bar select, .pane-bar button, .tool { background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
@@ -111,6 +113,12 @@ button { font: inherit; color: inherit; }
 .ov.el:hover, .ov.el.hover { outline: 2px solid var(--c); outline-offset: 1px; }
 .ov.el.callout { border-style: dashed; border-radius: 50%; }
 .ov.el.sel { outline: 3px solid var(--accent); outline-offset: 2px; background: var(--accent-soft); z-index: 3; }
+/* detail views: only the title bar is clickable, so members inside the view stay clickable */
+.ov.el.detail { border-width: 1px; border-style: solid; background: transparent; border-radius: 3px; }
+.ov.el.detail.b-none { border-color: #9aa5b8; }
+.ov.el.detail:hover { background: var(--cs, rgba(43, 89, 195, .06)); }
+.ov.region { border: 2px dashed var(--accent); background: rgba(43, 89, 195, .04); pointer-events: none; z-index: 1; }
+.pg-item .cnt.el-cnt { background: transparent; border-color: transparent; }
 .b-high { --c: var(--high); --cs: var(--high-soft); }
 .b-medium { --c: var(--medium); --cs: var(--medium-soft); }
 .b-low { --c: var(--low); --cs: var(--low-soft); }

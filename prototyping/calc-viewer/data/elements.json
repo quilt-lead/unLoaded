@@ -1,6 +1,6 @@
 {
  "meta": {
-  "builtAt": "2026-11-14T18:10:46",
+  "builtAt": "2026-11-14T18:25:23",
   "matcher": "0.2.0",
   "scope": [
    "S0.0.1",
@@ -20957,7 +20957,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/ST-1 600S162-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21231,7 +21231,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21280,7 +21280,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21329,7 +21329,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21468,7 +21468,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21517,7 +21517,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.1",
@@ -21566,7 +21566,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22110,7 +22110,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22159,7 +22159,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22208,7 +22208,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22302,7 +22302,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22396,7 +22396,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22445,7 +22445,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22494,7 +22494,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22543,7 +22543,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22592,7 +22592,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S162-54"
+   "group": "group/elevation/stud/H1 600S162-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22641,7 +22641,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22690,7 +22690,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22739,7 +22739,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22788,7 +22788,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22837,7 +22837,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22886,7 +22886,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22935,7 +22935,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -22984,7 +22984,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -23033,7 +23033,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -23082,7 +23082,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -23131,7 +23131,7 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
   },
   {
    "sheet": "S4.0.2",
@@ -23180,7 +23180,97 @@
    },
    "system": "Exterior walls",
    "zone": "Exterior walls",
-   "group": "group/elevation/stud/600S137-54"
+   "group": "group/elevation/stud/J1 600S137-54"
+  },
+  {
+   "sheet": "S5.0.1",
+   "level": "Foundation",
+   "view": "Enlarged Stair Foundation Plan",
+   "viewRef": "3/S5.0.1",
+   "type": "stringer",
+   "tag": "C12x20.7 STRINGER (BENT)",
+   "fields": {
+    "size": "C12x20.7",
+    "orientation": "v",
+    "grid": "E(ext)/6(ext)",
+    "note": "STRINGER (BENT)",
+    "nearbyText": "STRINGER (BENT)"
+   },
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 18,
+     "sheet": "S5.0.1",
+     "view": "Enlarged Stair Foundation Plan",
+     "level": "Foundation",
+     "rect": [
+      0.3419,
+      0.661,
+      0.347,
+      0.6826
+     ],
+     "text": "C12x20.7"
+    }
+   ],
+   "id": "foundation/stringer/E(ext)@6(ext)/v",
+   "grid": "E(ext)/6(ext)",
+   "fingerprint": "0b85e37b194bf6d3",
+   "ifc": {
+    "class": "IfcMember",
+    "predefinedType": "STRINGER",
+    "material": "steel",
+    "objectType": "C12x20.7",
+    "storey": "Foundation",
+    "typeClass": "IfcMemberType"
+   },
+   "system": "Stair framing",
+   "zone": "Foundation",
+   "group": "group/foundation/stringer/C12X20.7"
+  },
+  {
+   "sheet": "S5.0.1",
+   "level": "Foundation",
+   "view": "Enlarged Stair Foundation Plan",
+   "viewRef": "3/S5.0.1",
+   "type": "stringer",
+   "tag": "C12x20.7 STRINGER (BENT)",
+   "fields": {
+    "size": "C12x20.7",
+    "orientation": "v",
+    "grid": "E/6(ext)",
+    "note": "STRINGER (BENT)",
+    "nearbyText": ""
+   },
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 18,
+     "sheet": "S5.0.1",
+     "view": "Enlarged Stair Foundation Plan",
+     "level": "Foundation",
+     "rect": [
+      0.3172,
+      0.6849,
+      0.3223,
+      0.7066
+     ],
+     "text": "C12x20.7 STRINGER (BENT)"
+    }
+   ],
+   "id": "foundation/stringer/E@6(ext)/v",
+   "grid": "E/6(ext)",
+   "fingerprint": "ae9a89b68eeb2fca",
+   "ifc": {
+    "class": "IfcMember",
+    "predefinedType": "STRINGER",
+    "material": "steel",
+    "objectType": "C12x20.7",
+    "storey": "Foundation",
+    "typeClass": "IfcMemberType"
+   },
+   "system": "Stair framing",
+   "zone": "Foundation",
+   "group": "group/foundation/stringer/C12X20.7"
   },
   {
    "sheet": "S5.0.1",
@@ -23192,7 +23282,7 @@
    "fields": {
     "size": "HSS4x4x1/4",
     "orientation": "h",
-    "grid": "?",
+    "grid": "E(ext)/6(ext)",
     "note": "",
     "nearbyText": ""
    },
@@ -23212,9 +23302,9 @@
      "text": "HSS4x4x1/4"
     }
    ],
-   "id": "foundation/column/?/h",
-   "grid": "?",
-   "fingerprint": "08cdeb24435dc6d0",
+   "id": "foundation/column/E(ext)@6(ext)/h",
+   "grid": "E(ext)/6(ext)",
+   "fingerprint": "d64de5a9e5265e6c",
    "ifc": {
     "class": "IfcColumn",
     "predefinedType": "COLUMN",
@@ -23237,7 +23327,7 @@
    "fields": {
     "size": "HSS4x4x1/4",
     "orientation": "h",
-    "grid": "?",
+    "grid": "E(ext)/6(ext)",
     "note": "",
     "nearbyText": ""
    },
@@ -23257,9 +23347,9 @@
      "text": "HSS4x4x1/4"
     }
    ],
-   "id": "foundation/column/?/h#2",
-   "grid": "?",
-   "fingerprint": "08cdeb24435dc6d0",
+   "id": "foundation/column/E(ext)@6(ext)/h#2",
+   "grid": "E(ext)/6(ext)",
+   "fingerprint": "d64de5a9e5265e6c",
    "ifc": {
     "class": "IfcColumn",
     "predefinedType": "COLUMN",
@@ -23732,7 +23822,7 @@
    "fields": {
     "size": "C12x20.7",
     "orientation": "h",
-    "grid": "A–E/5–4",
+    "grid": "A(ext)/5–4",
     "note": "STRINGER (BENT)",
     "nearbyText": "C8x11.5"
    },
@@ -23752,9 +23842,9 @@
      "text": "C12x20.7 STRINGER (BENT)"
     }
    ],
-   "id": "level-2/stringer/A–E@5–4/h",
-   "grid": "A–E/5–4",
-   "fingerprint": "9c72d0e5b13cc44e",
+   "id": "level-2/stringer/A(ext)@5–4/h",
+   "grid": "A(ext)/5–4",
+   "fingerprint": "de8839257aa69ab6",
    "ifc": {
     "class": "IfcMember",
     "predefinedType": "STRINGER",
@@ -23777,7 +23867,7 @@
    "fields": {
     "size": "C8x11.5",
     "orientation": "v",
-    "grid": "A–E/5–4",
+    "grid": "A(ext)/5–4",
     "note": "",
     "nearbyText": ""
    },
@@ -23797,9 +23887,9 @@
      "text": "C8x11.5"
     }
    ],
-   "id": "level-2/beam/A–E@5–4/v",
-   "grid": "A–E/5–4",
-   "fingerprint": "007d9ec04da4b20d",
+   "id": "level-2/beam/A(ext)@5–4/v",
+   "grid": "A(ext)/5–4",
+   "fingerprint": "5c153560bcb980cc",
    "ifc": {
     "class": "IfcBeam",
     "predefinedType": "BEAM",
@@ -23822,7 +23912,7 @@
    "fields": {
     "size": "C8x11.5",
     "orientation": "v",
-    "grid": "A–E/5–4",
+    "grid": "A(ext)/5–4",
     "note": "",
     "nearbyText": ""
    },
@@ -23842,9 +23932,9 @@
      "text": "C8x11.5"
     }
    ],
-   "id": "level-2/beam/A–E@5–4/v#2",
-   "grid": "A–E/5–4",
-   "fingerprint": "007d9ec04da4b20d",
+   "id": "level-2/beam/A(ext)@5–4/v#2",
+   "grid": "A(ext)/5–4",
+   "fingerprint": "5c153560bcb980cc",
    "ifc": {
     "class": "IfcBeam",
     "predefinedType": "BEAM",
@@ -23867,7 +23957,7 @@
    "fields": {
     "size": "C12x20.7",
     "orientation": "h",
-    "grid": "A–E/5–4",
+    "grid": "A(ext)/5–4",
     "note": "STRINGER (BENT)",
     "nearbyText": "Wx BM PER PLAN S8.8.1"
    },
@@ -23887,99 +23977,9 @@
      "text": "C12x20.7 STRINGER (BENT)"
     }
    ],
-   "id": "level-2/stringer/A–E@5–4/h#2",
-   "grid": "A–E/5–4",
-   "fingerprint": "9c72d0e5b13cc44e",
-   "ifc": {
-    "class": "IfcMember",
-    "predefinedType": "STRINGER",
-    "material": "steel",
-    "objectType": "C12x20.7",
-    "storey": "Level 2",
-    "typeClass": "IfcMemberType"
-   },
-   "system": "Stair framing",
-   "zone": "Level 2",
-   "group": "group/level-2/stringer/C12X20.7"
-  },
-  {
-   "sheet": "S5.0.1",
-   "level": "Level 2",
-   "view": "Enlarged Stair Framing Plan - Level 2",
-   "viewRef": "2/S5.0.1",
-   "type": "stringer",
-   "tag": "C12x20.7 STRINGER (BENT)",
-   "fields": {
-    "size": "C12x20.7",
-    "orientation": "v",
-    "grid": "A–E/6(ext)",
-    "note": "STRINGER (BENT)",
-    "nearbyText": "STRINGER (BENT)"
-   },
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 18,
-     "sheet": "S5.0.1",
-     "view": "Enlarged Stair Framing Plan - Level 2",
-     "level": "Level 2",
-     "rect": [
-      0.3419,
-      0.661,
-      0.347,
-      0.6826
-     ],
-     "text": "C12x20.7"
-    }
-   ],
-   "id": "level-2/stringer/A–E@6(ext)/v",
-   "grid": "A–E/6(ext)",
-   "fingerprint": "daffc60105878c20",
-   "ifc": {
-    "class": "IfcMember",
-    "predefinedType": "STRINGER",
-    "material": "steel",
-    "objectType": "C12x20.7",
-    "storey": "Level 2",
-    "typeClass": "IfcMemberType"
-   },
-   "system": "Stair framing",
-   "zone": "Level 2",
-   "group": "group/level-2/stringer/C12X20.7"
-  },
-  {
-   "sheet": "S5.0.1",
-   "level": "Level 2",
-   "view": "Enlarged Stair Framing Plan - Level 2",
-   "viewRef": "2/S5.0.1",
-   "type": "stringer",
-   "tag": "C12x20.7 STRINGER (BENT)",
-   "fields": {
-    "size": "C12x20.7",
-    "orientation": "v",
-    "grid": "E/6(ext)",
-    "note": "STRINGER (BENT)",
-    "nearbyText": ""
-   },
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 18,
-     "sheet": "S5.0.1",
-     "view": "Enlarged Stair Framing Plan - Level 2",
-     "level": "Level 2",
-     "rect": [
-      0.3172,
-      0.6849,
-      0.3223,
-      0.7066
-     ],
-     "text": "C12x20.7 STRINGER (BENT)"
-    }
-   ],
-   "id": "level-2/stringer/E@6(ext)/v",
-   "grid": "E/6(ext)",
-   "fingerprint": "0106cab7f9a11001",
+   "id": "level-2/stringer/A(ext)@5–4/h#2",
+   "grid": "A(ext)/5–4",
+   "fingerprint": "de8839257aa69ab6",
    "ifc": {
     "class": "IfcMember",
     "predefinedType": "STRINGER",
@@ -27912,8 +27912,8 @@
      "view": "Enlarged Stair Framing Plan - Level 2",
      "level": "Details",
      "rect": [
-      0.0132,
-      0.5001,
+      0.5544,
+      0.0185,
       0.8997,
       0.7417
      ],
@@ -27961,7 +27961,7 @@
      "level": "Details",
      "rect": [
       0.0132,
-      0.7417,
+      0.5001,
       0.5544,
       0.9834
      ],
@@ -28034,6 +28034,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/19-S5.0.2",
+   "sheet": "S5.0.2",
+   "level": "Details",
+   "view": "Elevator Guiderail Base",
+   "viewRef": "19/S5.0.2",
+   "type": "detail",
+   "tag": "Detail 19/S5.0.2",
+   "grid": null,
+   "fields": {
+    "detail": "19",
+    "sheet": "S5.0.2",
+    "title": "ELEVATOR GUIDERAIL BASE"
+   },
+   "fingerprint": "b30b57dbab9dd285",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 19,
+     "sheet": "S5.0.2",
+     "view": "Elevator Guiderail Base",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.2115,
+      0.5001
+     ],
+     "hot": [
+      0.0809,
+      0.483,
+      0.2082,
+      0.4983
+     ],
+     "text": "ELEVATOR GUIDERAIL BASE"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Enlarged plans & details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/16-S5.0.2",
    "sheet": "S5.0.2",
    "level": "Details",
@@ -28056,7 +28104,7 @@
      "view": "Guiderail Support Connection",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.2115,
       0.0185,
       0.3842,
       0.2579
@@ -28116,54 +28164,6 @@
       0.2561
      ],
      "text": "ENLARGED EVEVATOR HIGH ROOF FRAMING PLAN"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Enlarged plans & details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/19-S5.0.2",
-   "sheet": "S5.0.2",
-   "level": "Details",
-   "view": "Elevator Guiderail Base",
-   "viewRef": "19/S5.0.2",
-   "type": "detail",
-   "tag": "Detail 19/S5.0.2",
-   "grid": null,
-   "fields": {
-    "detail": "19",
-    "sheet": "S5.0.2",
-    "title": "ELEVATOR GUIDERAIL BASE"
-   },
-   "fingerprint": "b30b57dbab9dd285",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 19,
-     "sheet": "S5.0.2",
-     "view": "Elevator Guiderail Base",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.2579,
-      0.2115,
-      0.5001
-     ],
-     "hot": [
-      0.0809,
-      0.483,
-      0.2082,
-      0.4983
-     ],
-     "text": "ELEVATOR GUIDERAIL BASE"
     }
    ],
    "ifc": {
@@ -28370,6 +28370,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/13-S5.0.2",
+   "sheet": "S5.0.2",
+   "level": "Details",
+   "view": "Special Moment Frame Base Details",
+   "viewRef": "13/S5.0.2",
+   "type": "detail",
+   "tag": "Detail 13/S5.0.2",
+   "grid": null,
+   "fields": {
+    "detail": "13",
+    "sheet": "S5.0.2",
+    "title": "SPECIAL MOMENT FRAME BASE DETAILS"
+   },
+   "fingerprint": "73717374349ca895",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 19,
+     "sheet": "S5.0.2",
+     "view": "Special Moment Frame Base Details",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.5001,
+      0.3842,
+      0.9834
+     ],
+     "hot": [
+      0.2152,
+      0.9663,
+      0.3809,
+      0.9816
+     ],
+     "text": "SPECIAL MOMENT FRAME BASE DETAILS"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Enlarged plans & details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/10-S5.0.2",
    "sheet": "S5.0.2",
    "level": "Details",
@@ -28392,7 +28440,7 @@
      "view": "Post At Elevator Framing",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.3842,
       0.5001,
       0.5568,
       0.7418
@@ -28452,54 +28500,6 @@
       0.9816
      ],
      "text": "ENLARGED ELEVATOR FOUNDATION PLAN"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Enlarged plans & details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/13-S5.0.2",
-   "sheet": "S5.0.2",
-   "level": "Details",
-   "view": "Special Moment Frame Base Details",
-   "viewRef": "13/S5.0.2",
-   "type": "detail",
-   "tag": "Detail 13/S5.0.2",
-   "grid": null,
-   "fields": {
-    "detail": "13",
-    "sheet": "S5.0.2",
-    "title": "SPECIAL MOMENT FRAME BASE DETAILS"
-   },
-   "fingerprint": "73717374349ca895",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 19,
-     "sheet": "S5.0.2",
-     "view": "Special Moment Frame Base Details",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.7418,
-      0.3842,
-      0.9834
-     ],
-     "hot": [
-      0.2152,
-      0.9663,
-      0.3809,
-      0.9816
-     ],
-     "text": "SPECIAL MOMENT FRAME BASE DETAILS"
     }
    ],
    "ifc": {
@@ -28706,6 +28706,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/14-S8.0.1",
+   "sheet": "S8.0.1",
+   "level": "Details",
+   "view": "Tie Beam Connection To Grade Beam",
+   "viewRef": "14/S8.0.1",
+   "type": "detail",
+   "tag": "Detail 14/S8.0.1",
+   "grid": null,
+   "fields": {
+    "detail": "14",
+    "sheet": "S8.0.1",
+    "title": "TIE BEAM CONNECTION TO GRADE BEAM"
+   },
+   "fingerprint": "79658aca8fc87693",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 21,
+     "sheet": "S8.0.1",
+     "view": "Tie Beam Connection To Grade Beam",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.384,
+      0.7442
+     ],
+     "hot": [
+      0.2143,
+      0.7271,
+      0.3807,
+      0.7424
+     ],
+     "text": "TIE BEAM CONNECTION TO GRADE BEAM"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Concrete & foundation details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/12-S8.0.1",
    "sheet": "S8.0.1",
    "level": "Details",
@@ -28728,7 +28776,7 @@
      "view": "Tie Beam Detail",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.384,
       0.0185,
       0.5568,
       0.2608
@@ -28920,7 +28968,7 @@
      "view": "Pad Footing At Steel Column",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.384,
       0.2608,
       0.5568,
       0.5026
@@ -28946,40 +28994,40 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/14-S8.0.1",
+   "id": "detail/5-S8.0.1",
    "sheet": "S8.0.1",
    "level": "Details",
-   "view": "Tie Beam Connection To Grade Beam",
-   "viewRef": "14/S8.0.1",
+   "view": "Rebar Development Length",
+   "viewRef": "5/S8.0.1",
    "type": "detail",
-   "tag": "Detail 14/S8.0.1",
+   "tag": "Detail 5/S8.0.1",
    "grid": null,
    "fields": {
-    "detail": "14",
+    "detail": "5",
     "sheet": "S8.0.1",
-    "title": "TIE BEAM CONNECTION TO GRADE BEAM"
+    "title": "REBAR DEVELOPMENT LENGTH"
    },
-   "fingerprint": "79658aca8fc87693",
+   "fingerprint": "5ea652024f7dacee",
    "occurrences": [
     {
      "doc": "plans",
      "page": 21,
      "sheet": "S8.0.1",
-     "view": "Tie Beam Connection To Grade Beam",
+     "view": "Rebar Development Length",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.5545,
       0.5026,
-      0.384,
-      0.7442
+      0.7271,
+      0.986
      ],
      "hot": [
-      0.2143,
-      0.7271,
-      0.3807,
-      0.7424
+      0.5887,
+      0.9689,
+      0.7238,
+      0.9841
      ],
-     "text": "TIE BEAM CONNECTION TO GRADE BEAM"
+     "text": "REBAR DEVELOPMENT LENGTH"
     }
    ],
    "ifc": {
@@ -29064,7 +29112,7 @@
      "view": "Lwt Conc Lap Splice Sched (Class B)",
      "level": "Details",
      "rect": [
-      0.5568,
+      0.7271,
       0.5026,
       0.8994,
       0.7442
@@ -29076,54 +29124,6 @@
       0.7424
      ],
      "text": "LWT CONC LAP SPLICE SCHED (CLASS B)"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Concrete & foundation details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/5-S8.0.1",
-   "sheet": "S8.0.1",
-   "level": "Details",
-   "view": "Rebar Development Length",
-   "viewRef": "5/S8.0.1",
-   "type": "detail",
-   "tag": "Detail 5/S8.0.1",
-   "grid": null,
-   "fields": {
-    "detail": "5",
-    "sheet": "S8.0.1",
-    "title": "REBAR DEVELOPMENT LENGTH"
-   },
-   "fingerprint": "5ea652024f7dacee",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 21,
-     "sheet": "S8.0.1",
-     "view": "Rebar Development Length",
-     "level": "Details",
-     "rect": [
-      0.5545,
-      0.7442,
-      0.7271,
-      0.986
-     ],
-     "hot": [
-      0.5887,
-      0.9689,
-      0.7238,
-      0.9841
-     ],
-     "text": "REBAR DEVELOPMENT LENGTH"
     }
    ],
    "ifc": {
@@ -30002,54 +30002,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/8-S8.2.1",
-   "sheet": "S8.2.1",
-   "level": "Details",
-   "view": "Standard Bolted Steel Connections - Hssx Columns With Wx Beams",
-   "viewRef": "8/S8.2.1",
-   "type": "detail",
-   "tag": "Detail 8/S8.2.1",
-   "grid": null,
-   "fields": {
-    "detail": "8",
-    "sheet": "S8.2.1",
-    "title": "STANDARD BOLTED STEEL CONNECTIONS - HSSx COLUMNS WITH Wx BEAMS"
-   },
-   "fingerprint": "031cc4d13d4b34d6",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 24,
-     "sheet": "S8.2.1",
-     "view": "Standard Bolted Steel Connections - Hssx Columns With Wx Beams",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.0185,
-      0.7271,
-      0.2585
-     ],
-     "hot": [
-      0.4475,
-      0.2414,
-      0.7238,
-      0.2566
-     ],
-     "text": "STANDARD BOLTED STEEL CONNECTIONS - HSSx COLUMNS WITH Wx BEAMS"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/13-S8.2.1",
    "sheet": "S8.2.1",
    "level": "Details",
@@ -30073,7 +30025,7 @@
      "level": "Details",
      "rect": [
       0.0132,
-      0.2585,
+      0.0185,
       0.3842,
       0.9835
      ],
@@ -30084,6 +30036,54 @@
       0.9817
      ],
      "text": "GRAVITY MOMENT CONNECTIONS"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/8-S8.2.1",
+   "sheet": "S8.2.1",
+   "level": "Details",
+   "view": "Standard Bolted Steel Connections - Hssx Columns With Wx Beams",
+   "viewRef": "8/S8.2.1",
+   "type": "detail",
+   "tag": "Detail 8/S8.2.1",
+   "grid": null,
+   "fields": {
+    "detail": "8",
+    "sheet": "S8.2.1",
+    "title": "STANDARD BOLTED STEEL CONNECTIONS - HSSx COLUMNS WITH Wx BEAMS"
+   },
+   "fingerprint": "031cc4d13d4b34d6",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 24,
+     "sheet": "S8.2.1",
+     "view": "Standard Bolted Steel Connections - Hssx Columns With Wx Beams",
+     "level": "Details",
+     "rect": [
+      0.3842,
+      0.0185,
+      0.7271,
+      0.2585
+     ],
+     "hot": [
+      0.4475,
+      0.2414,
+      0.7238,
+      0.2566
+     ],
+     "text": "STANDARD BOLTED STEEL CONNECTIONS - HSSx COLUMNS WITH Wx BEAMS"
     }
    ],
    "ifc": {
@@ -30530,54 +30530,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/14-S8.2.2",
-   "sheet": "S8.2.2",
-   "level": "Details",
-   "view": "Skewed Beam Connection",
-   "viewRef": "14/S8.2.2",
-   "type": "detail",
-   "tag": "Detail 14/S8.2.2",
-   "grid": null,
-   "fields": {
-    "detail": "14",
-    "sheet": "S8.2.2",
-    "title": "SKEWED BEAM CONNECTION"
-   },
-   "fingerprint": "e7a2bd57f04a3f2c",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 25,
-     "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5,
-      0.3841,
-      0.7416
-     ],
-     "hot": [
-      0.2511,
-      0.7245,
-      0.3808,
-      0.7398
-     ],
-     "text": "SKEWED BEAM CONNECTION"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/2-S8.2.2",
    "sheet": "S8.2.2",
    "level": "Details",
@@ -30600,7 +30552,7 @@
      "view": "Bottom Flange Brace",
      "level": "Details",
      "rect": [
-      0.3841,
+      0.7271,
       0.5,
       0.8996,
       0.7419
@@ -30649,7 +30601,7 @@
      "level": "Details",
      "rect": [
       0.0132,
-      0.7416,
+      0.5,
       0.2115,
       0.9835
      ],
@@ -30660,6 +30612,102 @@
       0.9816
      ],
      "text": "WUF-W BEAM GEOMETRY"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/14-S8.2.2",
+   "sheet": "S8.2.2",
+   "level": "Details",
+   "view": "Skewed Beam Connection",
+   "viewRef": "14/S8.2.2",
+   "type": "detail",
+   "tag": "Detail 14/S8.2.2",
+   "grid": null,
+   "fields": {
+    "detail": "14",
+    "sheet": "S8.2.2",
+    "title": "SKEWED BEAM CONNECTION"
+   },
+   "fingerprint": "e7a2bd57f04a3f2c",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 25,
+     "sheet": "S8.2.2",
+     "view": "Skewed Beam Connection",
+     "level": "Details",
+     "rect": [
+      0.2115,
+      0.5,
+      0.3841,
+      0.7416
+     ],
+     "hot": [
+      0.2511,
+      0.7245,
+      0.3808,
+      0.7398
+     ],
+     "text": "SKEWED BEAM CONNECTION"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/5-S8.2.2",
+   "sheet": "S8.2.2",
+   "level": "Details",
+   "view": "Typical Depressed Beam Detail",
+   "viewRef": "5/S8.2.2",
+   "type": "detail",
+   "tag": "Detail 5/S8.2.2",
+   "grid": null,
+   "fields": {
+    "detail": "5",
+    "sheet": "S8.2.2",
+    "title": "TYPICAL DEPRESSED BEAM DETAIL"
+   },
+   "fingerprint": "dc3b9b21f3d28928",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 25,
+     "sheet": "S8.2.2",
+     "view": "Typical Depressed Beam Detail",
+     "level": "Details",
+     "rect": [
+      0.3841,
+      0.5,
+      0.7271,
+      0.9835
+     ],
+     "hot": [
+      0.5768,
+      0.9664,
+      0.7238,
+      0.9816
+     ],
+     "text": "TYPICAL DEPRESSED BEAM DETAIL"
     }
    ],
    "ifc": {
@@ -30708,54 +30756,6 @@
       0.9816
      ],
      "text": "BUILD UP WUF-W DETAIL"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/5-S8.2.2",
-   "sheet": "S8.2.2",
-   "level": "Details",
-   "view": "Typical Depressed Beam Detail",
-   "viewRef": "5/S8.2.2",
-   "type": "detail",
-   "tag": "Detail 5/S8.2.2",
-   "grid": null,
-   "fields": {
-    "detail": "5",
-    "sheet": "S8.2.2",
-    "title": "TYPICAL DEPRESSED BEAM DETAIL"
-   },
-   "fingerprint": "dc3b9b21f3d28928",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 25,
-     "sheet": "S8.2.2",
-     "view": "Typical Depressed Beam Detail",
-     "level": "Details",
-     "rect": [
-      0.3841,
-      0.7419,
-      0.7271,
-      0.9835
-     ],
-     "hot": [
-      0.5768,
-      0.9664,
-      0.7238,
-      0.9816
-     ],
-     "text": "TYPICAL DEPRESSED BEAM DETAIL"
     }
    ],
    "ifc": {
@@ -30962,6 +30962,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/11-S8.2.4",
+   "sheet": "S8.2.4",
+   "level": "Details",
+   "view": "Stud Spacing On Composite Beam",
+   "viewRef": "11/S8.2.4",
+   "type": "detail",
+   "tag": "Detail 11/S8.2.4",
+   "grid": null,
+   "fields": {
+    "detail": "11",
+    "sheet": "S8.2.4",
+    "title": "STUD SPACING ON COMPOSITE BEAM"
+   },
+   "fingerprint": "d58f75607c73fcbe",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 27,
+     "sheet": "S8.2.4",
+     "view": "Stud Spacing On Composite Beam",
+     "level": "Details",
+     "rect": [
+      0.3841,
+      0.0185,
+      0.5568,
+      0.5002
+     ],
+     "hot": [
+      0.3976,
+      0.4831,
+      0.5535,
+      0.4983
+     ],
+     "text": "STUD SPACING ON COMPOSITE BEAM"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/8-S8.2.4",
    "sheet": "S8.2.4",
    "level": "Details",
@@ -30984,7 +31032,7 @@
      "view": "Typical Unstiffened Deck Sleeve",
      "level": "Details",
      "rect": [
-      0.3841,
+      0.5568,
       0.0185,
       0.7271,
       0.2584
@@ -31106,54 +31154,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/2-S8.2.4",
-   "sheet": "S8.2.4",
-   "level": "Details",
-   "view": "Deck Alignment / Bearing Detail",
-   "viewRef": "2/S8.2.4",
-   "type": "detail",
-   "tag": "Detail 2/S8.2.4",
-   "grid": null,
-   "fields": {
-    "detail": "2",
-    "sheet": "S8.2.4",
-    "title": "DECK ALIGNMENT / BEARING DETAIL"
-   },
-   "fingerprint": "6197a49ced932e75",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 27,
-     "sheet": "S8.2.4",
-     "view": "Deck Alignment / Bearing Detail",
-     "level": "Details",
-     "rect": [
-      0.2116,
-      0.2584,
-      0.8998,
-      0.7418
-     ],
-     "hot": [
-      0.7458,
-      0.7248,
-      0.8965,
-      0.74
-     ],
-     "text": "DECK ALIGNMENT / BEARING DETAIL"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/15-S8.2.4",
    "sheet": "S8.2.4",
    "level": "Details",
@@ -31202,54 +31202,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/11-S8.2.4",
-   "sheet": "S8.2.4",
-   "level": "Details",
-   "view": "Stud Spacing On Composite Beam",
-   "viewRef": "11/S8.2.4",
-   "type": "detail",
-   "tag": "Detail 11/S8.2.4",
-   "grid": null,
-   "fields": {
-    "detail": "11",
-    "sheet": "S8.2.4",
-    "title": "STUD SPACING ON COMPOSITE BEAM"
-   },
-   "fingerprint": "d58f75607c73fcbe",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 27,
-     "sheet": "S8.2.4",
-     "view": "Stud Spacing On Composite Beam",
-     "level": "Details",
-     "rect": [
-      0.3841,
-      0.2584,
-      0.5568,
-      0.5002
-     ],
-     "hot": [
-      0.3976,
-      0.4831,
-      0.5535,
-      0.4983
-     ],
-     "text": "STUD SPACING ON COMPOSITE BEAM"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/7-S8.2.4",
    "sheet": "S8.2.4",
    "level": "Details",
@@ -31284,6 +31236,54 @@
       0.4983
      ],
      "text": "COMPOSITE BEAM TO COMPOSITE SLAB"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/2-S8.2.4",
+   "sheet": "S8.2.4",
+   "level": "Details",
+   "view": "Deck Alignment / Bearing Detail",
+   "viewRef": "2/S8.2.4",
+   "type": "detail",
+   "tag": "Detail 2/S8.2.4",
+   "grid": null,
+   "fields": {
+    "detail": "2",
+    "sheet": "S8.2.4",
+    "title": "DECK ALIGNMENT / BEARING DETAIL"
+   },
+   "fingerprint": "6197a49ced932e75",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 27,
+     "sheet": "S8.2.4",
+     "view": "Deck Alignment / Bearing Detail",
+     "level": "Details",
+     "rect": [
+      0.5545,
+      0.5002,
+      0.8998,
+      0.7418
+     ],
+     "hot": [
+      0.7458,
+      0.7248,
+      0.8965,
+      0.74
+     ],
+     "text": "DECK ALIGNMENT / BEARING DETAIL"
     }
    ],
    "ifc": {
@@ -31369,7 +31369,7 @@
      "level": "Details",
      "rect": [
       0.2116,
-      0.7418,
+      0.5002,
       0.3841,
       0.9835
      ],
@@ -31417,7 +31417,7 @@
      "level": "Details",
      "rect": [
       0.3841,
-      0.7418,
+      0.5002,
       0.5545,
       0.9834
      ],
@@ -31538,40 +31538,40 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/8-S8.2.5",
+   "id": "detail/18-S8.2.5",
    "sheet": "S8.2.5",
    "level": "Details",
-   "view": "Fixed Condition Roof Deck Edge ≤3'-0\"",
-   "viewRef": "8/S8.2.5",
+   "view": "Typical Guardrail Connection Detail",
+   "viewRef": "18/S8.2.5",
    "type": "detail",
-   "tag": "Detail 8/S8.2.5",
+   "tag": "Detail 18/S8.2.5",
    "grid": null,
    "fields": {
-    "detail": "8",
+    "detail": "18",
     "sheet": "S8.2.5",
-    "title": "FIXED CONDITION ROOF DECK EDGE ≤3'-0\""
+    "title": "TYPICAL GUARDRAIL CONNECTION DETAIL"
    },
-   "fingerprint": "d22261b985d12e79",
+   "fingerprint": "04a66c5f155856b4",
    "occurrences": [
     {
      "doc": "plans",
      "page": 28,
      "sheet": "S8.2.5",
-     "view": "Fixed Condition Roof Deck Edge ≤3'-0\"",
+     "view": "Typical Guardrail Connection Detail",
      "level": "Details",
      "rect": [
       0.0132,
       0.0185,
-      0.7271,
-      0.2607
+      0.2115,
+      0.7442
      ],
      "hot": [
-      0.5528,
-      0.2436,
-      0.7238,
-      0.2589
+      0.0363,
+      0.7271,
+      0.2082,
+      0.7423
      ],
-     "text": "FIXED CONDITION ROOF DECK EDGE ≤3'-0\""
+     "text": "TYPICAL GUARDRAIL CONNECTION DETAIL"
     }
    ],
    "ifc": {
@@ -31608,7 +31608,7 @@
      "view": "Exterior Wall (Fixed Condition) Roof Deck Edge",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.2115,
       0.0185,
       0.5568,
       0.2607
@@ -31620,6 +31620,54 @@
       0.2589
      ],
      "text": "EXTERIOR WALL (FIXED CONDITION) ROOF DECK EDGE"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/8-S8.2.5",
+   "sheet": "S8.2.5",
+   "level": "Details",
+   "view": "Fixed Condition Roof Deck Edge ≤3'-0\"",
+   "viewRef": "8/S8.2.5",
+   "type": "detail",
+   "tag": "Detail 8/S8.2.5",
+   "grid": null,
+   "fields": {
+    "detail": "8",
+    "sheet": "S8.2.5",
+    "title": "FIXED CONDITION ROOF DECK EDGE ≤3'-0\""
+   },
+   "fingerprint": "d22261b985d12e79",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 28,
+     "sheet": "S8.2.5",
+     "view": "Fixed Condition Roof Deck Edge ≤3'-0\"",
+     "level": "Details",
+     "rect": [
+      0.5544,
+      0.0185,
+      0.7271,
+      0.2607
+     ],
+     "hot": [
+      0.5528,
+      0.2436,
+      0.7238,
+      0.2589
+     ],
+     "text": "FIXED CONDITION ROOF DECK EDGE ≤3'-0\""
     }
    ],
    "ifc": {
@@ -31656,8 +31704,8 @@
      "view": "Sloped Roof Deck Support At Smf",
      "level": "Details",
      "rect": [
-      0.0132,
-      0.2607,
+      0.7271,
+      0.0185,
       0.8996,
       0.5025
      ],
@@ -31668,54 +31716,6 @@
       0.5006
      ],
      "text": "SLOPED ROOF DECK SUPPORT AT SMF"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/18-S8.2.5",
-   "sheet": "S8.2.5",
-   "level": "Details",
-   "view": "Typical Guardrail Connection Detail",
-   "viewRef": "18/S8.2.5",
-   "type": "detail",
-   "tag": "Detail 18/S8.2.5",
-   "grid": null,
-   "fields": {
-    "detail": "18",
-    "sheet": "S8.2.5",
-    "title": "TYPICAL GUARDRAIL CONNECTION DETAIL"
-   },
-   "fingerprint": "04a66c5f155856b4",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 28,
-     "sheet": "S8.2.5",
-     "view": "Typical Guardrail Connection Detail",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5025,
-      0.2115,
-      0.7442
-     ],
-     "hot": [
-      0.0363,
-      0.7271,
-      0.2082,
-      0.7423
-     ],
-     "text": "TYPICAL GUARDRAIL CONNECTION DETAIL"
     }
    ],
    "ifc": {
@@ -31752,8 +31752,8 @@
      "view": "Depressed Slab Perp (5\" Max)",
      "level": "Details",
      "rect": [
-      0.2115,
-      0.5025,
+      0.5544,
+      0.2607,
       0.7271,
       0.7441
      ],
@@ -31764,6 +31764,102 @@
       0.7423
      ],
      "text": "DEPRESSED SLAB PERP (5\" MAX)"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/13-S8.2.5",
+   "sheet": "S8.2.5",
+   "level": "Details",
+   "view": "Typical Roof Deck Edge",
+   "viewRef": "13/S8.2.5",
+   "type": "detail",
+   "tag": "Detail 13/S8.2.5",
+   "grid": null,
+   "fields": {
+    "detail": "13",
+    "sheet": "S8.2.5",
+    "title": "TYPICAL ROOF DECK EDGE"
+   },
+   "fingerprint": "ff144bcd6ada7d9c",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 28,
+     "sheet": "S8.2.5",
+     "view": "Typical Roof Deck Edge",
+     "level": "Details",
+     "rect": [
+      0.2115,
+      0.2607,
+      0.3841,
+      0.9858
+     ],
+     "hot": [
+      0.2568,
+      0.9687,
+      0.3808,
+      0.984
+     ],
+     "text": "TYPICAL ROOF DECK EDGE"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/9-S8.2.5",
+   "sheet": "S8.2.5",
+   "level": "Details",
+   "view": "Typ Conc Over Mtl Deck Deck Edge",
+   "viewRef": "9/S8.2.5",
+   "type": "detail",
+   "tag": "Detail 9/S8.2.5",
+   "grid": null,
+   "fields": {
+    "detail": "9",
+    "sheet": "S8.2.5",
+    "title": "TYP CONC OVER MTL DECK DECK EDGE"
+   },
+   "fingerprint": "d23a91daf9989b05",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 28,
+     "sheet": "S8.2.5",
+     "view": "Typ Conc Over Mtl Deck Deck Edge",
+     "level": "Details",
+     "rect": [
+      0.3841,
+      0.2607,
+      0.5544,
+      0.9858
+     ],
+     "hot": [
+      0.3901,
+      0.9688,
+      0.5511,
+      0.984
+     ],
+     "text": "TYP CONC OVER MTL DECK DECK EDGE"
     }
    ],
    "ifc": {
@@ -31812,102 +31908,6 @@
       0.7423
      ],
      "text": "TYP DEPRESSED SLAB II (18\" MAX)"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/13-S8.2.5",
-   "sheet": "S8.2.5",
-   "level": "Details",
-   "view": "Typical Roof Deck Edge",
-   "viewRef": "13/S8.2.5",
-   "type": "detail",
-   "tag": "Detail 13/S8.2.5",
-   "grid": null,
-   "fields": {
-    "detail": "13",
-    "sheet": "S8.2.5",
-    "title": "TYPICAL ROOF DECK EDGE"
-   },
-   "fingerprint": "ff144bcd6ada7d9c",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 28,
-     "sheet": "S8.2.5",
-     "view": "Typical Roof Deck Edge",
-     "level": "Details",
-     "rect": [
-      0.2115,
-      0.7441,
-      0.3841,
-      0.9858
-     ],
-     "hot": [
-      0.2568,
-      0.9687,
-      0.3808,
-      0.984
-     ],
-     "text": "TYPICAL ROOF DECK EDGE"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/9-S8.2.5",
-   "sheet": "S8.2.5",
-   "level": "Details",
-   "view": "Typ Conc Over Mtl Deck Deck Edge",
-   "viewRef": "9/S8.2.5",
-   "type": "detail",
-   "tag": "Detail 9/S8.2.5",
-   "grid": null,
-   "fields": {
-    "detail": "9",
-    "sheet": "S8.2.5",
-    "title": "TYP CONC OVER MTL DECK DECK EDGE"
-   },
-   "fingerprint": "d23a91daf9989b05",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 28,
-     "sheet": "S8.2.5",
-     "view": "Typ Conc Over Mtl Deck Deck Edge",
-     "level": "Details",
-     "rect": [
-      0.3841,
-      0.7441,
-      0.5544,
-      0.9858
-     ],
-     "hot": [
-      0.3901,
-      0.9688,
-      0.5511,
-      0.984
-     ],
-     "text": "TYP CONC OVER MTL DECK DECK EDGE"
     }
    ],
    "ifc": {
@@ -32066,40 +32066,40 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/8-S8.2.6",
+   "id": "detail/17-S8.2.6",
    "sheet": "S8.2.6",
    "level": "Details",
-   "view": "Wuf-W Continuity Pl (W/ Doubler Pl)",
-   "viewRef": "8/S8.2.6",
+   "view": "Weld Access Hole (Sfrs)",
+   "viewRef": "17/S8.2.6",
    "type": "detail",
-   "tag": "Detail 8/S8.2.6",
+   "tag": "Detail 17/S8.2.6",
    "grid": null,
    "fields": {
-    "detail": "8",
+    "detail": "17",
     "sheet": "S8.2.6",
-    "title": "WUF-W CONTINUITY PL (W/ DOUBLER PL)"
+    "title": "WELD ACCESS HOLE (SFRS)"
    },
-   "fingerprint": "6a8124de3c9fa52a",
+   "fingerprint": "9caf1aaee2077afa",
    "occurrences": [
     {
      "doc": "plans",
      "page": 29,
      "sheet": "S8.2.6",
-     "view": "Wuf-W Continuity Pl (W/ Doubler Pl)",
+     "view": "Weld Access Hole (Sfrs)",
      "level": "Details",
      "rect": [
       0.0132,
       0.0185,
-      0.7271,
-      0.2608
+      0.2115,
+      0.9858
      ],
      "hot": [
-      0.5595,
-      0.2437,
-      0.7238,
-      0.259
+      0.0818,
+      0.9687,
+      0.2082,
+      0.984
      ],
-     "text": "WUF-W CONTINUITY PL (W/ DOUBLER PL)"
+     "text": "WELD ACCESS HOLE (SFRS)"
     }
    ],
    "ifc": {
@@ -32136,8 +32136,8 @@
      "view": "Special Moment Frame Base Details",
      "level": "Details",
      "rect": [
-      0.0132,
-      0.2608,
+      0.2115,
+      0.0185,
       0.3841,
       0.7442
      ],
@@ -32185,7 +32185,7 @@
      "level": "Details",
      "rect": [
       0.3841,
-      0.2608,
+      0.0185,
       0.5568,
       0.7442
      ],
@@ -32196,6 +32196,54 @@
       0.7423
      ],
      "text": "WUF-W CONTINUITY PL (W/O DOUBLER PL)"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Steel details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/8-S8.2.6",
+   "sheet": "S8.2.6",
+   "level": "Details",
+   "view": "Wuf-W Continuity Pl (W/ Doubler Pl)",
+   "viewRef": "8/S8.2.6",
+   "type": "detail",
+   "tag": "Detail 8/S8.2.6",
+   "grid": null,
+   "fields": {
+    "detail": "8",
+    "sheet": "S8.2.6",
+    "title": "WUF-W CONTINUITY PL (W/ DOUBLER PL)"
+   },
+   "fingerprint": "6a8124de3c9fa52a",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 29,
+     "sheet": "S8.2.6",
+     "view": "Wuf-W Continuity Pl (W/ Doubler Pl)",
+     "level": "Details",
+     "rect": [
+      0.5568,
+      0.0185,
+      0.7271,
+      0.2608
+     ],
+     "hot": [
+      0.5595,
+      0.2437,
+      0.7238,
+      0.259
+     ],
+     "text": "WUF-W CONTINUITY PL (W/ DOUBLER PL)"
     }
    ],
    "ifc": {
@@ -32244,54 +32292,6 @@
       0.9839
      ],
      "text": "WUF-W MOMENT RESISTING FRAME CONNECTION (SFRS)"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Steel details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/17-S8.2.6",
-   "sheet": "S8.2.6",
-   "level": "Details",
-   "view": "Weld Access Hole (Sfrs)",
-   "viewRef": "17/S8.2.6",
-   "type": "detail",
-   "tag": "Detail 17/S8.2.6",
-   "grid": null,
-   "fields": {
-    "detail": "17",
-    "sheet": "S8.2.6",
-    "title": "WELD ACCESS HOLE (SFRS)"
-   },
-   "fingerprint": "9caf1aaee2077afa",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 29,
-     "sheet": "S8.2.6",
-     "view": "Weld Access Hole (Sfrs)",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.7442,
-      0.2115,
-      0.9858
-     ],
-     "hot": [
-      0.0818,
-      0.9687,
-      0.2082,
-      0.984
-     ],
-     "text": "WELD ACCESS HOLE (SFRS)"
     }
    ],
    "ifc": {
@@ -32498,6 +32498,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/14-S8.4.1",
+   "sheet": "S8.4.1",
+   "level": "Details",
+   "view": "Exterior Metal Stud Bracing Detail",
+   "viewRef": "14/S8.4.1",
+   "type": "detail",
+   "tag": "Detail 14/S8.4.1",
+   "grid": null,
+   "fields": {
+    "detail": "14",
+    "sheet": "S8.4.1",
+    "title": "EXTERIOR METAL STUD BRACING DETAIL"
+   },
+   "fingerprint": "ece4d37615e6316a",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 31,
+     "sheet": "S8.4.1",
+     "view": "Exterior Metal Stud Bracing Detail",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.3842,
+      0.7418
+     ],
+     "hot": [
+      0.2138,
+      0.7247,
+      0.3809,
+      0.7399
+     ],
+     "text": "EXTERIOR METAL STUD BRACING DETAIL"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/8-S8.4.1",
    "sheet": "S8.4.1",
    "level": "Details",
@@ -32520,7 +32568,7 @@
      "view": "Exterior Steel Stud Backing Detail",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.3842,
       0.0185,
       0.7271,
       0.2589
@@ -32616,7 +32664,7 @@
      "view": "Exterior Header And Sill",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.3842,
       0.2589,
       0.7271,
       0.5001
@@ -32628,102 +32676,6 @@
       0.4983
      ],
      "text": "EXTERIOR HEADER AND SILL"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/14-S8.4.1",
-   "sheet": "S8.4.1",
-   "level": "Details",
-   "view": "Exterior Metal Stud Bracing Detail",
-   "viewRef": "14/S8.4.1",
-   "type": "detail",
-   "tag": "Detail 14/S8.4.1",
-   "grid": null,
-   "fields": {
-    "detail": "14",
-    "sheet": "S8.4.1",
-    "title": "EXTERIOR METAL STUD BRACING DETAIL"
-   },
-   "fingerprint": "ece4d37615e6316a",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 31,
-     "sheet": "S8.4.1",
-     "view": "Exterior Metal Stud Bracing Detail",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.3842,
-      0.7418
-     ],
-     "hot": [
-      0.2138,
-      0.7247,
-      0.3809,
-      0.7399
-     ],
-     "text": "EXTERIOR METAL STUD BRACING DETAIL"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/2-S8.4.1",
-   "sheet": "S8.4.1",
-   "level": "Details",
-   "view": "Expansion Anch To Conc Mtl Deck",
-   "viewRef": "2/S8.4.1",
-   "type": "detail",
-   "tag": "Detail 2/S8.4.1",
-   "grid": null,
-   "fields": {
-    "detail": "2",
-    "sheet": "S8.4.1",
-    "title": "EXPANSION ANCH TO CONC MTL DECK"
-   },
-   "fingerprint": "bae286d401f06e80",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 31,
-     "sheet": "S8.4.1",
-     "view": "Expansion Anch To Conc Mtl Deck",
-     "level": "Details",
-     "rect": [
-      0.3842,
-      0.5001,
-      0.8994,
-      0.7418
-     ],
-     "hot": [
-      0.7389,
-      0.7247,
-      0.8961,
-      0.7399
-     ],
-     "text": "EXPANSION ANCH TO CONC MTL DECK"
     }
    ],
    "ifc": {
@@ -32761,7 +32713,7 @@
      "level": "Details",
      "rect": [
       0.3842,
-      0.7418,
+      0.5001,
       0.727,
       0.9834
      ],
@@ -32772,6 +32724,54 @@
       0.9815
      ],
      "text": "EXTERIOR JAMB DETAILS"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/2-S8.4.1",
+   "sheet": "S8.4.1",
+   "level": "Details",
+   "view": "Expansion Anch To Conc Mtl Deck",
+   "viewRef": "2/S8.4.1",
+   "type": "detail",
+   "tag": "Detail 2/S8.4.1",
+   "grid": null,
+   "fields": {
+    "detail": "2",
+    "sheet": "S8.4.1",
+    "title": "EXPANSION ANCH TO CONC MTL DECK"
+   },
+   "fingerprint": "bae286d401f06e80",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 31,
+     "sheet": "S8.4.1",
+     "view": "Expansion Anch To Conc Mtl Deck",
+     "level": "Details",
+     "rect": [
+      0.727,
+      0.5001,
+      0.8994,
+      0.7418
+     ],
+     "hot": [
+      0.7389,
+      0.7247,
+      0.8961,
+      0.7399
+     ],
+     "text": "EXPANSION ANCH TO CONC MTL DECK"
     }
    ],
    "ifc": {
@@ -32882,6 +32882,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/18-S8.4.2",
+   "sheet": "S8.4.2",
+   "level": "Details",
+   "view": "Metal Stud To Hss Bm Connection",
+   "viewRef": "18/S8.4.2",
+   "type": "detail",
+   "tag": "Detail 18/S8.4.2",
+   "grid": null,
+   "fields": {
+    "detail": "18",
+    "sheet": "S8.4.2",
+    "title": "METAL STUD TO HSS BM CONNECTION"
+   },
+   "fingerprint": "d06faa2639ad8e7c",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 32,
+     "sheet": "S8.4.2",
+     "view": "Metal Stud To Hss Bm Connection",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.2115,
+      0.7418
+     ],
+     "hot": [
+      0.0493,
+      0.7247,
+      0.2082,
+      0.74
+     ],
+     "text": "METAL STUD TO HSS BM CONNECTION"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/16-S8.4.2",
    "sheet": "S8.4.2",
    "level": "Details",
@@ -32904,7 +32952,7 @@
      "view": "Vertical Slip Clip To Deck Edge",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.2115,
       0.0185,
       0.3841,
       0.2585
@@ -33048,7 +33096,7 @@
      "view": "Typical Top Track Splice",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.2115,
       0.2585,
       0.3841,
       0.5001
@@ -33156,54 +33204,6 @@
       0.9815
      ],
      "text": "WALL SILL ATTACHMENT DETAIL"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/18-S8.4.2",
-   "sheet": "S8.4.2",
-   "level": "Details",
-   "view": "Metal Stud To Hss Bm Connection",
-   "viewRef": "18/S8.4.2",
-   "type": "detail",
-   "tag": "Detail 18/S8.4.2",
-   "grid": null,
-   "fields": {
-    "detail": "18",
-    "sheet": "S8.4.2",
-    "title": "METAL STUD TO HSS BM CONNECTION"
-   },
-   "fingerprint": "d06faa2639ad8e7c",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 32,
-     "sheet": "S8.4.2",
-     "view": "Metal Stud To Hss Bm Connection",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.2115,
-      0.7418
-     ],
-     "hot": [
-      0.0493,
-      0.7247,
-      0.2082,
-      0.74
-     ],
-     "text": "METAL STUD TO HSS BM CONNECTION"
     }
    ],
    "ifc": {
@@ -33410,6 +33410,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/18-S8.4.3",
+   "sheet": "S8.4.3",
+   "level": "Details",
+   "view": "Brace Conn To Conc Over Mtl Deck",
+   "viewRef": "18/S8.4.3",
+   "type": "detail",
+   "tag": "Detail 18/S8.4.3",
+   "grid": null,
+   "fields": {
+    "detail": "18",
+    "sheet": "S8.4.3",
+    "title": "BRACE CONN TO CONC OVER MTL DECK"
+   },
+   "fingerprint": "a982398e990f9c3b",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 33,
+     "sheet": "S8.4.3",
+     "view": "Brace Conn To Conc Over Mtl Deck",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.2117,
+      0.7418
+     ],
+     "hot": [
+      0.0434,
+      0.7247,
+      0.2084,
+      0.7399
+     ],
+     "text": "BRACE CONN TO CONC OVER MTL DECK"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/16-S8.4.3",
    "sheet": "S8.4.3",
    "level": "Details",
@@ -33432,7 +33480,7 @@
      "view": "Guardrail To Top Of Parapet",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.2117,
       0.0185,
       0.3844,
       0.2584
@@ -33624,7 +33672,7 @@
      "view": "Fixed Connection Under Wx Beam",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.5568,
       0.2584,
       0.727,
       0.5001
@@ -33636,54 +33684,6 @@
       0.4982
      ],
      "text": "FIXED CONNECTION UNDER Wx BEAM"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/18-S8.4.3",
-   "sheet": "S8.4.3",
-   "level": "Details",
-   "view": "Brace Conn To Conc Over Mtl Deck",
-   "viewRef": "18/S8.4.3",
-   "type": "detail",
-   "tag": "Detail 18/S8.4.3",
-   "grid": null,
-   "fields": {
-    "detail": "18",
-    "sheet": "S8.4.3",
-    "title": "BRACE CONN TO CONC OVER MTL DECK"
-   },
-   "fingerprint": "a982398e990f9c3b",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 33,
-     "sheet": "S8.4.3",
-     "view": "Brace Conn To Conc Over Mtl Deck",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.2117,
-      0.7418
-     ],
-     "hot": [
-      0.0434,
-      0.7247,
-      0.2084,
-      0.7399
-     ],
-     "text": "BRACE CONN TO CONC OVER MTL DECK"
     }
    ],
    "ifc": {
@@ -33721,7 +33721,7 @@
      "level": "Details",
      "rect": [
       0.2117,
-      0.5001,
+      0.2584,
       0.5568,
       0.7418
      ],
@@ -33890,6 +33890,102 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/18-S8.4.4",
+   "sheet": "S8.4.4",
+   "level": "Details",
+   "view": "Roof Screen Attachment",
+   "viewRef": "18/S8.4.4",
+   "type": "detail",
+   "tag": "Detail 18/S8.4.4",
+   "grid": null,
+   "fields": {
+    "detail": "18",
+    "sheet": "S8.4.4",
+    "title": "ROOF SCREEN ATTACHMENT"
+   },
+   "fingerprint": "26c58f1700e86f78",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 34,
+     "sheet": "S8.4.4",
+     "view": "Roof Screen Attachment",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.2115,
+      0.7418
+     ],
+     "hot": [
+      0.079,
+      0.7247,
+      0.2082,
+      0.7399
+     ],
+     "text": "ROOF SCREEN ATTACHMENT"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/15-S8.4.4",
+   "sheet": "S8.4.4",
+   "level": "Details",
+   "view": "Typical Exterior Soffit",
+   "viewRef": "15/S8.4.4",
+   "type": "detail",
+   "tag": "Detail 15/S8.4.4",
+   "grid": null,
+   "fields": {
+    "detail": "15",
+    "sheet": "S8.4.4",
+    "title": "TYPICAL EXTERIOR SOFFIT"
+   },
+   "fingerprint": "6ae25c664d7efec9",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 34,
+     "sheet": "S8.4.4",
+     "view": "Typical Exterior Soffit",
+     "level": "Details",
+     "rect": [
+      0.2115,
+      0.0185,
+      0.3843,
+      0.5001
+     ],
+     "hot": [
+      0.2581,
+      0.483,
+      0.3809,
+      0.4982
+     ],
+     "text": "TYPICAL EXTERIOR SOFFIT"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/12-S8.4.4",
    "sheet": "S8.4.4",
    "level": "Details",
@@ -33912,7 +34008,7 @@
      "view": "Hss Header To Column",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.3843,
       0.0185,
       0.5568,
       0.2585
@@ -34008,7 +34104,7 @@
      "view": "Hssx Header To Hssx Jamb",
      "level": "Details",
      "rect": [
-      0.727,
+      0.7271,
       0.0185,
       0.8993,
       0.5001
@@ -34082,54 +34178,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/15-S8.4.4",
-   "sheet": "S8.4.4",
-   "level": "Details",
-   "view": "Typical Exterior Soffit",
-   "viewRef": "15/S8.4.4",
-   "type": "detail",
-   "tag": "Detail 15/S8.4.4",
-   "grid": null,
-   "fields": {
-    "detail": "15",
-    "sheet": "S8.4.4",
-    "title": "TYPICAL EXTERIOR SOFFIT"
-   },
-   "fingerprint": "6ae25c664d7efec9",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 34,
-     "sheet": "S8.4.4",
-     "view": "Typical Exterior Soffit",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.2585,
-      0.3843,
-      0.5001
-     ],
-     "hot": [
-      0.2581,
-      0.483,
-      0.3809,
-      0.4982
-     ],
-     "text": "TYPICAL EXTERIOR SOFFIT"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/11-S8.4.4",
    "sheet": "S8.4.4",
    "level": "Details",
@@ -34164,6 +34212,54 @@
       0.4982
      ],
      "text": "SOFFIT IN PLANE BRACING"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/6-S8.4.4",
+   "sheet": "S8.4.4",
+   "level": "Details",
+   "view": "Base Connection To Metal Deck",
+   "viewRef": "6/S8.4.4",
+   "type": "detail",
+   "tag": "Detail 6/S8.4.4",
+   "grid": null,
+   "fields": {
+    "detail": "6",
+    "sheet": "S8.4.4",
+    "title": "BASE CONNECTION TO METAL DECK"
+   },
+   "fingerprint": "6411327e8c608370",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 34,
+     "sheet": "S8.4.4",
+     "view": "Base Connection To Metal Deck",
+     "level": "Details",
+     "rect": [
+      0.5545,
+      0.5001,
+      0.7271,
+      0.7418
+     ],
+     "hot": [
+      0.5736,
+      0.7247,
+      0.7238,
+      0.7399
+     ],
+     "text": "BASE CONNECTION TO METAL DECK"
     }
    ],
    "ifc": {
@@ -34226,54 +34322,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/18-S8.4.4",
-   "sheet": "S8.4.4",
-   "level": "Details",
-   "view": "Roof Screen Attachment",
-   "viewRef": "18/S8.4.4",
-   "type": "detail",
-   "tag": "Detail 18/S8.4.4",
-   "grid": null,
-   "fields": {
-    "detail": "18",
-    "sheet": "S8.4.4",
-    "title": "ROOF SCREEN ATTACHMENT"
-   },
-   "fingerprint": "26c58f1700e86f78",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 34,
-     "sheet": "S8.4.4",
-     "view": "Roof Screen Attachment",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.2115,
-      0.7418
-     ],
-     "hot": [
-      0.079,
-      0.7247,
-      0.2082,
-      0.7399
-     ],
-     "text": "ROOF SCREEN ATTACHMENT"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/14-S8.4.4",
    "sheet": "S8.4.4",
    "level": "Details",
@@ -34322,54 +34370,6 @@
    "zone": "Details & callouts"
   },
   {
-   "id": "detail/6-S8.4.4",
-   "sheet": "S8.4.4",
-   "level": "Details",
-   "view": "Base Connection To Metal Deck",
-   "viewRef": "6/S8.4.4",
-   "type": "detail",
-   "tag": "Detail 6/S8.4.4",
-   "grid": null,
-   "fields": {
-    "detail": "6",
-    "sheet": "S8.4.4",
-    "title": "BASE CONNECTION TO METAL DECK"
-   },
-   "fingerprint": "6411327e8c608370",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 34,
-     "sheet": "S8.4.4",
-     "view": "Base Connection To Metal Deck",
-     "level": "Details",
-     "rect": [
-      0.3843,
-      0.5001,
-      0.7271,
-      0.7418
-     ],
-     "hot": [
-      0.5736,
-      0.7247,
-      0.7238,
-      0.7399
-     ],
-     "text": "BASE CONNECTION TO METAL DECK"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
    "id": "detail/9-S8.4.4",
    "sheet": "S8.4.4",
    "level": "Details",
@@ -34393,7 +34393,7 @@
      "level": "Details",
      "rect": [
       0.3842,
-      0.7418,
+      0.5001,
       0.5545,
       0.9834
      ],
@@ -34610,6 +34610,54 @@
    "zone": "Details & callouts"
   },
   {
+   "id": "detail/9-S8.4.5",
+   "sheet": "S8.4.5",
+   "level": "Details",
+   "view": "Typical Ceiling Joist Hanger",
+   "viewRef": "9/S8.4.5",
+   "type": "detail",
+   "tag": "Detail 9/S8.4.5",
+   "grid": null,
+   "fields": {
+    "detail": "9",
+    "sheet": "S8.4.5",
+    "title": "TYPICAL CEILING JOIST HANGER"
+   },
+   "fingerprint": "6b5f9043a10388d5",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 35,
+     "sheet": "S8.4.5",
+     "view": "Typical Ceiling Joist Hanger",
+     "level": "Details",
+     "rect": [
+      0.0132,
+      0.0185,
+      0.5544,
+      0.9834
+     ],
+     "hot": [
+      0.4127,
+      0.9664,
+      0.5511,
+      0.9816
+     ],
+     "text": "TYPICAL CEILING JOIST HANGER"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Metal stud details",
+   "zone": "Details & callouts"
+  },
+  {
    "id": "detail/7-S8.4.5",
    "sheet": "S8.4.5",
    "level": "Details",
@@ -34632,7 +34680,7 @@
      "view": "Hanger Connection To Metal Deck",
      "level": "Details",
      "rect": [
-      0.0132,
+      0.5544,
       0.0185,
       0.7271,
       0.5001
@@ -34692,54 +34740,6 @@
       0.4983
      ],
      "text": "SLOTTED CONNECTION CLIP"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Metal stud details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/9-S8.4.5",
-   "sheet": "S8.4.5",
-   "level": "Details",
-   "view": "Typical Ceiling Joist Hanger",
-   "viewRef": "9/S8.4.5",
-   "type": "detail",
-   "tag": "Detail 9/S8.4.5",
-   "grid": null,
-   "fields": {
-    "detail": "9",
-    "sheet": "S8.4.5",
-    "title": "TYPICAL CEILING JOIST HANGER"
-   },
-   "fingerprint": "6b5f9043a10388d5",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 35,
-     "sheet": "S8.4.5",
-     "view": "Typical Ceiling Joist Hanger",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.5544,
-      0.9834
-     ],
-     "hot": [
-      0.4127,
-      0.9664,
-      0.5511,
-      0.9816
-     ],
-     "text": "TYPICAL CEILING JOIST HANGER"
     }
    ],
    "ifc": {
@@ -35064,7 +35064,7 @@
      "view": "Stair Stringer At Landing Conn",
      "level": "Details",
      "rect": [
-      0.5543,
+      0.5544,
       0.2586,
       0.7271,
       0.5001
@@ -35208,7 +35208,7 @@
      "view": "Stair Stringer Connection",
      "level": "Details",
      "rect": [
-      0.5542,
+      0.5544,
       0.5001,
       0.7271,
       0.7418
@@ -35220,54 +35220,6 @@
       0.74
      ],
      "text": "STAIR STRINGER CONNECTION"
-    }
-   ],
-   "ifc": {
-    "class": "IfcAnnotation",
-    "predefinedType": null,
-    "material": null,
-    "objectType": null,
-    "storey": null,
-    "typeClass": null
-   },
-   "system": "Stair details",
-   "zone": "Details & callouts"
-  },
-  {
-   "id": "detail/8-S8.8.1",
-   "sheet": "S8.8.1",
-   "level": "Details",
-   "view": "Landing Detail",
-   "viewRef": "8/S8.8.1",
-   "type": "detail",
-   "tag": "Detail 8/S8.8.1",
-   "grid": null,
-   "fields": {
-    "detail": "8",
-    "sheet": "S8.8.1",
-    "title": "LANDING DETAIL"
-   },
-   "fingerprint": "19f330295c30a43c",
-   "occurrences": [
-    {
-     "doc": "plans",
-     "page": 37,
-     "sheet": "S8.8.1",
-     "view": "Landing Detail",
-     "level": "Details",
-     "rect": [
-      0.0132,
-      0.5001,
-      0.5542,
-      0.7418
-     ],
-     "hot": [
-      0.4622,
-      0.7248,
-      0.5509,
-      0.74
-     ],
-     "text": "LANDING DETAIL"
     }
    ],
    "ifc": {
@@ -35305,7 +35257,7 @@
      "level": "Details",
      "rect": [
       0.0132,
-      0.7418,
+      0.5001,
       0.3841,
       0.9834
      ],
@@ -35316,6 +35268,54 @@
       0.9815
      ],
      "text": "LANDING SUPPORT POST BASE"
+    }
+   ],
+   "ifc": {
+    "class": "IfcAnnotation",
+    "predefinedType": null,
+    "material": null,
+    "objectType": null,
+    "storey": null,
+    "typeClass": null
+   },
+   "system": "Stair details",
+   "zone": "Details & callouts"
+  },
+  {
+   "id": "detail/8-S8.8.1",
+   "sheet": "S8.8.1",
+   "level": "Details",
+   "view": "Landing Detail",
+   "viewRef": "8/S8.8.1",
+   "type": "detail",
+   "tag": "Detail 8/S8.8.1",
+   "grid": null,
+   "fields": {
+    "detail": "8",
+    "sheet": "S8.8.1",
+    "title": "LANDING DETAIL"
+   },
+   "fingerprint": "19f330295c30a43c",
+   "occurrences": [
+    {
+     "doc": "plans",
+     "page": 37,
+     "sheet": "S8.8.1",
+     "view": "Landing Detail",
+     "level": "Details",
+     "rect": [
+      0.3841,
+      0.5001,
+      0.5542,
+      0.7418
+     ],
+     "hot": [
+      0.4622,
+      0.7248,
+      0.5509,
+      0.74
+     ],
+     "text": "LANDING DETAIL"
     }
    ],
    "ifc": {
@@ -37945,8 +37945,8 @@
      "title": "ENLARGED STAIR FRAMING PLAN - LEVEL 2",
      "detail": "detail/2-S5.0.1",
      "rect": [
-      0.0132,
-      0.5001,
+      0.5544,
+      0.0185,
       0.8997,
       0.7417
      ]
@@ -38006,7 +38006,7 @@
      "detail": "detail/3-S5.0.1",
      "rect": [
       0.0132,
-      0.7417,
+      0.5001,
       0.5544,
       0.9834
      ]
@@ -38273,7 +38273,7 @@
      "title": "GUIDERAIL SUPPORT CONNECTION",
      "detail": "detail/16-S5.0.2",
      "rect": [
-      0.0132,
+      0.2115,
       0.0185,
       0.3842,
       0.2579
@@ -38334,7 +38334,7 @@
      "detail": "detail/19-S5.0.2",
      "rect": [
       0.0132,
-      0.2579,
+      0.0185,
       0.2115,
       0.5001
      ]
@@ -38796,7 +38796,7 @@
      "title": "TIE BEAM DETAIL",
      "detail": "detail/12-S8.0.1",
      "rect": [
-      0.0132,
+      0.384,
       0.0185,
       0.5568,
       0.2608
@@ -38818,7 +38818,7 @@
    "id": "callout/10-S8.0.2",
    "sheet": "S5.0.2",
    "level": "Details",
-   "view": "Guiderail Support Connection",
+   "view": "Elevator Guiderail Base",
    "type": "callout",
    "tag": "Detail 10/S8.0.2",
    "grid": null,
@@ -38837,7 +38837,7 @@
      "doc": "plans",
      "page": 19,
      "sheet": "S5.0.2",
-     "view": "Guiderail Support Connection",
+     "view": "Elevator Guiderail Base",
      "level": "Level 2",
      "rect": [
       0.1531,
@@ -39158,7 +39158,7 @@
      "doc": "plans",
      "page": 28,
      "sheet": "S8.2.5",
-     "view": "Depressed Slab Perp (5\" Max)",
+     "view": "Typical Roof Deck Edge",
      "level": "Details",
      "rect": [
       0.3217,
@@ -39172,7 +39172,7 @@
      "doc": "plans",
      "page": 28,
      "sheet": "S8.2.5",
-     "view": "Depressed Slab Perp (5\" Max)",
+     "view": "Typ Conc Over Mtl Deck Deck Edge",
      "level": "Details",
      "rect": [
       0.4887,
@@ -39325,7 +39325,7 @@
      "title": "STANDARD BOLTED STEEL CONNECTIONS - HSSx COLUMNS WITH Wx BEAMS",
      "detail": "detail/8-S8.2.1",
      "rect": [
-      0.0132,
+      0.3842,
       0.0185,
       0.7271,
       0.2585
@@ -39467,7 +39467,7 @@
    "id": "callout/13-S8.2.2",
    "sheet": "S8.2.2",
    "level": "Details",
-   "view": "Skewed Beam Connection",
+   "view": "Wuf-W Beam Geometry",
    "type": "callout",
    "tag": "Detail 13/S8.2.2",
    "grid": null,
@@ -39486,7 +39486,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.1944,
@@ -39640,7 +39640,7 @@
      "detail": "detail/17-S8.2.2",
      "rect": [
       0.0132,
-      0.7416,
+      0.5,
       0.2115,
       0.9835
      ]
@@ -39930,7 +39930,7 @@
      "detail": "detail/11-S8.2.4",
      "rect": [
       0.3841,
-      0.2584,
+      0.0185,
       0.5568,
       0.5002
      ]
@@ -40031,8 +40031,8 @@
      "title": "DECK ALIGNMENT / BEARING DETAIL",
      "detail": "detail/2-S8.2.4",
      "rect": [
-      0.2116,
-      0.2584,
+      0.5545,
+      0.5002,
       0.8998,
       0.7418
      ]
@@ -40092,7 +40092,7 @@
      "detail": "detail/9-S8.2.4",
      "rect": [
       0.3841,
-      0.7418,
+      0.5002,
       0.5545,
       0.9834
      ]
@@ -40365,7 +40365,7 @@
      "title": "EXTERIOR WALL (FIXED CONDITION) ROOF DECK EDGE",
      "detail": "detail/12-S8.2.5",
      "rect": [
-      0.0132,
+      0.2115,
       0.0185,
       0.5568,
       0.2607
@@ -40527,7 +40527,7 @@
      "detail": "detail/13-S8.2.5",
      "rect": [
       0.2115,
-      0.7441,
+      0.2607,
       0.3841,
       0.9858
      ]
@@ -41004,7 +41004,7 @@
      "detail": "detail/18-S8.2.5",
      "rect": [
       0.0132,
-      0.5025,
+      0.0185,
       0.2115,
       0.7442
      ]
@@ -41078,7 +41078,7 @@
    "id": "callout/1-S8.2.6",
    "sheet": "S8.2.2",
    "level": "Details",
-   "view": "Skewed Beam Connection",
+   "view": "Wuf-W Beam Geometry",
    "type": "callout",
    "tag": "Detail 1/S8.2.6",
    "grid": null,
@@ -41098,7 +41098,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.0658,
@@ -41112,7 +41112,7 @@
      "doc": "plans",
      "page": 29,
      "sheet": "S8.2.6",
-     "view": "Wuf-W Continuity Pl (W/ Doubler Pl)",
+     "view": "Wuf-W Continuity Pl (W/O Doubler Pl)",
      "level": "Details",
      "rect": [
       0.5136,
@@ -41181,7 +41181,7 @@
    "id": "callout/10-S8.2.6",
    "sheet": "S8.2.2",
    "level": "Details",
-   "view": "Skewed Beam Connection",
+   "view": "Wuf-W Beam Geometry",
    "type": "callout",
    "tag": "Detail 10/S8.2.6",
    "grid": null,
@@ -41200,7 +41200,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.1702,
@@ -41214,7 +41214,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.1668,
@@ -41234,7 +41234,7 @@
      "detail": "detail/10-S8.2.6",
      "rect": [
       0.3841,
-      0.2608,
+      0.0185,
       0.5568,
       0.7442
      ]
@@ -41255,7 +41255,7 @@
    "id": "callout/8-S8.2.6",
    "sheet": "S8.2.2",
    "level": "Details",
-   "view": "Skewed Beam Connection",
+   "view": "Wuf-W Beam Geometry",
    "type": "callout",
    "tag": "Detail 8/S8.2.6",
    "grid": null,
@@ -41275,7 +41275,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.1567,
@@ -41289,7 +41289,7 @@
      "doc": "plans",
      "page": 25,
      "sheet": "S8.2.2",
-     "view": "Skewed Beam Connection",
+     "view": "Wuf-W Beam Geometry",
      "level": "Details",
      "rect": [
       0.1519,
@@ -41322,7 +41322,7 @@
      "title": "WUF-W CONTINUITY PL (W/ DOUBLER PL)",
      "detail": "detail/8-S8.2.6",
      "rect": [
-      0.0132,
+      0.5568,
       0.0185,
       0.7271,
       0.2608
@@ -41577,7 +41577,7 @@
    "id": "callout/1-S8.4.1",
    "sheet": "S8.4.3",
    "level": "Details",
-   "view": "Fixed Connection Under Wx Beam",
+   "view": "Typical Top Of Wall Connection",
    "type": "callout",
    "tag": "Detail 1/S8.4.1",
    "grid": null,
@@ -41596,7 +41596,7 @@
      "doc": "plans",
      "page": 33,
      "sheet": "S8.4.3",
-     "view": "Fixed Connection Under Wx Beam",
+     "view": "Typical Top Of Wall Connection",
      "level": "Details",
      "rect": [
       0.2312,
@@ -41610,7 +41610,7 @@
      "doc": "plans",
      "page": 33,
      "sheet": "S8.4.3",
-     "view": "Fixed Connection Under Wx Beam",
+     "view": "Typical Top Of Wall Connection",
      "level": "Details",
      "rect": [
       0.3997,
@@ -41788,7 +41788,7 @@
      "title": "EXTERIOR HEADER AND SILL",
      "detail": "detail/7-S8.4.1",
      "rect": [
-      0.0132,
+      0.3842,
       0.2589,
       0.7271,
       0.5001
@@ -42878,7 +42878,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Roof Screen Attachment",
      "level": "Details",
      "rect": [
       0.1123,
@@ -42958,7 +42958,7 @@
      "detail": "detail/18-S8.4.2",
      "rect": [
       0.0132,
-      0.5001,
+      0.0185,
       0.2115,
       0.7418
      ]
@@ -43706,7 +43706,7 @@
      "detail": "detail/10-S8.4.3",
      "rect": [
       0.2117,
-      0.5001,
+      0.2584,
       0.5568,
       0.7418
      ]
@@ -43862,7 +43862,7 @@
    "id": "callout/18-S8.4.3",
    "sheet": "S8.4.4",
    "level": "Details",
-   "view": "Hss Header To Column",
+   "view": "Typical Exterior Soffit",
    "type": "callout",
    "tag": "Detail 18/S8.4.3",
    "grid": null,
@@ -43881,7 +43881,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Typical Exterior Soffit",
      "level": "Details",
      "rect": [
       0.2358,
@@ -43915,7 +43915,7 @@
      "detail": "detail/18-S8.4.3",
      "rect": [
       0.0132,
-      0.5001,
+      0.0185,
       0.2117,
       0.7418
      ]
@@ -43936,7 +43936,7 @@
    "id": "callout/3-S8.4.3",
    "sheet": "S8.4.4",
    "level": "Details",
-   "view": "Hss Header To Column",
+   "view": "Typical Exterior Soffit",
    "type": "callout",
    "tag": "Detail 3/S8.4.3",
    "grid": null,
@@ -43955,7 +43955,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Typical Exterior Soffit",
      "level": "Details",
      "rect": [
       0.2052,
@@ -44059,7 +44059,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Typical Exterior Soffit",
      "level": "Details",
      "rect": [
       0.2922,
@@ -44078,7 +44078,7 @@
      "title": "FIXED CONNECTION UNDER Wx BEAM",
      "detail": "detail/7-S8.4.3",
      "rect": [
-      0.0132,
+      0.5568,
       0.2584,
       0.727,
       0.5001
@@ -44264,7 +44264,7 @@
    "id": "callout/17-S8.4.4",
    "sheet": "S8.4.4",
    "level": "Details",
-   "view": "Hss Header To Column",
+   "view": "Typical Exterior Soffit",
    "type": "callout",
    "tag": "Detail 17/S8.4.4",
    "grid": null,
@@ -44283,7 +44283,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Typical Exterior Soffit",
      "level": "Details",
      "rect": [
       0.2483,
@@ -44420,7 +44420,7 @@
      "detail": "detail/18-S8.4.4",
      "rect": [
       0.0132,
-      0.5001,
+      0.0185,
       0.2115,
       0.7418
      ]
@@ -44479,7 +44479,7 @@
      "title": "BASE CONNECTION TO METAL DECK",
      "detail": "detail/6-S8.4.4",
      "rect": [
-      0.3843,
+      0.5545,
       0.5001,
       0.7271,
       0.7418
@@ -44970,7 +44970,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Roof Screen Attachment",
      "level": "Details",
      "rect": [
       0.1106,
@@ -44989,7 +44989,7 @@
      "title": "HANGER CONNECTION TO METAL DECK",
      "detail": "detail/7-S8.4.5",
      "rect": [
-      0.0132,
+      0.5544,
       0.0185,
       0.7271,
       0.5001
@@ -45528,7 +45528,7 @@
      "doc": "plans",
      "page": 34,
      "sheet": "S8.4.4",
-     "view": "Hss Header To Column",
+     "view": "Roof Screen Attachment",
      "level": "Details",
      "rect": [
       0.1106,
@@ -45548,7 +45548,7 @@
      "detail": "detail/9-S8.4.5",
      "rect": [
       0.0132,
-      0.5001,
+      0.0185,
       0.5544,
       0.9834
      ]
@@ -45658,7 +45658,7 @@
    "id": "callout/1-S8.8.1",
    "sheet": "S5.0.1",
    "level": "Details",
-   "view": "Enlarged Stair Framing Plan - Level 2",
+   "view": "Enlarged Stair Foundation Plan",
    "type": "callout",
    "tag": "Detail 1/S8.8.1",
    "grid": null,
@@ -45677,8 +45677,8 @@
      "doc": "plans",
      "page": 18,
      "sheet": "S5.0.1",
-     "view": "Enlarged Stair Framing Plan - Level 2",
-     "level": "Level 2",
+     "view": "Enlarged Stair Foundation Plan",
+     "level": "Foundation",
      "rect": [
       0.3188,
       0.6024,
@@ -45771,7 +45771,7 @@
      "detail": "detail/11-S8.8.1",
      "rect": [
       0.0132,
-      0.7418,
+      0.5001,
       0.3841,
       0.9834
      ]
@@ -45958,7 +45958,7 @@
    "id": "callout/3-S8.8.1",
    "sheet": "S5.0.1",
    "level": "Details",
-   "view": "Enlarged Stair Framing Plan - Level 2",
+   "view": "Enlarged Stair Foundation Plan",
    "type": "callout",
    "tag": "Detail 3/S8.8.1",
    "grid": null,
@@ -45977,8 +45977,8 @@
      "doc": "plans",
      "page": 18,
      "sheet": "S5.0.1",
-     "view": "Enlarged Stair Framing Plan - Level 2",
-     "level": "Level 2",
+     "view": "Enlarged Stair Foundation Plan",
+     "level": "Foundation",
      "rect": [
       0.3188,
       0.5857,
@@ -46140,7 +46140,7 @@
      "title": "STAIR STRINGER CONNECTION",
      "detail": "detail/4-S8.8.1",
      "rect": [
-      0.5542,
+      0.5544,
       0.5001,
       0.7271,
       0.7418
@@ -46214,7 +46214,7 @@
      "title": "STAIR STRINGER AT LANDING CONN",
      "detail": "detail/5-S8.8.1",
      "rect": [
-      0.5543,
+      0.5544,
       0.2586,
       0.7271,
       0.5001
@@ -46349,7 +46349,7 @@
      "title": "LANDING DETAIL",
      "detail": "detail/8-S8.8.1",
      "rect": [
-      0.0132,
+      0.3841,
       0.5001,
       0.5542,
       0.7418
