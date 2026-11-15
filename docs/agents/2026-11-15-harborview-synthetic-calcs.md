@@ -1,79 +1,92 @@
 # Harborview synthetic calc package
 
-- **Status:** active (planning; open questions below need an answer before step 1)
-- **Branch:** not cut yet (proposed `cs/harborview-calcs` from `prod`)
-- **Owned files (planned):** `tools/calcgraph-reference/synth/harborview/` (new), `tools/calcgraph-reference/data/harborview/`
-  (generated, gitignored), `scripts/copy-assets.mjs` (sample list), the **Load sample** entry point in the app.
-- **Working files:** none yet.
+- **Status:** done, not committed (the user reviews first). Browser-checked; `npm test` and typecheck green.
+- **Branch:** `cs/dev` (working tree; nothing committed).
+- **Owned files:**
+  - `tools/calcgraph-reference/synth/harborview/` (new: `model.py`, `ifc.py`, `calc_pdf.py`, `generate.py`, `legacy_params.json`)
+  - `tools/calcgraph-reference/scripts/evaluate_harborview.py` (new)
+  - `data/harborview/` (the two bundles moved here; everything else generated and committed, PDFs in LFS)
+  - `src/engine/hooks.ts` (`useLoadHarborview`; demo paths), `src/App.tsx`, `src/components/HeaderBar.tsx` (+ test)
+  - `scripts/copy-assets.mjs`
+- **Also touched:**
+  - `synth/shapes.py` (6 sections added)
+  - `synth/ifc_common.py` (header file name, below)
+  - `src/loaders/harborviewBundle.test.ts` (paths)
+  - `data/README.md`, `tools/calcgraph-reference/README.md`
+- **Working files:** none in flight.
 
-## Goal
+## What it is
 
-A calc package (PDFs) that matches the Harborview tower in `data/harborview-tower-rev{1,2}-*.json`, so the calc graph,
-element ↔ calc links and PDF evidence can be demoed on the same building as the Diff Mode demo. Today Harborview's calcs are
-only `documents` stubs (shown as "demo data", `DEMO_DOCUMENT_LINK`); the only real calc sample is the unrelated v1
-synthetic building (`tools/calcgraph-reference/synth/`, 3 storeys, metric grid).
+The Harborview tower as a real project: an IFC per revision and calc PDFs whose text the engine maps. It sits beside
+the bundle-based **Harborview A/B demo**. Menu / empty state: **Harborview sample**. It loads:
 
-## Why PDFs are required
+1. rev 1 IFC + 78 per-document PDFs
+2. rev 2 IFC + 19 PDFs: 12 Rev B reissues and 7 new L06 calcs, each filed as the next revision of its document by file name
+3. Diff Mode A→B
 
-The calc graph only exists as output of `packages/calc-mapper`, whose input is PDF text (`CalcPage[]`: text + word boxes).
-Segmentation (`segment.ts`) splits pages into calcs by title; the matcher (`matcher.ts`) links elements by finding their
-marks as tokens in calc text. Writing a mapping run directly into a project file would bypass the engine and leave the
-PDF view empty, so it was rejected.
+The engine scores 100% on rev 1 (`evaluate_harborview.py`):
 
-## What the Harborview data gives us
+- 98/98 calcs
+- design links 420/420, no false links
+- load references 275/275
+- calc edges 199/199
+- the planted size mismatch found
 
-- Rev 1: 420 element instances on a 5×4 grid (A–E × 1–4), L01–L05 plus foundation. 20 pile caps, 20 piles,
-  100 connections (20 base plates, 80 shear tabs), 5 slabs, 10 core walls, 10 braces, 100 column segments (20 stacks
-  × 5), 155 beams (40 W18x46 girders, 40 W21x62 girders, 75 W16x31 infill).
-- 78 calc stubs (sheet number, title, code, rev, page count, summary), 664 claimed pages in total. Grouping varies:
-  one per grid (S-102 pile cap + caisson), one per stack (S-501), one per level (S-20x slabs, S-40x connections,
-  S-312.. infill), one per grid line per level (S-302 girders), one for all 20 base plates (S-405), one each for core walls
-  (S-601) and braces (S-605).
-- Rev 2: adds L06 (70 elements), removes girder `G-B2C2-L02` and its connection, changes loads on 60 elements.
-  Calc stubs: 6 go to Rev B (S-601, S-605, three S-302 grid-line-2 calcs, S-204) and 7 are new (L06 calcs).
-- Marks are unique, but 65 contain a space (`Cap A1`, `Pile P-A1`, `Slab L01`, `Core N-L01`, `Brace A-L01`). The matcher's
-  token regex (`[A-Z0-9]+(?:[-./][A-Z0-9]+)*`) splits these, so they never match exactly. See open question 1.
-- Sizes not in the v1 `synth/shapes.py` table: W14x132, W18x46, W21x62, HSS8x8x1/2. Add them as nominal values, the
-  same as the existing table (the full AISC table is gitignored under D22).
+## Decisions
 
-## Plan
+- **Source = the bundles + `legacy_params.json`.** The bundles dropped per-element demand / utilisation, so they were
+  extracted once from the legacy JSON at `410a100`. Element GlobalId = uuid5(element id), stable across revs.
+- **Space-free marks** (the user chose this): `Cap A1` → `PC-A1`, `Pile P-A1` → `P-A1`, `Slab L01` → `SL-L01`,
+  `Core N-L01` → `SW-N-L01`, `Brace A-L01` → `BR-A-L01`. The old label is the IFC Name. The matcher reads a mark as one token.
+- **S-102 is two calcs in one PDF** (pile cap, caisson). The engine takes a calc's type from its title (first `CAT_WORDS`
+  match). "Pile Cap & Caisson" reads as Footing, so the caissons would be xref (loads), not design.
+- **Two titles changed on the page** so `segment.ts TITLE_KW` sees a calc title:
+  - "S-405 Column Base Plate & Anchor Rod Package" → "... Design"
+  - "S-31x Lxx Composite Infill Beams (W16x31)" → "... Design"
+- **No section sizes on girder or column schedule rows.** The matcher's size tier links a size on a mark row to every
+  element of that size on the storey that the calc didn't already claim. Girder line 1's rows linked lines 2–4, and
+  each stack linked every other stack: 1476 false links, design precision 22%. Infill and brace rows keep their sizes,
+  because every same-size element on the storey is in that calc. Arguably an engine weakness worth raising.
+- **The demo summaries name sections** ("check for W21x62"). A size on a line with no mark is a typical-group link, so
+  the scope line replaces them.
+- **Numbers:** steel beam capacity from the section (0.9 Fy Zx × 1.35 composite), demand = utilisation × capacity.
+  Columns, connections, plates, caps and walls take demand from the demo kN, with capacity = demand / utilisation.
+  Plausible, not a design.
+- **Calc edges come only from cross-type "from" lines** (xref → calcdeps rule 2):
+  - slab → infill, girder, core wall, braced frame
+  - girder → connection
+  - connection and braced frame → column stack
+  - column stack → base plate → pile cap → caisson
+  - Same-type mentions (beam → beam) would not make an edge, so there are none.
+- **Rev B / L06 follow the bundle's `rev` field exactly.** 16 column stacks stay Rev A in rev 2 without their new L06
+  segment, so those L06 columns have no designing calc in rev 2. That is the demo's own data; it is a realistic "calc
+  not yet updated" case.
+- **Per-document PDFs, not the combined package, in the app.** A Rev B upload matches ≥ 60% of the package's calc keys
+  (calcset.ts rule 3) and would become a revision of the whole package. `calcs/harborview-calcs-rev1.pdf` is for the
+  evaluator and for anyone who wants the one-large-PDF case.
 
-1. **Building from JSON** (`synth/harborview/building.py`): read the two Harborview JSONs and produce the v1 `El` model.
-   Element key = legacy `id` (stable across revs, so GlobalIds stay stable via uuid5). `design_calc` = the stub's doc id.
-   Load path from the JSON links plus grid topology. No analysis: forces and utilisations come from the JSON
-   (`axialLoadKn`, `utilization`), so calc numbers match what the inspector shows.
-2. **IFC writer** (if question 2 = yes): reuse `synth/ifc_common.py` to write `harborview_rev1.ifc` / `harborview_rev2.ifc`
-   from `pos3d` / `size3d` (feet → metres, the same transform as `legacyBimJson.ts geometryOf`), with Mark, section and
-   grade psets. Joints and pile caps as boxes, members as extruded profiles.
-3. **Calc templates** (`synth/harborview/calc_pdf.py`), one per calc family (pile cap/caisson, slab/diaphragm, girder line,
-   infill, connections per level, base plates, column stack, core wall, braced frame). Each calc page carries the sheet
-   header, the stub's title (which must pass `segment.ts TITLE_KW`), the design code, a member/joint schedule naming every
-   mark it designs with its size and demand/capacity, plus load-cue lines ("reactions from G-B2C2-L02") naming the members
-   it only takes loads from. This gives a calc graph with real calc → calc edges (slab → infill → girder → connection →
-   column stack → base plate → pile cap).
-4. **Package layout:** write per-calc PDFs and one combined PDF from the same pages (the mission allows both), plus
-   Rev B PDFs for the 6 revised docs and new PDFs for the 7 L06 docs.
-5. **Ground truth** (`ground_truth.json`, same schema as v1): design calc and ref calcs per GlobalId, calc edges, rev2 diff.
-   This lets `scripts/evaluate.py` score the engine on Harborview (reported, not gated, until a baseline is agreed).
-6. **Byte-stable `--check`**, the same as v1.
-7. **App wiring:** `copy-assets.mjs` copies the Harborview sample; **Load sample** loads the rev1 IFC plus the calc set
-   (and optionally the Rev 2 IFC plus Rev B PDFs as the comparison).
-8. **Verify:** run `evaluate.py` on the new data, then a browser pass: element → calc → highlighted PDF region and back,
-   Diff Mode A/B with calc revisions.
+## Gotchas
 
-## Decisions (defaults unless an open question changes them)
+- **No `&` in served file names.** Vite's static server does not decode `%26` (it answers index.html). File names use
+  " and "; the PDF titles keep "&".
+- **IFC byte-stability on Windows.** `ifc_common.py` wrote `path.rsplit("/")` into the IFC header, i.e. the whole
+  backslash path. Now `os.path.basename`. Bytes are unchanged on Linux. This is likely the real cause of v1's
+  `synthetic_check.generator_byte_stable` failing on Windows (the phase 2 note guessed CRLF). Not re-verified for v1.
+- Regenerating rewrites `data/harborview/` except the bundles. Run `npm run assets` afterwards; `copy-assets.mjs`
+  copies what `manifest.json` lists and warns when PDFs are LFS pointer stubs.
 
-- Numbers come from the JSON, not a PyNite analysis: the demo must agree with the inspector, and the JSON already carries
-  demand and utilisation. The calcs are plausible, not a design.
-- 1–3 pages per calc, not the stubs' 664. Stub page counts are dropped; titles, codes and revs are kept.
-- The v1 synthetic stays as the CI gate (`synthetic_v1`, `synthetic_check`). Harborview is added, not a replacement.
-- A few realism features from the v1 supplement (a scanned hand-calc page, one deliberate size mismatch, a calc continued
-  after a gap) are worth adding at the end so the demo shows findings. Low priority.
+## Next steps
 
-## Open questions
-
-1. Marks with spaces: rename to space-free marks in the IFC/PDFs (e.g. `PC-A1`, `P-A1`, `SL-L01`, `SW-N-L01`,
-   `BR-A-L01`, keeping the old label as the element Name), or teach the matcher multi-word marks?
-2. Generate a Harborview IFC (real GlobalIds, 3D meshes, a full Load sample project), or PDFs only against the legacy JSON?
-3. Should the Harborview sample replace the v1 sample behind **Load sample**, or sit next to it?
-4. Rev 2 scope: generate the Rev B and L06 PDFs in the first pass, or Rev 1 only first?
+- Browser pass done (headless Chrome on `vite`):
+  - Warm dev server: Diff Mode is on ~9 s after the click and the full view ~10 s later; no main-thread stall over 0.75 s.
+  - It opens with +70 / ~29 / −2 elements, 105 calcs, 470 mapped, 18 without a calc (the L06 segments of the Rev A
+    stacks), and one finding (the planted one).
+  - Each PDF is read once at upload (worker `extractPlaced`); views reuse the stored extraction.
+  - Not checked in the browser: PDF highlight click-through.
+- **Cold `vite` makes it look slow.** The first load after a dev-server start (or `--force`) took 45–90 s: Vite
+  pre-bundles and transforms the PDF, IFC and 3D modules on first use. A production build does not have that cost.
+  The "stuck" busy text seen then was the same cold start.
+- The diff chip reads "Rev 1 → 80": revision ids count calc revisions too (as in the A/B demo's chip, pre-existing).
+- Optional realism from the v1 supplement: a scanned hand-calc page, a calc continued after a gap.
+- `evaluate_all.py` stage for Harborview (reported) once a baseline is agreed.
+- Tell Noah the demo bundles moved to `data/harborview/`.

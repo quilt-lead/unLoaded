@@ -18,7 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
-| [2026-11-15-harborview-synthetic-calcs.md](2026-11-15-harborview-synthetic-calcs.md) | active | Plan for a synthetic calc package (PDFs + IFC + ground truth) matching the Harborview tower demo; open questions on marks, IFC, sample wiring
+| [2026-11-15-harborview-synthetic-calcs.md](2026-11-15-harborview-synthetic-calcs.md) | active | Harborview sample: generator (IFC rev 1+2, 97 calc PDFs, ground truth) from the demo bundles, all Harborview files in data/harborview/, a "Harborview sample" menu entry; engine scores 100% on it |
 | [2026-11-15-selection-dimming.md](2026-11-15-selection-dimming.md) | done | Refreshes 3D material shaders when transparency changes so deselected elements reliably dim |
 | [2026-11-15-model-bundle.md](2026-11-15-model-bundle.md) | done | `unloaded.model-bundle`: element graph + calc graph in one JSON; Harborview demo converted (demo calcs now in the Calculation Graph, superseding D19); legacy JSON loader retired to a converter script; Export model + calc graph |
 | [2026-11-15-current-ui-prod-integration.md](2026-11-15-current-ui-prod-integration.md) | blocked | Repairs the UI merge onto prod's project/revision model while retaining the latest palette, selection, and workspace-view behavior; branch pushed, PR creation needs authenticated GitHub access |

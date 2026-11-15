@@ -245,12 +245,53 @@ export function useLoadDemo(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const a = await sampleFile('demo/harborview-tower-rev1-base.bundle.json', 'harborview-tower-rev1-base.bundle.json');
-      const b = await sampleFile('demo/harborview-tower-rev2-compare.bundle.json', 'harborview-tower-rev2-compare.bundle.json');
+      const a = await sampleFile('harborview/harborview-tower-rev1-base.bundle.json', 'harborview-tower-rev1-base.bundle.json');
+      const b = await sampleFile('harborview/harborview-tower-rev2-compare.bundle.json', 'harborview-tower-rev2-compare.bundle.json');
       const pid = (await createProject('Harborview Corporate Center (demo data)')).id;
       rememberActiveProject(pid);
       const ra = await addModelRevision(pid, a, 'Rev 1 base (demo)', onProgress);
       const rb = await addModelRevision(pid, b, 'Rev 2 compare (demo)', onProgress);
+      return { projectId: pid, a: ra.revision.id, b: rb.revision.id };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+/** data/harborview/manifest.json (written by tools/calcgraph-reference synth.harborview.generate). */
+interface HarborviewManifest {
+  project: string;
+  models: { rev1: string; rev2: string };
+  labels: { rev1: string; rev2: string };
+  calcs: { rev1: string[]; rev2: string[] };
+}
+
+/** A path under public/samples/harborview/, URL-encoded per segment (calc file names have spaces, "&" and parentheses). */
+const harborviewPath = (rel: string) => `harborview/${rel.split('/').map(encodeURIComponent).join('/')}`;
+const baseName = (rel: string) => rel.slice(rel.lastIndexOf('/') + 1);
+
+/**
+ * The Harborview sample: the same tower as the A/B demo, with a real IFC and real calc PDFs (synthetic, made by
+ * synth.harborview). Rev 1 = the IFC + one PDF per calc document; rev 2 = the second IFC + the reissued (Rev B)
+ * and new L06 PDFs, each filed by name as the next revision of its document. Returns both model revisions for the diff.
+ */
+export function useLoadHarborview(onProgress: Progress) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const mf = await sampleFile(harborviewPath('manifest.json'), 'manifest.json');
+      const m = JSON.parse(await mf.text()) as HarborviewManifest;
+      const pid = (await createProject(m.project)).id;
+      rememberActiveProject(pid);
+      const addCalcs = async (files: string[], rev: string) => {
+        for (const [i, rel] of files.entries()) {
+          onProgress(`${rev} calcs: ${i + 1} of ${files.length}`);
+          await addCalcRevision(pid, await sampleFile(harborviewPath(rel), baseName(rel)), undefined, onProgress);
+        }
+      };
+      const ra = await addModelRevision(pid, await sampleFile(harborviewPath(m.models.rev1), baseName(m.models.rev1)), m.labels.rev1, onProgress);
+      await addCalcs(m.calcs.rev1, 'Rev 1');
+      const rb = await addModelRevision(pid, await sampleFile(harborviewPath(m.models.rev2), baseName(m.models.rev2)), m.labels.rev2, onProgress);
+      await addCalcs(m.calcs.rev2, 'Rev 2');
       return { projectId: pid, a: ra.revision.id, b: rb.revision.id };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),

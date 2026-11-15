@@ -20,6 +20,7 @@ const renderHeader = () =>
       onSaveProject={null}
       onLoadSample={noop}
       onLoadDemo={noop}
+      onLoadHarborview={noop}
       onUploadModel={noop}
       onUploadCalcs={noop}
       onOpenFile={noop}
