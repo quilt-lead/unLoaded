@@ -156,7 +156,7 @@ export function parseProjectFile(data: unknown): ProjectFile {
       if (kinds.get(v as number) !== kind) fail(`${at}.${k} = ${String(v)} is not a ${kind} revision in this file`);
     }
   });
-  return data as ProjectFile;
+  return data as unknown as ProjectFile;
 }
 
 /** The head revision of a kind: the highest id (what importing leaves as head). */
