@@ -505,6 +505,14 @@ Checked on data:
 **Open (for Issy):** `prod`'s history holds the prototype screenshots and `.DS_Store` versions noted above. The
 guard no longer scans pre-guard history, and nothing was rewritten or allowlisted.
 
+### D31. This branch no longer merges `prod`; Carl integrates
+**Decided by:** Issy, 2026-11-14 ~10:25 PM ET: "im not merging prod, just allowing carl to put everything together - so def dont merge".
+This supersedes D12's "merged forward" and the handover's "keep prod merged forward". Two `prod` merges were already
+pushed before this: `63e7485` (Carl's `.gitignore`) and `3032801` (Carl's "Ui fixes"). They stay unless Issy says
+otherwise. `prod` has since gained PR #5 (`a5176ad`): `prototyping/calc-viewer/` content the copyright guard blocks,
+18 files including the protected terms and prototype screenshots. It is **not** merged here. PR #4 now conflicts
+with `prod`, so GitHub runs no PR checks on it. The last green CI was `bf22bd8`.
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
