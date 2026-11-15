@@ -189,8 +189,8 @@ export const App: React.FC = () => {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
-  const [viewer3dDock, setViewer3dDock] = useState<DockSide>('float');
-  const [inspectorDock, setInspectorDock] = useState<DockSide>('float');
+  const [viewer3dDock, setViewer3dDock] = useState<DockSide>('right');
+  const [inspectorDock, setInspectorDock] = useState<DockSide>('left');
   const [leftDockWidth, setLeftDockWidth] = useState(340);
   const [rightDockWidth, setRightDockWidth] = useState(360);
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });

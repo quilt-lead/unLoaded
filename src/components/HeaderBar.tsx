@@ -174,7 +174,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   );
 
   return (
-    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.85)] z-30 flex-shrink-0">
+    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto z-30 flex-shrink-0">
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         <img
           src="/unloaded-logo.svg"
