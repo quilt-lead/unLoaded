@@ -136,7 +136,7 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
       throw new GraphFormatError(`graph.edges[${i}].evidence must be a list of objects (detail an object, when given)`);
     }
   });
-  return g as SerializedElementGraph;
+  return g as unknown as SerializedElementGraph;
 }
 
 type Edge = SerializedElementGraph["edges"][number];
