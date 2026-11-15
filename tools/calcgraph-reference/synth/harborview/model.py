@@ -157,16 +157,17 @@ def page_title(title: str) -> str:
 
 
 def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
-    """Generate uniform connection plate boxes on each side of columns.
+    """Generate uniform connection plate boxes on each side of column segments.
     
-    Creates one uniform plate per beam-column intersection, positioned on the
-    appropriate side of the column (N, S, E, W) based on beam direction.
+    Creates one uniform plate per direction per column segment (per level).
+    Plates are positioned at the center Z of the column segment with beams
+    framing into that direction.
     """
     beams = {e.id: e for e in elements if e.kind == "beam"}
     columns = {e.id: e for e in elements if e.kind == "column"}
     
-    # Map: (column_grid, level, direction) -> beam (to get one plate per direction)
-    connections_by_direction: dict[tuple[str, str, str], Element] = {}
+    # Map: (column_id, direction) -> list of beams (to know which directions have connections)
+    connections_by_direction: dict[tuple[str, str], list[Element]] = {}
     
     for beam in beams.values():
         # A beam grid like "A1-B1" touches columns A1 and B1
@@ -196,16 +197,17 @@ def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
                     direction = "N"  # Beam is to the north
                 
                 if direction:
-                    key = (col_grid, beam.storey, direction)
-                    # Store the beam (for reference)
-                    connections_by_direction[key] = beam
+                    # Find the column segment (column_id) that matches this beam's level
+                    col_id = f"col-{col_grid}-{beam.storey}"
+                    key = (col_id, direction)
+                    connections_by_direction.setdefault(key, []).append(beam)
     
-    # Generate uniform plates
+    # Generate uniform plates - one per column segment per direction
     new_plates: list[Element] = []
     
-    for (col_grid, level, direction), beam in sorted(connections_by_direction.items()):
-        # Find the column
-        col = next((c for c in columns.values() if c.grid == col_grid and c.storey == level), None)
+    for (col_id, direction), beams_in_direction in sorted(connections_by_direction.items()):
+        # Find the column segment
+        col = columns.get(col_id)
         if not col:
             continue
         
@@ -213,20 +215,16 @@ def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
         col_min, col_max = col_bbox["min"], col_bbox["max"]
         col_center_x = (col_min[0] + col_max[0]) / 2
         col_center_y = (col_min[1] + col_max[1]) / 2
-        col_center_z = (col_min[2] + col_max[2]) / 2
+        col_center_z = (col_min[2] + col_max[2]) / 2  # Center of THIS segment
         
         col_width = abs(col_max[0] - col_min[0])
         col_depth = abs(col_max[1] - col_min[1])
-        col_height = abs(col_max[2] - col_min[2])
-        
-        # Get the beam elevation (top of beam)
-        beam_z_top = beam.geom["bbox"]["max"][2]
+        col_height = abs(col_max[2] - col_min[2])  # Height of THIS segment
         
         # Uniform plate dimensions - all plates are same size
         plate_width = col_width * 0.8
         plate_depth = col_depth * 0.8
-        plate_thickness = 0.05  # 50mm
-        plate_height = col_height * 0.4  # 40% of column height
+        plate_height = col_height * 0.9  # 90% of segment height to fill the segment
         
         # Position plate on the appropriate side of the column
         # Plates extend outward from column surface
@@ -234,7 +232,7 @@ def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
         
         plate_center_x = col_center_x
         plate_center_y = col_center_y
-        plate_center_z = beam_z_top - plate_height / 2  # Center plate vertically around beam top
+        plate_center_z = col_center_z  # Use segment center, not beam top
         
         # Offset based on direction
         if direction == "E":
@@ -262,7 +260,9 @@ def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
             "bbox": {"min": plate_min, "max": plate_max}
         }
         
-        # Create unique ID for this connection
+        # Create unique ID for this connection - based on column segment ID
+        col_grid = col_id.split("-")[1]  # Extract grid from col_id (e.g., "A1" from "col-A1-L01")
+        level = col_id.split("-")[2]    # Extract level (e.g., "L01")
         plate_id = f"conn-plate-{col_grid}-{direction}-{level}"
         plate_mark = f"CN-{col_grid}-{direction}"
         
@@ -271,7 +271,7 @@ def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
             kind="connection",
             mark=plate_mark,
             label=plate_mark,
-            desc=f"Connection plate at {col_grid} {direction} side (level {level})",
+            desc=f"Connection plate at {col_grid} {direction} side ({level})",
             profile='8x 7/8" A325',
             material=col.material,
             storey=level,
