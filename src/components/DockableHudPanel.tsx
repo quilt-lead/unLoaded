@@ -62,7 +62,9 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
 
   useEffect(() => {
     setRect(fitToViewport(defaultPos));
-  }, [defaultPos, minWidth, minHeight]);
+    // by value: callers may pass a fresh object literal each render, which must not reset a moved panel
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPos.left, defaultPos.top, defaultPos.width, defaultPos.height, minWidth, minHeight]);
 
   useEffect(() => {
     const onResize = () => setRect((current) => fitToViewport(current));

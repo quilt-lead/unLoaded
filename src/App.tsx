@@ -1,300 +1,388 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Crosshair, RotateCcw, CheckCircle2, AlertTriangle, Columns } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
-  BimGraphData,
-  BimLink,
+  AlertTriangle,
+  Box,
+  CheckCircle2,
+  Columns,
+  Crosshair,
+  FileJson,
+  FileText,
+  Loader2,
+  Network,
+  RotateCcw,
+  Sparkles,
+} from 'lucide-react';
+import type {
   BimNode,
-  DatabaseDiffSummary,
-  DiffStatus,
+  ColorMode,
+  DecisionAction,
   DockSide,
   FilterState,
+  HighlightOverlay,
+  HighlightTone,
   NodeGroup,
+  PdfTarget,
+  ProjectViewModel,
   TraceDirection,
   WorkspaceView,
 } from './types/bim';
 import {
-  buildCalculationGraph,
-  buildHierarchyLinks,
-  computeDatabaseDiff,
+  useCompare,
+  useCreateProject,
+  useDecide,
+  useImpact,
+  useInitialProject,
+  useLoadDemo,
+  useLoadSample,
+  useLoadSupplement,
+  useProjectList,
+  useProjectView,
+  useRevisionUrls,
+  useStoreInfo,
+  useUploadCalcs,
+  useUploadModel,
+} from './engine/hooks';
+import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
+import { calcNodeId } from './data/loadProject';
+import { applyModelDiff } from './data/mergeProject';
+import { diffRevisionsError, keepWhatExists } from './data/viewState';
+import { exportFileView } from './data/openFile';
+import {
   computeLoadPathTrace,
-  getAllDocumentsFlattened,
   isElementTypeNode,
   isInstanceNode,
+  withMappingSatellites,
 } from './utils/graphEngine';
-import { ACCEPTED_EXTENSIONS, importModel } from './loaders/parsers';
-import { DropSlot, useFileDrop } from './hooks/useFileDrop';
-import { FileDropOverlay } from './components/FileDropOverlay';
 import { HeaderBar } from './components/HeaderBar';
-import { FilterBar } from './components/FilterBar';
+import { FilterBar, type DiffFilter } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
 import { Structural3DViewer } from './components/Structural3DViewer';
 import { PropertyInspector } from './components/PropertyInspector';
-import { DocumentBrowser } from './components/DocumentBrowser';
+import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
+import { RevisionPanel } from './components/RevisionPanel';
+import { useEscapeFallback } from './components/escapeStack';
+import { FileDropOverlay } from './components/FileDropOverlay';
+import { useFileDrop, type DropSlot } from './hooks/useFileDrop';
+import { ACCEPTED_EXTENSIONS } from './loaders/parsers';
+
+/** What a window drop accepts: every model format, calc package PDFs and project files (.json). */
+const DROP_EXTENSIONS = [...new Set([...ACCEPTED_EXTENSIONS, '.pdf'])];
+
+const EMPTY_SET = new Set<string>();
+const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
+
+/**
+ * What is open: a project in the store, or a read-only export file over it. `epoch` counts scope
+ * changes (0 = the scope the app opened with); it keys every component that holds project-local
+ * state, so a different project remounts them instead of inheriting their tabs and picks.
+ */
+interface Scope {
+  projectId: string | null;
+  exportView: ProjectViewModel | null;
+  epoch: number;
+}
+
+/** The URL deep link (#view=docs&el=<GlobalId>&evidence=1&impact=remove&calc=<key>&compare=A,B), read once. */
+const readDeepLink = () => {
+  if (typeof window === 'undefined') return null;
+  const h = window.location.hash.replace(/^#/, '');
+  return h ? new URLSearchParams(h) : null;
+};
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<WorkspaceView>('element-graph');
-  const [heatmapMode, setHeatmapMode] = useState(false);
+  /** bumped by every explicit "open this in the PDF view": remounts the browser so its search / comparison cannot hide the target */
+  const [documentOpenRequest, setDocumentOpenRequest] = useState(0);
+  const [colorMode, setColorMode] = useState<ColorMode>('type');
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
 
-  // Dual-Database State (Base DB A + Optional Compare DB B)
-  const [baseSnapshot, setBaseSnapshot] = useState<{ graph: BimGraphData; rawLinks: BimLink[] } | null>(null);
-  const [compareSnapshot, setCompareSnapshot] = useState<{ graph: BimGraphData; rawLinks: BimLink[] } | null>(null);
-  const [diffFilter, setDiffFilter] = useState<'ALL' | 'CHANGED' | DiffStatus>('ALL');
+  // ---------------------------------------------------------------- data
+  // A project in the local store (IndexedDB): its head model revision's element graph (topology)
+  // merged with the calc engine's export (worker), by GlobalId. Or a plain calc-graph export JSON
+  // opened from disk (exportView), read-only.
+  const queryClient = useQueryClient();
+  const [busyText, setBusyText] = useState('');
+  const storeInfo = useStoreInfo();
+  const initialProject = useInitialProject();
+  const [scope, setScope] = useState<Scope>({ projectId: null, exportView: null, epoch: 0 });
+  const { projectId, exportView } = scope;
+  // the store's last-active project is the opening scope (epoch 0); every later change is enterScope
+  useEffect(() => {
+    const id = initialProject.data?.id;
+    if (id) setScope((s) => (s.projectId ? s : { ...s, projectId: id }));
+  }, [initialProject.data]);
+  const pid = exportView ? null : projectId;
 
-  const [projectName, setProjectName] = useState<string>('No Model Loaded');
-  const [elementNodes, setElementNodes] = useState<BimNode[]>([]);
-  const [rawLinks, setRawLinks] = useState<BimGraphData['links']>([]);
+  // diff mode: (A, B) model revisions of `pid`; the diff is laid over revision B's view
+  const [diffRevs, setDiffRevs] = useState<{ a: number; b: number } | null>(null);
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>('ALL');
+  const [compareOpen, setCompareOpen] = useState(false);
+
+  // progress of (re)building the project view: mapping runs in the worker the first time a
+  // (model, calcs) pair is seen; shown only while that query is fetching
+  const [viewProgress, setViewProgress] = useState('');
+  const projectQ = useProjectView(pid, setViewProgress, diffRevs?.b ?? null);
+  const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
+  const projectsQ = useProjectList();
+  const decide = useDecide(pid);
+  const sample = useLoadSample(setBusyText);
+  const demo = useLoadDemo(setBusyText);
+  const supplement = useLoadSupplement(setBusyText);
+  // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
+  const uploadModel = useUploadModel(setBusyText);
+  const uploadCalcs = useUploadCalcs(setBusyText);
+  const createProject = useCreateProject();
+  const revisions = projectQ.data?.revisions ?? null;
+  /** the head model revision: "before" when a new model revision is added (not B in diff mode) */
+  const headModelRev = revisions?.find((r) => r.kind === 'model' && r.isHead)?.id ?? null;
+
+  const compareQ = useCompare(pid, diffRevs?.a ?? null, diffRevs?.b ?? null);
+
+  const baseView: ProjectViewModel | null = exportView ?? projectQ.data?.view ?? null;
+  // The model revision ON SCREEN: while B's view loads, the previous revision's view is still shown
+  // (placeholder data), and impact and decisions must be about what the reviewer sees, not about the
+  // revision being loaded. Writes are disabled while the view is a placeholder (canWrite below).
+  const shownModelRev = exportView ? null : (baseView?.modelRevisionId ?? null);
+  const viewIsPlaceholder = !exportView && projectQ.isPlaceholderData;
+
+  const [impactReq, setImpactReq] = useState<{ gid: string; mode: 'change' | 'remove' } | null>(null);
+  const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change', shownModelRev);
+  const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
+
+  const diffApplied = useMemo(() => {
+    if (!baseView || !diffRevs || !compareQ.data) return null;
+    const label = (rid: number) => {
+      const r = revisions?.find((x) => x.id === rid);
+      return r ? `#${rid} ${r.label}` : `Revision #${rid}`;
+    };
+    return applyModelDiff(baseView, compareQ.data, { base: label(diffRevs.a), compare: label(diffRevs.b) });
+  }, [baseView, diffRevs, compareQ.data, revisions]);
+  const diffSummary = diffApplied?.summary ?? null;
+  const diffMode = Boolean(diffSummary);
+  const view = diffApplied?.view ?? baseView;
+
+  // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
-
+  const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
-
   const [selectedCalcNodeId, setSelectedCalcNodeId] = useState<string | null>(null);
   const [selectedCalcNodeIds, setSelectedCalcNodeIds] = useState<Set<string>>(new Set());
-
-  const [filters, setFilters] = useState<FilterState>({
-    search: '',
-    type: 'ALL',
-    level: 'ALL',
-  });
-
+  const [calcAnchorKey, setCalcAnchorKey] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterState>(NO_FILTERS);
   const [docFilterBySelected, setDocFilterBySelected] = useState(false);
-  const [initialDocId, setInitialDocId] = useState<string | null>(null);
-  const [documentOpenRequest, setDocumentOpenRequest] = useState(0);
-
-  const handleChangeView = useCallback((view: WorkspaceView) => {
-    // Element and calculation categories/searches refer to different records.
-    if ((activeView === 'calculation-graph') !== (view === 'calculation-graph')) {
-      setFilters((prev) => ({ ...prev, search: '', type: 'ALL' }));
-    }
-    setActiveView(view);
-  }, [activeView]);
-
+  const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
-
   const [viewer3dDock, setViewer3dDock] = useState<DockSide>('float');
   const [inspectorDock, setInspectorDock] = useState<DockSide>('float');
   const [leftDockWidth, setLeftDockWidth] = useState(340);
-  const [rightDockWidth, setRightDockWidth] = useState(340);
+  const [rightDockWidth, setRightDockWidth] = useState(360);
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({
-    message: '',
-    isError: false,
-    visible: false,
-  });
+  /**
+   * Every view change goes through here. Element and calc searches / type filters address different
+   * records (element categories vs calc groups), so crossing into or out of the calc graph clears them.
+   */
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
+  const changeView = useCallback((next: WorkspaceView) => {
+    if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
+      setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
+    }
+    setActiveView(next);
+  }, []);
 
+  const handleClearSelection = useCallback(() => {
+    setSelectedNodeId(null);
+    setSelectedNodeIds(new Set());
+    setSelectedCalcNodeId(null);
+    setSelectedCalcNodeIds(new Set());
+    setCalcAnchorKey(null);
+  }, []);
+
+  /**
+   * The one way the open project changes (picker, sample, demo, new project, project or export
+   * file). It resets every project-scoped piece of state here, synchronously: groups, moved nodes,
+   * selection, impact, PDF target, the 3D camera, filters, diff mode. It also bumps the epoch that
+   * remounts components holding project-local state. `diff` is applied as part of the same change,
+   * so a caller entering a project in diff mode (the demo) cannot have it reset away. Re-entering
+   * the scope already open changes nothing but the diff, when one is given.
+   * A different revision of the SAME project on screen is not a project change: see keepWhatExists
+   * below (src/data/viewState.ts).
+   */
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const enterScope = useCallback(
+    (next: { projectId: string } | { exportView: ProjectViewModel }, diff?: { a: number; b: number }) => {
+      const cur = scopeRef.current;
+      const nextProject = 'projectId' in next ? next.projectId : cur.projectId;
+      const nextExport = 'exportView' in next ? next.exportView : null;
+      if ('projectId' in next) rememberActiveProject(next.projectId);
+      const same = nextProject === cur.projectId && nextExport === cur.exportView;
+      if (!same) {
+        const s = { projectId: nextProject, exportView: nextExport, epoch: cur.epoch + 1 };
+        scopeRef.current = s;
+        setScope(s);
+        setDiffRevs(null);
+        setDiffFilter('ALL');
+        setFilters(NO_FILTERS);
+        setCompareOpen(false);
+        setDocFilterBySelected(false);
+        setGroups([]);
+        setMoved(new Map());
+        handleClearSelection();
+        setImpactReq(null);
+        setPdfTarget(null);
+        setResetTrigger((c) => c + 1);
+      }
+      if (diff) {
+        setDiffRevs(diff);
+        setDiffFilter('ALL');
+      }
+    },
+    [handleClearSelection],
+  );
+  const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
+
+  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
+  // one timer: a newer toast restarts the countdown; cleared on unmount
   const toastTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const showToast = useCallback((message: string, isError = false) => {
     setToast({ message, isError, visible: true });
-    // One timer: a newer toast (e.g. import progress -> result) restarts the countdown.
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => {
-      setToast((prev) => ({ ...prev, visible: false }));
-    }, 3400);
+    toastTimer.current = window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
   }, []);
 
-  // Recompute active merged graph whenever Base DB (A) or Compare DB (B) changes
-  const diffSummary: DatabaseDiffSummary | null = useMemo(() => {
-    if (!baseSnapshot || !compareSnapshot) return null;
-    const diffRes = computeDatabaseDiff(
-      baseSnapshot.graph,
-      baseSnapshot.rawLinks,
-      compareSnapshot.graph,
-      compareSnapshot.rawLinks
-    );
-    return diffRes.summary;
-  }, [baseSnapshot, compareSnapshot]);
-
+  // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
+  // the head, which has its own view) with the reason, rather than leaving an empty workspace.
   useEffect(() => {
-    if (!baseSnapshot) return;
-    if (!compareSnapshot) {
-      setProjectName(baseSnapshot.graph.projectName || 'Loaded Model');
-      setElementNodes(baseSnapshot.graph.nodes);
-      setRawLinks(baseSnapshot.rawLinks);
+    const err = diffRevs ? (projectQ.error ?? compareQ.error) : projectQ.error;
+    if (!err) return;
+    if (diffRevs) {
+      setDiffRevs(null);
       setDiffFilter('ALL');
-      return;
+      showToast(`Left diff mode: could not compare #${diffRevs.a} with #${diffRevs.b} (${errMsg(err)})`, true);
+    } else {
+      showToast(`Could not load the project: ${errMsg(err)}`, true);
     }
+  }, [diffRevs, projectQ.error, compareQ.error, showToast]);
+  useEffect(() => {
+    if (impactQ.error) showToast(`Impact check failed: ${errMsg(impactQ.error)}`, true);
+  }, [impactQ.error, showToast]);
+  // the head calc package could not be read: the model is shown without calc data (calcError banner)
+  const calcError = exportView ? null : (projectQ.data?.calcError ?? null);
+  // once per diff entered (a scope's (A, B) pair), not per recomputation: every decision refetches
+  // the base view and recomputes diffSummary
+  const diffKey = diffRevs ? `${scope.epoch}:${diffRevs.a}:${diffRevs.b}` : null;
+  const announcedDiff = useRef<string | null>(null);
+  useEffect(() => {
+    if (!diffKey) announcedDiff.current = null;
+    else if (diffSummary && announcedDiff.current !== diffKey) {
+      announcedDiff.current = diffKey;
+      showToast(`Diff ready: +${diffSummary.addedCount} added, ~${diffSummary.modifiedCount} modified, -${diffSummary.removedCount} removed`);
+    }
+  }, [diffKey, diffSummary, showToast]);
 
-    const diffRes = computeDatabaseDiff(
-      baseSnapshot.graph,
-      baseSnapshot.rawLinks,
-      compareSnapshot.graph,
-      compareSnapshot.rawLinks
+  // The revision on screen changed within the project (a diff entered, swapped or left, a new head
+  // or calc package): groups and moved nodes stay; selection, impact and PDF target stay where their
+  // element / calc exists in the new view (src/data/viewState.ts). Applied once the view has settled:
+  // not to a placeholder of the previous revision, and in diff mode not before the diff's ghosts are
+  // laid over B (a selected removed element is still on screen, as a ghost).
+  const viewSettled = !viewIsPlaceholder && (!diffRevs || Boolean(diffApplied) || compareQ.isError);
+  const pointersRef = useRef({ selectedNodeId, selectedNodeIds, selectedCalcNodeId, selectedCalcNodeIds, calcAnchorKey, impactReq, pdfTarget });
+  pointersRef.current = { selectedNodeId, selectedNodeIds, selectedCalcNodeId, selectedCalcNodeIds, calcAnchorKey, impactReq, pdfTarget };
+  useEffect(() => {
+    if (!view || !viewSettled) return;
+    const cur = pointersRef.current;
+    const next = keepWhatExists(cur, view);
+    if (next === cur) return;
+    setSelectedNodeId(next.selectedNodeId);
+    setSelectedNodeIds(next.selectedNodeIds);
+    setSelectedCalcNodeId(next.selectedCalcNodeId);
+    setSelectedCalcNodeIds(next.selectedCalcNodeIds);
+    setCalcAnchorKey(next.calcAnchorKey);
+    setImpactReq(next.impactReq);
+    setPdfTarget(next.pdfTarget);
+  }, [view, viewSettled]);
+
+  // ---------------------------------------------------------------- derived view data
+  const elementNodes = useMemo<BimNode[]>(() => {
+    const nodes = view?.elementNodes ?? [];
+    if (moved.size === 0) return nodes;
+    return nodes.map((n) => {
+      const m = moved.get(n.id);
+      return m ? { ...n, x: m.x, y: m.y } : n;
+    });
+  }, [view, moved]);
+  const elementById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
+
+  const calcGraph = useMemo(
+    () => withMappingSatellites(view?.calcNodes ?? [], view?.calcLinks ?? [], calcAnchorKey, elementNodes),
+    [view, calcAnchorKey, elementNodes],
+  );
+
+  const hasProject = Boolean(view && (view.elementNodes.length > 1 || view.calcs.length > 0));
+
+  const { chainNodeIds: activeLoadChainNodeIds, chainLinkKeys: activeLoadChainLinkKeys } = useMemo(() => {
+    const seeds = (selectedNodeIds.size > 0 ? [...selectedNodeIds] : selectedNodeId ? [selectedNodeId] : []).filter(
+      (id) => elementById.get(id)?.kind === 'element',
     );
-    setProjectName(`${diffRes.summary.baseName} vs ${diffRes.summary.compareName}`);
-    setElementNodes(diffRes.mergedNodes);
-    setRawLinks(diffRes.mergedRawLinks);
-  }, [baseSnapshot, compareSnapshot]);
+    return computeLoadPathTrace(view?.loadPath ?? [], seeds, traceDirection, traceSteps);
+  }, [view, elementById, selectedNodeId, selectedNodeIds, traceDirection, traceSteps]);
 
-  const handleUploadFile = useCallback(
-    async (file: File, slot: 'base' | 'compare') => {
-      try {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        const { graph, rawLinks: parsedLinks, warnings, parser } = await importModel(file.name, bytes, (msg) =>
-          showToast(`${msg}…`)
-        );
-        if (!graph.nodes.some(isInstanceNode)) {
-          showToast('No physical structural elements found in file.', true);
-          return;
-        }
-        if (warnings.length > 0) console.warn(`[import] ${file.name}: ${warnings.length} warning(s)`, warnings);
-        const warnText =
-          warnings.length > 0 ? ` • ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (see console)` : '';
-
-        setGroups([]);
-        setFilters({ search: '', type: 'ALL', level: 'ALL' });
-        setDiffFilter('ALL');
-        setDocFilterBySelected(false);
-        setInitialDocId(null);
-        setDocumentOpenRequest((value) => value + 1);
-        setSelectedNodeId(null);
-        setSelectedNodeIds(new Set());
-        setSelectedCalcNodeId(null);
-        setSelectedCalcNodeIds(new Set());
-        setResetTrigger((c) => c + 1);
-
-        if (slot === 'compare') {
-          if (!baseSnapshot) {
-            // If user clicked Compare DB first before loading DB A, load into DB A and prompt for DB B
-            setBaseSnapshot({ graph, rawLinks: parsedLinks });
-            showToast(`Loaded DB A (${graph.projectName || file.name}). Click "Compare DB" again to pick DB B.`);
-            return;
-          }
-          setCompareSnapshot({ graph, rawLinks: parsedLinks });
-          const diffRes = computeDatabaseDiff(baseSnapshot.graph, baseSnapshot.rawLinks, graph, parsedLinks);
-          const s = diffRes.summary;
-          showToast(`Diff ready: +${s.addedCount} added, ~${s.modifiedCount} modified, -${s.removedCount} removed${warnText}`);
-        } else {
-          setBaseSnapshot({ graph, rawLinks: parsedLinks });
-          const catCount = graph.nodes.filter(isElementTypeNode).length;
-          const instCount = graph.nodes.filter(isInstanceNode).length;
-          showToast(`Loaded DB A via ${parser.name}: ${instCount} elements across ${catCount} types${warnText}`);
-        }
-      } catch (err: any) {
-        showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
-      }
-    },
-    [baseSnapshot, showToast]
-  );
-
-  const handleDropFiles = useCallback(
-    (files: File[], slot: DropSlot) => {
-      const supported = files.filter((f) =>
-        ACCEPTED_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
-      );
-      if (supported.length === 0) {
-        const names = files.map((f) => f.name).join(', ');
-        showToast(`Can’t import ${names}. Drop a ${ACCEPTED_EXTENSIONS.join(' or ')} file.`, true);
-        return;
-      }
-      if (files.length > 1) {
-        console.info(`[drop] importing ${supported[0].name}; ignored ${files.length - 1} other file(s)`);
-      }
-      void handleUploadFile(supported[0], slot);
-    },
-    [handleUploadFile, showToast]
-  );
-
-  const { isDragging, hoverSlot } = useFileDrop(handleDropFiles);
-
-  const handleSwapDatabases = useCallback(() => {
-    if (!baseSnapshot || !compareSnapshot) return;
-    const prevBase = baseSnapshot;
-    const prevCompare = compareSnapshot;
-    setBaseSnapshot(prevCompare);
-    setCompareSnapshot(prevBase);
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-    showToast(
-      `Swapped models: A is now "${prevCompare.graph.projectName || 'DB B'}" ↔ B is now "${prevBase.graph.projectName || 'DB A'}"`
-    );
-  }, [baseSnapshot, compareSnapshot, showToast]);
-
-  const handleClearDiff = useCallback(() => {
-    setCompareSnapshot(null);
-    setDiffFilter('ALL');
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-    showToast('Exited Diff Mode — showing Base DB (A)');
-  }, [showToast]);
-
-  const hierarchyLinks = useMemo(() => buildHierarchyLinks(elementNodes, rawLinks), [elementNodes, rawLinks]);
-
-  const { calcNodes, calcLinks, docToElementIds } = useMemo(
-    () => buildCalculationGraph(elementNodes, projectName),
-    [elementNodes, projectName]
-  );
-
-  const { chainNodeIds: activeLoadChainNodeIds } = useMemo(() => {
-    const seeds = selectedNodeIds.size > 0 ? Array.from(selectedNodeIds) : selectedNodeId ? [selectedNodeId] : [];
-    return computeLoadPathTrace(elementNodes, rawLinks, seeds, traceDirection, traceSteps);
-  }, [elementNodes, rawLinks, selectedNodeId, selectedNodeIds, traceDirection, traceSteps]);
+  const overlay = useMemo<HighlightOverlay | null>(() => {
+    if (!impact) return null;
+    const tones = new Map<string, HighlightTone>();
+    impact.hit.forEach((_, id) => tones.set(id, 'hit'));
+    impact.removed.forEach((id) => tones.set(id, 'removed'));
+    impact.stale.forEach((_, key) => tones.set(calcNodeId(key), 'stale'));
+    tones.set(impact.elementId, 'origin');
+    return { tones };
+  }, [impact]);
 
   const categories = useMemo(
-    () => (activeView === 'calculation-graph' ? calcNodes : elementNodes).filter(isElementTypeNode),
-    [activeView, calcNodes, elementNodes]
+    () => (activeView === 'calculation-graph' ? view?.calcNodes ?? [] : elementNodes).filter(isElementTypeNode),
+    [activeView, view, elementNodes],
   );
-
   const floors = useMemo(() => {
-    const floorMap = new Map<string, number>();
-    elementNodes.filter(isInstanceNode).forEach((n) => {
-      if (n.floor) floorMap.set(n.floor, typeof n.floorNum === 'number' ? n.floorNum : 0);
-    });
-    return Array.from(floorMap.entries())
-      .sort((a, b) => a[1] - b[1])
-      .map(([fl]) => fl);
+    const m = new Map<string, number>();
+    elementNodes.forEach((n) => n.kind === 'element' && n.storey && m.set(n.storey, n.storeyOrder ?? 0));
+    return [...m.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
   }, [elementNodes]);
 
+  // the diff filter applies to elements only (see matchingNodeIds): in the calc graph it is not an active filter
   const isDiffFilterActive = Boolean(activeView !== 'calculation-graph' && diffSummary && diffFilter !== 'ALL');
-  const isFilterActive = Boolean(
-    filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL' || isDiffFilterActive
-  );
+  const isFilterActive = Boolean(filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL' || isDiffFilterActive);
 
   const { matchingNodeIds, totalInstances } = useMemo(() => {
-    const targetList = (activeView === 'calculation-graph' ? calcNodes : elementNodes).filter(isInstanceNode);
+    const inCalc = activeView === 'calculation-graph';
+    const list = (inCalc ? calcGraph.nodes : elementNodes).filter(isInstanceNode);
     const matched = new Set<string>();
     const q = filters.search.trim().toLowerCase();
-
-    targetList.forEach((n) => {
+    list.forEach((n) => {
       if (filters.type !== 'ALL' && n.parent !== filters.type && n.categoryParent !== filters.type) return;
-      if (filters.level !== 'ALL' && n.floor && n.floor !== 'ALL' && n.floor !== filters.level) return;
-
-      if (diffSummary && diffFilter !== 'ALL' && activeView !== 'calculation-graph') {
-        const st = n.diffStatus || 'unchanged';
-        if (diffFilter === 'CHANGED' && st === 'unchanged') return;
-        if (diffFilter !== 'CHANGED' && st !== diffFilter) return;
+      if (!inCalc && filters.level !== 'ALL' && n.storey !== filters.level) return;
+      if (!inCalc && diffSummary && diffFilter !== 'ALL') {
+        const st = n.diffStatus ?? 'unchanged';
+        if (diffFilter === 'CHANGED' ? st === 'unchanged' : st !== diffFilter) return;
       }
-
       if (q) {
-        const hay = `${n.id} ${n.label} ${n.floor || ''} ${n.strengthLabel || ''} ${n.desc || ''}`.toLowerCase();
+        const hay = `${n.id} ${n.label} ${n.mark ?? ''} ${n.size ?? ''} ${n.storey ?? ''} ${n.ifcType ?? ''} ${n.name ?? ''} ${n.desc ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return;
       }
       matched.add(n.id);
     });
+    return { matchingNodeIds: matched, totalInstances: list.filter((n) => n.kind !== 'mapped-element').length };
+  }, [activeView, calcGraph.nodes, elementNodes, filters, diffSummary, diffFilter]);
 
-    return { matchingNodeIds: matched, totalInstances: targetList.length };
-  }, [activeView, calcNodes, elementNodes, filters, diffSummary, diffFilter]);
-
-  const allDocs = useMemo(
-    () =>
-      getAllDocumentsFlattened(
-        elementNodes,
-        activeView !== 'calculation-graph' && isFilterActive ? matchingNodeIds : null,
-        heatmapMode
-      ),
-    [elementNodes, activeView, isFilterActive, matchingNodeIds, heatmapMode]
-  );
-
+  // ---------------------------------------------------------------- selection
   const handleSelectElementNode = useCallback(
     (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean; skipZoomFit?: boolean }) => {
       if (opts?.toggleMulti) {
@@ -318,29 +406,52 @@ export const App: React.FC = () => {
       }
       if (!opts?.skipZoomFit) setFit3dTrigger((c) => c + 1);
     },
-    []
+    [],
   );
 
   const handleSelectCalcNode = useCallback(
-    (calcId: string) => {
-      setSelectedCalcNodeId(calcId);
-      setSelectedCalcNodeIds(new Set([calcId]));
-      const mappedEls = docToElementIds.get(calcId) || [];
-      if (mappedEls.length > 0) {
-        setSelectedNodeIds(new Set(mappedEls));
-        setSelectedNodeId(mappedEls[0]);
+    (id: string) => {
+      const node = calcGraph.nodes.find((n) => n.id === id);
+      setSelectedCalcNodeId(id);
+      setSelectedCalcNodeIds(new Set([id]));
+      if (!node) return;
+      if (node.kind === 'mapped-element' && node.elementId) {
+        setSelectedNodeIds(new Set([node.elementId]));
+        setSelectedNodeId(node.elementId);
         setFit3dTrigger((c) => c + 1);
-      } else {
-        setSelectedNodeId(null);
-        setSelectedNodeIds(new Set());
+        return;
       }
+      if (node.kind === 'calc' && node.calcKey) {
+        setCalcAnchorKey(node.calcKey);
+        const mapped = view?.calcToElementIds.get(node.calcKey) ?? [];
+        setSelectedNodeIds(new Set(mapped));
+        setSelectedNodeId(mapped[0] ?? null);
+        if (mapped.length) setFit3dTrigger((c) => c + 1);
+        return;
+      }
+      setCalcAnchorKey(null);
     },
-    [docToElementIds]
+    [calcGraph.nodes, view],
+  );
+
+  const selectCalcByKey = useCallback(
+    (key: string) => {
+      changeView('calculation-graph');
+      setCalcAnchorKey(key);
+      setSelectedCalcNodeId(calcNodeId(key));
+      setSelectedCalcNodeIds(new Set([calcNodeId(key)]));
+      const mapped = view?.calcToElementIds.get(key) ?? [];
+      setSelectedNodeIds(new Set(mapped));
+      setSelectedNodeId(mapped[0] ?? null);
+    },
+    [view, changeView],
   );
 
   const handleSelectGroup = useCallback(
     (groupId: string, opts?: { toggleMulti?: boolean }) => {
-      const grp = groups.find((g) => g.id === groupId);
+      const found = groups.find((g) => g.id === groupId);
+      // a group outlives revisions; select the members this revision has
+      const grp = found && { ...found, nodeIds: found.nodeIds.filter((id) => elementById.has(id)) };
       if (!grp || grp.nodeIds.length === 0) return;
       if (opts?.toggleMulti) {
         setSelectedNodeIds((prev) => {
@@ -361,7 +472,7 @@ export const App: React.FC = () => {
       }
       setFit3dTrigger((c) => c + 1);
     },
-    [groups]
+    [groups, elementById],
   );
 
   const handleRenameGroup = useCallback(
@@ -371,165 +482,399 @@ export const App: React.FC = () => {
       setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name: trimmed } : g)));
       showToast(`Renamed group to "${trimmed}"`);
     },
-    [showToast]
+    [showToast],
   );
 
-  const handleClearSelection = useCallback(() => {
-    setSelectedNodeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectedCalcNodeId(null);
-    setSelectedCalcNodeIds(new Set());
-  }, []);
-
-  const handleMoveNodes = useCallback((movedIds: Set<string>, dx: number, dy: number) => {
-    setElementNodes((prev) =>
-      prev.map((n) => (movedIds.has(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n))
-    );
-  }, []);
+  const handleMoveNodes = useCallback(
+    (movedIds: Set<string>, dx: number, dy: number) => {
+      setMoved((prev) => {
+        const next = new Map(prev);
+        movedIds.forEach((id) => {
+          const n = elementById.get(id);
+          if (n) next.set(id, { x: n.x + dx, y: n.y + dy });
+        });
+        return next;
+      });
+    },
+    [elementById],
+  );
 
   const handleGroupSelection = useCallback(() => {
-    const ids = Array.from(selectedNodeIds);
+    const ids = Array.from(selectedNodeIds).filter((id) => elementById.has(id));
     if (ids.length < 2) {
       showToast('Shift + Click at least 2 elements before grouping (Ctrl+G).', true);
       return;
     }
-
-    const idSet = new Set(ids);
-    setElementNodes((prev) => {
-      const selectedNodes = prev.filter((n) => idSet.has(n.id));
-      if (selectedNodes.length < 2) return prev;
-
-      let cx = 0;
-      let cy = 0;
-      selectedNodes.forEach((n) => {
-        cx += n.x;
-        cy += n.y;
-      });
-      cx /= selectedNodes.length;
-      cy /= selectedNodes.length;
-
-      const sorted = [...selectedNodes].sort(
-        (a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)
-      );
-      const maxR = Math.max(...sorted.map((n) => n.r || 12));
-      const spacing = maxR * 2.35;
-      const cols = Math.ceil(Math.sqrt(sorted.length));
-
-      const updatedCoords = new Map<string, { x: number; y: number }>();
+    const selectedNodes = ids.map((id) => elementById.get(id)!);
+    let cx = 0;
+    let cy = 0;
+    selectedNodes.forEach((n) => {
+      cx += n.x;
+      cy += n.y;
+    });
+    cx /= selectedNodes.length;
+    cy /= selectedNodes.length;
+    const sorted = [...selectedNodes].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+    const maxR = Math.max(...sorted.map((n) => n.r || 12));
+    const spacing = maxR * 2.35;
+    const cols = Math.ceil(Math.sqrt(sorted.length));
+    setMoved((prev) => {
+      const next = new Map(prev);
       sorted.forEach((n, idx) => {
         const r = Math.floor(idx / cols);
         const c = idx % cols;
         const colsInRow = Math.min(cols, sorted.length - r * cols);
-        updatedCoords.set(n.id, {
+        next.set(n.id, {
           x: cx + (c - (colsInRow - 1) / 2) * spacing,
           y: cy + (r - (Math.ceil(sorted.length / cols) - 1) / 2) * spacing,
         });
       });
-
-      return prev.map((n) => {
-        const nextPt = updatedCoords.get(n.id);
-        return nextPt ? { ...n, x: nextPt.x, y: nextPt.y } : n;
-      });
+      return next;
     });
-
+    const idSet = new Set(ids);
     setGroups((prev) => {
-      const cleaned = prev
-        .map((g) => ({ ...g, nodeIds: g.nodeIds.filter((nid) => !idSet.has(nid)) }))
-        .filter((g) => g.nodeIds.length >= 2);
-      return [
-        ...cleaned,
-        { id: `grp-${Date.now()}`, name: `GROUP ${cleaned.length + 1}`, nodeIds: ids },
-      ];
+      const cleaned = prev.map((g) => ({ ...g, nodeIds: g.nodeIds.filter((nid) => !idSet.has(nid)) })).filter((g) => g.nodeIds.length >= 2);
+      return [...cleaned, { id: `grp-${Date.now()}`, name: `GROUP ${cleaned.length + 1}`, nodeIds: ids }];
     });
-
     showToast(`Grouped ${ids.length} elements (Ctrl+G)`);
-  }, [selectedNodeIds, showToast]);
+  }, [selectedNodeIds, elementById, showToast]);
 
+  // Escape with no menu or panel open (they close themselves through the escape stack)
+  useEscapeFallback(() => {
+    setDocFilterBySelected(false);
+    setImpactReq(null);
+    handleClearSelection();
+  });
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target;
-      if (e.defaultPrevented || (target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest('input, textarea, select')))) return;
+      const t = e.target as HTMLElement | null;
+      if (e.defaultPrevented || (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable))) return;
+      // groups live on the element graph: Ctrl/Cmd+G elsewhere is the browser's
       if (activeView === 'element-graph' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
-      } else if (e.key === 'Escape') {
-        setDocFilterBySelected(false);
-        handleClearSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeView, handleGroupSelection, handleClearSelection]);
+  }, [activeView, handleGroupSelection]);
+
+  // ---------------------------------------------------------------- actions
+  const run = useCallback(
+    async (text: string, fn: () => Promise<string | void>) => {
+      setBusyText(text);
+      try {
+        const done = await fn();
+        if (done) showToast(done);
+        setFit3dTrigger((c) => c + 1);
+      } catch (e) {
+        showToast(errMsg(e), true);
+      } finally {
+        setBusyText('');
+      }
+    },
+    [showToast],
+  );
+
+  const sampleError = (e: unknown) => (e instanceof SampleMissingError ? e.message : errMsg(e));
+
+  const handleLoadSample = () =>
+    run('Loading the sample building and calc package…', async () => {
+      try {
+        const out = await sample.mutateAsync({ rev: 1, projectId: null });
+        switchProject(out.projectId);
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      return 'Sample loaded: model, calc package and links';
+    });
+
+  /**
+   * After a revision was added to `target` by an action that started in scope epoch `startEpoch`:
+   * show it (back from an export view; into diff `diff`, else out of diff mode so the new head is
+   * shown), but only if the user is still in the scope the action started in. A project switched to
+   * meanwhile is never switched away from. Returns whether it was shown.
+   */
+  const showAddedRevision = useCallback(
+    (target: string, startEpoch: number, diff?: { a: number; b: number }) => {
+      if (scopeRef.current.epoch !== startEpoch) return false;
+      enterScope({ projectId: target }, diff);
+      if (!diff) {
+        setDiffRevs(null);
+        setDiffFilter('ALL');
+      }
+      setCompareOpen(false);
+      return true;
+    },
+    [enterScope],
+  );
+  const projectName = (id: string) => projectsQ.data?.find((x) => x.id === id)?.name ?? 'its project';
+
+  const handleLoadSampleRev2 = () =>
+    run('Adding sample model rev 2 (column C8 removed)…', async () => {
+      const before = headModelRev;
+      const startEpoch = scopeRef.current.epoch;
+      let out: { projectId: string; modelRevisionId: number };
+      try {
+        out = await sample.mutateAsync({ rev: 2, projectId: pid });
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      const shown = showAddedRevision(out.projectId, startEpoch, before != null ? { a: before, b: out.modelRevisionId } : undefined);
+      return shown ? 'Model rev 2 added and made the head' : `Model rev 2 added to ${projectName(out.projectId)}`;
+    });
+
+  const handleLoadSupplement = () =>
+    run('Adding the sample calc supplement…', async () => {
+      if (!pid) throw new Error('Open a project first (Load sample).');
+      try {
+        await supplement.mutateAsync(pid);
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      setCompareOpen(false);
+      return 'Calc supplement added as the head calc package';
+    });
+
+  const handleLoadDemo = () =>
+    run('Loading the Harborview A/B demo (legacy JSON, demo data)…', async () => {
+      let out: { projectId: string; a: number; b: number };
+      try {
+        out = await demo.mutateAsync();
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      enterScope({ projectId: out.projectId }, { a: out.a, b: out.b });
+      return 'Harborview demo loaded as two model revisions, compared A → B';
+    });
+
+  /**
+   * The one path a chosen file becomes a revision of the store project (header menu, empty state,
+   * revision panel, Open file). The revision goes to the project open when the action started (also
+   * when an export view is shown over it); once added it is shown through showAddedRevision. With
+   * `compareWithHead`, a new model revision is shown as the diff (previous head -> new revision).
+   * `kind: 'any'` dispatches by content (openAnyFile): a project file opens as a new project and an
+   * export JSON as a read-only view instead.
+   */
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', file: File, opts?: { compareWithHead?: boolean }) =>
+    run(`${kind === 'any' ? 'Opening' : 'Reading'} ${file.name}…`, async () => {
+      const target = projectId;
+      if (!target) throw new Error('The project store is still opening; try again in a moment.');
+      const startEpoch = scopeRef.current.epoch;
+      const before = headModelRev;
+      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[] };
+      if (kind === 'any') {
+        const opened = await openAnyFile(target, file, setBusyText);
+        if (opened.kind === 'export') {
+          const v = exportFileView(opened.export);
+          enterScope({ exportView: v });
+          return `Opened ${file.name}: ${v.elementNodes.filter((x) => x.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only export)`;
+        }
+        await queryClient.invalidateQueries({ queryKey: ['projects'] });
+        if (opened.kind === 'project') {
+          switchProject(opened.projectId);
+          return `Imported project from ${file.name}`;
+        }
+        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings };
+      } else if (kind === 'model') {
+        const out = await uploadModel.mutateAsync({ projectId: target, file });
+        added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
+      } else {
+        const out = await uploadCalcs.mutateAsync({ projectId: target, file });
+        added = { kind: 'calcs', id: out.revisionId, warnings: [] };
+      }
+      if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
+      const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
+      const shown = showAddedRevision(target, startEpoch, diff);
+      const what = `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+      return shown ? what : `${what} of ${projectName(target)}`;
+    });
+  const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);
+  /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
+  const handleOpenFile = (file: File) => addRevisionFile('any', file);
+
+  // OS drag & drop anywhere on the window: the same paths as the header's file pickers. The "compare" zone (shown
+  // once a model is loaded) adds a model revision and diffs it against the current head.
+  const handleDropFiles = (files: File[], slot: DropSlot) => {
+    const file = files.find((f) => DROP_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext)));
+    if (!file) {
+      showToast(`Can't open ${files.map((f) => f.name).join(', ')}. Drop a ${DROP_EXTENSIONS.join(' / ')} file.`, true);
+      return;
+    }
+    if (files.length > 1) showToast(`Opening ${file.name}; drop one file at a time (${files.length - 1} ignored).`, true);
+    if (slot === 'compare' && headModelRev != null) void addRevisionFile('model', file, { compareWithHead: true });
+    else void handleOpenFile(file);
+  };
+  const { isDragging, hoverSlot } = useFileDrop(handleDropFiles);
+
+  const handleSaveProject = () =>
+    run('Packing the project…', async () => {
+      if (!pid) throw new Error('No project to save.');
+      return `Saved ${await downloadProjectFile(pid)}`;
+    });
+
+  const handleNewProject = () =>
+    run('Creating a project…', async () => {
+      switchProject(await createProject.mutateAsync('Untitled project'));
+      return 'New empty project';
+    });
+
+  const handleDecide = useCallback(
+    (elementId: string, calcKey: string, action: DecisionAction) => {
+      decide
+        .mutateAsync({ elementId, calcKey, action, modelRev: shownModelRev })
+        .then(() =>
+          showToast(
+            action === 'confirm' ? 'Link confirmed' : action === 'reject' ? 'Link rejected' : action === 'manual' ? 'Linked by hand' : 'Decision undone',
+          ),
+        )
+        .catch((e) => showToast(`Decision failed: ${errMsg(e)}`, true));
+    },
+    [decide, showToast, shownModelRev],
+  );
+
+  /**
+   * Enter diff mode on model revisions (A, B) of the open project, chosen in the panel or named by a
+   * deep link: checked against the project's revisions first (diffRevisionsError), so an id from
+   * another browser's store or a calc revision is refused with the reason instead of failing B's view.
+   */
+  const requestDiff = (a: number, b: number): boolean => {
+    const why = diffRevisionsError(revisions, a, b);
+    if (why) {
+      showToast(`Cannot compare #${a} with #${b}: ${why}`, true);
+      return false;
+    }
+    setDiffRevs({ a, b });
+    setDiffFilter('ALL');
+    return true;
+  };
+  const handleCompare = (a: number, b: number) => {
+    if (requestDiff(a, b)) setCompareOpen(false);
+  };
+  // swapping or leaving keeps the selection where its element exists in the new view (keepWhatExists)
+  const handleSwapDatabases = () => {
+    if (!diffRevs) return;
+    setDiffRevs({ a: diffRevs.b, b: diffRevs.a });
+    showToast(`Swapped: A is now #${diffRevs.b}, B is now #${diffRevs.a}`);
+  };
+  const handleClearDiff = () => {
+    setDiffRevs(null);
+    setDiffFilter('ALL');
+    showToast('Exited diff mode');
+  };
 
   const handleResetAll = useCallback(() => {
-    setFilters({ search: '', type: 'ALL', level: 'ALL' });
+    setFilters(NO_FILTERS);
     setDiffFilter('ALL');
+    setImpactReq(null);
     handleClearSelection();
+    setMoved(new Map());
     setViewer3dDock('float');
     setInspectorDock('float');
-    setDocFilterBySelected(false);
-    setInitialDocId(null);
-    setDocumentOpenRequest((value) => value + 1);
     setLeftDockWidth(340);
-    setRightDockWidth(340);
+    setRightDockWidth(360);
+    setDocFilterBySelected(false);
+    setPdfTarget(null);
+    setDocumentOpenRequest((c) => c + 1);
     setResetTrigger((c) => c + 1);
     showToast('View, filters & panels reset');
   }, [handleClearSelection, showToast]);
 
-  const handleOpenDocument = useCallback(
-    (nodeId: string, docId?: string, preserveSelection = false) => {
-      if (!preserveSelection && nodeId && selectedNodeId !== nodeId) {
-        handleSelectElementNode(nodeId, { skipZoomFit: true });
+  const openTarget = useCallback(
+    (t: PdfTarget, elementId?: string) => {
+      if (elementId) {
+        handleSelectElementNode(elementId, { skipZoomFit: true });
+        setDocFilterBySelected(true);
       }
-      setDocFilterBySelected(true);
-      // An explicit document link must not be hidden by workspace filters.
-      setFilters({ search: '', type: 'ALL', level: 'ALL' });
-      setDiffFilter('ALL');
-      setInitialDocId(docId || null);
-      setDocumentOpenRequest((value) => value + 1);
-      handleChangeView('docs');
+      setPdfTarget(t);
+      setDocumentOpenRequest((c) => c + 1);
+      changeView('docs');
     },
-    [selectedNodeId, handleSelectElementNode, handleChangeView]
+    [handleSelectElementNode, changeView],
   );
 
+  const showElementCalcs = useCallback(
+    (elementId: string) => {
+      const el = elementById.get(elementId);
+      const top = el?.calcLinks?.find((l) => l.review !== 'rejected');
+      const c = top ? view?.calcs.find((x) => x.key === top.calcKey) : undefined;
+      handleSelectElementNode(elementId, { skipZoomFit: true });
+      setDocFilterBySelected(true);
+      if (top && c) setPdfTarget({ calcKey: c.key, page: top.evidence.page ?? c.pages[0] ?? 1, rects: top.evidence.rects, caption: `Matched "${top.matchedText}"` });
+      setDocumentOpenRequest((n) => n + 1);
+      changeView('docs');
+    },
+    [elementById, view, handleSelectElementNode, changeView],
+  );
+
+  const dropFromHash = (key: string) => {
+    const h = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (!h.has(key)) return;
+    h.delete(key);
+    const rest = h.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${rest ? `#${rest}` : ''}`);
+  };
+
+  // the deep link belongs to the project the app opened with (scope epoch 0) and is applied once,
+  // when that project's view has loaded; an empty or failed opening project, or a switch to another
+  // project first, drops it rather than carrying it to whatever opens next
+  const [deepLink, setDeepLink] = useState(readDeepLink);
+  useEffect(() => {
+    const h = deepLink;
+    if (!h) return;
+    if (scope.epoch !== 0) {
+      setDeepLink(null);
+      return;
+    }
+    if (!pid || projectQ.isPending || projectQ.isFetching) return;
+    setDeepLink(null);
+    if (!view || !hasProject) return;
+    const el = h.get('el');
+    const calc = h.get('calc');
+    const v = h.get('view') as WorkspaceView | null;
+    if (el && elementById.has(el)) handleSelectElementNode(el);
+    if (calc) selectCalcByKey(calc);
+    if (v && ['element-graph', 'calculation-graph', '3d', 'docs'].includes(v)) changeView(v);
+    if (el && h.get('evidence')) showElementCalcs(el);
+    const imp = h.get('impact');
+    if (el && (imp === 'change' || imp === 'remove')) setImpactReq({ gid: el, mode: imp });
+    const cmp = h.get('compare')?.split(',').map(Number);
+    // a refused pair is dropped from the URL too, so a reload does not refuse it again
+    if (cmp && !(cmp.length === 2 && requestDiff(cmp[0], cmp[1]))) dropFromHash('compare');
+    const color = h.get('color') as ColorMode | null;
+    if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
+  }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs, changeView]);
+
+  // ---------------------------------------------------------------- panels
   const defaultV3dPos = useMemo(
-    () => ({
-      left: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 340),
-      top: 108,
-      width: 320,
-      height: 245,
-    }),
-    [resetTrigger]
+    () => ({ left: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 360), top: 108, width: 340, height: 260 }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resetTrigger],
   );
-
   const defaultInspPos = useMemo(
     () => ({
-      left: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 340),
-      top: Math.max(370, (typeof window !== 'undefined' ? window.innerHeight : 800) - 275),
-      width: 320,
-      height: 255,
+      left: Math.max(20, (typeof window !== 'undefined' ? window.innerWidth : 1280) - 360),
+      top: 384,
+      width: 340,
+      height: Math.max(260, (typeof window !== 'undefined' ? window.innerHeight : 800) - 404),
     }),
-    [resetTrigger]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resetTrigger],
   );
 
-  const showViewer3d = activeView === 'element-graph' || activeView === 'calculation-graph';
-  const showInspector = activeView !== 'docs';
-
-  const leftDockedHasItems =
-    (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
-  const rightDockedHasItems =
-    (showViewer3d && viewer3dDock === 'right') || (showInspector && inspectorDock === 'right');
+  const showViewer3d = hasProject && (activeView === 'element-graph' || activeView === 'calculation-graph');
+  const showInspector = hasProject && activeView !== 'docs';
+  const leftDockedHasItems = (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
+  const rightDockedHasItems = (showViewer3d && viewer3dDock === 'right') || (showInspector && inspectorDock === 'right');
 
   const startDockColumnResize = (side: 'left' | 'right') => (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startX = e.clientX;
     const startW = side === 'left' ? leftDockWidth : rightDockWidth;
-
     const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
       const raw = side === 'left' ? startW + dx : startW - dx;
-      const clamped = Math.max(260, Math.min(540, raw));
+      const clamped = Math.max(260, Math.min(560, raw));
       if (side === 'left') setLeftDockWidth(clamped);
       else setRightDockWidth(clamped);
     };
@@ -541,19 +886,66 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', onUp);
   };
 
-  const diffMode = Boolean(diffSummary);
+  const modelUrl = view?.modelFileUrl ?? null;
+  // ghosts of a diff are meshed from their own revision's IFC; JSON-model revisions fall back to boxes
+  const ghostRids = (diffApplied?.ghosts ?? []).map((g) => g.revisionId).filter((rid) => revisions?.find((r) => r.id === rid)?.isIfc);
+  const ghostUrls = useRevisionUrls(ghostRids);
+  const pdfUrl = exportView ? null : (projectQ.data?.pdfUrl ?? null);
+  const ghostSources = useMemo(
+    () =>
+      (diffApplied?.ghosts ?? [])
+        .filter((g) => ghostUrls.data?.has(g.revisionId))
+        .map((g) => ({ url: ghostUrls.data!.get(g.revisionId)!, gids: g.elementIds })),
+    [diffApplied, ghostUrls.data],
+  );
+  const model3dEmpty =
+    view?.source === 'file'
+      ? 'An export JSON carries no geometry; open the project file or add the IFC to see the model.'
+      : view?.modelRevisionId != null
+        ? 'This model revision has no geometry (no IFC, and its elements carry no bounding boxes).'
+        : 'No model in this project yet.';
+
+  const viewer3d = (
+    <Structural3DViewer
+      nodes={elementNodes}
+      modelUrl={modelUrl}
+      ghostSources={ghostSources}
+      selectedNodeId={selectedNodeId}
+      selectedNodeIds={selectedNodeIds}
+      activeLoadChainNodeIds={activeLoadChainNodeIds}
+      matchingNodeIds={matchingNodeIds}
+      isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
+      colorMode={colorMode}
+      diffMode={diffMode}
+      overlay={overlay}
+      fitTrigger={fit3dTrigger}
+      resetTrigger={resetTrigger}
+      emptyText={model3dEmpty}
+      onSelectNode={handleSelectElementNode}
+    />
+  );
+
+  const status3d = diffMode
+    ? `+${diffSummary?.addedCount} Added • ~${diffSummary?.modifiedCount} Mod • -${diffSummary?.removedCount} Rem`
+    : impact
+    ? `Impact: ${impact.removed.length} removed • ${impact.hit.size} hit`
+    : selectedNodeId
+    ? 'Selection & Load Path'
+    : colorMode === 'review'
+    ? 'Mapping status'
+    : colorMode === 'confidence'
+    ? 'Link confidence'
+    : 'IFC Model';
 
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
       title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
       indicatorClassName={
-        diffMode
+        diffMode || impact
           ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
           : selectedNodeId
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] animate-pulse'
-          : heatmapMode
-          ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
+          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] motion-safe:animate-pulse'
           : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
       }
       dockSide={viewer3dDock}
@@ -567,7 +959,7 @@ export const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setFit3dTrigger((c) => c + 1)}
-            title="Zoom Fit Selected Element"
+            title="Zoom to selection"
             className="mono text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition mr-0.5"
           >
             FIT
@@ -575,7 +967,8 @@ export const App: React.FC = () => {
           <button
             type="button"
             onClick={() => setResetTrigger((c) => c + 1)}
-            title="Reset 3D Camera"
+            title="Reset 3D camera"
+            aria-label="Reset 3D camera"
             className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
           >
             <RotateCcw className="w-3 h-3" />
@@ -584,44 +977,27 @@ export const App: React.FC = () => {
       }
     >
       <div className="relative flex-1 w-full h-full overflow-hidden bg-[#282c34]">
-        <Structural3DViewer
-          nodes={elementNodes}
-          selectedNodeId={selectedNodeId}
-          selectedNodeIds={selectedNodeIds}
-          activeLoadChainNodeIds={activeLoadChainNodeIds}
-          matchingNodeIds={matchingNodeIds}
-          isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
-          heatmapMode={heatmapMode}
-          diffMode={diffMode}
-          fitTrigger={fit3dTrigger}
-          resetTrigger={resetTrigger}
-          onSelectNode={handleSelectElementNode}
-        />
+        {viewer3d}
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
-          <span className="truncate text-zinc-200">
-            {diffMode
-              ? `+${diffSummary?.addedCount} Added • ~${diffSummary?.modifiedCount} Mod • -${diffSummary?.removedCount} Rem`
-              : selectedNodeId
-              ? 'Mapped Element & Load Path'
-              : heatmapMode
-              ? 'Utilization Heatmap'
-              : '3D Structural Frame'}
-          </span>
-          <span className="text-zinc-500 ml-2 flex-shrink-0">RMB Orbit • MMB Pan</span>
+          <span className="truncate text-zinc-200">{status3d}</span>
+          <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
         </div>
       </div>
     </DockableHudPanel>
   );
 
+  const inspectorNode =
+    activeView === 'calculation-graph'
+      ? calcGraph.nodes.find((n) => n.id === selectedCalcNodeId) ?? null
+      : selectedNodeId
+      ? elementById.get(selectedNodeId) ?? null
+      : null;
+
   const renderInspectorPanel = () => (
     <DockableHudPanel
       id="inspectorPanel"
       title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
-      indicatorClassName={
-        selectedNodeId
-          ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
-          : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] animate-pulse'
-      }
+      indicatorClassName={inspectorNode ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] motion-safe:animate-pulse' : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] motion-safe:animate-pulse'}
       dockSide={inspectorDock}
       defaultPos={defaultInspPos}
       zIndex={topHudZ.insp}
@@ -631,45 +1007,148 @@ export const App: React.FC = () => {
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
-          nodes={elementNodes}
-          links={hierarchyLinks}
-          rawLinks={rawLinks}
+          key={scope.epoch}
+          node={inspectorNode}
+          elementNodes={elementNodes}
+          calcs={view?.calcs ?? []}
+          calcDependencies={view?.calcDependencies ?? []}
+          loadPath={view?.loadPath ?? []}
+          connectivity={view?.connectivity ?? []}
+          calcToElementIds={view?.calcToElementIds ?? new Map()}
+          typicalGroups={view?.groups ?? []}
+          findings={view?.findings ?? []}
+          producers={view?.producers ?? null}
+          counts={view ? view.counts : null}
           groups={groups}
-          selectedNodeId={selectedNodeId}
-          selectedNodeIds={selectedNodeIds}
+          selectedNodeIds={activeView === 'calculation-graph' ? EMPTY_SET : selectedNodeIds}
           activeLoadChainNodeIds={activeLoadChainNodeIds}
-          heatmapMode={heatmapMode}
           diffMode={diffMode}
-          onSelectNode={(id) => handleSelectElementNode(id)}
+          impact={impact}
+          impactLoading={Boolean(impactReq) && impactQ.isFetching}
+          canWrite={view?.source === 'project' && !viewIsPlaceholder}
+          busy={decide.isPending || Boolean(busyText)}
+          onSelectNode={(id) => {
+            if (activeView === 'calculation-graph') changeView('element-graph');
+            handleSelectElementNode(id);
+          }}
+          onSelectCalc={selectCalcByKey}
           onSelectGroup={(gid) => handleSelectGroup(gid)}
           onRenameGroup={handleRenameGroup}
           onClearSelection={handleClearSelection}
-          onOpenDocument={handleOpenDocument}
-          onSwitchToCalcGraph={(calcId) => {
-            if (calcId) {
-              setSelectedCalcNodeId(calcId);
-              setSelectedCalcNodeIds(new Set([calcId]));
-            }
-            handleChangeView('calculation-graph');
-          }}
+          onOpenTarget={openTarget}
+          onShowElementCalcs={showElementCalcs}
+          onDecide={handleDecide}
+          onImpact={(gid, mode) => setImpactReq({ gid, mode })}
+          onClearImpact={() => setImpactReq(null)}
         />
       </div>
       <div className="apple-panel-scroll-fade" />
     </DockableHudPanel>
   );
 
+  const loading = storeInfo.isLoading || initialProject.isLoading || (pid != null && projectQ.isLoading);
+  const calcOnly = Boolean(projectQ.data?.hasCalcPackage) && !projectQ.data?.view;
+
+  const emptyState = (
+    <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
+      <div className="bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-7 py-6 text-center max-w-md w-full shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
+        <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-300 flex items-center justify-center mb-3">
+          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Network className="w-5 h-5" />}
+        </div>
+        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+          {loading ? 'Opening project' : calcOnly ? 'Calc package added' : 'No model in this project yet'}
+        </p>
+        <h2 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h2>
+        <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+          {calcOnly
+            ? 'Add the IFC model the calcs design; every element is then linked to the calcs that name it, with the matched text as evidence.'
+            : 'Add an IFC model and its calc package PDF; every element is linked to the calcs that design it, with the matched text as evidence. Everything stays in this browser.'}
+        </p>
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
+          onClick={handleLoadSample}
+          className="mt-4 w-full bg-indigo-500/25 hover:bg-indigo-500/35 text-white border border-indigo-400/50 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-200" />}
+          {busyText || 'Load sample'}
+        </button>
+        <div className="grid grid-cols-3 gap-1.5 mt-2">
+          {[
+            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', on: (f: File) => handleUpload('model', f) },
+            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f) },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', on: handleOpenFile },
+          ].map((b) => (
+            <label
+              key={b.label}
+              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-400/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
+            >
+              {b.icon}
+              {b.label}
+              <input
+                type="file"
+                accept={b.accept}
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) b.on(f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
+          onClick={handleLoadDemo}
+          className="mt-2 w-full text-[11px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
+        >
+          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(legacy JSON, demo data)</span>
+        </button>
+        {storeInfo.data && !storeInfo.data.persistent && (
+          <p className="mt-3 text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/25 rounded-lg px-3 py-2 leading-snug text-left">
+            This browser is not letting the app use IndexedDB (private window or blocked storage), so projects last only until the
+            tab closes. Use <span className="font-semibold">Save project file</span> to keep your work.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  const subtitle = view
+    ? `${view.modelName ?? 'no model'} ⇄ ${view.calcPackageName ?? 'no calc package'}${view.engine ? ` · ${view.engine}` : ''}`
+    : '';
+
   return (
-    <div className="h-full bg-[#252729] text-zinc-100 flex flex-col overflow-hidden select-none">
+    <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
       <HeaderBar
-        projectName={projectName}
+        projectName={hasProject && view ? view.projectName : 'No Model Loaded'}
+        subtitle={subtitle}
         activeView={activeView}
-        onChangeView={handleChangeView}
-        calcCount={calcNodes.filter(isInstanceNode).length}
-        docCount={allDocs.length}
-        heatmapMode={heatmapMode}
-        onToggleHeatmap={() => setHeatmapMode((v) => !v)}
-        onUploadFile={handleUploadFile}
+        onChangeView={changeView}
+        calcCount={view?.calcs.length ?? 0}
+        colorMode={colorMode}
+        onChangeColorMode={setColorMode}
+        hasUtilization={Boolean(view?.hasUtilization)}
+        persistent={storeInfo.data?.persistent ?? true}
+        hasDemoData={Boolean(view?.hasDemoData)}
+        source={view?.source ?? null}
+        busy={Boolean(busyText)}
+        projects={(projectsQ.data ?? []).map((x) => ({ id: x.id, name: x.name }))}
+        activeProjectId={pid}
+        onSwitchProject={switchProject}
+        onNewProject={handleNewProject}
+        onSaveProject={pid ? handleSaveProject : null}
+        onLoadSample={handleLoadSample}
+        onLoadDemo={handleLoadDemo}
+        onUploadModel={(f) => handleUpload('model', f)}
+        onUploadCalcs={(f) => handleUpload('calcs', f)}
+        onOpenFile={handleOpenFile}
         diffSummary={diffSummary}
+        diffRevs={diffRevs}
+        compareOpen={compareOpen}
+        onToggleCompare={() => setCompareOpen((v) => !v)}
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
         onResetAll={handleResetAll}
@@ -678,15 +1157,32 @@ export const App: React.FC = () => {
       <FileDropOverlay
         visible={isDragging}
         hoverSlot={hoverSlot}
-        hasBaseModel={Boolean(baseSnapshot)}
-        acceptedExtensions={ACCEPTED_EXTENSIONS}
+        hasBaseModel={headModelRev != null}
+        acceptedExtensions={DROP_EXTENSIONS}
       />
+      {compareOpen && (
+        <RevisionPanel
+          key={scope.epoch}
+          revisions={revisions}
+          loading={projectQ.isLoading}
+          active={diffRevs}
+          busy={Boolean(busyText)}
+          onOpenRevisionFile={(rid) => {
+            revisionFileUrl(rid).then((u) => u && window.open(u, '_blank', 'noopener'));
+          }}
+          onCompare={handleCompare}
+          onLoadSampleRev2={handleLoadSampleRev2}
+          onLoadSupplement={handleLoadSupplement}
+          onUploadModel={(f) => addRevisionFile('model', f, { compareWithHead: true })}
+          onClose={() => setCompareOpen(false)}
+        />
+      )}
 
       <FilterBar
         filters={filters}
         onChangeFilters={setFilters}
         onClearFilters={() => {
-          setFilters({ search: '', type: 'ALL', level: 'ALL' });
+          setFilters(NO_FILTERS);
           setDiffFilter('ALL');
         }}
         isFilterActive={isFilterActive}
@@ -696,10 +1192,11 @@ export const App: React.FC = () => {
         onChangeTraceDirection={setTraceDirection}
         traceSteps={traceSteps}
         onChangeTraceSteps={setTraceSteps}
-        heatmapMode={heatmapMode}
+        colorMode={colorMode}
         diffSummary={activeView === 'calculation-graph' ? null : diffSummary}
         diffFilter={diffFilter}
         onChangeDiffFilter={setDiffFilter}
+        impactActive={Boolean(impact)}
         matchedCount={matchingNodeIds.size}
         totalInstances={totalInstances}
       />
@@ -720,33 +1217,45 @@ export const App: React.FC = () => {
       <main className="flex-1 relative canvas-grid flex flex-row overflow-hidden">
         {leftDockedHasItems && (
           <>
-            <div
-              style={{ width: leftDockWidth }}
-              className="bg-[#262a31]/95 backdrop-blur-2xl border-r border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25"
-            >
+            <div style={{ width: leftDockWidth }} className="bg-[#262a31]/95 backdrop-blur-2xl border-r border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25">
               {showViewer3d && viewer3dDock === 'left' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'left' && renderInspectorPanel()}
             </div>
-            <div
-              onPointerDown={startDockColumnResize('left')}
-              className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25"
-            />
+            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
           </>
         )}
 
         <div className="flex-1 relative h-full flex flex-col overflow-hidden min-w-0">
-          {activeView === 'element-graph' && (
+          {!hasProject && emptyState}
+
+          {calcError && view && (
+            <div
+              role="alert"
+              className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[min(36rem,calc(100%-2rem))] flex items-start gap-2 bg-amber-500/12 backdrop-blur-xl border border-amber-400/35 text-amber-100 rounded-xl px-3 py-2 text-[11px] leading-snug shadow-[0_12px_32px_rgba(0,0,0,0.6)]"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-px" aria-hidden="true" />
+              <span>
+                <span className="font-semibold">Calc package unavailable; the model is shown without calc links.</span> {calcError}
+              </span>
+            </div>
+          )}
+
+          {hasProject && activeView === 'element-graph' && (
             <RadialGraphCanvas
               nodes={elementNodes}
-              links={hierarchyLinks}
+              links={view?.hierarchyLinks ?? []}
               groups={groups}
               selectedNodeId={selectedNodeId}
               selectedNodeIds={selectedNodeIds}
               activeLoadChainNodeIds={activeLoadChainNodeIds}
+              loadPath={view?.loadPath ?? []}
+              activeLoadChainLinkKeys={activeLoadChainLinkKeys}
               matchingNodeIds={matchingNodeIds}
               isFilterActive={isFilterActive}
-              heatmapMode={heatmapMode}
+              colorMode={colorMode}
               diffMode={diffMode}
+              overlay={overlay}
+              showStatusRings={colorMode === 'type'}
               resetTrigger={resetTrigger}
               onSelectNode={handleSelectElementNode}
               onSelectGroup={handleSelectGroup}
@@ -757,18 +1266,18 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeView === 'calculation-graph' && (
+          {hasProject && activeView === 'calculation-graph' && (
             <RadialGraphCanvas
-              nodes={calcNodes}
-              links={calcLinks}
+              nodes={calcGraph.nodes}
+              links={calcGraph.links}
               groups={[]}
               selectedNodeId={selectedCalcNodeId}
               selectedNodeIds={selectedCalcNodeIds}
-              activeLoadChainNodeIds={new Set()}
+              activeLoadChainNodeIds={EMPTY_SET}
               matchingNodeIds={matchingNodeIds}
               isFilterActive={isFilterActive}
-              heatmapMode={false}
-              diffMode={false}
+              colorMode={colorMode}
+              overlay={overlay}
               resetTrigger={resetTrigger}
               onSelectNode={(id) => handleSelectCalcNode(id)}
               onClearSelection={handleClearSelection}
@@ -777,11 +1286,13 @@ export const App: React.FC = () => {
             />
           )}
 
-          {activeView === '3d' && (
+          {hasProject && activeView === '3d' && (
             <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#282c34]">
               <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] px-3 py-1.5 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
                 <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
-                <span className="mono text-[11px] text-zinc-200 font-medium">{projectName} 3D Frame</span>
+                <span className="mono text-[11px] text-zinc-200 font-medium">{view?.modelName ?? 'Model'}</span>
+                <span className="text-zinc-700">|</span>
+                <span className="mono text-[10px] text-zinc-400">{status3d}</span>
                 <span className="text-zinc-700">|</span>
                 <button
                   type="button"
@@ -800,56 +1311,50 @@ export const App: React.FC = () => {
                   Reset
                 </button>
               </div>
-              <Structural3DViewer
-                nodes={elementNodes}
-                selectedNodeId={selectedNodeId}
-                selectedNodeIds={selectedNodeIds}
-                activeLoadChainNodeIds={activeLoadChainNodeIds}
-                matchingNodeIds={matchingNodeIds}
-                isFilterActive={isFilterActive}
-                heatmapMode={heatmapMode}
-                diffMode={diffMode}
-                fitTrigger={fit3dTrigger}
-                resetTrigger={resetTrigger}
-                onSelectNode={handleSelectElementNode}
-              />
+              {viewer3d}
             </section>
           )}
 
-          {activeView === 'docs' && (
+          {hasProject && activeView === 'docs' && view && (
+            // the fragment's key remounts the browser on every explicit open (its search, tab or open
+            // comparison could otherwise hide the target); its own key is the project scope's epoch
+            <React.Fragment key={documentOpenRequest}>
             <DocumentBrowser
-              key={documentOpenRequest}
-              allDocs={allDocs}
-              nodes={elementNodes}
-              links={hierarchyLinks}
-              selectedNodeId={selectedNodeId}
-              activeLoadChainNodeIds={activeLoadChainNodeIds}
-              filterBySelectedElement={docFilterBySelected}
-              diffMode={diffMode}
-              onClearElementFilter={() => setDocFilterBySelected(false)}
-              initialDocId={initialDocId}
-              onLocateElement={(nodeId, view) => {
-                if (view === 'calculation-graph') {
-                  handleSelectCalcNode(nodeId);
-                } else {
-                  handleSelectElementNode(nodeId);
-                }
-                handleChangeView(view);
+              key={scope.epoch}
+              calcs={view.calcs}
+              calcPackageName={view.calcPackageName}
+              pdfUrl={pdfUrl}
+              elementNodes={elementNodes}
+              calcToElementIds={view.calcToElementIds}
+              calcDependencies={view.calcDependencies}
+              groups={view.groups}
+              findings={view.findings}
+              onSelectElements={(ids) => {
+                if (!ids.length) return;
+                setSelectedNodeIds(new Set(ids));
+                setSelectedNodeId(ids[0]);
+                setFit3dTrigger((c) => c + 1);
               }}
+              selectedElement={selectedNodeId ? elementById.get(selectedNodeId) ?? null : null}
+              filterBySelectedElement={docFilterBySelected}
+              onClearElementFilter={() => setDocFilterBySelected(false)}
+              target={pdfTarget ?? (view.calcs.find((c) => !c.frontMatter) ? calcTarget(view.calcs.find((c) => !c.frontMatter)!) : null)}
+              onChangeTarget={setPdfTarget}
+              diffMode={diffMode}
+              onLocateElement={(nodeId, v) => {
+                handleSelectElementNode(nodeId);
+                changeView(v);
+              }}
+              onLocateCalc={selectCalcByKey}
             />
+            </React.Fragment>
           )}
         </div>
 
         {rightDockedHasItems && (
           <>
-            <div
-              onPointerDown={startDockColumnResize('right')}
-              className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25"
-            />
-            <div
-              style={{ width: rightDockWidth }}
-              className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25"
-            >
+            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
+            <div style={{ width: rightDockWidth }} className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25">
               {showViewer3d && viewer3dDock === 'right' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'right' && renderInspectorPanel()}
             </div>
@@ -861,19 +1366,21 @@ export const App: React.FC = () => {
       {showInspector && inspectorDock === 'float' && renderInspectorPanel()}
 
       <div
+        className={`fixed bottom-5 left-5 bg-[#2d3139]/92 backdrop-blur-xl text-zinc-100 px-4 py-3 rounded-xl border border-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.9)] flex items-center space-x-3 transition-[transform,opacity] duration-300 z-50 max-w-md ${
+          busyText || viewBusy || toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
+        }`}
         role="status"
         aria-live="polite"
         aria-atomic="true"
-        className={`fixed bottom-5 left-5 bg-[#2d3139]/92 backdrop-blur-xl text-zinc-100 px-4 py-3 rounded-xl border border-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.9)] flex items-center space-x-3 transition-all duration-300 z-50 ${
-          toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
-        }`}
       >
-        {toast.isError ? (
+        {busyText || viewBusy ? (
+          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
+        ) : toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
           <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
         )}
-        <div className="text-xs font-medium">{toast.visible ? toast.message : ''}</div>
+        <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
       </div>
     </div>
   );

@@ -79,25 +79,25 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
                 <DropZone
                   slot="base"
                   active={hoverSlot !== 'compare'}
-                  eyebrow="DB A · Base"
-                  title="Replace Base Model"
-                  detail="Loads the file as DB A and clears the current model, groups and selection."
+                  eyebrow="Add to project"
+                  title="Add as Newest Revision"
+                  detail="A model or calc PDF becomes the newest revision of this project. A saved project file opens as its own project."
                 />
                 <DropZone
                   slot="compare"
                   active={hoverSlot === 'compare'}
-                  eyebrow="DB B · Compare"
-                  title="Compare Against DB A"
-                  detail="Loads the file as DB B and opens Diff Mode across the graph, 3D model and PDFs."
+                  eyebrow="Compare"
+                  title="Compare With Current Model"
+                  detail="Adds the model as a new revision and opens Diff Mode against the current one, across the graph, 3D model and PDFs."
                 />
               </>
             ) : (
               <DropZone
                 slot="base"
                 active
-                eyebrow="Import model"
-                title="Drop to Load as DB A"
-                detail="IFC files are parsed and converted to the element graph; JSON graphs load directly."
+                eyebrow="Open"
+                title="Drop to Open"
+                detail="An IFC or JSON model, a calc package PDF, or a saved project file."
               />
             )}
           </div>

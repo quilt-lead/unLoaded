@@ -1,32 +1,37 @@
 /**
- * ElementGraph (domain model) -> BimGraphData (UI view model).
+ * ElementGraph (domain model) -> ElementTopology (view data).
  *
- * The element graph from @unloaded/element-graph is the source of truth for
- * structural topology: elements and connections are nodes, edges are physical
- * connectivity (`connects`), load path (`supports`: a is supported by b) and
- * assembly (`part_of`). The UI renders BimNode / BimLink, so this adapter is
- * the single place where the two meet.
+ * The element graph from @unloaded/element-graph is the ONE source of truth for elements and
+ * structural topology: elements and connections are nodes, edges are physical connectivity
+ * (`connects`), load path (`supports`: a is supported by b) and assembly (`part_of`). This adapter
+ * is the only place an ElementGraph becomes view data. Calc data (links, evidence, review status)
+ * comes from the backend through src/data/loadProject.ts; src/data/mergeProject.ts joins the two
+ * by GlobalId (= graph node id).
  *
  * Mapping
- * - kind            -> Category node (`cat-beam`, `cat-col`, ...; ids match CATEGORY_PALETTE)
- * - element         -> Instance node (label = mark ?? name, floor from levelId)
- * - column chains   -> ColumnStack nodes (columns linked by column -> column `supports`)
- * - geometry.bbox   -> pos3d / size3d (feet, Y-up, recentred in plan, base at y = 0)
- * - connects/part_of-> BimLink relation "connectivity"
- * - supports        -> BimLink relation "load-path", oriented source = supported, target = support
- * - node.links (kind "calc") -> BimNode.documents
+ * - kind              -> category node (`cat-beam`, `cat-col`, ...)
+ * - column chains     -> column-stack family nodes (columns linked by column -> column `supports`)
+ * - other marks       -> mark-family nodes (2B13 -> B, ST-1 -> ST; unmarked elements share one)
+ * - element           -> element node (label = mark ?? name, storey from levelId or elevation)
+ * - supports          -> LoadPathEdge, source = supported, target = support (load flows source -> target)
+ * - connects/part_of  -> ConnectivityEdge
+ * - geometry.bbox     -> bbox (metres, Z up): the 3D view draws real IFC meshes by GlobalId and
+ *                        falls back to these boxes only when there is no IFC (ModelInput / legacy JSON)
+ * - node.links kind DEMO_DOCUMENT_LINK -> demoDocuments (legacy demo JSON's invented documents,
+ *                        shown labelled as demo data; real calc links come from the calc engine)
  */
-import type { ElementGraph, ElementNode, LevelInput, NodeLink, ParamValue, Vec3 } from '@unloaded/element-graph';
-import type { BimDocument, BimGraphData, BimLink, BimNode } from '../types/bim';
-import { CATEGORY_PALETTE, hashStringToJewelColor } from '../utils/colors';
-import { normalizeGraphData } from '../utils/graphEngine';
+import type { ElementGraph, LevelInput, ParamValue } from '@unloaded/element-graph';
+import type { BimLink, BimNode, ConnectivityEdge, DemoDocument, ElementTopology, LoadPathEdge } from '../types/bim';
+import { computeRadialLayout } from '../utils/graphEngine';
 
-const M_TO_FT = 3.28084;
+export const PROJECT_NODE_ID = 'project';
+/** ElementNode.links kind for a legacy demo document (see src/loaders/legacyBimJson.ts). */
+export const DEMO_DOCUMENT_LINK = 'demo-document';
 
 interface KindCategory {
   id: string;
   label: string;
-  /** Singular display name used as the instance `type`. */
+  /** Singular display name. */
   singular: string;
 }
 
@@ -46,44 +51,25 @@ const KIND_CATEGORIES: Record<string, KindCategory> = {
 /** Category order around the radial layout (gravity order, top to bottom). */
 const KIND_ORDER = Object.keys(KIND_CATEGORIES);
 
-function categoryFor(kind: string): KindCategory {
+export function categoryFor(kind: string): KindCategory {
   const known = KIND_CATEGORIES[kind];
   if (known) return known;
   const pretty = kind.charAt(0).toUpperCase() + kind.slice(1);
   return { id: `cat-${kind.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, label: `${pretty}s`, singular: pretty };
 }
 
-function categoryColor(cat: KindCategory): string {
-  return CATEGORY_PALETTE[cat.id] || hashStringToJewelColor(cat.id);
+/** Mark family: the letters of a mark without the level prefix or the running number (2B13 -> B, ST-1 -> ST). */
+export function markFamily(mark: string | undefined): string | null {
+  const m = /^\d*([A-Za-z]+(?:-?[A-Za-z]+)*)/.exec((mark ?? '').trim());
+  return m ? m[1]!.toUpperCase() : null;
 }
 
 function shortId(id: string): string {
   return id.length > 10 ? id.slice(0, 8) : id;
 }
 
-function elementLabel(n: ElementNode, cat: KindCategory): string {
-  return n.mark || n.name || `${cat.singular} ${shortId(n.id)}`;
-}
-
 function str(v: ParamValue | undefined): string | undefined {
   return v === null || v === undefined || v === '' ? undefined : String(v);
-}
-
-function calcLinkToDocument(link: NodeLink): BimDocument {
-  const d = link.data ?? {};
-  const num = (v: ParamValue | undefined, fallback: number) => (typeof v === 'number' ? v : fallback);
-  return {
-    id: link.target,
-    title: str(d.title) ?? link.target,
-    type: str(d.type) ?? 'Calculation (PDF)',
-    code: str(d.code) ?? '',
-    rev: str(d.rev) ?? 'Rev A',
-    pages: num(d.pages, 1),
-    pageRef: str(d.pageRef),
-    date: str(d.date) ?? '',
-    summary: str(d.summary) ?? '',
-    calcCategory: str(d.calcCategory),
-  };
 }
 
 /** Union-find over columns joined by column -> column `supports` edges (vertical stacks). */
@@ -104,9 +90,7 @@ function columnStacks(graph: ElementGraph): Map<string, string[]> {
   columns.forEach((c) => parent.set(c.id, c.id));
   for (const c of columns) {
     // Directly on a column, or through a splice / connection node that sits on one.
-    const below = graph.supportsOf(c.id).flatMap((id) =>
-      graph.getNode(id)?.kind === 'connection' ? graph.supportsOf(id) : [id]
-    );
+    const below = graph.supportsOf(c.id).flatMap((id) => (graph.getNode(id)?.kind === 'connection' ? graph.supportsOf(id) : [id]));
     for (const b of below) {
       if (parent.has(b) && b !== c.id) parent.set(find(c.id), find(b));
     }
@@ -126,37 +110,33 @@ export interface ElementGraphToBimOptions {
   projectName?: string;
 }
 
-export function elementGraphToBim(
-  graph: ElementGraph,
-  opts: ElementGraphToBimOptions = {}
-): { graph: BimGraphData; rawLinks: BimLink[] } {
+export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOptions = {}): ElementTopology {
   const projectName = opts.projectName || graph.meta?.project || graph.meta?.source.file || 'Imported model';
   const elements = graph.nodes();
 
-  // Levels -> floor labels / numbers (sorted by elevation, 1-based).
+  // Levels -> storey names and order (sorted by elevation, 1-based).
   const levels = [...graph.levels()].sort((a, b) => a.elevation - b.elevation);
-  const floorOf = new Map(levels.map((l, i) => [l.id, { name: l.name || `Level ${i + 1}`, num: i + 1 }]));
+  const storeyOf = new Map(levels.map((l, i) => [l.id, { name: l.name || `Level ${i + 1}`, order: i + 1 }]));
+  // Elements without a storey: the highest level at or below their base (5 cm slack).
+  const storeyByElevation = (z: number | undefined) => {
+    if (z === undefined || levels.length === 0) return undefined;
+    let best: LevelInput | undefined;
+    for (const l of levels) if (l.elevation <= z + 0.05) best = l;
+    return storeyOf.get((best ?? levels[0]!).id);
+  };
 
-  // World frame: recentre in plan, put the lowest point at y = 0, convert to feet, Z-up -> Y-up.
-  const boxes = elements.map((e) => e.geometry?.bbox).filter((b): b is { min: Vec3; max: Vec3 } => Boolean(b));
-  let cx = 0;
-  let cy = 0;
-  let zMin = 0;
-  if (boxes.length > 0) {
-    const min: Vec3 = [Infinity, Infinity, Infinity];
-    const max: Vec3 = [-Infinity, -Infinity, -Infinity];
-    for (const b of boxes) {
-      for (let i = 0; i < 3; i++) {
-        min[i] = Math.min(min[i]!, b.min[i]!);
-        max[i] = Math.max(max[i]!, b.max[i]!);
-      }
-    }
-    cx = (min[0] + max[0]) / 2;
-    cy = (min[1] + max[1]) / 2;
-    zMin = min[2];
-  }
-
-  const nodes: BimNode[] = [];
+  const nodes: BimNode[] = [
+    {
+      id: PROJECT_NODE_ID,
+      label: projectName,
+      kind: 'project',
+      level: 0,
+      r: 36,
+      x: 0,
+      y: 0,
+      desc: `${elements.length} element${elements.length === 1 ? '' : 's'} · ${graph.edges().length} graph edges`,
+    },
+  ];
   const links: BimLink[] = [];
 
   // Categories, in gravity order then alphabetical for unknown kinds.
@@ -174,24 +154,22 @@ export function elementGraphToBim(
     nodes.push({
       id: cat.id,
       label: cat.label,
-      type: 'Category',
+      kind: 'category',
+      elementKind: kind,
       level: 1,
-      floor: 'ALL',
-      floorNum: 0,
+      parent: PROJECT_NODE_ID,
       r: 26,
       x: 0,
       y: 0,
-      color: categoryColor(cat),
-      desc: `${cat.label} — ${count} element${count === 1 ? '' : 's'}.`,
+      desc: `${cat.label} — ${count} element${count === 1 ? '' : 's'}`,
     });
+    links.push({ source: PROJECT_NODE_ID, target: cat.id, relation: 'hierarchy' });
   }
 
-  // Column stacks (only when at least one multi-segment stack exists; the radial
-  // layout then expects every column of the category to sit in a stack).
+  // Column stacks, when at least one multi-segment stack exists (then every column sits in one).
+  const familyOf = new Map<string, string>();
   const stacks = columnStacks(graph);
-  const stackOf = new Map<string, string>();
-  const useStacks = [...stacks.values()].some((s) => s.length > 1);
-  if (useStacks) {
+  if ([...stacks.values()].some((s) => s.length > 1)) {
     const colCat = categoryFor('column');
     const elevation = (id: string) => graph.getNode(id)?.geometry?.bbox.min[2] ?? 0;
     const ordered = [...stacks.values()]
@@ -204,109 +182,128 @@ export function elementGraphToBim(
     ordered.forEach((ids, i) => {
       const stackId = `stack-${String(i + 1).padStart(2, '0')}`;
       const base = graph.getNode(ids[0]!)!;
-      ids.forEach((id) => stackOf.set(id, stackId));
+      ids.forEach((id) => familyOf.set(id, stackId));
       nodes.push({
         id: stackId,
-        label: base.mark ? `${base.mark} stack` : `Stack ${String(i + 1).padStart(2, '0')}`,
-        type: 'ColumnStack',
+        label: base.mark ? `${base.mark}` : `S${String(i + 1).padStart(2, '0')}`,
+        kind: 'family',
+        elementKind: 'column',
         level: 1.5,
         parent: colCat.id,
-        floor: 'ALL',
-        floorNum: 0,
+        categoryParent: colCat.id,
         r: 15,
         x: 0,
         y: 0,
-        desc: `Vertical column stack of ${ids.length} segment${ids.length === 1 ? '' : 's'} (column-on-column load path).`,
+        desc: `Column stack of ${ids.length} segment${ids.length === 1 ? '' : 's'} (column-on-column load path)`,
       });
       links.push({ source: colCat.id, target: stackId, relation: 'hierarchy' });
     });
   }
 
-  // Elements without a storey: take the highest level at or below their base (5 cm slack).
-  const floorByElevation = (z: number | undefined) => {
-    if (z === undefined || levels.length === 0) return undefined;
-    let best: LevelInput | undefined;
-    for (const l of levels) if (l.elevation <= z + 0.05) best = l;
-    return floorOf.get((best ?? levels[0]!).id);
-  };
+  // Mark families for everything not in a stack.
+  const families = new Set<string>();
+  const sorted = [...elements].sort(
+    (a, b) => a.kind.localeCompare(b.kind) || (a.mark ?? '').localeCompare(b.mark ?? '', undefined, { numeric: true }) || a.id.localeCompare(b.id),
+  );
+  for (const el of sorted) {
+    if (familyOf.has(el.id)) continue;
+    const cat = categoryFor(el.kind);
+    const fam = markFamily(el.mark) ?? 'Unmarked';
+    const famId = `fam:${el.kind}:${fam}`;
+    familyOf.set(el.id, famId);
+    if (!families.has(famId)) {
+      families.add(famId);
+      nodes.push({
+        id: famId,
+        label: fam,
+        kind: 'family',
+        elementKind: el.kind,
+        level: 1.5,
+        parent: cat.id,
+        categoryParent: cat.id,
+        r: 15,
+        x: 0,
+        y: 0,
+        desc: fam === 'Unmarked' ? `${cat.label} without a mark` : `Mark family ${fam}`,
+      });
+      links.push({ source: cat.id, target: famId, relation: 'hierarchy' });
+    }
+  }
 
   // Unmarked elements fall back to their name; number repeated names ("girder 1", "girder 2").
   const nameCount = new Map<string, number>();
   for (const el of elements) if (!el.mark && el.name) nameCount.set(el.name, (nameCount.get(el.name) ?? 0) + 1);
   const nameSeen = new Map<string, number>();
 
-  for (const el of elements) {
+  for (const el of sorted) {
     const cat = categoryFor(el.kind);
-    const floor = (el.levelId ? floorOf.get(el.levelId) : undefined) ?? floorByElevation(el.geometry?.bbox.min[2]);
-    let label = elementLabel(el, cat);
+    const storey = (el.levelId ? storeyOf.get(el.levelId) : undefined) ?? storeyByElevation(el.geometry?.bbox.min[2]);
+    let label = el.mark || el.name || `${cat.singular} ${shortId(el.id)}`;
     if (!el.mark && el.name && (nameCount.get(el.name) ?? 0) > 1) {
       const k = (nameSeen.get(el.name) ?? 0) + 1;
       nameSeen.set(el.name, k);
       label = `${el.name} ${k}`;
     }
-    const stackId = stackOf.get(el.id);
-    const bbox = el.geometry?.bbox;
-
-    let pos3d: [number, number, number] | undefined;
-    let size3d: [number, number, number] | undefined;
-    if (bbox) {
-      const [x0, y0, z0] = bbox.min;
-      const [x1, y1, z1] = bbox.max;
-      // three.js frame: X = east, Y = up, Z = -north.
-      pos3d = [((x0 + x1) / 2 - cx) * M_TO_FT, ((z0 + z1) / 2 - zMin) * M_TO_FT, -((y0 + y1) / 2 - cy) * M_TO_FT];
-      const MIN_FT = 0.15; // keep zero-thickness elements visible / pickable
-      size3d = [
-        Math.max((x1 - x0) * M_TO_FT, MIN_FT),
-        Math.max((z1 - z0) * M_TO_FT, MIN_FT),
-        Math.max((y1 - y0) * M_TO_FT, MIN_FT),
-      ];
+    const famId = familyOf.get(el.id)!;
+    const params: Record<string, string> = {};
+    for (const [k, v] of Object.entries(el.params)) {
+      const s = str(v);
+      if (s !== undefined) params[k] = s;
     }
-
-    const nativeType = el.source.nativeType;
-    const details = [
-      nativeType,
-      el.name && el.name !== el.mark ? el.name : undefined,
-      el.material ? `Material: ${el.material}` : undefined,
-      `Id: ${el.id}`,
-    ].filter(Boolean);
-    const docs = el.links.filter((l) => l.kind === 'calc').map(calcLinkToDocument);
-
+    const demoDocuments: DemoDocument[] = el.links
+      .filter((l) => l.kind === DEMO_DOCUMENT_LINK)
+      .map((l) => {
+        const d = l.data ?? {};
+        return {
+          id: l.target,
+          title: str(d.title) ?? l.target,
+          type: str(d.type) ?? '',
+          code: str(d.code) ?? '',
+          rev: str(d.rev) ?? '',
+          pages: typeof d.pages === 'number' ? d.pages : null,
+          date: str(d.date) ?? '',
+          summary: str(d.summary) ?? '',
+        };
+      });
+    const bb = el.geometry?.bbox;
     nodes.push({
       id: el.id,
       label,
-      type: cat.singular,
-      ifcType: nativeType ? nativeType.toUpperCase() : undefined,
+      kind: 'element',
+      elementKind: el.kind,
       level: 2,
-      parent: stackId ?? cat.id,
-      categoryParent: stackId ? cat.id : undefined,
-      floor: floor?.name,
-      floorNum: floor?.num,
-      sectionSize: el.profile,
-      strengthLabel: [el.profile, el.material].filter(Boolean).join(' • ') || undefined,
-      r: 11,
+      parent: famId,
+      categoryParent: cat.id,
+      ifcType: el.source.nativeType,
+      storey: storey?.name,
+      storeyOrder: storey?.order,
+      mark: el.mark,
+      size: el.profile,
+      name: el.name,
+      typeName: str(el.params['Attr.TypeName']),
+      material: el.material,
+      params,
+      bbox: bb ? { min: [bb.min[0], bb.min[1], bb.min[2]], max: [bb.max[0], bb.max[1], bb.max[2]] } : undefined,
+      demoDocuments: demoDocuments.length ? demoDocuments : undefined,
+      r: 8,
       x: 0,
       y: 0,
-      color: categoryColor(cat),
-      pos3d,
-      size3d,
-      shape3d: pos3d ? (el.kind === 'connection' || el.kind === 'fastener' ? 'joint' : 'box') : undefined,
-      desc: details.join(' • '),
-      documents: docs.length > 0 ? docs : undefined,
+      desc: [el.name && el.name !== el.mark ? el.name : el.source.nativeType ?? cat.singular, storey?.name].filter(Boolean).join(' · '),
     });
-    links.push({ source: stackId ?? cat.id, target: el.id, relation: 'hierarchy' });
+    links.push({ source: famId, target: el.id, relation: 'hierarchy' });
   }
 
   // Topology. `supports` keeps its direction (a supported by b == load flows source -> target).
+  const loadPath: LoadPathEdge[] = [];
+  const connectivity: ConnectivityEdge[] = [];
+  const rules = (e: { evidence: { rule: string }[] }) => [...new Set(e.evidence.map((v) => v.rule))].join('; ');
   for (const e of graph.edges()) {
-    if (e.kind === 'supports') {
-      links.push({ source: e.a, target: e.b, relation: 'load-path' });
-    } else if (e.kind === 'connects' || e.kind === 'part_of') {
-      links.push({ source: e.a, target: e.b, relation: 'connectivity' });
+    if (e.kind === 'supports') loadPath.push({ source: e.a, target: e.b, rule: rules(e) });
+    // RelationKind is an open set (`(string & {})`), so a literal comparison doesn't narrow it: map explicitly.
+    else if (e.kind === 'connects' || e.kind === 'part_of') {
+      connectivity.push({ source: e.a, target: e.b, kind: e.kind === 'connects' ? 'connects' : 'part_of', rule: rules(e) });
     }
   }
 
-  return {
-    graph: normalizeGraphData({ projectName, nodes, links }, projectName),
-    rawLinks: links,
-  };
+  return { projectName, elementNodes: computeRadialLayout(nodes), hierarchyLinks: links, loadPath, connectivity };
 }

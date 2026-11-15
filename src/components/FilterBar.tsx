@@ -1,7 +1,9 @@
 import React from 'react';
 import { Search, ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react';
-import { BimNode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
-import { DIFF_PALETTE } from '../utils/colors';
+import type { BimNode, ColorMode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
+import { NO_DATA_COLOR, STATUS_COLORS, STATUS_LABELS } from '../utils/colors';
+
+export type DiffFilter = 'ALL' | 'CHANGED' | DiffStatus;
 
 interface FilterBarProps {
   filters: FilterState;
@@ -14,10 +16,11 @@ interface FilterBarProps {
   onChangeTraceDirection: (dir: TraceDirection) => void;
   traceSteps: number;
   onChangeTraceSteps: (steps: number) => void;
-  heatmapMode: boolean;
+  colorMode: ColorMode;
   diffSummary: DatabaseDiffSummary | null;
-  diffFilter: 'ALL' | 'CHANGED' | DiffStatus;
-  onChangeDiffFilter: (val: 'ALL' | 'CHANGED' | DiffStatus) => void;
+  diffFilter: DiffFilter;
+  onChangeDiffFilter: (val: DiffFilter) => void;
+  impactActive: boolean;
   matchedCount: number;
   totalInstances: number;
 }
@@ -33,10 +36,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onChangeTraceDirection,
   traceSteps,
   onChangeTraceSteps,
-  heatmapMode,
+  colorMode,
   diffSummary,
   diffFilter,
   onChangeDiffFilter,
+  impactActive,
   matchedCount,
   totalInstances,
 }) => {
@@ -50,7 +54,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             aria-label="Search elements and calculations"
             value={filters.search}
             onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
-            placeholder="Search element, calc, level..."
+            placeholder="Search mark, size, level, calc..."
             className="bg-[#1e2127]/80 border border-white/[0.14] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-7 pr-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-600 w-48 transition"
           />
         </div>
@@ -87,13 +91,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             </option>
             {floors.map((fl) => (
               <option key={fl} value={fl} className="bg-[#2d3139]">
-                {fl === 'FDN' ? 'FDN (Mat & Piles)' : fl}
+                {fl}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Diff Status Quick-Filter Bar when comparing two databases */}
         {diffSummary ? (
           <div className="flex items-center gap-1 bg-[#1e2127]/85 border border-amber-400/35 rounded-lg p-0.5">
             <button
@@ -113,9 +116,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('CHANGED')}
               aria-pressed={diffFilter === 'CHANGED'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
-                diffFilter === 'CHANGED'
-                  ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold'
-                  : 'text-zinc-400 hover:text-zinc-200'
+                diffFilter === 'CHANGED' ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               Changed ({diffSummary.addedCount + diffSummary.removedCount + diffSummary.modifiedCount})
@@ -125,32 +126,17 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('added')}
               aria-pressed={diffFilter === 'added'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                diffFilter === 'added' ? 'border font-semibold' : 'hover:text-zinc-100'
+                diffFilter === 'added' ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-semibold' : 'text-emerald-400/80 hover:text-emerald-300'
               }`}
-              style={
-                diffFilter === 'added'
-                  ? {
-                      backgroundColor: `${DIFF_PALETTE.added}40`,
-                      color: '#d9f3e2',
-                      borderColor: `${DIFF_PALETTE.added}66`,
-                    }
-                  : { color: `${DIFF_PALETTE.added}CC` }
-              }
             >
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: DIFF_PALETTE.added }}
-              />
-              +{diffSummary.addedCount} Added
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />+{diffSummary.addedCount} Added
             </button>
             <button
               type="button"
               onClick={() => onChangeDiffFilter('modified')}
               aria-pressed={diffFilter === 'modified'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                diffFilter === 'modified'
-                  ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold'
-                  : 'text-amber-400/80 hover:text-amber-300'
+                diffFilter === 'modified' ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold' : 'text-amber-400/80 hover:text-amber-300'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />~{diffSummary.modifiedCount} Mod
@@ -160,16 +146,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('removed')}
               aria-pressed={diffFilter === 'removed'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                diffFilter === 'removed'
-                  ? 'bg-rose-500/25 text-rose-200 border border-rose-400/40 font-semibold'
-                  : 'text-rose-400/80 hover:text-rose-300'
+                diffFilter === 'removed' ? 'bg-rose-500/25 text-rose-200 border border-rose-400/40 font-semibold' : 'text-rose-400/80 hover:text-rose-300'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />-{diffSummary.removedCount} Rem
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 bg-[#1e2127]/70 border border-white/[0.14] rounded-lg p-0.5">
+        <div className="flex items-center gap-1.5 bg-[#1e2127]/70 border border-white/[0.14] rounded-lg p-0.5">
             <div role="group" aria-label="Load Path Trace Direction" className="flex items-center">
               <span className="mono text-[9px] text-zinc-500 uppercase px-1.5">Trace</span>
               <button
@@ -212,9 +196,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 Up & Down
               </button>
             </div>
-
+  
             <div className="h-3.5 w-px bg-white/[0.1]" />
-
+  
             <div className="flex items-center gap-1.5 pr-2 pl-1">
               <label htmlFor="traceStepsSlider" className="mono text-[9px] text-zinc-500 uppercase cursor-pointer">
                 Steps
@@ -248,22 +232,41 @@ export const FilterBar: React.FC<FilterBarProps> = ({
       </div>
 
       <div className="flex items-center gap-3">
-        {!diffSummary && heatmapMode && (
+        {impactActive ? (
+          <div className="hidden md:flex items-center gap-2.5 bg-[#1e2127]/70 border border-amber-400/30 px-2.5 py-1 rounded-lg mono text-[9px] text-zinc-300">
+            <span className="text-amber-300 uppercase">Impact</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-white" />Origin</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" />Removed</span>
+            <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Hit / stale</span>
+          </div>
+        ) : !diffSummary && colorMode === 'review' ? (
+          <div className="hidden md:flex items-center gap-2.5 bg-[#1e2127]/70 border border-white/[0.12] px-2.5 py-1 rounded-lg mono text-[9px] text-zinc-300">
+            {(['confirmed', 'review', 'unmapped'] as const).map((st) => (
+              <span key={st} className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[st] }} />
+                {STATUS_LABELS[st]}
+              </span>
+            ))}
+          </div>
+        ) : !diffSummary && colorMode === 'confidence' ? (
+          <div className="hidden md:flex items-center gap-2 bg-[#1e2127]/70 border border-white/[0.12] px-2.5 py-1 rounded-lg">
+            <span className="mono text-[9px] text-zinc-400 uppercase">Link confidence</span>
+            <span className="mono text-[9px] text-rose-400">&lt;50%</span>
+            <div className="w-20 h-2 rounded-full" style={{ background: 'linear-gradient(90deg, #e11d48 0%, #e11d48 33%, #d97706 33%, #d97706 66%, #059669 66%)' }} />
+            <span className="mono text-[9px] text-emerald-400">80%+</span>
+            <span className="flex items-center gap-1 mono text-[9px] text-zinc-500"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: NO_DATA_COLOR }} />none</span>
+          </div>
+        ) : !diffSummary && colorMode === 'utilisation' ? (
           <div className="hidden sm:flex items-center gap-2 bg-[#1e2127]/70 border border-white/[0.12] px-2.5 py-1 rounded-lg">
-            <span className="mono text-[9px] text-zinc-400 uppercase">Load Utilization:</span>
+            <span className="mono text-[9px] text-zinc-400 uppercase">Utilisation:</span>
             <span className="mono text-[9px] text-cyan-300">30%</span>
-            <div
-              className="w-24 h-2 rounded-full"
-              style={{
-                background: 'linear-gradient(90deg, #06b6d4 0%, #10b981 35%, #f59e0b 70%, #ef4444 100%)',
-              }}
-            />
+            <div className="w-24 h-2 rounded-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #10b981 35%, #f59e0b 70%, #ef4444 100%)' }} />
             <span className="mono text-[9px] text-rose-400">95%+</span>
             <span className="mono text-[9px] text-zinc-300 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-zinc-500" /> No data
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NO_DATA_COLOR }} /> No data
             </span>
           </div>
-        )}
+        ) : null}
         <span className="mono text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.07] px-2.5 py-1 rounded-lg">
           {isFilterActive ? `${matchedCount} / ${totalInstances} elements matched` : `${totalInstances} elements`}
         </span>

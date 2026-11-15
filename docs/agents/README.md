@@ -19,11 +19,11 @@ Read it before starting work. Write to it before handing off.
 | Note | Status | Summary |
 |---|---|---|
 | [2026-11-14-parser-graph-merge.md](2026-11-14-parser-graph-merge.md) | done | Merged the IFC parser and element-graph packages into the React UI via an adapter |
+| [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (frontend only: calc-mapper, move-impact, provenance contract) and extraction ideas into main; decision log D1-D27 |
 | [2026-11-14-font-update.md](2026-11-14-font-update.md) | done | Switched the app to Apercu across the global styles and canvas text overrides |
-| [2026-11-14-calcmap-logo.md](2026-11-14-calcmap-logo.md) | done | Replaced the header glyph with the CalcMap SVG wordmark |
 | [2026-11-14-3d-controls.md](2026-11-14-3d-controls.md) | done | Direct camera navigation, reliable drag detection, and interruptible Fit/Reset transitions |
-| [2026-11-14-calc-parser-port.md](2026-11-14-calc-parser-port.md) | active | Python calc PDF parser / matcher / calc graph ported to `@unloaded/calc-parser` (TS, pdf.js) with Python parity tests; not wired into the UI yet |
 | [2026-11-14-ui-review.md](2026-11-14-ui-review.md) | done | Inspector visibility, panel/graph gestures, honest missing data, document filters/revisions, and keyboard controls |
 | [2026-11-14-data-consolidation.md](2026-11-14-data-consolidation.md) | done | All IFC and JSON app data (samples + test fixtures) moved into one `data/` folder |
-| [2026-11-14-drag-drop-import.md](2026-11-14-drag-drop-import.md) | done | Drop `.ifc` / `.json` anywhere on the window to load as DB A, or onto the Compare target as DB B |
+| [2026-11-14-drag-drop-import.md](2026-11-14-drag-drop-import.md) | done | Drop a model, calc PDF or project file anywhere on the window to add it; or onto the Compare target to diff a new model revision against the current one |
 | [2026-11-14-git-lfs-setup.md](2026-11-14-git-lfs-setup.md) | done | PDFs moved to Git LFS; `setup.md` added with clone/LFS/install instructions |
+| [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | active | Integrates PR #4 with prod (PR #5, #7, #8, #10 + LFS PDFs merges; calc-parser retired into calc-mapper; copyright guard removed (PDFs allowed); Windows test fixes) |

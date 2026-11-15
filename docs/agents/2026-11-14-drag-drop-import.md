@@ -34,3 +34,12 @@ the header buttons.
   manually: drag a `.ifc` from `data/` onto an empty app, then a second one onto the "Compare" target,
   then a `.txt` (expect an error toast).
 - There's no in-progress import state. A drop during a slow IFC parse starts a second import.
+
+## Update: ported onto the calc-engine integration (PR #9)
+
+The DB A / DB B slots don't exist after PR #4. A and B are model revisions of one project. In `App.tsx`:
+- a drop anywhere goes through `handleOpenFile`, the header's open-by-content path: a model or calc PDF becomes the
+  newest revision, and a project file opens as a project;
+- the Compare zone, shown once a model is loaded, runs `addRevisionFile('model', f, { compareWithHead: true })`.
+
+Drops accept `.pdf` too. The overlay copy was reworded to match.
