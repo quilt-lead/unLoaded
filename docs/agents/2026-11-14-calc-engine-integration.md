@@ -231,7 +231,7 @@ link-level comparison of Python vs TS output is recorded below once measured. Th
 their invented documents are shown labelled as demo data, never mixed with real calc links.
 
 ### D18. Pull back four pieces of the hackathon that the pivots had dropped (follow-up PR)
-> **Scope (Issy, ~7:45 PM ET):** these go in a **follow-up PR**, stacked on this branch, not in PR #4. The schema item had already been sent to the engine agent and was withdrawn from this PR.
+> **Scope:** at ~7:45 PM ET Issy put these in a follow-up PR; at ~8:15 PM ET she reversed that: **they go in PR #4** too. The schema item was briefly withdrawn in between; it now follows the extraction ideas in `packages/calc-mapper` so the two don't edit the same types in parallel.
 **Decided by:** Issy, 2026-11-14 ~7:35 PM ET, after Claude listed what survived the pivots (the core
 matcher, segmentation, calc deps, impact, diff semantics, decision log, evidence UI and the synthetic gate)
 and what didn't. Claude had dropped the schema with the backend without flagging it; this corrects that.
@@ -272,7 +272,8 @@ shown labelled as demo data, never mixed with real calc links, and their A/B dif
   whole index. It was already pushed to PR #4, so it is recorded here instead of force-pushed. The engine stage
   is completed in the next commit. Since then Claude commits named paths only (`git commit -- <paths>`).
 
-### D21. Follow-up work is a separate PR stacked on this branch
+### D21. The D18 work is built in a second worktree and merged into this branch (one PR)
+> **Amended ~8:15 PM ET:** Issy: "keep adding it to that one PR". No follow-up PR. `issy/calc-engine-followups` is now only a staging branch for agents that would otherwise collide with this worktree's; each piece is merged into this branch and pushed to PR #4.
 **Why:** PR #4 is already large and a reviewer needs a stable base. The D18 items go on
 `issy/calc-engine-followups`, branched from this branch, in its own worktree so its agents can't collide
 with this branch's (worktree `~/.paradev/worktrees/unLoaded/issy-calc-engine-followups`).
