@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.join(ROOT, "backend"))
 sys.path.insert(0, ROOT)
 
 from calcgraph import move_impact  # noqa: E402
-from calcgraph.store_root import SYNTH_V2_DIR, derived_for  # noqa: E402
+from calcgraph.store_root import SYNTH_V2_DIR, SourceDataMissing, derived_for, source_file  # noqa: E402
 
 BANDS = move_impact.BANDS
 
@@ -46,12 +46,12 @@ def main() -> None:
     ap.add_argument("--source", choices=["design", "ingested"], default="design",
                     help="design = generator registry; ingested = registry rebuilt from the documents + IFC")
     a = ap.parse_args()
-    base = json.load(open(os.path.join(SYNTH_V2_DIR, "design.json")))
+    base = json.load(open(source_file("design.json")))
     to_truth = None
     if a.source == "ingested":
         from calcgraph import registry_engine
         ing = json.load(open(derived_for(SYNTH_V2_DIR, "registry_ingested.json")))   # scripts/build_registry.py
-        eng = registry_engine.to_engine(ing, os.path.join(SYNTH_V2_DIR, "model.ifc"))
+        eng = registry_engine.to_engine(ing, source_file("model.ifc"))
         # map an ingested record (REC:<sheet>#n) to the truth record id by (calc, subject element) -
         # used ONLY for scoring, never by the engine
         idx = {(r["calc"], e): r["id"] for r in base["records"] for e in r["elements"]}
@@ -61,7 +61,7 @@ def main() -> None:
         base_for_engine = base
     if a.out is None:
         a.out = derived_for(SYNTH_V2_DIR, "move_eval_ingested.json" if a.source == "ingested" else "move_eval.json")
-    key = json.load(open(os.path.join(SYNTH_V2_DIR, "answer_key.json")))
+    key = json.load(open(source_file("answer_key.json")))   # synth.v2.scenarios writes it
     rows, errs, conf = [], [], {}
     tp_t = fp_t = fn_t = tp_s = fp_s = fn_s = 0
     for k in key["scenarios"]:
@@ -129,4 +129,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SourceDataMissing as e:   # one line naming the producer to run, not a traceback
+        sys.exit(str(e))

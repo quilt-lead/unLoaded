@@ -32,7 +32,7 @@ from collections import Counter, defaultdict
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "backend"))
 
-from calcgraph.store_root import SYNTH_V2_DIR, derived_for  # noqa: E402
+from calcgraph.store_root import SYNTH_V2_DIR, derived_for, missing_source_message  # noqa: E402
 DOCS = ("ifc", "drawings", "specs", "calcs", "etabs")
 RELS = ("frames-into", "bears-on", "connected-by", "instance-of", "specified-by", "designed-by", "detailed-by", "member-of", "feeds")
 
@@ -204,7 +204,7 @@ def main() -> None:
     os.makedirs(out_dir, exist_ok=True)
     tp, ip = os.path.join(a.dir, "registry_truth.json"), os.path.join(out_dir, "registry_ingested.json")
     if not os.path.exists(tp):
-        raise SystemExit(f"{tp} missing - run `uv run python -m synth.v2.generate`")
+        raise SystemExit(missing_source_message("registry_truth.json", a.dir))
     if a.rebuild or not os.path.exists(ip) or os.path.getmtime(ip) < os.path.getmtime(tp):
         p = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "build_registry.py"), "--dir", a.dir, "--out", ip],
                            capture_output=True, text=True, cwd=ROOT)

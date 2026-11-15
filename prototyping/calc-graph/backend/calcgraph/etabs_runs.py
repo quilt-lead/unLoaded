@@ -1,7 +1,8 @@
 """Saved REAL ETABS runs (data/fixtures/etabs_runs/*.json, written by scripts/build_etabs_run_fixture.py
 from the comparator report of each run) and which design each one belongs to.
 
-A run names the design it analysed ("current" = data/synthetic_v2/model.e2k, or a design scenario id of
+A run names the design it analysed ("current" = data/eval/synthetic_v2/model.e2k, the derived export
+scripts/build_etabs.py writes; or a design scenario id of
 the answer key, e.g. "ORIG") and the sha1 of the e2k ETABS opened. It counts as the results OF a design
 only while that design's e2k is byte-identical to it: regenerate the design and the run is reported as
 `stale` (with why), never shown as if it were this design's analysis. Everything here is read-only.
@@ -16,9 +17,11 @@ import hashlib
 import json
 import os
 
+from . import store_root
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 RUNS_DIR = os.path.join(ROOT, "data", "fixtures", "etabs_runs")
-V2 = os.path.join(ROOT, "data", "synthetic_v2")
+V2 = store_root.SYNTH_V2_DIR
 CURRENT = "current"
 REQUIRED = ("schema", "run_id", "etabs_version", "etabs_source", "run_at", "design", "e2k_sha1", "identity",
             "mapping", "modes", "lines", "drift", "members")
@@ -71,9 +74,10 @@ def design_scenarios() -> list[dict]:
 
 
 def e2k_path(design: str) -> str | None:
-    """The e2k of a design: the current model.e2k, or the design scenario's own e2k (answer key)."""
+    """The e2k of a design: the current model.e2k (a derived output of scripts/build_etabs.py, never source
+    data), or the design scenario's own e2k (answer key, written by synth.v2.scenarios)."""
     if design == CURRENT:
-        return os.path.join(V2, "model.e2k")
+        return store_root.derived_for(V2, "model.e2k")
     s = next((x for x in design_scenarios() if x["id"] == design), None)
     return os.path.join(V2, s["e2k"]) if s and s.get("e2k") else None
 

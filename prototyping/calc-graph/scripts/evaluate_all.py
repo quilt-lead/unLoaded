@@ -4,11 +4,15 @@
   uv run python scripts/evaluate_all.py --synthetic-only   # CI: no drawing-set stages (no PDFs there)
   uv run python scripts/evaluate_all.py --update-baseline  # accept the current numbers as the baseline
 
-Stages (a stage whose inputs are missing is SKIPPED, never failed). Everything runs on the synthetic v2
-(Harbor View) building:
+Everything runs on the synthetic v2 (Harbor View) building. data/synthetic_v2 is gitignored, so before any
+stage reads it every producer in calcgraph.store_root.SOURCE_PRODUCERS (synth.v2.generate, then
+synth.v2.scenarios for the move answer key) runs when an artifact it writes is absent (all of them with
+--regen-v2); a fresh checkout (CI) scores the same data a dev machine does. A source file still missing after
+that fails its stage with "source data not generated: <file> - run <producer>" (store_root.source_file),
+never a skip and never a FileNotFoundError traceback. A stage whose OTHER inputs are missing (an optional
+evaluator script, a local drawing set) is SKIPPED, never failed.
   v2_design        synth v2 ground truth self-consistency (AISC table verified, no infeasible members,
-                   no clashes, every member has a design record); data/synthetic_v2 is generated before any
-                   stage runs when absent (or --regen-v2)
+                   no clashes, every member has a design record)
   v2_ifc           v2 model.ifc through the production ifc_ingest + loadpath vs design.json: element P/R,
                    profile + storey accuracy, load-path P/R (frames-into + bears-on), directed and not
   v2_ifc_mapping   the IFC path (pipeline: ifc_ingest + segment over calcpkg_ingest + matcher) on v2 model.ifc +
@@ -68,7 +72,8 @@ from zoneinfo import ZoneInfo
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PY = sys.executable
 sys.path.insert(0, os.path.join(ROOT, "backend"))
-from calcgraph.store_root import SYNTH_V2_DIR, derived_path, fingerprint_diff, source_fingerprint  # noqa: E402
+from calcgraph.store_root import (SOURCE_PRODUCERS, SYNTH_V2_DIR, derived_path, fingerprint_diff,  # noqa: E402
+                                  missing_source_message, missing_sources, source_file, source_fingerprint)
 BASELINE = os.path.join(ROOT, "eval", "baseline.json")
 SETS = os.path.join(ROOT, "data", "sets")
 
@@ -92,18 +97,24 @@ V2_PHYSICAL = ("beam", "girder", "column", "pier", "footing", "grade_beam", "bra
 
 
 def _ensure_v2(a) -> str | None:
-    """Generate the source data when absent (or --regen-v2) BEFORE any stage runs, so the source_data
-    fingerprint brackets every stage. Returns the generator's error, or None."""
-    if os.path.exists(os.path.join(V2, "design.json")) and not a.regen_v2:
-        return None
-    g = run([PY, "-m", "synth.v2.generate", "--out", V2])
-    return f"synth.v2.generate exit {g.returncode}: {g.stderr[-600:]}" if g.returncode else None
+    """Run every source producer (store_root.SOURCE_PRODUCERS, in order) with an artifact missing from
+    data/synthetic_v2 - every producer with --regen-v2 - BEFORE any stage runs, so a fresh checkout has all
+    the source data and the source_data fingerprint brackets every stage. Returns why the source data is
+    incomplete (a producer failed, or did not write what it declares), or None."""
+    for mod, names in SOURCE_PRODUCERS:
+        if not a.regen_v2 and not missing_sources(V2, names):
+            continue
+        g = run([PY, "-m", mod])   # each producer writes store_root.SYNTH_V2_DIR (== V2)
+        if g.returncode:
+            return f"source data not generated: {mod} exit {g.returncode}: {(g.stderr or g.stdout)[-600:]}"
+    gone = missing_sources(V2)
+    return "; ".join(missing_source_message(n, V2) for n in gone) or None
 
 
 def _v2_design(a) -> dict:
     if a.v2_error:
         raise RuntimeError(a.v2_error)
-    return json.load(open(os.path.join(V2, "design.json")))
+    return json.load(open(source_file("design.json")))
 
 
 def st_v2_design(a) -> dict:
@@ -123,7 +134,7 @@ def st_v2_ifc(a) -> dict:
     d = _v2_design(a)
     sys.path.insert(0, os.path.join(ROOT, "backend"))
     from calcgraph import ifc_ingest, loadpath
-    els = ifc_ingest.read_ifc(os.path.join(V2, "model.ifc"))["elements"]
+    els = ifc_ingest.read_ifc(source_file("model.ifc"))["elements"]
     got = {e["global_id"]: e for e in els}
     truth = {e["global_id"]: e for e in d["elements"] if e["type"] in V2_PHYSICAL and e.get("global_id")}
     tp = got.keys() & truth.keys()
@@ -163,16 +174,14 @@ def st_v2_ifc(a) -> dict:
 def st_v2_ifc_mapping(a) -> dict:
     """The IFC path end to end on the v2 documents, in a throwaway store, scored against design.json."""
     d = _v2_design(a)
-    for f in ("model.ifc", "calc_package.pdf"):
-        if not os.path.exists(os.path.join(V2, f)):
-            raise Skip(f"no data/synthetic_v2/{f}")
+    model_ifc, calc_pdf = source_file("model.ifc"), source_file("calc_package.pdf")
     sys.path.insert(0, os.path.join(ROOT, "backend"))
     from calcgraph import pipeline, revstore
     with tempfile.TemporaryDirectory() as tmp:
         st = revstore.open_store(tmp)
         pid = st.ensure_project("eval")
-        pipeline.ingest_model(st, pid, os.path.join(V2, "model.ifc"))
-        pipeline.ingest_calcs(st, pid, os.path.join(V2, "calc_package.pdf"))
+        pipeline.ingest_model(st, pid, model_ifc)
+        pipeline.ingest_calcs(st, pid, calc_pdf)
         s = pipeline.state(st, pid)
         st.db.close()
     gid = {e["id"]: e.get("global_id") for e in d["elements"]}
@@ -317,14 +326,11 @@ def _graph(a) -> dict:
         if not os.path.exists(p):
             raise Skip(f"no data/sets/{a.sid}/graph.json")
         return json.load(open(p))
-    for f in ("drawings.pdf", "calc_package.pdf", "model.ifc"):
-        if not os.path.exists(os.path.join(V2, f)):
-            raise Skip(f"no data/synthetic_v2/{f}")
+    plans, calcs, model_ifc = (source_file(f) for f in ("drawings.pdf", "calc_package.pdf", "model.ifc"))
     with tempfile.TemporaryDirectory() as tmp:
         env = dict(os.environ, CALCGRAPH_SETS=os.path.join(tmp, "sets"), CALCGRAPH_STORE=os.path.join(tmp, "store"))
         p = subprocess.run([PY, "-m", "calcgraph.cli", "ingest-set", "--sid", V2_SET, "--name", "eval",
-                            "--plans", os.path.join(V2, "drawings.pdf"), "--calcs", os.path.join(V2, "calc_package.pdf"),
-                            "--model", os.path.join(V2, "model.ifc")],
+                            "--plans", plans, "--calcs", calcs, "--model", model_ifc],
                            cwd=ROOT, env=env | {"PYTHONPATH": os.path.join(ROOT, "backend")}, capture_output=True,
                            text=True, timeout=900)
         out = os.path.join(tmp, "sets", V2_SET, "graph.json")
@@ -358,8 +364,8 @@ def st_set_coverage(a) -> dict:
              f"{c.get('calc_edges_by_rule')}",
              "tags linked by (sheet, type): " + ", ".join(f"{s} {t} {v[1]}/{v[0]}" for (s, t), v in sorted(groups.items()))]
     gated = ["elements_linked_frac", "elements_linked_strong_frac", "calc_edges", "worst_tag_group_linked_frac"]
-    if a.sid == V2_SET and os.path.exists(os.path.join(V2, "design.json")):
-        d = json.load(open(os.path.join(V2, "design.json")))
+    if a.sid == V2_SET:
+        d = json.load(open(source_file("design.json")))
         gid = {e["id"]: e.get("global_id") for e in d["elements"]}
         page = {r["id"]: r["page"] for r in d["records"]}
         truth: dict[str, set[int]] = defaultdict(set)
@@ -416,6 +422,8 @@ def main() -> None:
     only = set(filter(None, a.only.split(",")))
     res: dict[str, dict] = {}
     a.v2_error = _ensure_v2(a)
+    if a.v2_error:   # every stage reads the source data: one failure that says what to run
+        res["source_data"] = {"status": "error", "reason": a.v2_error}
     fp_before = source_fingerprint(V2)
     for name, fn in STAGES:
         if only and name not in only:

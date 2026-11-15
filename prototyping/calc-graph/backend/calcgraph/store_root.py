@@ -52,6 +52,50 @@ SYNTH_V2_DIR = os.path.join(ROOT, "data", "synthetic_v2")   # the Harbor View bu
 SOURCE_DIRS = (SYNTH_V2_DIR,)
 DEFAULT_DERIVED = os.path.join(ROOT, "data", "eval")
 
+# Every source artifact and the ONE command that writes it, in run order (scenarios re-runs the design that
+# generate wrote). data/synthetic_v2 is gitignored, so a fresh checkout (CI) has none of it:
+# scripts/evaluate_all.py runs every producer with a missing artifact before any stage reads, and readers
+# resolve a source file through source_file(), which names the producer when the file is absent.
+# backend/tests/test_source_artifacts.py fails on any source file read in the code that is not listed here,
+# so a new artifact cannot be read without evaluate_all knowing how to make it.
+SOURCE_PRODUCERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("synth.v2.generate", ("design.json", "model.ifc", "calc_package.pdf", "drawings.pdf", "specs.pdf",
+                           "registry_truth.json")),
+    ("synth.v2.scenarios", ("answer_key.json", "scenarios")),
+)
+
+
+class SourceDataMissing(FileNotFoundError):
+    """A source artifact is absent; the message names the generator command that writes it."""
+
+
+def source_producer(name: str) -> str | None:
+    """The module (`uv run python -m <it>`) that writes source artifact `name` (first path component)."""
+    head = name.replace(os.sep, "/").split("/", 1)[0]
+    return next((mod for mod, names in SOURCE_PRODUCERS if head in names), None)
+
+
+def missing_source_message(name: str, source_dir: str = SYNTH_V2_DIR) -> str:
+    rel = os.path.relpath(os.path.join(source_dir, name), ROOT)
+    mod = source_producer(name)
+    fix = (f"run `uv run python -m {mod}`" if mod
+           else "and it is not a declared source artifact (store_root.SOURCE_PRODUCERS)")
+    return f"source data not generated: {rel} is missing - {fix}"
+
+
+def source_file(*parts: str, source_dir: str = SYNTH_V2_DIR) -> str:
+    """The path of a source artifact, or SourceDataMissing naming its producer when it was never generated."""
+    path = os.path.join(source_dir, *parts)
+    if not os.path.exists(path):
+        raise SourceDataMissing(missing_source_message(os.path.join(*parts), source_dir))
+    return path
+
+
+def missing_sources(source_dir: str = SYNTH_V2_DIR, names: tuple[str, ...] | None = None) -> list[str]:
+    """The declared source artifacts (or `names`) absent from `source_dir`."""
+    want = names if names is not None else tuple(n for _mod, ns in SOURCE_PRODUCERS for n in ns)
+    return [n for n in want if not os.path.exists(os.path.join(source_dir, n))]
+
 
 def derived_dir() -> str:
     """The derived-outputs root (read at call time, like store_dir)."""

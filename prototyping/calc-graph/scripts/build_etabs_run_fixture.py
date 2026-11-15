@@ -128,7 +128,7 @@ def agreement(rows: list[dict]) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     ap.add_argument("--report", required=True, help="compare_etabs_pynite.py report markdown of the run")
-    ap.add_argument("--design", required=True, help="'current' (data/synthetic_v2/model.e2k) or a design scenario id (answer_key)")
+    ap.add_argument("--design", required=True, help="'current' (data/eval/synthetic_v2/model.e2k, scripts/build_etabs.py) or a design scenario id (answer_key)")
     ap.add_argument("--e2k", required=True, help="the e2k ETABS opened (its sha1 keys the run to the design)")
     ap.add_argument("--run-at", required=True, help="when ETABS analysed it, ISO with the US Eastern offset")
     ap.add_argument("--etabs-source", required=True, help="the source string the bridge returned, e.g. 'real ETABS 23.3.2 via CSI OAPI'")
