@@ -3,8 +3,9 @@
  *
  * This module is the only declaration of the format. The app writes it (`src/data/projectStore.ts`
  * `exportProject`) and reads it (`importProject`, via `src/loaders/parsers.ts`); the MCP server reads
- * it (`packages/mcp-server/src/project.ts`) and its tooling writes it (`makeProjectFile`). All four go
- * through the type, `parseProjectFile` and the base64 codec here, so a writer and a reader cannot drift.
+ * it (`packages/mcp-server/src/project.ts`, through its `src/engine.ts`) and its tooling writes it
+ * (`packages/mcp-server/scripts/makeProjectFile.ts`). All four go through the type,
+ * `parseProjectFile` and the base64 codec here, so a writer and a reader cannot drift.
  *
  * One JSON document: every revision's original file base64-encoded (`blob`), each model revision's
  * element graph (`graph`, built once at import and never re-parsed from the IFC), each calc revision's
@@ -191,7 +192,7 @@ export function parseProjectFile(data: unknown): ProjectFile {
  *      word boxes, calcs with unique keys, regions, title boxes, provenance), and
  *   4. every document hash names THIS PDF.
  * Otherwise `reason` says why, and the reader re-extracts from the PDF. The one rule for the app
- * (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/project.ts).
+ * (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/engine.ts).
  */
 export function storedExtractionFor(extraction: unknown, pdfSha256: string): { pkg: CalcPackage; reason: null } | { pkg: null; reason: string } {
   const no = (reason: string) => ({ pkg: null, reason });

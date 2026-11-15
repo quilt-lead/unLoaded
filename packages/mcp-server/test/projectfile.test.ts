@@ -1,0 +1,86 @@
+/**
+ * A *.calcgraph.json project file (the app's Save project, @unloaded/project-file) as input: every
+ * model revision (the head is the current model), the head calc package from its stored extraction
+ * when storedExtractionFor accepts it, the file's decision log applied before the decisions file.
+ * Fixture: model rev 1 (id 1), the calc PDF (id 2), model rev 2 (id 3).
+ */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { buildState, diffGraphs, mapCalcs, parseGraph, type CalcPackage } from "@unloaded/calc-mapper";
+import type { ProjectFile } from "@unloaded/project-file";
+import { projectFileDecisions } from "../src/engine.ts";
+import * as tools from "../src/tools.ts";
+import { buildProjectFile, writeTemp } from "./fixtures.ts";
+import { call, connect, inputs, loadProject, plain, tempDir } from "./helpers.ts";
+
+const open = (path: string, decisions: string | null = null) => loadProject(inputs({ models: [], calcs: [], projectFile: path, decisions }));
+
+describe("project file", () => {
+  it("serves the head model with the stored extraction: the engine's output on the head pair", { timeout: 120_000 }, async () => {
+    const { file } = await buildProjectFile();
+    const path = writeTemp(file);
+    const p = await open(path);
+    expect(p.models.map((m) => [m.revision, m.name])).toEqual([[1, "test_rev1.graph.json"], [3, "test_rev2.graph.json"]]);
+    expect(p.current.revision).toBe(3);
+    expect(p.pdfs[0]).toMatchObject({ name: "test_calcs.pdf", extraction: "stored", revision: { id: 2, label: "calcs" } });
+    const g2 = parseGraph(file.revisions[2]!.graph);
+    const pkg = file.revisions[1]!.extraction as CalcPackage;
+    const run = await mapCalcs(g2, pkg);
+    const state = buildState(g2, pkg, run, []);
+    expect(plain(p.links)).toEqual(plain(state.links));
+    expect(p.counts).toEqual(state.counts);
+    const s = tools.projectSummary(p);
+    expect(s.source).toMatchObject({ project_file: { file: "test.calcgraph.json" }, model: { file: "test_rev2.graph.json", revision: 3 } });
+    expect((s.source as { project_file: { sha256: string } }).project_file.sha256).toMatch(/^[0-9a-f]{64}$/);
+    // compare: labels are the revision ids, as the app passes them
+    const cmp = tools.compareRevisions(p, {});
+    expect(plain(cmp.compare)).toEqual(plain(diffGraphs(parseGraph(file.revisions[0]!.graph), g2, { a: 1, b: 3 })));
+    expect([cmp.counts.removed, cmp.counts.changed]).toEqual([1, 1]);
+  });
+
+  it("re-extracts the PDF when the stored extraction is unusable, and says why", { timeout: 120_000 }, async () => {
+    const { file } = await buildProjectFile({ stripExtraction: true });
+    const p = await open(writeTemp(file));
+    expect(p.pdfs[0]!.extraction).toBe("re-extracted");
+    expect(p.pdfs[0]!.extractionNote).toBeTruthy();
+    expect(p.warnings.some((w) => /stored extraction was not used/.test(w))).toBe(true);
+  });
+
+  it("applies the file's decision log first, then the decisions file (a later decision wins)", { timeout: 120_000 }, async () => {
+    const { file } = await buildProjectFile({ decisions: [{ globalId: "B1", calcKey: "beam-design-check", action: "reject", note: "no" }] });
+    const dec = join(tempDir(), "decisions.json");
+    const p = await open(writeTemp(file), dec);
+    expect(p.baseLog).toHaveLength(1);
+    expect(p.status.get("B1")).toBe("unmapped");
+    const client = await connect(p);
+    const r = await call(client, "record_decision", { global_id: "B1", calc_key: "beam-design-check", action: "undo" });
+    expect(r.isError, r.text).toBe(false);
+    expect(r.json.recorded[0]).toMatchObject({ status_before: "unmapped", status_after: "confirmed" });
+    // the decisions file is its own calc-mapper log (ids from 1), recorded against the revision ids
+    const written = JSON.parse(readFileSync(dec, "utf8"));
+    expect(written).toMatchObject([{ id: 1, global_id: "B1", calc_key: "beam-design-check", action: "undo", model_rev: 3, calc_rev: 2 }]);
+    // the project file itself is never written
+    expect(readFileSync(p.projectFile!.path, "utf8")).toBe(JSON.stringify(file));
+    const log = (await call(client, "get_element", { id: "B1" })).json.decisions;
+    expect(log.map((d: { id: number; action: string }) => [d.id, d.action])).toEqual([[1, "reject"], [2, "undo"]]);
+    await client.close();
+  });
+});
+
+describe("projectFileDecisions", () => {
+  const file = (): ProjectFile => ({
+    format: "unloaded.calc-graph-project", version: 1, exportedAt: "2026-11-14T21:00:00-05:00",
+    project: { name: "P", createdAt: "2026-11-14T21:00:00-05:00" },
+    revisions: [],
+    decisions: [
+      { globalId: "G", calcKey: "k", action: "confirm", actor: "r", note: null, at: "t1", modelRev: 1, calcRev: 2 },
+      { globalId: "G", calcKey: "k", action: "reject", actor: "r", note: "no", at: "t2", modelRev: 4, calcRev: 2 },
+    ],
+  });
+  it("numbers the log 1..n in file order, with the engine's field names and the revisions kept", () => {
+    const d = projectFileDecisions(file());
+    expect(d.map((x) => [x.id, x.global_id, x.calc_key, x.action, x.model_rev])).toEqual([[1, "G", "k", "confirm", 1], [2, "G", "k", "reject", 4]]);
+    expect(d[1]!.note).toBe("no");
+  });
+});

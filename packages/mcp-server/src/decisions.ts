@@ -1,20 +1,21 @@
 /**
- * The decisions file: a JSON array of calc-parser `Decision`s ({global_id, calc_key, action, at,
- * actor, note}), oldest first. It is the review log `effectiveLinks` reads, so a single-PDF file is
- * exactly calc-parser's format.
+ * The decisions file: calc-mapper's decision log as JSON, an array of `Decision`s oldest first
+ * ({id, global_id, calc_key, action, actor, note, at, model_rev, calc_rev, provenance}). It is the
+ * file calc-mapper's own CLI reads (`run-pipeline.ts --decisions`): entries are made by the engine's
+ * `addDecision` (next id, human provenance) and read back through `decisionFrom`, which also accepts
+ * an entry without provenance (it states it from the entry's own fields).
  *
- * Append-only: the server never rewrites or drops an entry. An append re-reads the file first when it
- * changed on disk since it was last read (size, mtime or sha256), so a decision someone else recorded
- * meanwhile is kept, then writes the whole array to a temp file in the same directory and renames it
- * over the original (atomic on POSIX file systems).
+ * Append-only: the server never rewrites or drops an entry (entries are written back exactly as they
+ * were read; nothing is added to an old entry). An append re-reads the file first when it changed on
+ * disk since it was last read (size, mtime or sha256), so a decision someone else recorded meanwhile
+ * is kept, then writes the whole array to a temp file in the same directory and renames it over the
+ * original (atomic on POSIX file systems).
  */
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { Decision, DecisionAction } from "./engine.ts";
-
-export const ACTIONS: readonly DecisionAction[] = ["confirm", "reject", "manual", "undo"];
+import { DECISION_ACTIONS, decisionFrom, type Decision, type DecisionAction, type DecisionFields } from "./engine.ts";
 
 export class DecisionsFileError extends Error {
   override name = "DecisionsFileError";
@@ -22,36 +23,53 @@ export class DecisionsFileError extends Error {
 
 export const sha256 = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
 
-/** Validate parsed JSON as a decision log. Errors name the entry index and the field. */
-export function parseDecisions(data: unknown, file: string): Decision[] {
+const SHAPE = '[{"id", "global_id", "calc_key", "action", "actor", "note", "at", "model_rev"?, "calc_rev"?, "provenance"?}, ...]';
+
+/**
+ * Validate parsed JSON as a decision log. Errors name the entry index and the field. Returns the
+ * entries as read (DecisionFields; provenance only where the file has it).
+ */
+export function parseDecisions(data: unknown, file: string): DecisionFields[] {
   if (!Array.isArray(data)) {
-    throw new DecisionsFileError(
-      `${file}: a decisions file must be a JSON array of decisions ([{"global_id", "calc_key", "action", "at", "actor", "note"}, ...]), got ${data === null ? "null" : typeof data}`,
-    );
+    throw new DecisionsFileError(`${file}: a decisions file must be a JSON array of decisions (${SHAPE}), got ${data === null ? "null" : typeof data}`);
   }
-  return data.map((d, i): Decision => {
+  const ids = new Map<number, number>();
+  return data.map((d, i): DecisionFields => {
     const at = `${file}: entry ${i}`;
     if (typeof d !== "object" || d === null || Array.isArray(d)) throw new DecisionsFileError(`${at} is not an object`);
     const o = d as Record<string, unknown>;
+    if (typeof o.id !== "number" || !Number.isInteger(o.id) || o.id < 1) {
+      throw new DecisionsFileError(`${at}: "id" must be a positive integer (calc-mapper's decision log orders decisions by id; got ${JSON.stringify(o.id)})`);
+    }
+    const prev = ids.get(o.id);
+    if (prev !== undefined) throw new DecisionsFileError(`${at}: "id" ${o.id} is also the id of entry ${prev}`);
+    ids.set(o.id, i);
     for (const k of ["global_id", "calc_key", "at"] as const) {
       if (typeof o[k] !== "string" || !(o[k] as string).length) throw new DecisionsFileError(`${at}: "${k}" must be a non-empty string`);
     }
-    if (!ACTIONS.includes(o.action as DecisionAction)) {
-      throw new DecisionsFileError(`${at}: "action" must be one of ${ACTIONS.join(", ")} (got ${JSON.stringify(o.action)})`);
+    if (!(DECISION_ACTIONS as readonly unknown[]).includes(o.action)) {
+      throw new DecisionsFileError(`${at}: "action" must be one of ${DECISION_ACTIONS.join(", ")} (got ${JSON.stringify(o.action)})`);
     }
     if (Number.isNaN(Date.parse(o.at as string))) throw new DecisionsFileError(`${at}: "at" must be an ISO date-time (got ${JSON.stringify(o.at)})`);
     for (const k of ["actor", "note"] as const) {
       if (o[k] !== undefined && o[k] !== null && typeof o[k] !== "string") throw new DecisionsFileError(`${at}: "${k}" must be a string or null`);
     }
-    const out: Decision = {
-      global_id: o.global_id as string,
-      calc_key: o.calc_key as string,
-      action: o.action as DecisionAction,
-      at: o.at as string,
-    };
-    if (o.actor !== undefined) out.actor = o.actor as string | null;
-    if (o.note !== undefined) out.note = o.note as string | null;
-    return out;
+    for (const k of ["model_rev", "calc_rev"] as const) {
+      if (o[k] !== undefined && o[k] !== null && typeof o[k] !== "string" && typeof o[k] !== "number") {
+        throw new DecisionsFileError(`${at}: "${k}" must be a string, a number or null`);
+      }
+    }
+    if (o.provenance !== undefined && (typeof o.provenance !== "object" || o.provenance === null || Array.isArray(o.provenance))) {
+      throw new DecisionsFileError(`${at}: "provenance" must be an object when present`);
+    }
+    const fields = { ...o, actor: (o.actor as string | null | undefined) ?? null, note: (o.note as string | null | undefined) ?? null } as unknown as DecisionFields;
+    try {
+      decisionFrom(fields); // the engine's own check of a stored decision
+    } catch (e) {
+      throw new DecisionsFileError(`${at}: ${(e as Error).message}`);
+    }
+    // keep the entry exactly as read, so writing the log back never changes an old entry
+    return o as unknown as DecisionFields;
   });
 }
 
@@ -63,8 +81,8 @@ interface Snapshot {
 
 export class DecisionsFile {
   readonly path: string;
-  /** The log as last read from disk (or [] if the file does not exist yet). */
-  log: Decision[] = [];
+  /** The log as last read from disk (or [] if the file does not exist yet), entries as stored. */
+  log: DecisionFields[] = [];
   private snap: Snapshot | null = null;
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -133,15 +151,15 @@ export class DecisionsFile {
 
   /**
    * Append decisions. `build(currentLog)` runs after the on-disk log has been re-read (when it
-   * changed), so validation sees what is actually in the file; it returns the entries to append or
-   * throws. Writes are serialised.
+   * changed), so validation sees what is actually in the file; it returns the entries to append (made
+   * with the engine's `addDecision` on that log) or throws. Writes are serialised.
    */
-  append(build: (current: readonly Decision[]) => Decision[]): Promise<{ appended: Decision[]; reloaded: boolean }> {
+  append(build: (current: readonly DecisionFields[]) => Decision[]): Promise<{ appended: Decision[]; reloaded: boolean }> {
     const run = async () => {
       const reloaded = await this.refresh();
       const add = build(this.log);
       if (!add.length) return { appended: [], reloaded };
-      const next = [...this.log, ...add];
+      const next: DecisionFields[] = [...this.log, ...add];
       const body = JSON.stringify(next, null, 2) + "\n";
       const tmp = join(dirname(this.path), `.${basename(this.path)}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`);
       try {
@@ -161,3 +179,5 @@ export class DecisionsFile {
     return p;
   }
 }
+
+export type { DecisionAction };

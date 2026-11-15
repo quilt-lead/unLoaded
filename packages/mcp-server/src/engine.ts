@@ -1,13 +1,18 @@
 /**
- * The engine boundary. This is the ONLY module in the server that imports @unloaded/ifc-parser,
- * @unloaded/element-graph and @unloaded/calc-parser. Everything else in src/ talks to the narrow
+ * The engine boundary. This is the ONLY module in the server that imports the unLoaded engine
+ * packages: @unloaded/ifc-parser and @unloaded/element-graph (model -> element graph, connectivity,
+ * load path), @unloaded/calc-mapper (calc PDFs -> calcs, mapping, calc graph, review state, export,
+ * impact, revision diff, decision log), @unloaded/project-file (the app's *.calcgraph.json) and
+ * @unloaded/move-impact (move / remove a column). Everything else in src/ talks to the narrow
  * interface below (functions + the types re-exported here), so the server can be re-pointed to
- * another port of the same engine by rewriting this one file.
+ * another port of the engine by rewriting this one file.
  *
- * No logic of its own lives here: every function is a direct call into the engine packages,
- * made the way the app makes it (src/loaders/parsers.ts for models; calc-parser's README and tests
- * for PDFs). The one composition is `crossReferenceDeps`, which calls `inferCalcDeps` on a view with
- * the page-reference rule switched off (see its comment).
+ * No logic of its own lives here: every function is a direct call into the engine packages, made
+ * the way the app makes it (src/loaders/parsers.ts for models, src/engine/projectService.ts and
+ * src/engine/ops.ts for calc packages, runs and decisions). Two thin compositions, both documented
+ * where they are: `crossReferenceEdges` (inferCalcEdges with the page-reference rule switched off,
+ * for edges between two PDFs) and `projectFileDecisions` (the project file's log as DecisionFields,
+ * numbered in file order).
  */
 import { parseIfc, hasStepHeader } from "@unloaded/ifc-parser";
 import {
@@ -21,7 +26,9 @@ import {
   type ModelInput,
   type SerializedElementGraph,
 } from "@unloaded/element-graph";
-import * as cp from "@unloaded/calc-parser";
+import * as cm from "@unloaded/calc-mapper";
+import * as pf from "@unloaded/project-file";
+import * as mi from "@unloaded/move-impact";
 
 // ------------------------------------------------------------------ re-exported data types
 
@@ -30,30 +37,53 @@ export type {
   WordBox,
   Calc,
   CalcPage,
-  CalcLink,
+  CalcPackage,
   CalcEdge,
   CalcEdgeEvidence,
-  LinkTier,
-  LinkStatus,
+  Link,
+  LinkReview,
+  Tier,
   Snippet,
   Decision,
+  DecisionFields,
   DecisionAction,
+  ElementRow,
+  ElementStatus,
+  Finding,
+  TypicalGroup,
+  GroupLink,
+  Impact,
   ImpactMode,
-  ImpactResult,
-  LoadEdge,
-  MappingStatus,
-} from "@unloaded/calc-parser";
-/** The element record the matcher reasons about (GlobalId, category, mark, profile, storey, name). */
-export type EngineElement = cp.CalcElement;
+  Compare,
+  Export,
+  ExportInfo,
+  LoadPathEdge,
+  ConnectivityEdge,
+  MappingRun,
+  ProjectState,
+  Provenance,
+} from "@unloaded/calc-mapper";
+export type { ProjectFile, ProjectFileRevision } from "@unloaded/project-file";
+export type { Move, ImpactResult as MoveResult } from "@unloaded/move-impact";
 /** An element-graph node (elements and connections are both nodes). */
 export type ModelNode = ElementNode;
 /** An element-graph edge: `connects` (undirected), `supports` (a is supported by b), `part_of`. */
 export type ModelEdge = GraphEdge;
 export type ModelLevel = LevelInput;
 export type ModelStats = GraphStats;
+export type ModelGraph = SerializedElementGraph;
 
-/** Engine version stamped on every result. */
-export const ENGINE_VERSION: string = cp.ENGINE_VERSION;
+/** The mapping engine's version (calc-mapper `ENGINE_VERSION`: matcher + segmenter), stamped on every result. */
+export const ENGINE_VERSION: string = cm.ENGINE_VERSION;
+/** Producer strings of the engine packages the server runs. */
+export const ENGINE_PRODUCERS = {
+  calc_mapper: `${cm.PACKAGE_NAME}@${cm.PACKAGE_VERSION}`,
+  move_impact: `${mi.PACKAGE_NAME}@${mi.PACKAGE_VERSION}`,
+} as const;
+/** The engine's confidence bands (high >= 0.75, medium >= 0.5). */
+export const CONFIDENCE_BANDS: Readonly<{ high: number; medium: number }> = cm.BANDS;
+/** The decision actions the engine accepts. */
+export const DECISION_ACTIONS: readonly cm.DecisionAction[] = cm.DECISION_ACTIONS;
 
 /** Bad input the engine refuses (wrong format, malformed JSON...). The message is user-facing. */
 export class EngineInputError extends Error {
@@ -62,24 +92,34 @@ export class EngineInputError extends Error {
 
 // ------------------------------------------------------------------ model
 
-export type ModelFormat = "ifc" | "element-graph-json" | "model-input-json";
+export type ModelFormat = "ifc" | "element-graph-json" | "model-input-json" | "project-file";
 
-/** The loaded model: the element graph plus the matcher's element records. Read-only. */
+/**
+ * A loaded model revision: the element graph (for connectivity and load-path queries) plus the
+ * serialized graph calc-mapper reads (`ElementGraph.serialize()`, validated by `parseGraph`, exactly
+ * what the app stores per model revision) and its sha256. Read-only.
+ */
 export interface Model {
   format: ModelFormat;
   project: string | null;
   schema: string | null;
   /** Parser + graph-build warnings, prefixed with their origin (as the app does). */
   warnings: string[];
+  /** The serialized graph calc-mapper and move-impact read. */
+  graph: SerializedElementGraph;
+  /** sha256 of the graph's canonical JSON (calc-mapper `sha256Json`): the graph input of every run. */
+  graphSha256: string;
   nodes(): ModelNode[];
   node(id: string): ModelNode | undefined;
   levels(): ModelLevel[];
   edges(): ModelEdge[];
   stats(): ModelStats;
-  /** Matcher records for every node (`toCalcElements` over the graph nodes, storey from the level). */
-  elements(): EngineElement[];
-  /** `supports` edges as calc-parser LoadEdges (src is supported by dst: load flows src -> dst), with the first evidence rule. */
-  loadEdges(): Array<{ src: string; dst: string; rule: string }>;
+  /** calc-mapper element rows (`graphElements`), sorted by GlobalId. */
+  elements(): cm.ElementRow[];
+  /** calc-mapper `loadPath`: the `supports` edges (src is supported by dst), with rule and gap. */
+  loadEdges(): cm.LoadPathEdge[];
+  /** calc-mapper `connectivity`: the `connects` edges. */
+  connectivity(): cm.ConnectivityEdge[];
   /** Edges incident to a node, optionally of one kind. */
   edgesOf(id: string, kind?: string): ModelEdge[];
   edgesBetween(a: string, b: string): ModelEdge[];
@@ -94,36 +134,51 @@ export interface Model {
   loadPathUp(id: string): Map<string, number>;
 }
 
-function wrapGraph(graph: ElementGraph, format: ModelFormat, project: string | null, schema: string | null, warnings: string[]): Model {
-  let elements: EngineElement[] | null = null;
-  let loadEdges: Array<{ src: string; dst: string; rule: string }> | null = null;
+async function wrapGraph(
+  eg: ElementGraph,
+  format: ModelFormat,
+  project: string | null,
+  schema: string | null,
+  warnings: string[],
+  fileName: string,
+  serialized?: SerializedElementGraph,
+): Promise<Model> {
+  let graph: SerializedElementGraph;
+  try {
+    // what the app stores (ElementGraph.serialize) as calc-mapper reads it back (parseGraph)
+    graph = serialized ?? cm.parseGraph(eg.serialize());
+  } catch (e) {
+    throw new EngineInputError(`${fileName}: the calc engine cannot read this model's element graph: ${(e as Error).message}`);
+  }
+  const graphSha256 = await cm.sha256Json(graph);
+  let elements: cm.ElementRow[] | null = null;
+  let loadEdges: cm.LoadPathEdge[] | null = null;
+  let connectivity: cm.ConnectivityEdge[] | null = null;
   return {
     format,
     project,
     schema,
     warnings,
-    nodes: () => graph.nodes(),
-    node: (id) => graph.getNode(id),
-    levels: () => graph.levels(),
-    edges: () => graph.edges(),
-    stats: () => graph.stats(),
-    elements: () =>
-      (elements ??= cp.toCalcElements(graph.nodes(), new Map(graph.levels().map((l) => [l.id, l.name])))),
-    loadEdges: () =>
-      (loadEdges ??= graph
-        .edges()
-        .filter((e) => e.kind === "supports")
-        .map((e) => ({ src: e.a, dst: e.b, rule: e.evidence[0]?.rule ?? "" }))),
-    edgesOf: (id, kind) => graph.edgesOf(id, kind === undefined ? {} : { kind }),
-    edgesBetween: (a, b) => graph.edgesBetween(a, b),
-    supportsOf: (id) => graph.supportsOf(id),
-    supportedBy: (id) => graph.supportedBy(id),
-    connectionsOf: (id) => graph.connectionsOf(id),
-    membersOf: (id) => graph.membersOf(id),
-    partsOf: (id) => graph.partsOf(id),
-    connected: (id) => graph.neighbours(id, { edgeKind: "connects" }),
-    loadPathDown: (id) => graph.loadPathDown(id),
-    loadPathUp: (id) => graph.loadPathUp(id),
+    graph,
+    graphSha256,
+    nodes: () => eg.nodes(),
+    node: (id) => eg.getNode(id),
+    levels: () => eg.levels(),
+    edges: () => eg.edges(),
+    stats: () => eg.stats(),
+    elements: () => (elements ??= cm.graphElements(graph)),
+    loadEdges: () => (loadEdges ??= cm.loadPath(graph)),
+    connectivity: () => (connectivity ??= cm.connectivity(graph)),
+    edgesOf: (id, kind) => eg.edgesOf(id, kind === undefined ? {} : { kind }),
+    edgesBetween: (a, b) => eg.edgesBetween(a, b),
+    supportsOf: (id) => eg.supportsOf(id),
+    supportedBy: (id) => eg.supportedBy(id),
+    connectionsOf: (id) => eg.connectionsOf(id),
+    membersOf: (id) => eg.membersOf(id),
+    partsOf: (id) => eg.partsOf(id),
+    connected: (id) => eg.neighbours(id, { edgeKind: "connects" }),
+    loadPathDown: (id) => eg.loadPathDown(id),
+    loadPathUp: (id) => eg.loadPathUp(id),
   };
 }
 
@@ -146,7 +201,7 @@ function isModelInput(d: unknown): d is ModelInput {
  * Model bytes -> element graph, dispatched like the app's importers (src/loaders/parsers.ts):
  * IFC -> parseIfc -> buildGraph (connectivity inferred); serialized element graph JSON ->
  * ElementGraph.deserialize; ModelInput JSON -> buildGraph. Legacy `{nodes, links}` BIM JSON has no
- * GlobalIds and is refused.
+ * GlobalIds and is refused; a project file belongs in --project.
  */
 export async function loadModel(bytes: Uint8Array, fileName: string): Promise<Model> {
   const head = bytes.subarray(0, 1024);
@@ -156,7 +211,7 @@ export async function loadModel(bytes: Uint8Array, fileName: string): Promise<Mo
     return wrapGraph(graph, "ifc", input.meta.project ?? null, input.meta.schema ?? null, [
       ...(input.warnings ?? []).map((w) => `parser: ${w}`),
       ...warnings.map((w) => `graph: ${w}`),
-    ]);
+    ], fileName);
   }
   let data: unknown;
   try {
@@ -174,7 +229,7 @@ export async function loadModel(bytes: Uint8Array, fileName: string): Promise<Mo
     } catch (e) {
       throw new EngineInputError(`${fileName}: element graph JSON could not be loaded: ${(e as Error).message}`);
     }
-    return wrapGraph(graph, "element-graph-json", data.meta?.project ?? null, data.meta?.schema ?? null, []);
+    return wrapGraph(graph, "element-graph-json", data.meta?.project ?? null, data.meta?.schema ?? null, [], fileName);
   }
   if (isModelInput(data)) {
     let built: ReturnType<typeof buildGraph>;
@@ -186,7 +241,10 @@ export async function loadModel(bytes: Uint8Array, fileName: string): Promise<Mo
     return wrapGraph(built.graph, "model-input-json", data.meta.project ?? null, data.meta.schema ?? null, [
       ...(data.warnings ?? []).map((w) => `parser: ${w}`),
       ...built.warnings.map((w) => `graph: ${w}`),
-    ]);
+    ], fileName);
+  }
+  if (pf.isProjectFileFormat(data)) {
+    throw new EngineInputError(`${fileName} is a calc-graph project file: pass it with --project, not --model.`);
   }
   if (typeof data === "object" && data !== null && Array.isArray((data as { nodes?: unknown }).nodes)) {
     throw new EngineInputError(
@@ -199,101 +257,194 @@ export async function loadModel(bytes: Uint8Array, fileName: string): Promise<Mo
   );
 }
 
-// ------------------------------------------------------------------ calc PDFs
-
-let pdfjsPromise: Promise<cp.PdfjsLike> | null = null;
-/** pdf.js legacy build: what pdf.js documents for Node and what calc-parser's tests use. */
-function nodePdfjs(): Promise<cp.PdfjsLike> {
-  return (pdfjsPromise ??= import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<cp.PdfjsLike>);
-}
-
-export interface PdfText {
-  pages: cp.CalcPage[];
-  meta: { page_count: number; title: string };
-}
-
-/** PDF bytes -> pages of text with word boxes (`readPdf`). */
-export async function readPdf(bytes: Uint8Array): Promise<PdfText> {
-  return cp.readPdf(bytes, await nodePdfjs());
-}
-
-/** Segment one PDF's pages into calcs, map elements to them, infer calc dependencies (`mapCalcs`). */
-export function mapCalcs(elements: readonly EngineElement[], pages: readonly cp.CalcPage[]): cp.CalcMapping {
-  return cp.mapCalcs(elements, pages);
-}
-
-/** Calc -> calc edges of one package, from page references and cross-references (`inferCalcDeps`). */
-export function calcDependencies(
-  calcs: ReadonlyArray<Pick<cp.Calc, "key" | "pages" | "front" | "scanned">>,
-  pages: ReadonlyArray<Pick<cp.CalcPage, "n" | "text" | "words">>,
-  links: readonly cp.CalcLink[],
-): cp.CalcEdge[] {
-  return cp.inferCalcDeps(calcs, pages, links);
-}
-
-/**
- * Only the cross-reference rule of `inferCalcDeps`, on any view of calcs / pages / links.
- * The page-reference rule walks each calc's `pages`; passing calcs with no pages switches it off,
- * while the cross-reference rule (which reads `pages` only to find the cue word on the link's line)
- * still runs. Used to find calc edges between two PDFs without resolving "page N" across files.
- */
-export function crossReferenceDeps(
-  calcs: ReadonlyArray<Pick<cp.Calc, "key" | "front" | "scanned">>,
-  pages: ReadonlyArray<Pick<cp.CalcPage, "n" | "text" | "words">>,
-  links: readonly cp.CalcLink[],
-): cp.CalcEdge[] {
-  return cp.inferCalcDeps(
-    calcs.map((c) => ({ key: c.key, front: c.front, scanned: c.scanned, pages: [] })),
-    pages,
-    links,
+/** A project file's model revision: its stored element graph (never re-parsed from the IFC, as in the app). */
+export async function modelFromRevision(rev: pf.ProjectFileRevision, fileName: string): Promise<Model> {
+  if (!rev.graph) throw new EngineInputError(`${fileName}: model revision ${rev.id} (${rev.sourceName}) has no element graph`);
+  let graph: SerializedElementGraph;
+  try {
+    graph = cm.parseGraph(rev.graph);
+  } catch (e) {
+    throw new EngineInputError(`${fileName}: model revision ${rev.id} (${rev.sourceName}): ${(e as Error).message}`);
+  }
+  const meta = rev.meta ?? {};
+  return wrapGraph(
+    ElementGraph.deserialize(graph),
+    "project-file",
+    typeof meta.project === "string" ? meta.project : (graph.meta?.project ?? null),
+    graph.meta?.schema ?? null,
+    [],
+    fileName,
+    graph,
   );
 }
 
+// ------------------------------------------------------------------ project file (*.calcgraph.json)
+
+/** Does this parsed JSON claim to be a calc-graph project file? (routing only) */
+export function isProjectFile(data: unknown): boolean {
+  return pf.isProjectFileFormat(data);
+}
+
+/** Validate a parsed project file (`parseProjectFile`); errors name the field at fault. */
+export function parseProjectFile(data: unknown): pf.ProjectFile {
+  try {
+    return pf.parseProjectFile(data);
+  } catch (e) {
+    throw new EngineInputError(`project file: ${(e as Error).message}`);
+  }
+}
+
+/** The head revision of a kind: the highest id (what the app shows after importing). */
+export function headRevision(file: pf.ProjectFile, kind: "model" | "calcs"): pf.ProjectFileRevision | null {
+  return pf.headOf(file.revisions, kind);
+}
+
+/** A revision's original file (base64 in the project file). */
+export function revisionBytes(rev: pf.ProjectFileRevision): Uint8Array {
+  return pf.decodeBase64(rev.blob);
+}
+
+/**
+ * The project file's decision log as calc-mapper DecisionFields, oldest first, numbered 1..n in file
+ * order. The file keeps the log in order and without ids (the app's store ids are an auto-increment
+ * across projects); order is all the engine reads from an id (`effectiveDecisions`: latest per pair
+ * wins). The engine states each decision's provenance from these fields (`decisionFrom`).
+ */
+export function projectFileDecisions(file: pf.ProjectFile): cm.DecisionFields[] {
+  return file.decisions.map((d, i) => ({
+    id: i + 1,
+    global_id: d.globalId,
+    calc_key: d.calcKey,
+    action: d.action,
+    actor: d.actor,
+    note: d.note,
+    at: d.at,
+    model_rev: d.modelRev,
+    calc_rev: d.calcRev,
+  }));
+}
+
+/**
+ * A calc revision's stored extraction, when the app's rule (`storedExtractionFor`) accepts it for this
+ * PDF's sha256; otherwise the reason it must be re-extracted.
+ */
+export function storedCalcPackage(extraction: unknown, pdfSha256: string): { pkg: cm.CalcPackage; reason: null } | { pkg: null; reason: string } {
+  return pf.storedExtractionFor(extraction, pdfSha256);
+}
+
+// ------------------------------------------------------------------ calc PDFs
+
+let pdfjsPromise: Promise<cm.PdfjsLike> | null = null;
+/** pdf.js legacy build: what pdf.js documents for Node and what calc-mapper's own Node CLI uses. */
+function nodePdfjs(): Promise<cm.PdfjsLike> {
+  return (pdfjsPromise ??= import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<cm.PdfjsLike>);
+}
+
+/** PDF bytes -> a segmented calc package (`extractPdf` + `segmentCalcs`, as the app's worker does) and the PDF title. */
+export async function readCalcPackage(bytes: Uint8Array, sourceName: string): Promise<{ pkg: cm.CalcPackage; title: string }> {
+  const text = await cm.extractPdf(bytes, { pdfjs: await nodePdfjs() });
+  return { pkg: cm.segmentCalcs(text.pages, sourceName), title: text.meta.title };
+}
+
+/** Map a calc package onto a graph: auto links, calc edges, typical groups, group links, findings (`mapCalcs`). */
+export function mapCalcs(graph: SerializedElementGraph, pkg: cm.CalcPackage): Promise<cm.MappingRun> {
+  return cm.mapCalcs(graph, pkg);
+}
+
+/** Elements with status, links with decisions applied, calc edges from the effective links, findings (`buildState`). */
+export function buildState(
+  graph: SerializedElementGraph,
+  pkg: cm.CalcPackage,
+  run: cm.MappingRun,
+  decisions: readonly cm.DecisionFields[],
+): cm.ProjectState {
+  return cm.buildState(graph, pkg, run, decisions);
+}
+
+/** The engine's export of one (graph, calc package) pair (`buildExport`). */
+export function buildExport(
+  graph: SerializedElementGraph,
+  pkg: cm.CalcPackage,
+  run: cm.MappingRun,
+  decisions: readonly cm.DecisionFields[],
+  info: cm.ExportInfo,
+): cm.Export {
+  return cm.buildExport(graph, pkg, run, decisions, info);
+}
+
+/**
+ * Only the cross-reference rule of `inferCalcEdges`, on any view of calcs / pages / links. The
+ * page-reference rule walks each calc's regions (its `spans`, else its `pages`); passing calcs with
+ * neither switches it off, while the cross-reference rule (which reads a link's page only to find the
+ * cue word on its line) still runs. Used for calc edges between two PDFs, so "page 7" is never
+ * resolved into another file.
+ */
+export function crossReferenceEdges(
+  calcs: readonly cm.Calc[],
+  pages: cm.CalcPage[],
+  links: cm.Link[],
+): cm.CalcEdge[] {
+  return cm.inferCalcEdges(calcs.map((c) => ({ ...c, pages: [], spans: [] })), pages, links);
+}
+
+/** Element status from its links (design links only; `statusOf`). */
+export function statusOf(links: cm.Link[]): cm.ElementStatus {
+  return cm.statusOf(links);
+}
+
 /** Highlight boxes of the words overlapping [start, end) of a page's text. */
-export function rectsForSpan(page: Pick<cp.CalcPage, "words">, start: number, end: number): cp.Rect[] {
-  return cp.rectsForSpan(page, start, end);
+export function rectsForSpan(page: Pick<cm.CalcPage, "words">, start: number, end: number): cm.Rect[] {
+  return cm.rectsForSpan(page, start, end);
 }
 
-// ------------------------------------------------------------------ review, impact, export
+// ------------------------------------------------------------------ impact, diff, move
 
-export function effectiveDecisions(log: readonly cp.Decision[]): Map<string, cp.Decision> {
-  return cp.effectiveDecisions(log);
-}
-
-export function effectiveLinks(
-  links: readonly cp.CalcLink[],
-  log: readonly cp.Decision[],
-  gids: ReadonlySet<string>,
-  calcKeys: ReadonlySet<string>,
-): cp.CalcLink[] {
-  return cp.effectiveLinks(links, log, gids, calcKeys);
-}
-
-export function mappingStatuses(
-  elements: readonly EngineElement[],
-  links: readonly cp.CalcLink[],
-): { byElement: Map<string, cp.MappingStatus>; counts: Record<cp.MappingStatus, number> } {
-  return cp.mappingStatuses(elements, links);
-}
-
-export function statusOf(links: ReadonlyArray<Pick<cp.CalcLink, "status" | "conf">>): cp.MappingStatus {
-  return cp.statusOf(links);
-}
-
+/**
+ * What a change to / removal of one element hits on the load path and which calcs go stale
+ * (`propagate`, the core of `impactOf`). `inputs`: sha256 of the documents the answer rests on.
+ */
 export function propagateImpact(
   gid: string,
-  mode: cp.ImpactMode,
-  edges: readonly cp.LoadEdge[],
-  links: ReadonlyArray<Pick<cp.CalcLink, "global_id" | "calc_key" | "status">>,
-  calcEdges: ReadonlyArray<Pick<cp.CalcEdge, "src" | "dst">>,
-  elements: ReadonlyMap<string, Pick<EngineElement, "cat" | "mark" | "name">>,
-): cp.ImpactResult {
-  return cp.propagateImpact(gid, mode, edges, links, calcEdges, elements);
+  mode: cm.ImpactMode,
+  edges: Pick<cm.LoadPathEdge, "src" | "dst">[],
+  links: cm.Link[],
+  calcEdges: cm.CalcEdge[],
+  elements: Map<string, Pick<cm.ElementRow, "cat" | "mark" | "name">>,
+  inputs: readonly string[],
+): cm.Impact {
+  return cm.propagate(gid, mode, edges, links, calcEdges, elements, inputs);
 }
 
-export type ExportInput = cp.ExportInput;
-export type MappingExport = ReturnType<typeof cp.exportMapping>;
+/** Diff two model revisions (`diffGraphs`): removed / added / changed elements and load-path edges. */
+export function diffGraphs(a: SerializedElementGraph, b: SerializedElementGraph, labels: { a?: string | number; b?: string | number }): cm.Compare {
+  return cm.diffGraphs(a, b, labels);
+}
 
-export function exportMapping(input: ExportInput): MappingExport {
-  return cp.exportMapping(input);
+/** Move or remove a column (`@unloaded/move-impact` `impact`), on the graph and the reviewed links. */
+export function moveColumn(input: { graph: SerializedElementGraph; graphSha256: string; move: mi.Move; links: cm.Link[] }): mi.ImpactResult {
+  return mi.impact(input);
+}
+
+// ------------------------------------------------------------------ decisions (append-only log)
+
+/**
+ * The decision `addDecision` appends to a log (next id, human provenance), alone. The log may hold
+ * entries read back from a file without provenance: addDecision reads only their ids.
+ */
+export function nextDecision(
+  log: readonly cm.DecisionFields[],
+  d: cm.DecisionIn,
+  ctx: { at?: string; model_rev?: string | number | null; calc_rev?: string | number | null; inputs?: readonly string[] },
+): cm.Decision {
+  return cm.addDecision(log as readonly cm.Decision[], d, ctx).at(-1)!;
+}
+
+/** A Decision from stored fields (`decisionFrom`; throws on an unknown action). */
+export function decisionFrom(d: cm.DecisionFields): cm.Decision {
+  return cm.decisionFrom(d);
+}
+
+/** Latest decision per (global_id, calc_key), undone pairs dropped (`effectiveDecisions`). */
+export function effectiveDecisions<D extends cm.DecisionFields>(log: readonly D[]): Map<string, D> {
+  return cm.effectiveDecisions(log);
 }

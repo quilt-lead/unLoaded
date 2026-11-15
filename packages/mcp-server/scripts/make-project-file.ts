@@ -1,6 +1,6 @@
 /**
  * Build a *.calcgraph.json project file without the browser app, in exactly the app's format
- * (src/makeProjectFile.ts): for trying the MCP server on the synthetic package, or on any element
+ * (scripts/makeProjectFile.ts): for trying the MCP server on the synthetic package, or on any element
  * graph + calc PDF. The order of the --model / --calcs flags is the revision order; the LAST model
  * and the LAST PDF are the heads, as in the app.
  *
@@ -9,12 +9,12 @@
  *
  * --model takes a serialized element graph (build one from an IFC with
  * tools/calcgraph-reference/scripts/build_graph.mjs). --decisions: a JSON list of
- * {globalId, calcKey, action: confirm|reject|manual|undo, actor?, note?}.
+ * {globalId, calcKey, action: confirm|reject|manual|undo, actor?, note?} (the project file's own log format).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
-import { makeProjectFile, type InputDecision, type InputRevision } from "../src/makeProjectFile.ts";
+import { makeProjectFile, type InputDecision, type InputRevision } from "./makeProjectFile.ts";
 
 const { values, tokens } = parseArgs({
   tokens: true,

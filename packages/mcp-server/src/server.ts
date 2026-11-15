@@ -15,19 +15,22 @@ export const SERVER_VERSION = "0.1.0";
 
 export const INSTRUCTIONS = `This server answers questions about ONE structural project on this machine: an IFC model \
 (turned into an element graph: beams, columns, slabs, footings, braces and connection nodes, with physical connectivity and \
-the load path inferred from geometry) mapped to one or more calc-package PDFs (split into calcs). Everything is computed \
-locally and deterministically by the unLoaded engine (no AI inside); each result has a "source" block naming the model \
-and calc PDFs with their sha256 and the engine version - cite it.
+the load path inferred from geometry) mapped to one or more calc-package PDFs (split into calcs), optionally with older model \
+revisions to compare against. Everything is computed locally and deterministically by the unLoaded engine (calc-mapper; no AI \
+inside); each result has a "source" block naming the model and calc PDFs with their sha256 and the engine version - cite it.
 
 Links between elements and calcs have a tier (exact, range, loose, family, size, partial, xref, type, manual), a \
-confidence "conf" (0..1), the rule that made them, the page and matched token, and a review "status" (auto = nobody has \
-reviewed it; confirmed / rejected / manual = a person decided). xref links mean the calc mentions the element but probably \
-did not design it. An element's status is confirmed (a confirmed/manual link or conf >= 0.8), review, or unmapped.
+confidence "conf" (0..1, the sum of weighted "reasons") with a band (high >= 0.75, medium >= 0.5, low), a role (design = the \
+calc sizes the element; loads = it only takes loads from / refers to it), caveats in plain words, the rule, page, matched token \
+and highlight rects, provenance, and a review "status" (auto = nobody has reviewed it; confirmed / rejected / manual = a person \
+decided). An element's status counts DESIGN links only: confirmed (a confirmed/manual design link or a high-band one), review, or \
+unmapped. Findings are size mismatches (the calc designs a different size than the model has). Typical groups are elements of \
+one kind, storey and size that a size-only calc links to once.
 
 Start with project_summary. Elements can be named by GlobalId or (unique) mark. Calc keys come from list_calcs; keys of \
 every calc PDF after the first are prefixed "<file-stem>/". Page numbers are always within one PDF. To show evidence, \
 call get_page_image with global_id + calc_key (a link) or edge_src + edge_dst (calc-edge evidence) - it crops to the \
-highlighted words.
+highlighted words. impact_of_change, move_column and compare_revisions are what-if / read-only analyses.
 
 Writing: record_decision / record_decisions append review decisions (confirm, reject, manual, undo) to the decisions \
 file, as the engineer. Only record a decision the user has asked for or clearly agreed to; tell them what you recorded. \
@@ -76,10 +79,10 @@ export function createServer(project: Project): McpServer {
     {
       title: "Project summary",
       description:
-        "Overview: model (elements by kind / category / storey, connection nodes, edges by kind incl. supports = load path), each calc PDF " +
-        "(pages, calcs, key prefix, pages with no text layer), every calc (key, title, software, category, PDF, pages), links by tier and " +
-        "review status, element status counts (confirmed / review / unmapped), calc edges (within / across PDFs), the decisions file, " +
-        "warnings and source hashes. Call this first.",
+        "Overview: model (elements by kind / category / storey, connection nodes, edges by kind incl. supports = load path), model " +
+        "revisions, each calc PDF (pages, calcs, key prefix, pages with no text layer), every calc (key, title, software, category, PDF, " +
+        "pages), links by tier / role / band / review status, element status counts (confirmed / review / unmapped), calc edges (within / " +
+        "across PDFs), typical groups, findings, the decisions file, warnings and source hashes. Call this first.",
       inputSchema: {},
       annotations: RO,
     },
@@ -119,7 +122,8 @@ export function createServer(project: Project): McpServer {
       title: "Get element",
       description:
         "Everything about one element: graph node data (params, geometry in metres, IFC type), mapping status, every calc link sorted by " +
-        "confidence (tier, conf, rule, page, token, snippet, rects, PDF, review status and decision: who / when / note), connectivity " +
+        "confidence (tier, conf, band, role, reasons, caveats, rule, page, token, snippet, rects, PDF, provenance, review status and " +
+        "decision: who / when / note), its typical groups and their group links, size-mismatch findings, its decisions, connectivity " +
         "(connections, members, parts, bears_on = supports out, carries = supports in, connected) with edge evidence, and one hop of the " +
         "load path up and down.",
       inputSchema: { id: elementId },
@@ -146,9 +150,10 @@ export function createServer(project: Project): McpServer {
     {
       title: "Get calc",
       description:
-        "One calc: metadata, its PDF and pages (within that PDF), linked elements sorted by confidence (tier, conf, rule, page, token, " +
-        "review status; paginated with element_offset / element_limit), calc edges in (fed_by) and out (feeds) with rules and evidence. " +
-        "include_text returns the calc's page text, paginated by page (page_offset / page_limit, default 5 pages).",
+        "One calc: metadata, its PDF, pages and page regions (a calc can start or end mid-page), provenance, linked elements sorted by " +
+        "confidence (tier, conf, band, role, caveats, review status; paginated with element_offset / element_limit), group links, findings, " +
+        "calc edges in (fed_by) and out (feeds) with rules and evidence. include_text returns the calc's page text with the ranges that " +
+        "belong to the calc, paginated by page (page_offset / page_limit, default 5 pages).",
       inputSchema: {
         key: z.string().describe("Calc key (or exact title)."),
         include_text: z.boolean().optional(),
@@ -220,7 +225,7 @@ export function createServer(project: Project): McpServer {
       description:
         "What a change to (mode change) or the removal of (mode remove) one element hits down the load path, and which calcs go stale " +
         "(linked to a hit / removed element, or downstream of a stale calc in the calc graph), with reasons and PDFs. Returns the engine's " +
-        "propagateImpact result plus readable lists. What-if analysis only; nothing is changed.",
+        "impact (with provenance) plus readable lists. What-if analysis only; nothing is changed.",
       inputSchema: { id: elementId, mode: z.enum(["change", "remove"]).optional().describe("Default change.") },
       annotations: RO,
     },
@@ -232,8 +237,8 @@ export function createServer(project: Project): McpServer {
     {
       title: "Review status",
       description:
-        "Review progress: status counts, elements that need review (with their links), unmapped elements, and unreviewed links below a " +
-        "confidence threshold (default 0.8), each list paginated with the same offset / limit.",
+        "Review progress: status counts, elements that need review (with their links), unmapped elements (with any loads-only links), and " +
+        "unreviewed links below a confidence threshold (default 0.75, the high band), each list paginated with the same offset / limit.",
       inputSchema: { offset, limit: limit(50), low_conf_below: z.number().min(0).max(1).optional() },
       annotations: RO,
     },
@@ -241,12 +246,87 @@ export function createServer(project: Project): McpServer {
   );
 
   server.registerTool(
+    "list_findings",
+    {
+      title: "List findings",
+      description:
+        "Size-mismatch findings: a design line names the element's mark and a different size than the model gives (model size, calc " +
+        "size, page, span, rects, snippet, provenance), with the element and calc. Findings on rejected links are left out. Filter by calc, " +
+        "element (GlobalId or mark) or pdf.",
+      inputSchema: { calc: z.string().optional(), element: z.string().optional(), pdf: z.string().optional(), offset, limit: limit(100) },
+      annotations: RO,
+    },
+    run((p, a: tools.FindingsArgs) => tools.listFindings(p, a)),
+  );
+
+  server.registerTool(
+    "list_typical_groups",
+    {
+      title: "List typical groups",
+      description:
+        "Typical groups: the elements of one kind, storey and size (id group:<category>:<storey>:<profile>, members with marks), and the " +
+        "group links of size-only calcs (\"Level 3 typical beams W18X35\") that link a calc to the whole group once. Filter by kind " +
+        "(category), storey, profile; linked_only keeps groups some calc links to.",
+      inputSchema: {
+        kind: z.string().optional(),
+        storey: z.string().optional(),
+        profile: z.string().optional(),
+        linked_only: z.boolean().optional(),
+        offset,
+        limit: limit(100),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.GroupsArgs) => tools.listTypicalGroups(p, a)),
+  );
+
+  server.registerTool(
+    "compare_revisions",
+    {
+      title: "Compare model revisions",
+      description:
+        "Diff two model revisions (the engine's diffGraphs, keyed on GlobalId): removed, added and changed elements (each changed field " +
+        "before / after) and load-path edges removed / added, plus the calcs linked to an element in the diff. a and b are revision " +
+        "numbers (project_summary.model_revisions) or file names; default: b = the current model, a = the revision before it. Needs " +
+        "two model revisions (repeat --model, or a project file with several).",
+      inputSchema: {
+        a: z.union([z.string(), z.number().int()]).optional().describe("Base revision (before)."),
+        b: z.union([z.string(), z.number().int()]).optional().describe("Compared revision (after). Default: the current model."),
+        limit: z.number().int().min(1).max(20000).optional().describe("Max items per list (default 500)."),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.CompareArgs) => tools.compareRevisions(p, a)),
+  );
+
+  server.registerTool(
+    "move_column",
+    {
+      title: "Move or remove a column (what-if)",
+      description:
+        "What happens if a column moves by dx / dy metres in plan, or is removed (remove true): @unloaded/move-impact on the current " +
+        "model's geometry and supports edges - elements on the path with reasons and chains, the geometric screen (governing quantity " +
+        "before / after, > 5 % change), re-framing, clashes, notes, assumptions, and stale calcs from the reviewed links. No calc values " +
+        "are read, so no utilisation estimates or health band. Nothing is changed.",
+      inputSchema: {
+        column: elementId,
+        dx: z.number().optional().describe("Plan move in x, metres."),
+        dy: z.number().optional().describe("Plan move in y, metres."),
+        remove: z.boolean().optional().describe("Remove the column instead of moving it."),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.MoveArgs) => tools.moveColumn(p, a)),
+  );
+
+  server.registerTool(
     "export_mapping",
     {
       title: "Export mapping",
       description:
-        "The engine's mapping report (exportMapping): calcs, calc edges, load path, and every element with its status and calcs (confidence, " +
-        "tier, rule, matched text, review). Large: page the elements with element_offset / element_limit.",
+        "The engine's export (buildExport), one report per calc PDF: calcs, calc edges, load path, connectivity, typical groups, group " +
+        "links, findings, producers, and every element with its status and calcs (confidence, tier, role, band, reasons, caveats, rule, " +
+        "matched text, review, provenance). Large: page the elements with element_offset / element_limit.",
       inputSchema: { element_offset: z.number().int().min(0).optional(), element_limit: z.number().int().min(1).max(5000).optional() },
       annotations: RO,
     },
@@ -359,6 +439,10 @@ export const TOOL_NAMES = [
   "calc_dependencies",
   "impact_of_change",
   "review_status",
+  "list_findings",
+  "list_typical_groups",
+  "compare_revisions",
+  "move_column",
   "export_mapping",
   "get_page_image",
   "record_decision",

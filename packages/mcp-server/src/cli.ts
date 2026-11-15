@@ -49,7 +49,8 @@ if (opts.check) {
 
 const c = project.counts;
 log(
-  `${SERVER_NAME} ${SERVER_VERSION}: serving ${project.model.name} + ${project.pdfs.map((p) => p.name).join(", ")} ` +
+  `${SERVER_NAME} ${SERVER_VERSION}: serving ${project.projectFile ? `${project.projectFile.name}: ` : ""}${project.current.name}` +
+    `${project.models.length > 1 ? ` (+${project.models.length - 1} older revision(s))` : ""} + ${project.pdfs.map((p) => p.name).join(", ")} ` +
     `(${project.elements.length} elements, ${project.calcs.length} calcs; confirmed ${c.confirmed}, review ${c.review}, unmapped ${c.unmapped}); ` +
     (project.decisions ? `decisions -> ${project.decisions.path} as "${project.actor}"` : "read-only (no --decisions)") +
     " on stdio",

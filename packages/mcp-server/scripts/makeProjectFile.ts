@@ -2,11 +2,13 @@
  * Build a project file in the app's format (src/data/projectStore.ts exportProject) without the
  * browser app: element graphs as model revisions, calc PDFs as calc revisions carrying the
  * extraction the app's worker makes (extractPdf + segmentCalcs), in the order given (ids 1, 2, ...),
- * so the last model and the last PDF are the heads, as in the app. For trying the server and for
- * tests; the app itself remains the way engineers make these files.
+ * so the last model and the last PDF are the heads, as in the app. Tooling for trying the server, the
+ * CI parity run and the tests; the app itself remains the way engineers make these files. It lives
+ * in scripts/, outside the server's src/ (whose only engine importer is src/engine.ts).
  */
-import { extractPdf, parseGraph, segmentCalcs } from "@unloaded/calc-mapper";
-import { nodePdfjs } from "./project.ts";
+import { extractPdf, parseGraph, segmentCalcs, type PdfjsLike } from "@unloaded/calc-mapper";
+
+const nodePdfjs = () => import("pdfjs-dist/legacy/build/pdf.mjs") as unknown as Promise<PdfjsLike>;
 import { PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, encodeBase64, type ProjectFile, type ProjectFileDecision } from "@unloaded/project-file";
 
 export interface InputRevision {
