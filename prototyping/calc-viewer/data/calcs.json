@@ -1,0 +1,4562 @@
+{
+ "meta": {
+  "builtAt": "2026-11-14T18:25:23",
+  "matcher": "0.2.0",
+  "scope": [
+   "S0.0.1",
+   "S0.0.2",
+   "S0.0.3",
+   "S2.0.1",
+   "S2.0.2",
+   "S2.0.3",
+   "S3.0.1",
+   "S4.0.1",
+   "S4.0.2",
+   "S4.0.3",
+   "S4.0.4",
+   "S4.0.5",
+   "S4.0.6",
+   "S4.0.7",
+   "S4.0.8",
+   "S4.0.9",
+   "S4.0.10",
+   "S5.0.1",
+   "S5.0.2",
+   "S5.0.3",
+   "S8.0.1",
+   "S8.0.2",
+   "S8.0.3",
+   "S8.2.1",
+   "S8.2.2",
+   "S8.2.3",
+   "S8.2.4",
+   "S8.2.5",
+   "S8.2.6",
+   "S8.2.7",
+   "S8.4.1",
+   "S8.4.2",
+   "S8.4.3",
+   "S8.4.4",
+   "S8.4.5",
+   "S8.6.1",
+   "S8.8.1"
+  ],
+  "memberSheets": [
+   "S2.0.1",
+   "S2.0.2",
+   "S2.0.3",
+   "S3.0.1",
+   "S4.0.1",
+   "S4.0.2",
+   "S5.0.1",
+   "S5.0.2",
+   "S5.0.3"
+  ],
+  "levels": [
+   "Foundation",
+   "Level 2",
+   "Roof",
+   "Elevation",
+   "Details"
+  ]
+ },
+ "calcs": [
+  {
+   "id": "general/cover-toc",
+   "title": "Cover & table of contents",
+   "doc": "calcs",
+   "category": "General",
+   "roleHint": "reference",
+   "sheetRange": null,
+   "pageRange": [
+    1,
+    2
+   ],
+   "spans": [
+    {
+     "title": "Cover & contents",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 1,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 2,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "4375b095cb10ac14"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "–"
+   },
+   "fingerprint": "39a15aa4b04e13c4",
+   "description": "Cover sheet and table of contents of the 2021 KPFF package (sections A–E). Not a calc; listed so every page belongs somewhere."
+  },
+  {
+   "id": "loads/roof-dead-live",
+   "title": "Roof dead & live loads (flat roof)",
+   "doc": "calcs",
+   "category": "Loading criteria",
+   "roleHint": "loads",
+   "sheetRange": "A1",
+   "pageRange": [
+    3,
+    3
+   ],
+   "spans": [
+    {
+     "title": "Flat Roof loads",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 3,
+       "rect": [
+        0.0392,
+        0.21,
+        0.9608,
+        0.9364
+       ]
+      }
+     ],
+     "textHash": "88b13a06d00faa76"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand/Excel",
+    "level": "Roof"
+   },
+   "fingerprint": "c9b7abc56c2e5fbc",
+   "description": "Flat-roof dead load build-up (roofing, membrane, Densglass, insulation, deck, framing allowances) used for deck, beams, girders, columns and seismic weight."
+  },
+  {
+   "id": "loads/floor-dead-live",
+   "title": "Floor dead & live loads (Level 2)",
+   "doc": "calcs",
+   "category": "Loading criteria",
+   "roleHint": "loads",
+   "sheetRange": "A2",
+   "pageRange": [
+    4,
+    4
+   ],
+   "spans": [
+    {
+     "title": "Floor in building",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 4,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.6354
+       ]
+      }
+     ],
+     "textHash": "cebe5dbbaaae0105"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand/Excel",
+    "level": "Level 2",
+    "sheetHeader": "Dana Point Harbor (Bldg 10)"
+   },
+   "fingerprint": "6cdab710859bacac",
+   "description": "Floor dead load build-up for Level 2 (tile, deck, 3.25\" LWT topping, overpour, MEP, ceiling) and live loads. The sheet is headed 'Dana Point Harbor (Bldg 10)'."
+  },
+  {
+   "id": "loads/balcony-dead-live",
+   "title": "Exterior balcony dead & live loads",
+   "doc": "calcs",
+   "category": "Loading criteria",
+   "roleHint": "loads",
+   "sheetRange": "A3",
+   "pageRange": [
+    5,
+    5
+   ],
+   "spans": [
+    {
+     "title": "Exterior balcony",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 5,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.7447
+       ]
+      }
+     ],
+     "textHash": "19a15a2d0dd012a7"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand/Excel",
+    "level": "Level 2",
+    "sheetHeader": "Dana Point Harbor (Bldg 10)"
+   },
+   "fingerprint": "19ddc469b940756d",
+   "description": "Exterior balcony dead loads (4\" paving, waterproofing, drainage, deck, topping) and live loads. Headed 'Dana Point Harbor (Bldg 10)'. No balcony element is linked yet."
+  },
+  {
+   "id": "loads/wall-types",
+   "title": "Exterior wall type weights",
+   "doc": "calcs",
+   "category": "Loading criteria",
+   "roleHint": "loads",
+   "sheetRange": "A4",
+   "pageRange": [
+    6,
+    6
+   ],
+   "spans": [
+    {
+     "title": "Wall type breakdown",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 6,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.7124
+       ]
+      }
+     ],
+     "textHash": "46a475b1e489e806"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand/Excel"
+   },
+   "fingerprint": "5c9518a10d464c0e",
+   "description": "Exterior wall type weights (thin brick veneer 35 psf, wood siding 15 psf, …) used as line loads and seismic weight."
+  },
+  {
+   "id": "loads/tsunami",
+   "title": "Tsunami basis of design & loads",
+   "doc": "calcs",
+   "category": "Loading criteria",
+   "roleHint": "loads",
+   "sheetRange": "A1_1–A1_16",
+   "pageRange": [
+    7,
+    22
+   ],
+   "spans": [
+    {
+     "title": "Tsunami",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 7,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 8,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 9,
+       "rect": [
+        0.0111,
+        0.0066,
+        0.9889,
+        0.9934
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 10,
+       "rect": [
+        0.0152,
+        0.0073,
+        0.9848,
+        0.9927
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 11,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 12,
+       "rect": [
+        0.0303,
+        0.0163,
+        0.9697,
+        0.9837
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 13,
+       "rect": [
+        0.0303,
+        0.0163,
+        0.9697,
+        0.9837
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 14,
+       "rect": [
+        0.0303,
+        0.0163,
+        0.9697,
+        0.9837
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 15,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 16,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 17,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 18,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 19,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 20,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 21,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 22,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "1c2dcd68f9f0bf99"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand",
+    "code": "ASCE 7-16 Ch. 6"
+   },
+   "fingerprint": "c823adfff85dfd8b",
+   "description": "Tsunami basis of design (CBC 1615 / ASCE 7-16 Ch. 6) for the Risk Category III buildings: inundation, debris impact and hydrostatic foundation loads. Not linked to drawn elements."
+  },
+  {
+   "id": "gravity/roof-risafloor",
+   "title": "Roof gravity framing – RISAFloor model",
+   "doc": "calcs",
+   "category": "Gravity framing design",
+   "roleHint": "design",
+   "sheetRange": "B2–B56",
+   "pageRange": [
+    24,
+    78
+   ],
+   "spans": [
+    {
+     "title": "Roof – Member Labels & End Releases",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 24,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "141b1a493776bbc8"
+    },
+    {
+     "title": "Roof – Deck Assignment",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 26,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "0e2d9a9d70bc5c8b"
+    },
+    {
+     "title": "Roof – Area Load Assignments",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 28,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "80cf85ebf5caa9fd"
+    },
+    {
+     "title": "Roof – Line & Point Loads (Post DL)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 31,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "b6633e5de40b151f"
+    },
+    {
+     "title": "Roof – Design Results",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 33,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "4f71cb311f0c6426"
+    },
+    {
+     "title": "Roof – Bending Check",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 35,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "8a00bc3529db022e"
+    },
+    {
+     "title": "Roof – Deflection Check",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 37,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "1441c8dc1dfb2beb"
+    },
+    {
+     "title": "Point Locations : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 42,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 43,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 44,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.7269
+       ]
+      }
+     ],
+     "textHash": "dc87bcb83b436bca"
+    },
+    {
+     "title": "Columns : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 45,
+       "rect": [
+        0.0392,
+        0.4009,
+        0.9608,
+        0.6924
+       ]
+      }
+     ],
+     "textHash": "198c6283ce54ffce"
+    },
+    {
+     "title": "Column Design Parameters : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 46,
+       "rect": [
+        0.0392,
+        0.36,
+        0.9608,
+        0.9621
+       ]
+      }
+     ],
+     "textHash": "ad4c96d18dfe87eb"
+    },
+    {
+     "title": "Beam Primary Data : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 49,
+       "rect": [
+        0.0392,
+        0.2236,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 50,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.2633
+       ]
+      }
+     ],
+     "textHash": "cb688117c62ee4c3"
+    },
+    {
+     "title": "Hot Rolled : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 52,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 53,
+       "rect": [
+        0.0392,
+        0.1963,
+        0.9608,
+        0.2696
+       ]
+      }
+     ],
+     "textHash": "748d00bb4d813323"
+    },
+    {
+     "title": "Point Loads : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 53,
+       "rect": [
+        0.0392,
+        0.4,
+        0.9608,
+        0.4595
+       ]
+      }
+     ],
+     "textHash": "a6c8a73cb9c77dcd"
+    },
+    {
+     "title": "Line Loads : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 54,
+       "rect": [
+        0.0392,
+        0.1963,
+        0.9608,
+        0.3242
+       ]
+      }
+     ],
+     "textHash": "525890747aaba0fb"
+    },
+    {
+     "title": "Tapered Area Loads : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 54,
+       "rect": [
+        0.0392,
+        0.3863,
+        0.9608,
+        0.7648
+       ]
+      }
+     ],
+     "textHash": "ae2c20fca969790f"
+    },
+    {
+     "title": "Beam Design for Hot Rolled : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 56,
+       "rect": [
+        0.0392,
+        0.6736,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 57,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.7133
+       ]
+      }
+     ],
+     "textHash": "8de615199f9c7cf5"
+    },
+    {
+     "title": "Beam Code Summary for Hot Rolled : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 59,
+       "rect": [
+        0.0392,
+        0.6191,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 60,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.6587
+       ]
+      }
+     ],
+     "textHash": "994a8dfdfa49b2ba"
+    },
+    {
+     "title": "Beam Shear Results for Hot Rolled : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 62,
+       "rect": [
+        0.0392,
+        0.5645,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 63,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.6042
+       ]
+      }
+     ],
+     "textHash": "7d4be09ed64693d0"
+    },
+    {
+     "title": "Beam Bending Results for Hot Rolled : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 65,
+       "rect": [
+        0.0392,
+        0.51,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 66,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.5496
+       ]
+      }
+     ],
+     "textHash": "0e2af6caedb3060a"
+    },
+    {
+     "title": "Beam Deflections, Relative for Standard Cats : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 68,
+       "rect": [
+        0.0392,
+        0.4554,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 69,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.4951
+       ]
+      }
+     ],
+     "textHash": "8e4308b2aa05208f"
+    },
+    {
+     "title": "Beam Absolute Deflections : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 71,
+       "rect": [
+        0.0392,
+        0.4009,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 72,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.4405
+       ]
+      }
+     ],
+     "textHash": "c17a6cd56742f339"
+    },
+    {
+     "title": "Beam End Reactions : Roof",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 76,
+       "rect": [
+        0.0392,
+        0.1963,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 77,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 78,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      }
+     ],
+     "textHash": "931af6f18608c776"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "W10X12",
+     "W16X26",
+     "W18X35",
+     "W21X44",
+     "W21X83",
+     "W24X55",
+     "W24X62",
+     "W24X94"
+    ],
+    "detailRefs": [],
+    "software": "RISAFloor",
+    "level": "Roof",
+    "model": "2021-03-22_Bldg 12.rfl",
+    "gridSystem": "1, 1.3, 1.8, 2, 2.5, 3, 4, 5 / A, A.5, B, B.2, B.5, C, C.8, D, E"
+   },
+   "fingerprint": "5af292d06c5a111a",
+   "description": "RISAFloor gravity model of the roof (2021): member sketches, then the roof sections of the point, beam, design, shear, bending, deflection and end-reaction tables."
+  },
+  {
+   "id": "gravity/level2-risafloor",
+   "title": "Level 2 gravity framing – RISAFloor model",
+   "doc": "calcs",
+   "category": "Gravity framing design",
+   "roleHint": "design",
+   "sheetRange": "B1–B54",
+   "pageRange": [
+    23,
+    76
+   ],
+   "spans": [
+    {
+     "title": "Level 2 – Member Labels & End Releases",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 23,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "5404878038f39a64"
+    },
+    {
+     "title": "Level 2 – Deck Assignment",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 25,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "60752366aa13ff69"
+    },
+    {
+     "title": "Level 2 – Area Load Assignments",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 27,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "a3df905389a62866"
+    },
+    {
+     "title": "Level 2 – Line & Point Loads (Post DL)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 29,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 30,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "d5b8515f0b0c85c4"
+    },
+    {
+     "title": "Level 2 – Design Results",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 32,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "5bc759ab63d67184"
+    },
+    {
+     "title": "Level 2 – Bending Check",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 34,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "fb12afb1d766a603"
+    },
+    {
+     "title": "Level 2 – Deflection Check",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 36,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "ec6463ba0826f68d"
+    },
+    {
+     "title": "Point Locations : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 39,
+       "rect": [
+        0.0392,
+        0.4744,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 40,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 41,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      }
+     ],
+     "textHash": "f1c9ae09a781f501"
+    },
+    {
+     "title": "Columns : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 44,
+       "rect": [
+        0.0392,
+        0.7282,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 45,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.3996
+       ]
+      }
+     ],
+     "textHash": "c057975cb3c7fdc2"
+    },
+    {
+     "title": "Column Design Parameters : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 45,
+       "rect": [
+        0.0392,
+        0.6936,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 46,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.3587
+       ]
+      }
+     ],
+     "textHash": "eec1e4b5292bafeb"
+    },
+    {
+     "title": "Beam Primary Data : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 47,
+       "rect": [
+        0.0392,
+        0.3191,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 48,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 49,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.2224
+       ]
+      }
+     ],
+     "textHash": "ef37436e3aea81f5"
+    },
+    {
+     "title": "Hot Rolled : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 50,
+       "rect": [
+        0.0392,
+        0.2645,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 51,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      }
+     ],
+     "textHash": "c2612df10314bafb"
+    },
+    {
+     "title": "Diaphragm Parameters : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 53,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.1951
+       ]
+      }
+     ],
+     "textHash": "2f62ba40622ea97c"
+    },
+    {
+     "title": "Point Loads : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 53,
+       "rect": [
+        0.0392,
+        0.2709,
+        0.9608,
+        0.3987
+       ]
+      }
+     ],
+     "textHash": "fca3a2f33cb6c9c3"
+    },
+    {
+     "title": "Line Loads : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 53,
+       "rect": [
+        0.0392,
+        0.4607,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 54,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.1951
+       ]
+      }
+     ],
+     "textHash": "1d498b6802986643"
+    },
+    {
+     "title": "Tapered Area Loads : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 54,
+       "rect": [
+        0.0392,
+        0.3254,
+        0.9608,
+        0.3851
+       ]
+      }
+     ],
+     "textHash": "8fe94ad09f85f445"
+    },
+    {
+     "title": "Beam Design for Hot Rolled : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 54,
+       "rect": [
+        0.0392,
+        0.766,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 55,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 56,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.6724
+       ]
+      }
+     ],
+     "textHash": "98ed03d52c12924e"
+    },
+    {
+     "title": "Beam Code Summary for Hot Rolled : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 57,
+       "rect": [
+        0.0392,
+        0.7145,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 58,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 59,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.6178
+       ]
+      }
+     ],
+     "textHash": "d3baafebffd184e7"
+    },
+    {
+     "title": "Beam Shear Results for Hot Rolled : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 60,
+       "rect": [
+        0.0392,
+        0.66,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 61,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 62,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.5633
+       ]
+      }
+     ],
+     "textHash": "bb5e3cd3c94755b9"
+    },
+    {
+     "title": "Beam Bending Results for Hot Rolled : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 63,
+       "rect": [
+        0.0392,
+        0.6054,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 64,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 65,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.5087
+       ]
+      }
+     ],
+     "textHash": "8097bce4b127a298"
+    },
+    {
+     "title": "Beam Deflections, Relative for Standard Cats : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 66,
+       "rect": [
+        0.0392,
+        0.5509,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 67,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 68,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.4542
+       ]
+      }
+     ],
+     "textHash": "6a2d0d0528497513"
+    },
+    {
+     "title": "Beam Absolute Deflections : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 69,
+       "rect": [
+        0.0392,
+        0.4963,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 70,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 71,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.3996
+       ]
+      }
+     ],
+     "textHash": "d5243f6d0b01748e"
+    },
+    {
+     "title": "Beam End Reactions : Level 2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 72,
+       "rect": [
+        0.0392,
+        0.4418,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 73,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 74,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 75,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 76,
+       "rect": [
+        0.0392,
+        0.1219,
+        0.9608,
+        0.1951
+       ]
+      }
+     ],
+     "textHash": "5495d29427dd6d0f"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "W10X12",
+     "W12X14",
+     "W12X16",
+     "W12X26",
+     "W12X30",
+     "W12X35",
+     "W14X34",
+     "W14X48",
+     "W14X61",
+     "W14X74",
+     "W16X26",
+     "W16X31",
+     "W18X35",
+     "W21X44",
+     "W21X48",
+     "W24X55",
+     "W24X68",
+     "W24X84",
+     "W24X94",
+     "W27X114"
+    ],
+    "detailRefs": [],
+    "software": "RISAFloor",
+    "level": "Level 2",
+    "model": "2021-03-22_Bldg 12.rfl",
+    "gridSystem": "1, 1.3, 1.8, 2, 2.5, 3, 4, 5 / A, A.5, B, B.2, B.5, C, C.8, D, E"
+   },
+   "fingerprint": "c5f0086162f1f1e2",
+   "description": "RISAFloor gravity model of Level 2 (2021): sketches and the Level 2 sections of the model tables."
+  },
+  {
+   "id": "gravity/columns",
+   "title": "Gravity columns – RISAFloor forces & code checks",
+   "doc": "calcs",
+   "category": "Gravity framing design",
+   "roleHint": "design",
+   "sheetRange": "B57–B75",
+   "pageRange": [
+    79,
+    97
+   ],
+   "spans": [
+    {
+     "title": "Column forces / moments",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 79,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 80,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 81,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 82,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 83,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 84,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 85,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 86,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 87,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 88,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 89,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 90,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 91,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 92,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 93,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 94,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 95,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 96,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.7269
+       ]
+      }
+     ],
+     "textHash": "f534f7584d0b1e88"
+    },
+    {
+     "title": "Hot-rolled steel column code checks",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 96,
+       "rect": [
+        0.0392,
+        0.7282,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 97,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "a2a8508c3911b12a"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS10X1",
+     "HSS4X4X2",
+     "HSS5.5X5",
+     "HSS5X5X2",
+     "HSS6X6X2",
+     "HSS7X7X2",
+     "HSS8X8X3",
+     "HSS9X9X4",
+     "W18X211",
+     "W18X283",
+     "W18X311"
+    ],
+    "detailRefs": [],
+    "software": "RISAFloor",
+    "model": "2021-03-22_Bldg 12.rfl",
+    "gridSystem": "1, 1.3, 1.8, 2, 2.5, 3, 4, 5 / A, A.5, B, B.2, B.5, C, C.8, D, E"
+   },
+   "fingerprint": "08823b7211663039",
+   "description": "RISAFloor column forces (dead, floor live, roof) for every column stack, then the hot-rolled steel column code checks (W18X211/283/311 and HSS). HSS names are truncated in the table."
+  },
+  {
+   "id": "lateral/model-sketches",
+   "title": "Lateral model sketches – nodes, members, member sizes",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "reference",
+   "sheetRange": "C1–C10",
+   "pageRange": [
+    98,
+    107
+   ],
+   "spans": [
+    {
+     "title": "Node & member labels",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 98,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 99,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "c63d37e01d2ae666"
+    },
+    {
+     "title": "Member sizes (SK-5)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 105,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "4675b7603c3baccf"
+    },
+    {
+     "title": "SK-6",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 107,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "9f49804ea3e4c584"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISA-3D",
+    "model": "2021-03-22_Bldg 12.rfl"
+   },
+   "fingerprint": "3f13b7bcb2beb37a",
+   "description": "RISA-3D sketches of the lateral model: node & boundary labels, member labels, member sizes (SK-5) and SK-6. The sizes are drawn as graphics, so they can't be searched."
+  },
+  {
+   "id": "lateral/seismic-loads",
+   "title": "Seismic loads – ELF base shear & distribution (SMF, R = 8)",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "loads",
+   "sheetRange": "C3–C7",
+   "pageRange": [
+    100,
+    104
+   ],
+   "spans": [
+    {
+     "title": "Seismic generation & base shear",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 100,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 101,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 102,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 103,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 104,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "0a92fb4f4e282e8d"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISA-3D + Excel",
+    "system": "Steel special moment frame"
+   },
+   "fingerprint": "860d569c4d76b9bf",
+   "description": "Seismic generation input and ELF base shear for a steel special moment frame (SDS 1.012, R = 8, Ie = 1.25), vertical distribution and the X / Z seismic load sketches."
+  },
+  {
+   "id": "lateral/drift-check",
+   "title": "SMF story drift check",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "design",
+   "sheetRange": "C9",
+   "pageRange": [
+    106,
+    106
+   ],
+   "spans": [
+    {
+     "title": "Drift check (C9)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 106,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "39b6050c1fcd5ede"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "W18X211",
+     "W18X283",
+     "W18X311",
+     "W21X83",
+     "W24X94",
+     "W27X114"
+    ],
+    "detailRefs": [],
+    "software": "Excel",
+    "frames": [
+     "1.3",
+     "2.5",
+     "4",
+     "A",
+     "B",
+     "D"
+    ],
+    "gridSystem": "1, 1.3, 1.8, 2, 2.5, 3, 4, 5 / A, A.5, B, B.2, B.5, C, C.8, D, E"
+   },
+   "fingerprint": "f340b59c9df809d0",
+   "description": "Story drift check per frame line (1.3, 2.5, 4, A, B, D – the calc grid). The note lists the frame sizes: W18x283 / W18x211 / W18x311 columns, W24x94 at roof, W27x114 at floor, W21x83."
+  },
+  {
+   "id": "lateral/risa3d-input",
+   "title": "RISA-3D lateral model – input",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "reference",
+   "sheetRange": "C11–C24",
+   "pageRange": [
+    108,
+    121
+   ],
+   "spans": [
+    {
+     "title": "Model input",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 108,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 109,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 110,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 111,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 112,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 113,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 114,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 115,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 116,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 117,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 118,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 119,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 120,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 121,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "bb917763f98ca76a"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "W10X33",
+     "W18X211",
+     "W18X283",
+     "W18X311",
+     "W21X83",
+     "W24X84",
+     "W24X94",
+     "W27X114"
+    ],
+    "detailRefs": [],
+    "software": "RISA-3D",
+    "model": "2021-03-22_Bldg 12.rfl"
+   },
+   "fingerprint": "7d17696d0dfc56b2",
+   "description": "RISA-3D model input: grid lines, nodes, members, sections and load cases for the lateral model. Not linked to drawn elements."
+  },
+  {
+   "id": "lateral/risa3d-results",
+   "title": "RISA-3D lateral model – reactions & displacements",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "reference",
+   "sheetRange": "C25–C88",
+   "pageRange": [
+    122,
+    185
+   ],
+   "spans": [
+    {
+     "title": "Reactions & displacements",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 122,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 123,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 124,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 125,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 126,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 127,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 128,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 129,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 130,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 131,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 132,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 133,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 134,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 135,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 136,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 137,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 138,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 139,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 140,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 141,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 142,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 143,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 144,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 145,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 146,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 147,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 148,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 149,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 150,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 151,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 152,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 153,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 154,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 155,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 156,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 157,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 158,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 159,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 160,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 161,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 162,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 163,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 164,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 165,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 166,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 167,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 168,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 169,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 170,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 171,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 172,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 173,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 174,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 175,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 176,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 177,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 178,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 179,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 180,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 181,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 182,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 183,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 184,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 185,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.1849
+       ]
+      }
+     ],
+     "textHash": "da529a075781dd3b"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISA-3D"
+   },
+   "fingerprint": "42d63446d2ebf52c",
+   "description": "RISA-3D node reactions and envelope displacements. Not linked to drawn elements."
+  },
+  {
+   "id": "lateral/smf-code-checks",
+   "title": "SMF member code checks – AISC 360-16 (RISA-3D)",
+   "doc": "calcs",
+   "category": "Lateral design",
+   "roleHint": "design",
+   "sheetRange": "C88–C89",
+   "pageRange": [
+    185,
+    186
+   ],
+   "spans": [
+    {
+     "title": "AISC member steel code checks",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 185,
+       "rect": [
+        0.0392,
+        0.1862,
+        0.9608,
+        0.9594
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 186,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "c5b567f872f37026"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "W18X211",
+     "W18X283",
+     "W18X311",
+     "W21X83",
+     "W24X84",
+     "W24X94",
+     "W27X114"
+    ],
+    "detailRefs": [],
+    "software": "RISA-3D",
+    "system": "Steel special moment frame"
+   },
+   "fingerprint": "7e84a1e4aafc09fd",
+   "description": "RISA-3D envelope AISC 360-16 code checks for the SMF members (F1_M…, F2_M…: W21X83, W24X84, W24X94, W27X114, plus the W18 columns)."
+  },
+  {
+   "id": "foundation/risafoundation-model",
+   "title": "Foundation – RISAFoundation sketch & input",
+   "doc": "calcs",
+   "category": "Foundation design",
+   "roleHint": "reference",
+   "sheetRange": "D1–D14",
+   "pageRange": [
+    187,
+    200
+   ],
+   "spans": [
+    {
+     "title": "Footing sketch (joint labels)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 187,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "69fada1b5ac72643"
+    },
+    {
+     "title": "Model input",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 188,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 189,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 190,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 191,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 192,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 193,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 194,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 195,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 196,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 197,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 198,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 199,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 200,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.8224
+       ]
+      }
+     ],
+     "textHash": "8d494c93ed17a31d"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISAFoundation",
+    "gridSystem": "1, 1.3, 1.8, 2, 2.5, 3, 4, 5 / A, A.5, B, B.2, B.5, C, C.8, D, E"
+   },
+   "fingerprint": "e5902fcb801c7180",
+   "description": "RISAFoundation sketch (footings by joint: R3D_N…, FLR_1_N…) and model input – grids, footing sets 'Lateral Ext. Ftn'g.' and 'Gravity Ftn'g.', loads."
+  },
+  {
+   "id": "foundation/footing-results",
+   "title": "Foundation – footing code checks, geometry & soil pressures",
+   "doc": "calcs",
+   "category": "Foundation design",
+   "roleHint": "design",
+   "sheetRange": "D14–D18",
+   "pageRange": [
+    200,
+    204
+   ],
+   "spans": [
+    {
+     "title": "Footing results",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 200,
+       "rect": [
+        0.0392,
+        0.8236,
+        0.9608,
+        0.9621
+       ]
+      },
+      {
+       "doc": "calcs",
+       "page": 201,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 202,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 203,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 204,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "4ce2e7d762f870e5"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISAFoundation",
+    "footingTypes": [
+     "Lateral Ext. Ftn'g.",
+     "Gravity Ftn'g."
+    ]
+   },
+   "fingerprint": "dcc875515ec2b06f",
+   "description": "RISAFoundation footing code checks, geometry (4×4, 5×5, 9×9 ft gravity; 9–15 ft lateral), soil pressures, safety factors and shear checks."
+  },
+  {
+   "id": "foundation/beam-results",
+   "title": "Foundation – beam & strip results (no data)",
+   "doc": "calcs",
+   "category": "Foundation design",
+   "roleHint": "reference",
+   "sheetRange": "D19",
+   "pageRange": [
+    205,
+    205
+   ],
+   "spans": [
+    {
+     "title": "Beams / strips",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 205,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "340da1a72f4bfb00"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "RISAFoundation"
+   },
+   "fingerprint": "6520029ebf4f5638",
+   "description": "RISAFoundation beam / strip tables. Every table prints 'No Data to Print' – no grade beam is designed in this model."
+  },
+  {
+   "id": "studs/wind-cc",
+   "title": "Wind components & cladding pressures (studs)",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "loads",
+   "sheetRange": "E1–E9",
+   "pageRange": [
+    206,
+    214
+   ],
+   "spans": [
+    {
+     "title": "Wind coefficients",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 206,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 207,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "1e10b36929d4132b"
+    },
+    {
+     "title": "Wind modules (Simpson)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 212,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 213,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 214,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "becdd05cfe0e7984"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "Excel + Simpson CFS Designer",
+    "code": "ASCE 7-16 Ch. 30"
+   },
+   "fingerprint": "90f91e50a6888e78",
+   "description": "Wind coefficients and components & cladding pressures for the exterior studs (ASCE 7-16), plus the Simpson wind modules for the monoslope roof and roof deck."
+  },
+  {
+   "id": "studs/opening-a-1-s4.0.1",
+   "title": "CFS opening A – 1/S4.0.1 (studs, header, jambs)",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E3–E4",
+   "pageRange": [
+    208,
+    209
+   ],
+   "spans": [
+    {
+     "title": "Opening A – 1/S4.0.1",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 208,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 209,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "e1eb1a2c79396393"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "400S162-43",
+     "600S162-54",
+     "600S250-54"
+    ],
+    "detailRefs": [
+     "1/S4.0.1"
+    ],
+    "software": "Simpson CFS Designer"
+   },
+   "fingerprint": "c847477fdf828e48",
+   "description": "Simpson CFS Designer model 'Opening A – 1/S4.0.1': wall studs, jamb studs 600S250-54, vertical header 400S162-43, lateral header 600T125-54 and connectors."
+  },
+  {
+   "id": "studs/opening-b-2-s4.0.2",
+   "title": "CFS opening B – 2/S4.0.2 (studs, header, jambs)",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E5–E6",
+   "pageRange": [
+    210,
+    211
+   ],
+   "spans": [
+    {
+     "title": "Opening B – 2/S4.0.2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 210,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 211,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "36505f0eef8ff231"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "600S137-54",
+     "600S162-54"
+    ],
+    "detailRefs": [
+     "2/S4.0.2"
+    ],
+    "software": "Simpson CFS Designer"
+   },
+   "fingerprint": "cc687ae813e3cc82",
+   "description": "Simpson CFS Designer model 'Opening B – 2/S4.0.2': wall studs 600S162-54, boxed vertical header 600S162-54, lateral header 600T150-54 and connectors."
+  },
+  {
+   "id": "studs/typical-studs",
+   "title": "Typical exterior studs 600S162-54 @ 16\" o.c.",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E10–E16",
+   "pageRange": [
+    215,
+    221
+   ],
+   "spans": [
+    {
+     "title": "Typ stud – windward",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 215,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 216,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "912dae11735573d4"
+    },
+    {
+     "title": "Typ stud – leeward",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 217,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 218,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "aa4b10100fc39c60"
+    },
+    {
+     "title": "Typ stud – uniform",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 219,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 220,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "86204510a6585c7e"
+    },
+    {
+     "title": "Typ stud – simple",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 221,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "a843bcc26dd112c1"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "600S162-54"
+    ],
+    "detailRefs": [],
+    "software": "Simpson CFS Designer"
+   },
+   "fingerprint": "0ff48e05c628ba74",
+   "description": "Typical exterior stud 600S162-54 @ 16\" o.c. checked for windward, leeward, uniform and simple-span cases, with connectors."
+  },
+  {
+   "id": "studs/high-parapet-mep-well",
+   "title": "High parapet studs (MEP well)",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E17–E18",
+   "pageRange": [
+    222,
+    223
+   ],
+   "spans": [
+    {
+     "title": "High parapet (MEP well)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 222,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 223,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "8a088f41567b3ae1"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "600S162-54"
+    ],
+    "detailRefs": [],
+    "software": "Simpson CFS Designer"
+   },
+   "fingerprint": "c2ab7eb19da0d4f5",
+   "description": "Simpson CFS model of the high parapet studs at the MEP well (600S162-54 @ 16\" o.c. with a 78\" cantilever). No drawn element is linked yet."
+  },
+  {
+   "id": "studs/high-canopy-hss-bm-10-oc",
+   "title": "HIGH CANOPY – HSS BM (10' OC)",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E19",
+   "pageRange": [
+    224,
+    224
+   ],
+   "spans": [
+    {
+     "title": "HIGH CANOPY - HSS BM (10' OC)",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 224,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "14347b091e9722bf"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS6X2X1/4"
+    ],
+    "detailRefs": [],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "7b23161f2642200c",
+   "description": "ENERCALC check of the high canopy HSS beam at 10' o.c. No drawn element is linked yet."
+  },
+  {
+   "id": "studs/high-canopy-hss-bm",
+   "title": "HIGH CANOPY – HSS BM",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E20",
+   "pageRange": [
+    225,
+    225
+   ],
+   "spans": [
+    {
+     "title": "HIGH CANOPY - HSS BM",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 225,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "a42e73f33a484063"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS6X2X1/4"
+    ],
+    "detailRefs": [],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "6de4a2af20d699bd",
+   "description": "ENERCALC check of the high canopy HSS beam (continued). No drawn element is linked yet."
+  },
+  {
+   "id": "studs/hss-hdr-a-1-s4.0.1",
+   "title": "HSS HDR(A) – 1/S4.0.1",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E21–E24",
+   "pageRange": [
+    226,
+    229
+   ],
+   "spans": [
+    {
+     "title": "HSS HDR(A) - 1/S4.0.1",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 226,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 227,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 228,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 229,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "33f8aa84ab3f499e"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS12X6X5/16",
+     "HSS12X8X5/8"
+    ],
+    "detailRefs": [
+     "1/S4.0.1"
+    ],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "7d8c51c02dcb0fbb",
+   "description": "ENERCALC check of HSS header (A) at section 1/S4.0.1, strong and weak axis – HSS12x6x5/16."
+  },
+  {
+   "id": "studs/hss-hdr-b-2-s4.0.1-a",
+   "title": "HSS HDR(B) – 2/S4.0.1_A",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E25",
+   "pageRange": [
+    230,
+    230
+   ],
+   "spans": [
+    {
+     "title": "HSS HDR(B) - 2/S4.0.1_A",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 230,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "73b2c6ed86406556"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS10X6X3/8"
+    ],
+    "detailRefs": [],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "cf491e11e993a073",
+   "description": "ENERCALC check of HSS header (B) at section 2/S4.0.1 (variant A), strong axis – HSS10x6x3/8."
+  },
+  {
+   "id": "studs/hss-hdr-b-2-s4.0.1",
+   "title": "HSS HDR(B) – 2/S4.0.1",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E26",
+   "pageRange": [
+    231,
+    231
+   ],
+   "spans": [
+    {
+     "title": "HSS HDR(B) - 2/S4.0.1",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 231,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "202867d0a1a4fff1"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS10X6X3/8"
+    ],
+    "detailRefs": [
+     "2/S4.0.1"
+    ],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "a8b1c43b72a629b9",
+   "description": "ENERCALC check of HSS header (B) at section 2/S4.0.1, weak axis – HSS10x6x3/8."
+  },
+  {
+   "id": "studs/hss-hdr-d-1-s4.0.2",
+   "title": "HSS HDR(D) – 1/S4.0.2",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E27–E28",
+   "pageRange": [
+    232,
+    233
+   ],
+   "spans": [
+    {
+     "title": "HSS HDR(D) - 1/S4.0.2",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 232,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 233,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "df42bb5849d8d2ca"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS10X6X3/8",
+     "HSS12X8X1/2"
+    ],
+    "detailRefs": [
+     "1/S4.0.2"
+    ],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "10d2454a2eb19a40",
+   "description": "ENERCALC check of HSS header (D) at section 1/S4.0.2, strong and weak axis – HSS10x6x3/8."
+  },
+  {
+   "id": "studs/hss-hdr-2-s4.0.2-la-cantina",
+   "title": "HSS HDR – 2/S4.0.2_La Cantina",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E29–E30",
+   "pageRange": [
+    234,
+    235
+   ],
+   "spans": [
+    {
+     "title": "HSS HDR - 2/S4.0.2_La Cantina",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 234,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 235,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "dd0b7982a0630032"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS10X6X1/2"
+    ],
+    "detailRefs": [],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "21c95cdee8e9af1f",
+   "description": "ENERCALC check of the La Cantina HSS header at section 2/S4.0.2 – HSS10x6x1/2."
+  },
+  {
+   "id": "studs/hss-jamb-1-s4.0.1",
+   "title": "HSS JAMB – 1/S4.0.1",
+   "doc": "calcs",
+   "category": "Exterior metal studs",
+   "roleHint": "design",
+   "sheetRange": "E31–E33",
+   "pageRange": [
+    236,
+    238
+   ],
+   "spans": [
+    {
+     "title": "HSS JAMB - 1/S4.0.1",
+     "regions": [
+      {
+       "doc": "calcs",
+       "page": 236,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 237,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "calcs",
+       "page": 238,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "644add0da1e9672e"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "HSS8X6X3/8"
+    ],
+    "detailRefs": [
+     "1/S4.0.1"
+    ],
+    "software": "ENERCALC"
+   },
+   "fingerprint": "b1410476aacc320d",
+   "description": "ENERCALC check of the HSS jamb at section 1/S4.0.1 – HSS8x6x3/8, combined axial + bending."
+  },
+  {
+   "id": "stair/cover",
+   "title": "Stair & parapet package – cover",
+   "doc": "stair",
+   "category": "General",
+   "roleHint": "reference",
+   "sheetRange": null,
+   "pageRange": [
+    1,
+    1
+   ],
+   "spans": [
+    {
+     "title": "Cover",
+     "regions": [
+      {
+       "doc": "stair",
+       "page": 1,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "f5931895d8118f00"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "–"
+   },
+   "fingerprint": "9de4d60b80342efb",
+   "description": "Cover sheet of the 2023 stair & parapet package."
+  },
+  {
+   "id": "stair/grid-6-e-f",
+   "title": "Stair at grid 6 / E–F (MV-NS) – stair design",
+   "doc": "stair",
+   "category": "Stair design",
+   "roleHint": "design",
+   "sheetRange": null,
+   "pageRange": [
+    2,
+    8
+   ],
+   "spans": [
+    {
+     "title": null,
+     "regions": [
+      {
+       "doc": "stair",
+       "page": 2,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 3,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 4,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 5,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 6,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 7,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 8,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "cf36d97bd5e3bca9"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "C12X20.7",
+     "C15X33.9",
+     "C8X11.5",
+     "C8X13",
+     "W18X35"
+    ],
+    "detailRefs": [],
+    "software": "hand + ENERCALC",
+    "grids": [
+     "6",
+     "E",
+     "F",
+     "MV-NS"
+    ]
+   },
+   "fingerprint": "03edc7df6dcc5064",
+   "description": "Stair at grid 6 between E and F (MV-NS): framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B1 (cantilever diaphragm)."
+  },
+  {
+   "id": "stair/grid-5-a",
+   "title": "Stair at grid 5 / A – stair design",
+   "doc": "stair",
+   "category": "Stair design",
+   "roleHint": "design",
+   "sheetRange": null,
+   "pageRange": [
+    9,
+    14
+   ],
+   "spans": [
+    {
+     "title": null,
+     "regions": [
+      {
+       "doc": "stair",
+       "page": 9,
+       "rect": [
+        0.0303,
+        0.0327,
+        0.9697,
+        0.9673
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 10,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 11,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 12,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 13,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 14,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "d0d3e4bb88a753eb"
+    }
+   ],
+   "fields": {
+    "sizes": [
+     "C15X33.9",
+     "C8X11.5",
+     "C8X13",
+     "W14X22"
+    ],
+    "detailRefs": [],
+    "software": "hand + ENERCALC",
+    "grids": [
+     "5",
+     "4",
+     "A"
+    ]
+   },
+   "fingerprint": "962b90c270fecd34",
+   "description": "Stair at grid 5 / A: framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B2."
+  },
+  {
+   "id": "parapet/hss-posts",
+   "title": "Parapet design – HSS posts (grid B & 4)",
+   "doc": "stair",
+   "category": "Parapet design",
+   "roleHint": "design",
+   "sheetRange": null,
+   "pageRange": [
+    15,
+    20
+   ],
+   "spans": [
+    {
+     "title": null,
+     "regions": [
+      {
+       "doc": "stair",
+       "page": 15,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 16,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 17,
+       "rect": [
+        0.0392,
+        0.0252,
+        0.9608,
+        0.9748
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 18,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 19,
+       "rect": [
+        0.0392,
+        0.0253,
+        0.9608,
+        0.9747
+       ],
+       "fullPage": true
+      },
+      {
+       "doc": "stair",
+       "page": 20,
+       "rect": [
+        0.0392,
+        0.0252,
+        0.9608,
+        0.9748
+       ],
+       "fullPage": true
+      }
+     ],
+     "textHash": "993012cd9924833f"
+    }
+   ],
+   "fields": {
+    "sizes": [],
+    "detailRefs": [],
+    "software": "hand + ENERCALC",
+    "grids": [
+     "B",
+     "4"
+    ]
+   },
+   "fingerprint": "9d8c5152c3038b16",
+   "description": "Parapet design (8/7/2023): section at grid B & 4, wind on the parapet, HSS post and connection checks, angle design."
+  }
+ ]
+}

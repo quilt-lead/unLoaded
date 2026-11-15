@@ -41,3 +41,7 @@ tools/calcgraph-reference/data/*
 
 # AISC shapes data is not openly licensed and this repo is public: never commit it (see decision log D22)
 tools/calcgraph-reference/synth/v2/data/aisc_*.csv
+# Source documents (copyrighted / permit set) - keep out of git
+*.pdf
+# double-click viewer build: packed copies of the source PDFs
+prototyping/calc-viewer/viewers/assets/pdf-*.js

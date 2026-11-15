@@ -1,0 +1,482 @@
+{
+ "summaryBy": "claude-code-session",
+ "note": "Plain-language summaries written from each link's evidence list. Each sentence must be backed by an evidence item or caveat in links.json. Later this file can be produced by the Claude API from the same evidence.",
+ "calcs": {
+  "loads/roof-dead-live": "Flat-roof dead load build-up (roofing, membrane, Densglass, insulation, deck, framing allowances) used for deck, beams, girders, columns and seismic weight.",
+  "gravity/roof-risafloor": "RISAFloor gravity model of the roof (2021): member sketches, then the roof sections of the point, beam, design, shear, bending, deflection and end-reaction tables.",
+  "gravity/level2-risafloor": "RISAFloor gravity model of Level 2 (2021): sketches and the Level 2 sections of the model tables.",
+  "studs/hss-hdr-a-1-s4.0.1": "ENERCALC check of HSS header (A) at section 1/S4.0.1, strong and weak axis – HSS12x6x5/16.",
+  "studs/hss-hdr-b-2-s4.0.1-a": "ENERCALC check of HSS header (B) at section 2/S4.0.1 (variant A), strong axis – HSS10x6x3/8.",
+  "studs/hss-hdr-b-2-s4.0.1": "ENERCALC check of HSS header (B) at section 2/S4.0.1, weak axis – HSS10x6x3/8.",
+  "studs/hss-hdr-d-1-s4.0.2": "ENERCALC check of HSS header (D) at section 1/S4.0.2, strong and weak axis – HSS10x6x3/8.",
+  "studs/hss-hdr-2-s4.0.2-la-cantina": "ENERCALC check of the La Cantina HSS header at section 2/S4.0.2 – HSS10x6x1/2.",
+  "studs/hss-jamb-1-s4.0.1": "ENERCALC check of the HSS jamb at section 1/S4.0.1 – HSS8x6x3/8, combined axial + bending.",
+  "stair/grid-6-e-f": "Stair at grid 6 between E and F (MV-NS): framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B1 (cantilever diaphragm).",
+  "stair/grid-5-a": "Stair at grid 5 / A: framing sketch, landing angle design, seismic anchorage and ENERCALC check of support beam B2.",
+  "parapet/hss-posts": "Parapet design (8/7/2023): section at grid B & 4, wind on the parapet, HSS post and connection checks, angle design.",
+  "general/cover-toc": "Cover sheet and table of contents of the 2021 KPFF package (sections A–E). Not a calc; listed so every page belongs somewhere.",
+  "loads/floor-dead-live": "Floor dead load build-up for Level 2 (tile, deck, 3.25\" LWT topping, overpour, MEP, ceiling) and live loads. The sheet is headed 'Dana Point Harbor (Bldg 10)'.",
+  "loads/balcony-dead-live": "Exterior balcony dead loads (4\" paving, waterproofing, drainage, deck, topping) and live loads. Headed 'Dana Point Harbor (Bldg 10)'. No balcony element is linked yet.",
+  "loads/wall-types": "Exterior wall type weights (thin brick veneer 35 psf, wood siding 15 psf, …) used as line loads and seismic weight.",
+  "loads/tsunami": "Tsunami basis of design (CBC 1615 / ASCE 7-16 Ch. 6) for the Risk Category III buildings: inundation, debris impact and hydrostatic foundation loads. Not linked to drawn elements.",
+  "gravity/columns": "RISAFloor column forces (dead, floor live, roof) for every column stack, then the hot-rolled steel column code checks (W18X211/283/311 and HSS). HSS names are truncated in the table.",
+  "lateral/model-sketches": "RISA-3D sketches of the lateral model: node & boundary labels, member labels, member sizes (SK-5) and SK-6. The sizes are drawn as graphics, so they can't be searched.",
+  "lateral/seismic-loads": "Seismic generation input and ELF base shear for a steel special moment frame (SDS 1.012, R = 8, Ie = 1.25), vertical distribution and the X / Z seismic load sketches.",
+  "lateral/drift-check": "Story drift check per frame line (1.3, 2.5, 4, A, B, D – the calc grid). The note lists the frame sizes: W18x283 / W18x211 / W18x311 columns, W24x94 at roof, W27x114 at floor, W21x83.",
+  "lateral/risa3d-input": "RISA-3D model input: grid lines, nodes, members, sections and load cases for the lateral model. Not linked to drawn elements.",
+  "lateral/risa3d-results": "RISA-3D node reactions and envelope displacements. Not linked to drawn elements.",
+  "lateral/smf-code-checks": "RISA-3D envelope AISC 360-16 code checks for the SMF members (F1_M…, F2_M…: W21X83, W24X84, W24X94, W27X114, plus the W18 columns).",
+  "foundation/risafoundation-model": "RISAFoundation sketch (footings by joint: R3D_N…, FLR_1_N…) and model input – grids, footing sets 'Lateral Ext. Ftn'g.' and 'Gravity Ftn'g.', loads.",
+  "foundation/footing-results": "RISAFoundation footing code checks, geometry (4×4, 5×5, 9×9 ft gravity; 9–15 ft lateral), soil pressures, safety factors and shear checks.",
+  "foundation/beam-results": "RISAFoundation beam / strip tables. Every table prints 'No Data to Print' – no grade beam is designed in this model.",
+  "studs/wind-cc": "Wind coefficients and components & cladding pressures for the exterior studs (ASCE 7-16), plus the Simpson wind modules for the monoslope roof and roof deck.",
+  "studs/opening-a-1-s4.0.1": "Simpson CFS Designer model 'Opening A – 1/S4.0.1': wall studs, jamb studs 600S250-54, vertical header 400S162-43, lateral header 600T125-54 and connectors.",
+  "studs/opening-b-2-s4.0.2": "Simpson CFS Designer model 'Opening B – 2/S4.0.2': wall studs 600S162-54, boxed vertical header 600S162-54, lateral header 600T150-54 and connectors.",
+  "studs/typical-studs": "Typical exterior stud 600S162-54 @ 16\" o.c. checked for windward, leeward, uniform and simple-span cases, with connectors.",
+  "studs/high-parapet-mep-well": "Simpson CFS model of the high parapet studs at the MEP well (600S162-54 @ 16\" o.c. with a 78\" cantilever). No drawn element is linked yet.",
+  "studs/high-canopy-hss-bm-10-oc": "ENERCALC check of the high canopy HSS beam at 10' o.c. No drawn element is linked yet.",
+  "studs/high-canopy-hss-bm": "ENERCALC check of the high canopy HSS beam (continued). No drawn element is linked yet.",
+  "stair/cover": "Cover sheet of the 2023 stair & parapet package."
+ },
+ "groups": {},
+ "links": {
+  "group/roof/beam/W16X26→gravity/roof-risafloor": {
+   "summary": "The roof plan's W16x26 beams are sized in the RISAFloor roof model, where W16x26 is the most common roof beam. The match is by size and level only: the model's layout and grid lines (1–5 / A–E) don't line up with the approved roof plan (1–6 / A–F), so which modelled member is which drawn beam can't be confirmed."
+  },
+  "group/roof/beam/W18X35→gravity/roof-risafloor": {
+   "summary": "W18x35 roof beams on the plan match W18x35 members in the RISAFloor roof model, by size and level. As with W16x26, the model's grid system and layout differ from the approved roof plan, so the link is to the size, not to a specific member."
+  },
+  "group/roof/beam/W12X14→gravity/level2-risafloor": {
+   "summary": "No roof calc designs W12x14. The only W12x14 in the calc package is in the Level 2 model, which is a different floor, so this is a weak link shown to make the gap visible."
+  },
+  "group/roof/beam/W16X26→loads/roof-dead-live": {
+   "summary": "Every roof beam carries the flat-roof loads defined on sheet A1 (roofing, insulation, deck and framing allowances). This links the beams to where their design loads come from, not to their sizing."
+  },
+  "group/roof/beam/W18X35→loads/roof-dead-live": {
+   "summary": "The W18x35 roof beams carry the flat-roof loads defined on sheet A1. This links the beams to where their design loads come from, not to their sizing."
+  },
+  "group/roof/beam/W12X14→loads/roof-dead-live": {
+   "summary": "The W12x14 roof beams carry the flat-roof loads defined on sheet A1. This is the only calc linked to them; their sizing calc is missing."
+  },
+  "group/roof/beam/W14X22→loads/roof-dead-live": {
+   "summary": "The W14x22 roof beams carry the flat-roof loads defined on sheet A1. No calc in the packages sizes W14x22 on the roof."
+  },
+  "group/roof/beam/W8X35→loads/roof-dead-live": {
+   "summary": "The W8x35 roof members carry the flat-roof loads defined on sheet A1. No calc in the packages sizes W8x35 on the roof."
+  },
+  "group/roof/beam/W12X79→loads/roof-dead-live": {
+   "summary": "The W12x79 on the roof carries the flat-roof loads defined on sheet A1. No calc in the packages sizes W12x79."
+  },
+  "callout/1-S4.0.1→studs/hss-hdr-a-1-s4.0.1": {
+   "summary": "The calc's title names section 1/S4.0.1, the same section the roof plan calls out, so this header calc belongs to that section. Exact reference match."
+  },
+  "callout/1-S4.0.1→studs/hss-jamb-1-s4.0.1": {
+   "summary": "The jamb calc is titled 'HSS JAMB – 1/S4.0.1', matching the roof plan's section callout 1/S4.0.1 exactly."
+  },
+  "callout/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1-a": {
+   "summary": "The calc's title names section 2/S4.0.1 (variant A), matching the roof plan's section callout 2/S4.0.1."
+  },
+  "callout/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1": {
+   "summary": "The calc's title names section 2/S4.0.1, matching the roof plan's section callout exactly."
+  },
+  "callout/1-S4.0.2→studs/hss-hdr-d-1-s4.0.2": {
+   "summary": "The calc's title names section 1/S4.0.2, matching the roof plan's section callout exactly."
+  },
+  "callout/2-S4.0.2→studs/hss-hdr-2-s4.0.2-la-cantina": {
+   "summary": "The calc's title names section 2/S4.0.2 (La Cantina header), matching the roof plan's section callout exactly."
+  },
+  "callout/5-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair calc's framing sketch draws callout 5/S8.8.1 in the same place as the enlarged stair plan, so detail 5 is part of this stair's design."
+  },
+  "callout/5-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch also draws callout 5/S8.8.1, so this typical stair detail is used at both stairs."
+  },
+  "callout/8-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch draws callout 8/S8.8.1, matching the callout on the enlarged stair plan."
+  },
+  "callout/9-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair calc's sketch at grid 6 / E–F draws callout 9/S8.8.1, matching the stair plan."
+  },
+  "callout/9-S8.8.1→stair/grid-5-a": {
+   "summary": "The grid 5 / A stair sketch also draws callout 9/S8.8.1, so this detail is shared by both stairs."
+  },
+  "level-2/stringer/E–F@6(ext)/v→stair/grid-6-e-f": {
+   "summary": "This C12x20.7 stringer sits at grid 6 between E and F, where the stair calc's sketch is drawn. The calc designs stringers and names C12x20.7, so location, member type and size all agree."
+  },
+  "level-2/stringer/E–F@6(ext)/v#2→stair/grid-6-e-f": {
+   "summary": "This bent C12x20.7 stringer is at grid 6 / E–F, the stair the calc covers. Location, member type and size all agree with the calc."
+  },
+  "level-2/stringer/E–F@6(ext)/h→stair/grid-6-e-f": {
+   "summary": "This bent C12x20.7 stringer is part of the stair at grid 6 / E–F. The calc covers that stair, designs stringers and names C12x20.7."
+  },
+  "level-2/beam/E–F@6(ext)/h→stair/grid-6-e-f": {
+   "summary": "This C8x11.5 framing member is at the grid 6 / E–F stair, and the calc names C8x11.5, so location and size agree."
+  },
+  "roof/post/C–D@3–2/h→parapet/hss-posts": {
+   "summary": "The plan note calls this an HSS post at the parapet, and the parapet calc designs HSS parapet posts. The calc's section is cut at grid B & 4, while this post is near C–D / 2–3, so it's covered only if the calc is a typical design.",
+   "caveats": [
+    "The calc section is cut at grid B & 4; this post is at C–D / 3–2. Confirm the calc is a typical parapet post design."
+   ]
+  },
+  "group/level-2/beam/W12X14→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W12x14 beams (4 drawn) match W12x14 members in the RISAFloor Level 2 model, which names the size 4 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/W12X26→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W12x26 beams (1 drawn) match W12x26 members in the RISAFloor Level 2 model, which names the size 35 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/W12X35→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W12x35 beams (1 drawn) match W12x35 members in the RISAFloor Level 2 model, which names the size 5 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/W16X26→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W16x26 beams (51 drawn) match W16x26 members in the RISAFloor Level 2 model, which names the size 80 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/W18X35→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W18x35 beams (22 drawn) match W18x35 members in the RISAFloor Level 2 model, which names the size 14 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/W21X44→gravity/level2-risafloor": {
+   "summary": "The Level 2 plan's W21x44 beams (7 drawn) match W21x44 members in the RISAFloor Level 2 model, which names the size 23 times in its tables and sketches. The match is by size and level only: the model's grid lines (1–5 / A–E with intermediate lines) don't line up with the approved plan's 1–6 / A–F, so no drawn beam can be tied to a specific modelled member."
+  },
+  "group/level-2/beam/C8X11.5→loads/floor-dead-live": {
+   "summary": "The Level 2 C8x11.5 stair channels carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X120→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x120 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X14→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x14 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X19→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x19 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X26→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x26 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X35→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x35 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X45→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x45 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W12X65→loads/floor-dead-live": {
+   "summary": "The Level 2 W12x65 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W14X22→loads/floor-dead-live": {
+   "summary": "The Level 2 W14x22 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W16X26→loads/floor-dead-live": {
+   "summary": "The Level 2 W16x26 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W18X35→loads/floor-dead-live": {
+   "summary": "The Level 2 W18x35 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/level-2/beam/W21X44→loads/floor-dead-live": {
+   "summary": "The Level 2 W21x44 beams carry the floor dead and live loads tabulated on sheet A2. That sheet is headed 'Dana Point Harbor (Bldg 10)', so it may have been carried over from another building's package – confirm it applies to Building 12. This link shows where the loads come from, not the member's sizing."
+  },
+  "group/roof/beam/W8X10→loads/roof-dead-live": {
+   "summary": "The roof W8x10 members (3 drawn) carry the flat-roof loads defined on sheet A1. This links them to where their design loads come from, not to their sizing; no roof calc in the packages sizes this member."
+  },
+  "group/foundation/column/HSS4X4X1/4→gravity/columns": {
+   "summary": "4 HSS4x4x1/4 columns on the Foundation plans link to the RISAFloor gravity column checks by nominal size only: HSS4X4 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS4X4X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/foundation/column/HSS4X4X3/16→gravity/columns": {
+   "summary": "1 HSS4x4x3/16 column on the Foundation plans link to the RISAFloor gravity column checks by nominal size only: HSS4X4 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS4X4X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/foundation/column/HSS6X6X1/4→gravity/columns": {
+   "summary": "23 HSS6x6x1/4 columns on the Foundation plans link to the RISAFloor gravity column checks by nominal size only: HSS6X6 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS6X6X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/foundation/column/HSS6X6X3/8→gravity/columns": {
+   "summary": "16 HSS6x6x3/8 columns on the Foundation plans link to the RISAFloor gravity column checks by nominal size only: HSS6X6 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS6X6X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/foundation/column/HSS8X8X3/8→gravity/columns": {
+   "summary": "9 HSS8x8x3/8 columns on the Foundation plans link to the RISAFloor gravity column checks by nominal size only: HSS8X8 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS8X8X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/level-2/column/HSS6X6X1/4→gravity/columns": {
+   "summary": "26 HSS6x6x1/4 columns on the Level 2 plans link to the RISAFloor gravity column checks by nominal size only: HSS6X6 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS6X6X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/level-2/column/HSS6X6X3/8→gravity/columns": {
+   "summary": "1 HSS6x6x3/8 column on the Level 2 plans link to the RISAFloor gravity column checks by nominal size only: HSS6X6 columns are checked there, but RISA truncates HSS names in the table (e.g. 'HSS6X6X2'), so the wall thickness can't be confirmed. Column stacks are labelled on the 2021 model's grid lines, so the specific column can't be identified either."
+  },
+  "group/elevation/beam/W21X44→lateral/smf-code-checks": {
+   "summary": "S3.0.1 draws W21x44 at Roof in the special moment frames, but the RISA-3D SMF code checks cover only W18X211, W18X283, W18X311, W21X83, W24X84, W24X94, W27X114. The link is by system (both are the SMF); the size mismatch is flagged because the May 2021 calc and the approved elevations disagree – check which governs."
+  },
+  "group/elevation/beam/W21X44→lateral/drift-check": {
+   "summary": "The drift check (sheet C9) covers every SMF frame line, but its note lists W18x283 / W18x211 / W18x311 columns and W24x94, W27x114 and W21x83 beams; W21x44 at Roof on S3.0.1 isn't among them. Its frames are also named on the calc grid (1.3, 2.5, 4, A, B, D) rather than S3.0.1's grids 2, 5, E and B."
+  },
+  "group/elevation/beam/W21X44→lateral/seismic-loads": {
+   "summary": "The SMF W21x44 beams on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "group/elevation/beam/W21X93→lateral/smf-code-checks": {
+   "summary": "S3.0.1 draws W21x93 at Level 2 in the special moment frames, but the RISA-3D SMF code checks cover only W18X211, W18X283, W18X311, W21X83, W24X84, W24X94, W27X114. The link is by system (both are the SMF); the size mismatch is flagged because the May 2021 calc and the approved elevations disagree – check which governs."
+  },
+  "group/elevation/beam/W21X93→lateral/drift-check": {
+   "summary": "The drift check (sheet C9) covers every SMF frame line, but its note lists W18x283 / W18x211 / W18x311 columns and W24x94, W27x114 and W21x83 beams; W21x93 at Level 2 on S3.0.1 isn't among them. Its frames are also named on the calc grid (1.3, 2.5, 4, A, B, D) rather than S3.0.1's grids 2, 5, E and B."
+  },
+  "group/elevation/beam/W21X93→lateral/seismic-loads": {
+   "summary": "The SMF W21x93 beams on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "group/elevation/beam/W24X94→lateral/smf-code-checks": {
+   "summary": "W24x94 at Level 2 on the moment frame elevations (S3.0.1) is one of the sections the RISA-3D SMF code check covers, so this calc checks it by system and size. The calc names its members by frame (F1_M…, F2_M…), so which drawn frame line it is isn't confirmed."
+  },
+  "group/elevation/beam/W24X94→lateral/drift-check": {
+   "summary": "The drift check's note names W24x94 ('W24x94 @ roof & W27x114 @ floor'), matching the W24x94 at Level 2 on S3.0.1. The calc puts W24x94 at the roof while S3.0.1 draws it at Level 2. The calc's frame lines use its own grid (1.3, 2.5, 4, A, B, D), not S3.0.1's 2, 5, E and B."
+  },
+  "group/elevation/beam/W24X94→lateral/seismic-loads": {
+   "summary": "The SMF W24x94 beams on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "group/elevation/column/W14X193→lateral/smf-code-checks": {
+   "summary": "S3.0.1 draws W14x193 in the special moment frames, but the RISA-3D SMF code checks cover only W18X211, W18X283, W18X311, W21X83, W24X84, W24X94, W27X114. The link is by system (both are the SMF); the size mismatch is flagged because the May 2021 calc and the approved elevations disagree – check which governs."
+  },
+  "group/elevation/column/W14X193→lateral/drift-check": {
+   "summary": "The drift check (sheet C9) covers every SMF frame line, but its note lists W18x283 / W18x211 / W18x311 columns and W24x94, W27x114 and W21x83 beams; W14x193 on S3.0.1 isn't among them. Its frames are also named on the calc grid (1.3, 2.5, 4, A, B, D) rather than S3.0.1's grids 2, 5, E and B."
+  },
+  "group/elevation/column/W14X193→lateral/seismic-loads": {
+   "summary": "The SMF W14x193 columns on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "group/elevation/column/W18X158→lateral/smf-code-checks": {
+   "summary": "S3.0.1 draws W18x158 in the special moment frames, but the RISA-3D SMF code checks cover only W18X211, W18X283, W18X311, W21X83, W24X84, W24X94, W27X114. The link is by system (both are the SMF); the size mismatch is flagged because the May 2021 calc and the approved elevations disagree – check which governs."
+  },
+  "group/elevation/column/W18X158→lateral/drift-check": {
+   "summary": "The drift check (sheet C9) covers every SMF frame line, but its note lists W18x283 / W18x211 / W18x311 columns and W24x94, W27x114 and W21x83 beams; W18x158 on S3.0.1 isn't among them. Its frames are also named on the calc grid (1.3, 2.5, 4, A, B, D) rather than S3.0.1's grids 2, 5, E and B."
+  },
+  "group/elevation/column/W18X158→lateral/seismic-loads": {
+   "summary": "The SMF W18x158 columns on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "group/elevation/column/W18X258→lateral/smf-code-checks": {
+   "summary": "S3.0.1 draws W18x258 in the special moment frames, but the RISA-3D SMF code checks cover only W18X211, W18X283, W18X311, W21X83, W24X84, W24X94, W27X114. The link is by system (both are the SMF); the size mismatch is flagged because the May 2021 calc and the approved elevations disagree – check which governs."
+  },
+  "group/elevation/column/W18X258→lateral/drift-check": {
+   "summary": "The drift check (sheet C9) covers every SMF frame line, but its note lists W18x283 / W18x211 / W18x311 columns and W24x94, W27x114 and W21x83 beams; W18x258 on S3.0.1 isn't among them. Its frames are also named on the calc grid (1.3, 2.5, 4, A, B, D) rather than S3.0.1's grids 2, 5, E and B."
+  },
+  "group/elevation/column/W18X258→lateral/seismic-loads": {
+   "summary": "The SMF W18x258 columns on S3.0.1 resist the seismic base shear calculated on sheets C3–C7 for a steel special moment frame (R = 8, Ie = 1.25). This shows where the frame's lateral load comes from, not the member sizing."
+  },
+  "detail/1-S4.0.1→studs/opening-a-1-s4.0.1": {
+   "summary": "Detail view 1/S4.0.1 (north elevation) is the view this calc is named for ('CFS opening A – 1/S4.0.1 (studs, header, jambs)'), so the link is an exact reference match."
+  },
+  "detail/1-S4.0.1→studs/hss-hdr-a-1-s4.0.1": {
+   "summary": "Detail view 1/S4.0.1 (north elevation) is the view this calc is named for ('HSS HDR(A) – 1/S4.0.1'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS6X6X1/4, HSS8X6X5/16) don't include the size the calc checks (HSS12X6X5/16, HSS12X8X5/8), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/1-S4.0.1→studs/hss-jamb-1-s4.0.1": {
+   "summary": "Detail view 1/S4.0.1 (north elevation) is the view this calc is named for ('HSS JAMB – 1/S4.0.1'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS6X6X1/4, HSS8X6X5/16) don't include the size the calc checks (HSS8X6X3/8), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1-a": {
+   "summary": "Detail view 2/S4.0.1 (east elevation) is the view this calc is named for ('HSS HDR(B) – 2/S4.0.1_A'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS6X6X1/4) don't include the size the calc checks (HSS10X6X3/8), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/2-S4.0.1→studs/hss-hdr-b-2-s4.0.1": {
+   "summary": "Detail view 2/S4.0.1 (east elevation) is the view this calc is named for ('HSS HDR(B) – 2/S4.0.1'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS6X6X1/4) don't include the size the calc checks (HSS10X6X3/8), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/1-S4.0.2→studs/hss-hdr-d-1-s4.0.2": {
+   "summary": "Detail view 1/S4.0.2 (south elevation) is the view this calc is named for ('HSS HDR(D) – 1/S4.0.2'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS14X6X5/8, HSS6X6X1/4) don't include the size the calc checks (HSS10X6X3/8, HSS12X8X1/2), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/2-S4.0.2→studs/opening-b-2-s4.0.2": {
+   "summary": "Detail view 2/S4.0.2 (west elevation) is the view this calc is named for ('CFS opening B – 2/S4.0.2 (studs, header, jambs)'), so the link is an exact reference match."
+  },
+  "detail/2-S4.0.2→studs/hss-hdr-2-s4.0.2-la-cantina": {
+   "summary": "Detail view 2/S4.0.2 (west elevation) is the view this calc is named for ('HSS HDR – 2/S4.0.2_La Cantina'), so the link is an exact reference match. The HSS sizes labelled in the view (HSS6X6X1/4) don't include the size the calc checks (HSS10X6X1/2), so either the member isn't labelled in the view or the sizes changed."
+  },
+  "detail/2-S4.0.4→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 2/S4.0.4 at the same place, so detail view 2/S4.0.4 (wall section) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/1-S4.0.10→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 1/S4.0.10 at the same place, so detail view 1/S4.0.10 (wall section) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/17-S8.2.2→parapet/hss-posts": {
+   "summary": "The parapet design calc sketch draws callout 17/S8.2.2 at the same place, so detail view 17/S8.2.2 (wuf-w beam geometry) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match. Detail 17 on S8.2.2 is titled 'WUF-W beam geometry', which doesn't obviously belong to a parapet – check the callout in the calc sketch."
+  },
+  "detail/5-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair at grid 6 / e–f (mv-ns) calc sketch draws callout 5/S8.8.1 at the same place, so detail view 5/S8.8.1 (stair stringer at landing conn) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/5-S8.8.1→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 5/S8.8.1 at the same place, so detail view 5/S8.8.1 (stair stringer at landing conn) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/12-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair at grid 6 / e–f (mv-ns) calc sketch draws callout 12/S8.8.1 at the same place, so detail view 12/S8.8.1 (intermediate stair landing support) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/9-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair at grid 6 / e–f (mv-ns) calc sketch draws callout 9/S8.8.1 at the same place, so detail view 9/S8.8.1 (stringer to deck conn - typ) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/9-S8.8.1→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 9/S8.8.1 at the same place, so detail view 9/S8.8.1 (stringer to deck conn - typ) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "detail/8-S8.8.1→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 8/S8.8.1 at the same place, so detail view 8/S8.8.1 (landing detail) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "callout/1-S4.0.1→studs/opening-a-1-s4.0.1": {
+   "summary": "Callout 1/S4.0.1 (3× on the drawings) is the view this calc is named for ('CFS opening A – 1/S4.0.1 (studs, header, jambs)'), so the link is an exact reference match."
+  },
+  "callout/1-S4.0.10→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 1/S4.0.10 at the same place, so callout 1/S4.0.10 (1× on the drawings) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "callout/2-S4.0.2→studs/opening-b-2-s4.0.2": {
+   "summary": "Callout 2/S4.0.2 (3× on the drawings) is the view this calc is named for ('CFS opening B – 2/S4.0.2 (studs, header, jambs)'), so the link is an exact reference match."
+  },
+  "callout/2-S4.0.4→stair/grid-5-a": {
+   "summary": "The stair at grid 5 / a calc sketch draws callout 2/S4.0.4 at the same place, so callout 2/S4.0.4 (1× on the drawings) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "callout/17-S8.2.2→parapet/hss-posts": {
+   "summary": "The parapet design calc sketch draws callout 17/S8.2.2 at the same place, so callout 17/S8.2.2 (1× on the drawings) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match. Detail 17 on S8.2.2 is titled 'WUF-W beam geometry', which doesn't obviously belong to a parapet – check the callout in the calc sketch."
+  },
+  "callout/12-S8.8.1→stair/grid-6-e-f": {
+   "summary": "The stair at grid 6 / e–f (mv-ns) calc sketch draws callout 12/S8.8.1 at the same place, so callout 12/S8.8.1 (1× on the drawings) is part of what this calc covers. It's a drawn reference rather than a title, so it scores below an exact match."
+  },
+  "group/elevation/stud/H1 600S162-54→studs/wind-cc": {
+   "summary": "The H1 header studs resist the wind components & cladding pressures worked out on sheets E1–E2 and in the Simpson wind modules (E7–E9). This shows where their wind load comes from, not their sizing."
+  },
+  "group/elevation/stud/J1 600S137-54→studs/wind-cc": {
+   "summary": "The J1 jamb studs resist the wind components & cladding pressures worked out on sheets E1–E2 and in the Simpson wind modules (E7–E9). This shows where their wind load comes from, not their sizing."
+  },
+  "group/elevation/stud/ST-1 600S162-54→studs/typical-studs": {
+   "summary": "ST-1, the typical exterior stud in the S4.0.1 / S4.0.2 stud schedule, is 600S162-54 @ 16\" o.c. – the section the typical stud calc designs for windward, leeward, uniform and simple spans."
+  },
+  "group/elevation/stud/ST-1 600S162-54→loads/wall-types": {
+   "summary": "The wall type breakdown (sheet A4) gives the exterior wall weights, including 2 psf for the studs. It's the dead load the ST-1 studs and their finishes add to the structure, not the stud sizing."
+  },
+  "group/elevation/stud/ST-1 600S162-54→studs/wind-cc": {
+   "summary": "The ST-1 typical studs resist the wind components & cladding pressures worked out on sheets E1–E2 and in the Simpson wind modules (E7–E9). This shows where their wind load comes from, not their sizing."
+  },
+  "elevation/stud/N:4–5/h→studs/opening-a-1-s4.0.1": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/N:4–5/v→studs/opening-a-1-s4.0.1": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the jamb schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, but that model uses 400S162-43, 600S162-54, 600S250-54 – no 600S137-54. The view links them; the size mismatch is flagged for review."
+  },
+  "elevation/stud/N:4–5/v#2→studs/opening-a-1-s4.0.1": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the jamb schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, but that model uses 400S162-43, 600S162-54, 600S250-54 – no 600S137-54. The view links them; the size mismatch is flagged for review."
+  },
+  "elevation/stud/N:3–4/h→studs/opening-a-1-s4.0.1": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/N:3–4/v→studs/opening-a-1-s4.0.1": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the jamb schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, but that model uses 400S162-43, 600S162-54, 600S250-54 – no 600S137-54. The view links them; the size mismatch is flagged for review."
+  },
+  "elevation/stud/N:3–4/v#2→studs/opening-a-1-s4.0.1": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the jamb schedule) is drawn in view 1/S4.0.1, the view the Simpson CFS 'Opening A' model is named for, but that model uses 400S162-43, 600S162-54, 600S250-54 – no 600S137-54. The view links them; the size mismatch is flagged for review."
+  },
+  "elevation/stud/W:B–C/h→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/v#2→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A–B/h→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A–B/h#2→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B/h→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:D–E/h→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/h#2→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:C–D/h→studs/opening-b-2-s4.0.2": {
+   "summary": "H1 ((2) 600S162-54, the header per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S162-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/v#3→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/v#4→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:C–D/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:D/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:D–E/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:D–E/v#2→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A–B/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B/v→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A–B/v#2→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:A–B/v#3→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "elevation/stud/W:B–C/v#5→studs/opening-b-2-s4.0.2": {
+   "summary": "J1 ((2) 600S137-54, the jamb studs per the schedule) is drawn in view 2/S4.0.2, the view the Simpson CFS 'Opening B' model is named for, and that model uses 600S137-54 too. The calc covers it by view and size."
+  },
+  "group/foundation/footing/F10→foundation/footing-results": {
+   "summary": "F10 (10' - 0\" × 10' - 0\" × 2' - 6\" per the pad schedule, 1 drawn) has no footing of that plan size in the RISAFoundation model, whose footings are 4×4, 5×5 and 9×9 ft (gravity) and 9×9, 11×11, 14×14 and 15×15 ft (lateral). It's linked as a footing only; the size mismatch is flagged – check which governs."
+  },
+  "group/foundation/footing/F12→foundation/footing-results": {
+   "summary": "F12 (12' - 0\" × 12' - 0\" × 2' - 0\" per the pad schedule, 2 drawn) has no footing of that plan size in the RISAFoundation model, whose footings are 4×4, 5×5 and 9×9 ft (gravity) and 9×9, 11×11, 14×14 and 15×15 ft (lateral). It's linked as a footing only; the size mismatch is flagged – check which governs."
+  },
+  "group/foundation/footing/F4→foundation/footing-results": {
+   "summary": "F4 (4' - 0\" × 4' - 0\" × 1' - 6\" per the pad schedule, 14 drawn) has the same plan size as 11 gravity footings in the RISAFoundation model (FLR_1_N18, FLR_1_N32, FLR_1_N20, FLR_1_N21…), so the footing checks cover this size. RISAFoundation names footings by model joint, so which drawn footing is which isn't confirmed. The thickness differs, though: the schedule says 1' - 6\" vs calc 24 in."
+  },
+  "group/foundation/footing/F4.5→foundation/footing-results": {
+   "summary": "F4.5 (6' - 0\" × 4' - 0\" × 1' - 6\" per the pad schedule, 1 drawn) has no footing of that plan size in the RISAFoundation model, whose footings are 4×4, 5×5 and 9×9 ft (gravity) and 9×9, 11×11, 14×14 and 15×15 ft (lateral). It's linked as a footing only; the size mismatch is flagged – check which governs."
+  },
+  "group/foundation/footing/F5→foundation/footing-results": {
+   "summary": "F5 (5' - 0\" × 5' - 0\" × 2' - 0\" per the pad schedule, 11 drawn) has the same plan size as 2 gravity footings in the RISAFoundation model (FLR_1_N15, FLR_1_N14), so the footing checks cover this size. RISAFoundation names footings by model joint, so which drawn footing is which isn't confirmed."
+  },
+  "group/foundation/footing/F9→foundation/footing-results": {
+   "summary": "F9 (9' - 0\" × 9' - 0\" × 2' - 6\" per the pad schedule, 8 drawn) has the same plan size as 7 gravity / lateral footings in the RISAFoundation model (R3D_N142, R3D_N143, R3D_N148, R3D_N152…), so the footing checks cover this size. RISAFoundation names footings by model joint, so which drawn footing is which isn't confirmed. The thickness differs, though: the schedule says 2' - 6\" vs calc 24 in, 36 in."
+  },
+  "group/foundation/grade-beam/GB1→foundation/beam-results": {
+   "summary": "The 6 GB1 grade beams would be checked in RISAFoundation's beam tables, but every beam and strip table in the package prints 'No Data to Print'. No calc in these packages designs GB1; it's linked only to show the gap."
+  },
+  "foundation/stringer/E(ext)@6(ext)/v→stair/grid-6-e-f": {
+   "summary": "The C12x20.7 STRINGER (BENT) on the stair foundation plan sits at grid E(ext)/6(ext), where the grid 6 / E–F stair calc is drawn, and the calc uses C12x20.7 as well. Location and size agree."
+  },
+  "foundation/stringer/E@6(ext)/v→stair/grid-6-e-f": {
+   "summary": "The C12x20.7 STRINGER (BENT) on the stair foundation plan sits at grid E/6(ext), where the grid 6 / E–F stair calc is drawn, and the calc uses C12x20.7 as well. Location and size agree."
+  },
+  "foundation/column/E(ext)@6(ext)/h→stair/grid-6-e-f": {
+   "summary": "The HSS4x4x1/4 on the stair foundation plan sits at grid E(ext)/6(ext), where the grid 6 / E–F stair calc is drawn, so it's linked by location. The calc uses C12X20.7, C15X33.9, C8X11.5, C8X13, not HSS4x4x1/4; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "foundation/column/E(ext)@6(ext)/h#2→stair/grid-6-e-f": {
+   "summary": "The HSS4x4x1/4 on the stair foundation plan sits at grid E(ext)/6(ext), where the grid 6 / E–F stair calc is drawn, so it's linked by location. The calc uses C12X20.7, C15X33.9, C8X11.5, C8X13, not HSS4x4x1/4; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "foundation/column/A(ext)@5–4/h→stair/grid-5-a": {
+   "summary": "The HSS4x4x1/4 on the stair foundation plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not HSS4x4x1/4; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "foundation/stringer/A@5–4/h→stair/grid-5-a": {
+   "summary": "The C12x20.7 STRINGER on the stair foundation plan sits at grid A/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not C12x20.7; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "foundation/stringer/A(ext)@5–4/h→stair/grid-5-a": {
+   "summary": "The C12x20.7 STRINGER on the stair foundation plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not C12x20.7; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "foundation/column/A(ext)@5–4/h#2→stair/grid-5-a": {
+   "summary": "The HSS4x4x1/4 on the stair foundation plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not HSS4x4x1/4; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "level-2/stringer/E–F@6/h→stair/grid-6-e-f": {
+   "summary": "The MC18x42.7 STRINGER on the Level 2 stair framing plan sits at grid E–F/6, where the grid 6 / E–F stair calc is drawn, so it's linked by location. The calc uses C12X20.7, C15X33.9, C8X11.5, C8X13, not MC18x42.7; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "level-2/beam/E–F@6(ext)/v#2→stair/grid-6-e-f": {
+   "summary": "The C8x11.5 on the Level 2 stair framing plan sits at grid E–F/6(ext), where the grid 6 / E–F stair calc is drawn, and the calc uses C8x11.5 as well. Location and size agree."
+  },
+  "level-2/stringer/A(ext)@5–4/h→stair/grid-5-a": {
+   "summary": "The C12x20.7 STRINGER (BENT) on the Level 2 stair framing plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not C12x20.7; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  },
+  "level-2/beam/A(ext)@5–4/v→stair/grid-5-a": {
+   "summary": "The C8x11.5 on the Level 2 stair framing plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, and the calc uses C8x11.5 as well. Location and size agree."
+  },
+  "level-2/beam/A(ext)@5–4/v#2→stair/grid-5-a": {
+   "summary": "The C8x11.5 on the Level 2 stair framing plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, and the calc uses C8x11.5 as well. Location and size agree."
+  },
+  "level-2/stringer/A(ext)@5–4/h#2→stair/grid-5-a": {
+   "summary": "The C12x20.7 STRINGER (BENT) on the Level 2 stair framing plan sits at grid A(ext)/5–4, where the grid 5 / A stair calc is drawn, so it's linked by location. The calc uses C15X33.9, C8X11.5, C8X13, not C12x20.7; it's dated 4/24/2023 and the plan sheet carries a 7/24/2023 resubmittal, so check which governs."
+  }
+ }
+}
