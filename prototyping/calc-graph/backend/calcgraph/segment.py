@@ -12,7 +12,8 @@ calcpkg_ingest.read_package, which reads every set convention from the set's pro
 - otherwise a calc is one calcpkg_ingest sub-calc group (consecutive pages of one section with
   the same title, "(cont.)" ignored)
 - software comes from the page head (profile detectors); the element type from the title, then
-  the page's table titles, through CAT_WORDS
+  the page's table titles, through CAT_WORDS; `cats` = every type the calc designs (its type plus the
+  type each of its table titles names), which the matcher uses to tell a design link from a cross-reference
 """
 from __future__ import annotations
 
@@ -99,7 +100,7 @@ def segment(pages: list[dict], heads: list[dict]) -> list[dict]:
     cur: dict | None = None
 
     def push(title: str, group: str | None, scanned: bool = False, front: bool = False) -> dict:
-        c = {"title": title, "software": "", "cat": "", "pages": [], "scanned": scanned, "front": front, "text": "",
+        c = {"title": title, "software": "", "cat": "", "cats": [], "pages": [], "scanned": scanned, "front": front, "text": "",
              "group": group, "tables": []}
         calcs.append(c)
         return c
@@ -142,4 +143,7 @@ def segment(pages: list[dict], heads: list[dict]) -> list[dict]:
             c["software"] = "Needs OCR"
             continue
         c["cat"] = cat_of_text(c["title"]) or cat_of_text(" ".join(tables))
+        # every element type the calc designs: its own type, then the type each of its tables names (a RISA
+        # frame page checks the frame's beams AND its columns) - a mark of one of these types is designed here
+        c["cats"] = list(dict.fromkeys(x for x in [c["cat"]] + [cat_of_text(t) for t in tables] if x))
     return calcs

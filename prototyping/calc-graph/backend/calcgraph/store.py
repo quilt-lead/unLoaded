@@ -504,7 +504,7 @@ class Store:
             for p in pages])
         self.db.executemany("INSERT INTO calc VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
             (rid, c["key"], i, c["title"], c["software"], c["cat"], json.dumps(c["pages"]), int(c["scanned"]), int(c["front"]),
-             content_hash([c["title"], c["text"]]), json.dumps({"title_box": c.get("title_box")}))
+             content_hash([c["title"], c["text"]]), json.dumps({"title_box": c.get("title_box"), "cats": c.get("cats", [])}))
             for i, c in enumerate(calcs)])
 
     def pages(self, rid: int) -> list[dict]:
@@ -519,6 +519,8 @@ class Store:
             c = {"key": r["calc_key"], "ord": r["ord"], "title": r["title"], "software": r["software"], "cat": r["cat"],
                  "pages": json.loads(r["pages_json"]), "scanned": bool(r["scanned"]), "front": bool(r["front"]),
                  "content_hash": r["content_hash"]}
+            # every type the calc designs (segment); a revision stored before segment wrote it has only `cat`
+            c["cats"] = json.loads(r["params_json"] or "{}").get("cats") or ([c["cat"]] if c["cat"] else [])
             if with_text:
                 c["text"] = "\n".join(pages.get(n, "") for n in c["pages"])
             if with_params:

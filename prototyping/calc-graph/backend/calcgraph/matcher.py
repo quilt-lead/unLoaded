@@ -5,10 +5,13 @@ Tiers and confidences (deterministic, in this order of strength):
   range    0.90  the mark falls inside a written range ("2B1 - 2B9", "C1 thru C12")
   loose    0.88  the mark matches ignoring punctuation ("SL2" for "SL-2")
   family   0.85  token names a mark family ("BR1" covers "BR1-1".."BR1-n")
-  size     0.62  section size + element type (+ storey if the line names one), no mark
+  size     0.62  section size + element type (+ storey if the line names one), only in a calc
+                 that names no mark of an element of its own type: once a calc names its members,
+                 a size on its pages describes those members, not every element of that size
   partial  0.50  token is the tail of exactly one model mark ("CB1" -> "2CB1")
-  xref     <=.45 any mark tier where the element type differs from the calc's type -
-                 the calc mentions the element, it probably did not design it
+  xref     <=.45 any mark or size tier where the element type is none of the types the calc designs
+                 (segment `cats`: its title's type + each table title's type) - the calc mentions the
+                 element, it probably did not design it
   type     0.30  calc names no marks or sizes: covers unclaimed elements of its type
 Scanned pages and front matter are never mapped. Every link keeps page, the exact
 text span it matched, a snippet, word boxes for highlighting, and the rule.
@@ -63,6 +66,7 @@ def run_mapping(elements: list[dict], calcs: list[dict], pages: list[dict]) -> l
         if fam:
             families.setdefault(fam.group(1), []).append(el)
     all_marks = list(exact.keys())
+    el_cat = {el["global_id"]: el["cat"] for el in elements}
     by_profile: dict[str, list[dict]] = {}
     for el in elements:
         if el.get("profile"):
@@ -70,10 +74,11 @@ def run_mapping(elements: list[dict], calcs: list[dict], pages: list[dict]) -> l
     storeys = sorted({e["storey"] for e in elements if e.get("storey") and len(e["storey"]) > 2}, key=lambda s: -len(s))
 
     def link(el, c, conf, tier, rule, pg, idx, n):
-        if c["cat"] and el["cat"] != c["cat"] and el["cat"] != "Other" and tier not in ("size", "type"):
+        if c["cat"] and el["cat"] not in c["cats"] and el["cat"] != "Other" and tier != "type":
             conf = min(conf, 0.45)
+            what = f"size {pg['text'][idx:idx + n]}" if tier == "size" else f"\"{el['mark']}\""
             tier = "xref"
-            rule = f"{el['cat']} \"{el['mark']}\" is mentioned in a {c['cat'].lower()} calc - likely a cross-reference"
+            rule = f"{el['cat']} {what} is mentioned in a {c['cat'].lower()} calc - likely a cross-reference"
         k = (el["global_id"], c["key"])
         rec = {"global_id": el["global_id"], "calc_key": c["key"], "conf": conf, "tier": tier, "rule": rule,
                "page": pg["n"], "span": [idx, idx + n], "token": pg["text"][idx:idx + n],
@@ -86,6 +91,7 @@ def run_mapping(elements: list[dict], calcs: list[dict], pages: list[dict]) -> l
         if c["scanned"] or c["front"]:
             continue
         c["mark_hits"] = 0
+        size_hits: list[tuple[dict, int, str, str, str, str | None]] = []
         for pn in c["pages"]:
             pg = page_by_n.get(pn)
             if not pg:
@@ -147,14 +153,23 @@ def run_mapping(elements: list[dict], calcs: list[dict], pages: list[dict]) -> l
                     line = U[ls:le if le >= 0 else None]
                     line_cat = next((k for k, rx in CAT_WORDS if rx.search(line)), "") or c["cat"]
                     line_storey = next((st for st in storeys if st.upper() in line), None)
-                    for el in by_profile.get(f"{p}|{line_cat}", []):
-                        if line_storey and el["storey"] != line_storey:
-                            continue
-                        if el.get("mark") and (el["global_id"], c["key"]) in links:
-                            continue
-                        link(el, c, CONF["size"], "size",
-                             f"Size {p} + element type {line_cat}{' on ' + line_storey if line_storey else ''} (no mark given)",
-                             pg, m.start(), len(m.group(0)))
+                    size_hits.append((pg, m.start(), m.group(0), p, line_cat, line_storey))
+        # applied after every page of the calc is read: a calc that names a member of a type by mark
+        # designs those members, so a size on its pages (a schedule row, a section property block)
+        # describes them - it is no evidence about the other elements that happen to share the size
+        named = {cat for (g, k), l in links.items() if k == c["key"] and l["tier"] != "xref"
+                 for cat in [el_cat[g]]}
+        for pg, idx, tok, p, line_cat, line_storey in size_hits:
+            if line_cat in named:
+                continue
+            for el in by_profile.get(f"{p}|{line_cat}", []):
+                if line_storey and el["storey"] != line_storey:
+                    continue
+                if (el["global_id"], c["key"]) in links:
+                    continue
+                link(el, c, CONF["size"], "size",
+                     f"Size {p} + element type {line_cat}{' on ' + line_storey if line_storey else ''} (calc names no {line_cat.lower()} mark)",
+                     pg, idx, len(tok))
     # 4. element type only
     claimed = {k[0] for k in links}
     linked_calcs = {k[1] for k in links}

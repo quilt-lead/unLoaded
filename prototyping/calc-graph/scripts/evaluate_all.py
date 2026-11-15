@@ -191,9 +191,20 @@ def st_v2_ifc_mapping(a) -> dict:
     m = {"calcs": len(s["calcs"]), "design_precision": len(ok) / len(design) if design else None,
          "design_recall": len(found) / len(truth) if truth else None,
          "xref_links": sum(1 for l in s["links"] if l["tier"] == "xref")}
+    m |= {f"tier_{t}_links": tiers.get(t, 0) for t in TIER_NAMES}
+    # a tier that fires a lot and is mostly wrong is a mapper bug hidden inside the overall precision
+    # (the size tier once made 242 links, 0 right, while design_precision still read 73%)
+    bad = {t: f"{good[t]}/{n}" for t, n in tiers.items() if n >= TIER_MIN_LINKS and good[t] / n < TIER_MIN_PRECISION}
     notes = [f"{len(model)} model elements, {len(truth)} with a designed-by record, {len(design)} design links "
              f"(xref apart); precision by tier: " + ", ".join(f"{t} {good[t]}/{n}" for t, n in tiers.most_common())]
-    return {"metrics": m, "gated": ["design_precision", "design_recall"], "notes": notes}
+    if bad:
+        notes.append(f"tiers under {TIER_MIN_PRECISION:.0%} precision (>= {TIER_MIN_LINKS} links): {bad}")
+    return {"metrics": m, "gated": ["design_precision", "design_recall"], "notes": notes,
+            "checks": {"every_tier_precision_ge_50pct": not bad}}
+
+
+TIER_NAMES = ("exact", "range", "loose", "family", "size", "partial", "type")
+TIER_MIN_LINKS, TIER_MIN_PRECISION = 5, 0.5
 
 
 def st_etabs_export(a) -> dict:

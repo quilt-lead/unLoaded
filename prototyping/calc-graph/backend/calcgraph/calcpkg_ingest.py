@@ -71,11 +71,16 @@ def _title(lines: list[dict], words, pf) -> tuple[str, list, list[dict]]:
         return (f"{head} - {txt}" if head else txt), (val or desc)["rect"], tables
     r3 = T.risa3d
     if any(l["text"] == r3.marker_line for l in lines) and not tables:
-        t = next((l for l in sorted(lines, key=lambda l: l["rect"][1])
-                  if l["rect"][0] < r3.x_max and r3.y.lo < l["rect"][1] < r3.y.hi and l["size"] >= r3.min_size), None)
+        # every RISA-3D table title on the page (same style: >= min_size, x < x_max, below the header block);
+        # the first one, just under the header, is the page title. A frame page prints several member tables
+        # (beams, then columns, then reactions): each one is a table of this page, not only the first
+        r3t = [{"title": CONTINUED.sub(" ", l["text"]).strip(), "rect": l["rect"]}
+               for l in sorted(lines, key=lambda l: (l["rect"][1], l["rect"][0]))
+               if l["rect"][0] < r3.x_max and l["rect"][1] > r3.y.lo and l["size"] >= r3.min_size
+               and l["dir"] == [1.0, 0.0] and not BANNER.match(l["text"])]
+        t = next((x for x in r3t if x["rect"][1] < r3.y.hi), None)
         if t:
-            return CONTINUED.sub(" ", t["text"]).strip(), t["rect"], [{"title": CONTINUED.sub(" ", t["text"]).strip(),
-                                                                       "rect": t["rect"]}]
+            return t["title"], t["rect"], r3t
     big = [l for l in lines if l["size"] >= T.table_title_min_size and not BANNER.match(l["text"])
            and l["text"].upper() not in T.big_line_skip
            and not PAGE_ID.match(l["text"]) and re.search(r"[A-Za-z]{3}", l["text"])]
