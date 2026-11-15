@@ -72,3 +72,7 @@ table.sum { width: 100%; }
 table.sum td.lab { color: #666; width: 5%; }
 table.sum tr td.chg { color: #c40d0d; font-weight: bold; }
 table.tb td.nw { white-space: nowrap; }
+/* the title block date of a laid-out (cached) chunk: a hidden placeholder, the same text every day; the date is laid
+   out on its own (body.date-stamp, recalc_pages._date_stamp_doc) and placed over it after layout */
+.date-slot { visibility: hidden; }
+body.date-stamp .date-slot { visibility: visible; }

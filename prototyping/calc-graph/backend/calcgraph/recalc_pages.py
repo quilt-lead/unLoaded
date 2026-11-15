@@ -29,8 +29,10 @@ import html
 import json
 import math
 import os
+import re
 import subprocess
 import sys
+from collections import deque
 from math import pi, sqrt
 
 import handcalcs
@@ -156,6 +158,36 @@ def _latex_repr(item, use_scientific_notation, precision, preferred_formatter):
 
 
 _hc_core.latex_repr = _latex_repr   # display-only: pick readable units (values are unchanged)
+
+# handcalcs.expr_parser rebuilds its whole pyparsing grammar and re-parses the line on EVERY call, and
+# handcalcs calls it several times per source line per function call: 5,974 calls for 121 distinct lines
+# in a 185-record re-run, 13.5 of the 19 s math stage (profiled 2026-11-14). The parse is a pure function
+# of the line, so it is done once per line. Callers mutate the returned deque in place (they append the
+# substituted values to it), so every call gets its own copy of the containers; a pristine parse is
+# deques of str only (checked before caching: anything else is not cached and is parsed every time).
+_orig_expr_parser = _hc_core.expr_parser
+_EXPR_PARSES: dict[str, deque] = {}
+
+
+def _str_tree(t: deque) -> bool:
+    return all(isinstance(x, str) or (isinstance(x, deque) and _str_tree(x)) for x in t)
+
+
+def _copy_tree(t: deque) -> deque:
+    return deque(_copy_tree(x) if isinstance(x, deque) else x for x in t)
+
+
+def _expr_parser(line: str) -> deque | list:
+    cached = _EXPR_PARSES.get(line)
+    if cached is None:
+        fresh = _orig_expr_parser(line)
+        if not isinstance(fresh, deque) or not _str_tree(fresh):
+            return fresh
+        cached = _EXPR_PARSES[line] = fresh
+    return _copy_tree(cached)
+
+
+_hc_core.expr_parser = _expr_parser
 
 
 def hc(fn, *args):
@@ -1073,6 +1105,25 @@ def _ensure_katex():
 
 SECTION_SEP = "\x01SECTION\x01"
 BLOCK_SEP = "\x01BLOCK\x01"
+DATE_MARK = "\x02DATE\x02"   # the title block's date cell, filled per output by _fill_date
+
+
+def _fill_date(body: str, date: str, *, slot: bool) -> str:
+    """The date into the title block: the date itself (the .html), or for a chunk that is laid out
+    and cached, a hidden placeholder (the date's digits as 0s, so the same text every day) that
+    render() places the laid-out date over (_date_stamp_doc), so a chunk is the same document every day."""
+    from .recalc_pages_layout import DATE_SLOT_CLASS
+    fill = f"<span class='{DATE_SLOT_CLASS}'>{_esc(re.sub(r'[0-9]', '0', date))}</span>" if slot else _esc(date)
+    return body.replace(DATE_MARK, fill)
+
+
+def _date_stamp_doc(chunk_head: str, date: str) -> str:
+    """The date alone, in a title block cell (so it takes the cell's font, size and colour from the
+    same CSS), shown: laid out like a chunk (and cached per date), then placed over every page's
+    hidden placeholder by render()."""
+    from .recalc_pages_layout import DATE_SLOT_CLASS
+    return (chunk_head + "<body class='date-stamp'><table class='tb'><tr><td class='v nw'>"
+            f"<span class='{DATE_SLOT_CLASS}'>{_esc(date)}</span></td></tr></table></body></html>")
 
 
 def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no: int = 1):
@@ -1082,9 +1133,9 @@ def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no
     element ids])]: each calc sheet cut at record-block boundaries into pieces of about
     recalc_pages_layout.CHUNK_BYTES, every piece its own document (the running title block on every
     page, the REVISED banner on the first piece of a calc), so pieces lay out in parallel and are
-    cached by content. A piece's text depends only on its records and the date (the revision id is
-    stamped into the PDF footer after layout, and is in the .html title only), so unchanged blocks
-    are laid out once.
+    cached by content. A piece's text depends only on its records: the revision id and the date are
+    stamped into the PDF after layout (render; the revision id is in the .html title, the date in its
+    title block), so unchanged blocks are laid out once, on any day.
     topo_gbs: the re-run design's topology grade beams ({id: {"wall", ...}})."""
     from .recalc_pages_layout import CHUNK_BYTES
     method = rerun_result.get("method") or "calc-graph re-run"
@@ -1105,13 +1156,13 @@ def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no
     for calc in order:
         info = calcs.get(calc, {"title": calc, "software": ""})
         sheet = f"{calc}-{rev}"
-        pageheads[calc] = _pagehead(sheet, info.get("title", calc), date, rev, rerun_result["rev_id"])
+        pageheads[calc] = _pagehead(sheet, info.get("title", calc), rev)
         nrec = len(by_calc[calc])
         nres = sum(1 for r in by_calc[calc] if str(r.get("status", "")).startswith("re-sized"))
         parts = ["<section class='calc'>" + pageheads[calc]
                  + f"<div class='banner'><b>REVISED - re-run after {_esc(change)}</b> &nbsp; "
                  f"Replaces the {_esc(info.get('software', ''))} output of calc {calc} for the {nrec} record(s) below ({nres} re-sized); "
-                 f"{date} (the calc revision id is in every page footer). Math printed from the same Python that recomputed it (handcalcs).</div>"]
+                 f"Dated in the title block; the calc revision id is in every page footer. Math printed from the same Python that recomputed it (handcalcs).</div>"]
         block_ids[calc] = []
         for r in by_calc[calc]:
             b = build_block(r, method, new_recs, shown, sheet, topo_gbs)
@@ -1130,7 +1181,7 @@ def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no
     sheets, chunks = [], []
     for calc, body in zip(order, joined.split(SECTION_SEP)):
         prefix, *blks, suffix = body.split(BLOCK_SEP)
-        sheets.append((calc, prefix + "".join(blks) + suffix))
+        sheets.append((calc, _fill_date(prefix + "".join(blks) + suffix, date, slot=False)))
         groups: list[list[int]] = []
         size = CHUNK_BYTES
         for i, h in enumerate(blks):
@@ -1141,7 +1192,8 @@ def build_html(rerun_result: dict, base: dict, new: dict, topo_gbs: dict, rev_no
             size += len(h)
         for gi, g in enumerate(groups):
             lead = prefix if gi == 0 else "<section class='calc'>" + pageheads[calc]
-            chunks.append((chunk_head, lead + "".join(blks[i] for i in g) + suffix, [block_ids[calc][i] for i in g]))
+            chunks.append((chunk_head, _fill_date(lead + "".join(blks[i] for i in g) + suffix, date, slot=True),
+                           [block_ids[calc][i] for i in g]))
     return head, sheets, chunks, blocks, errors
 
 
@@ -1152,12 +1204,12 @@ def _katex_css() -> str:
     return css.replace("url(fonts/", "url(file://" + os.path.join(KATEX_DIST, "fonts") + "/")
 
 
-def _pagehead(sheet: str, title: str, date: str, rev: str, rev_id: str) -> str:
+def _pagehead(sheet: str, title: str, rev: str) -> str:
     return (f"<div class='pagehead'><table class='tb'><tr>"
             f"<td class='logo' rowspan='3'><div class='firm'>{_esc(FIRM_FULL.upper())}</div><div class='addr'>{_esc(FIRM_ADDR)}</div></td>"
             f"<td class='k'>project</td><td class='v'>{_esc(PROJECT)}</td><td class='k'>job no.</td><td class='v'>{_esc(JOB)}</td>"
             f"<td class='sheet' rowspan='3'><div class='k'>sheet no.</div><div class='sn'>{_esc(sheet)}</div><div class='rv'>&#9651; {rev} re-run</div></td></tr>"
-            f"<tr><td class='k'>subject</td><td class='v'>{_esc(title)} (re-run)</td><td class='k'>date</td><td class='v nw'>{_esc(date)}</td></tr>"
+            f"<tr><td class='k'>subject</td><td class='v'>{_esc(title)} (re-run)</td><td class='k'>date</td><td class='v nw'>{DATE_MARK}</td></tr>"
             f"<tr><td class='k'>location</td><td class='v'>{_esc(CITY)}</td><td class='k'>by / chk</td><td class='v'>{BY} / {CHK}</td></tr>"
             f"</table></div>")
 
@@ -1168,7 +1220,8 @@ def render(rerun_result: dict, base: dict, new: dict, path: str, topo_gbs: dict,
     """Write the re-run calc sheets PDF to `path` (and the HTML beside it). Returns (pages, layout):
     pages = {record id: {"page": n (1-based), "bbox": [x0, y0, x1, y1] (PDF points, top-left origin,
     the record's block), "sheet", "split_across_pages", "recomputed", "asserts", "mismatches"}};
-    layout = {chunks, cached, laid_out, workers, seconds, pages, katex_errors}.
+    layout = {chunks (the laid-out documents: the sheet chunks + the one date stamp), cached, laid_out,
+    workers, seconds, pages, katex_errors}.
     progress(stage, done, total) is called as the sheets are built ("math") and laid out ("layout")."""
     import pymupdf
     from . import recalc_pages_layout as LAY
@@ -1178,24 +1231,45 @@ def render(rerun_result: dict, base: dict, new: dict, path: str, topo_gbs: dict,
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(os.path.splitext(path)[0] + ".html", "w") as fh:
         fh.write(head + "<body>" + "".join(b for _, b in sheets) + "</body></html>")
+    date = _date_et(rerun_result)
     jobs = [(ch + "<body>" + body + "</body></html>", want) for ch, body, want in chunks]
-    parts, stats = LAY.layout_all(jobs, KATEX_DIST + "/", workers,
-                                  progress=(lambda d, t: progress("layout", d, t)) if progress else None)
+    if chunks:
+        jobs.append((_date_stamp_doc(chunks[0][0], date), []))
+    laid, stats = LAY.layout_all(jobs, KATEX_DIST + "/", workers,
+                                 progress=(lambda d, t: progress("layout", d, t)) if progress else None)
+    parts, stamp = (laid[:-1], laid[-1]) if chunks else (laid, None)
     out_doc = pymupdf.open()
     found: dict[str, dict] = {}
-    for pdf, f in parts:
+    date_at: dict[int, dict] = {}   # page (1-based, merged PDF) -> where its title block's date goes
+    for pdf, f, stamps in parts:
         off = out_doc.page_count
         with pymupdf.open("pdf", pdf) as d:
             out_doc.insert_pdf(d)
         for bid, v in f.items():
             found[bid] = {**v, "page": v["page"] + off, "parts": [{**p, "page": p["page"] + off} for p in v["parts"]]}
+        for st in stamps:
+            date_at[st["page"] + off] = st
     total = out_doc.page_count
+    undated = [i for i in range(1, total + 1) if i not in date_at]
+    if undated:
+        raise RuntimeError(f"re-run sheets: no title-block date slot laid out on page(s) {undated[:10]}")
+    stamp_doc = pymupdf.open("pdf", stamp[0]) if stamp else None
+    if stamp is not None and len(stamp[2]) != 1:
+        raise RuntimeError(f"re-run sheets: the date stamp laid out {len(stamp[2])} date boxes, not 1")
     for i, pg in enumerate(out_doc, 1):
-        # stamped after layout (with the page count): the laid-out chunks carry nothing per-revision,
-        # so their layout is reused from the content cache by any revision with the same records
+        # stamped after layout (with the page count): the laid-out chunks carry nothing per-revision
+        # or per-day, so their layout is reused from the content cache by any revision with the same records
         s = f"calc revision {rerun_result['rev_id']} - page {i} of {total}"
         pg.insert_text((pg.rect.width - 30 - pymupdf.get_text_length(s, "helv", 6.5), pg.rect.height - 22), s, fontname="helv", fontsize=6.5,
                        color=(0.2, 0.2, 0.2))
+        if stamp_doc is not None and stamp is not None:
+            # the laid-out date, moved so its baseline and left edge sit on this page's placeholder
+            src, slot = stamp[2][0], date_at[i]
+            clip = pymupdf.Rect(src["bbox"])
+            dx, dy = slot["bbox"][0] - clip.x0, slot["baseline"] - src["baseline"]
+            pg.show_pdf_page(clip + (dx, dy, dx, dy), stamp_doc, 0, clip=clip)
+    if stamp_doc is not None:
+        stamp_doc.close()
     out_doc.set_metadata({"title": f"Re-run calc sheets {rerun_result['rev_id']}", "author": FIRM_FULL, "subject": rerun_result.get("method", ""),
                           "creator": "calc-graph recalc_pages (handcalcs + KaTeX + WeasyPrint)", "producer": "calc-graph",
                           "creationDate": "", "modDate": "", "keywords": "", "trapped": ""})

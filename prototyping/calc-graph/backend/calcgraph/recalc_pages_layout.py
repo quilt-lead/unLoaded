@@ -14,7 +14,11 @@ cascade ~25 %, layout ~50 %, PDF write ~20 %). So:
   a process is started per worker, not per chunk;
 - every chunk's layout is cached by content (sha256 of the chunk document + WeasyPrint version + this
   file), under <store>/cache/rerun_sheet_layout: a re-run of the same move, or any record block whose
-  text is unchanged, is laid out once.
+  text is unchanged, is laid out once. So a chunk document carries nothing that changes from run to run:
+  the revision id and the date are stamped into the merged PDF after layout (recalc_pages.render). The
+  title block's date cell holds a hidden placeholder (`DATE_SLOT_CLASS`) whose position on every page
+  is returned with the layout (`stamps`); the date itself is laid out by WeasyPrint too, as a one-line
+  document of its own (cached per date), and placed over each placeholder.
 """
 from __future__ import annotations
 
@@ -30,6 +34,7 @@ from .store_root import store_path
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CHUNK_BYTES = 320_000     # target rendered HTML per chunk (~2 steel records)
+DATE_SLOT_CLASS = "date-slot"   # the hidden placeholder in the title block that the date is stamped over
 
 
 def import_weasyprint():
@@ -73,17 +78,24 @@ def _walk(box):
         yield from _walk(ch)
 
 
-def render_chunk(doc_html: str, want: list[str], base_url: str) -> tuple[bytes, dict]:
-    """Lay out one chunk (its own HTML document) -> (PDF bytes, {block id: page/bbox}, pages 1-based
-    within the chunk, PDF points, top-left origin)."""
+def render_chunk(doc_html: str, want: list[str], base_url: str) -> tuple[bytes, dict, list[dict]]:
+    """Lay out one chunk (its own HTML document) -> (PDF bytes, {block id: page/bbox}, stamps), pages
+    1-based within the chunk, PDF points, top-left origin. stamps = [{page, bbox (the text box),
+    baseline}]: where each page's date text (class DATE_SLOT_CLASS) was laid out."""
     weasyprint = import_weasyprint()
     document = weasyprint.HTML(string=doc_html, base_url=base_url).render()
     want_s = set(want)
     found: dict[str, dict] = {}
+    stamps: list[dict] = []
     k = 0.75   # CSS px -> PDF pt
     for pno, page in enumerate(document.pages, 1):
         for box in _walk(page._page_box):
             el = getattr(box, "element", None)
+            if el is not None and hasattr(box, "text") and DATE_SLOT_CLASS in (el.get("class") or "").split():
+                x0, y0 = box.position_x, box.position_y
+                stamps.append({"page": pno, "bbox": [round(x0 * k, 3), round(y0 * k, 3), round((x0 + box.width) * k, 3),
+                                                     round((y0 + box.height) * k, 3)], "baseline": round((y0 + box.baseline) * k, 3)})
+                continue
             bid = el.get("id") if el is not None else None
             if bid not in want_s:
                 continue
@@ -97,7 +109,10 @@ def render_chunk(doc_html: str, want: list[str], base_url: str) -> tuple[bytes, 
                 f["parts"].append({"page": pno, "bbox": bb})
     document.metadata.created = None
     document.metadata.modified = None
-    return document.write_pdf(identifier=b"calc-graph-recalc-pages"), found
+    pdf = document.write_pdf(identifier=b"calc-graph-recalc-pages")   # bytes: no target given
+    if pdf is None:
+        raise RuntimeError("WeasyPrint wrote no PDF bytes for a re-run sheet chunk")
+    return pdf, found, stamps
 
 
 # ------------------------------------------------------------------ content cache
@@ -120,18 +135,19 @@ def _cache_dir() -> str:
     return store_path("cache", "rerun_sheet_layout")
 
 
-def cache_get(key: str) -> tuple[bytes, dict] | None:
+def cache_get(key: str) -> tuple[bytes, dict, list[dict]] | None:
     base = os.path.join(_cache_dir(), key)
     try:
         with open(base + ".pdf", "rb") as fh:
             pdf = fh.read()
         with open(base + ".json") as fh:
-            return pdf, json.load(fh)
-    except (FileNotFoundError, json.JSONDecodeError):
+            meta = json.load(fh)
+        return pdf, meta["found"], meta["stamps"]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
         return None
 
 
-def cache_put(key: str, pdf: bytes, found: dict) -> None:
+def cache_put(key: str, pdf: bytes, found: dict, stamps: list[dict]) -> None:
     d = _cache_dir()
     os.makedirs(d, exist_ok=True)
     base = os.path.join(d, key)
@@ -139,7 +155,7 @@ def cache_put(key: str, pdf: bytes, found: dict) -> None:
     with open(base + ".pdf" + tag, "wb") as fh:
         fh.write(pdf)
     with open(base + ".json" + tag, "w") as fh:
-        json.dump(found, fh)
+        json.dump({"found": found, "stamps": stamps}, fh)
     os.replace(base + ".pdf" + tag, base + ".pdf")   # pdf first: a reader needs both, json last
     os.replace(base + ".json" + tag, base + ".json")
 
@@ -150,8 +166,8 @@ def default_workers() -> int:
 
 
 def layout_all(jobs: list[tuple[str, list[str]]], base_url: str, workers: int | None = None,
-               progress=None) -> tuple[list[tuple[bytes, dict]], dict]:
-    """Lay out every chunk -> ([(pdf, found)] in job order, stats {chunks, cached, laid_out, workers,
+               progress=None) -> tuple[list[tuple[bytes, dict, list[dict]]], dict]:
+    """Lay out every chunk -> ([(pdf, found, stamps)] in job order, stats {chunks, cached, laid_out, workers,
     seconds}). Cached chunks are read back; the rest go to `workers` subprocesses, each taking a batch
     (largest chunks first, each to the least-loaded worker). progress(done, total) after each chunk."""
     t0 = time.time()
@@ -207,9 +223,9 @@ def layout_all(jobs: list[tuple[str, list[str]]], base_url: str, workers: int | 
                 with open(os.path.join(td, f"c{i}.pdf"), "rb") as fh:
                     pdf = fh.read()
                 with open(os.path.join(td, f"c{i}.found.json")) as fh:
-                    found = json.load(fh)
-                out[i] = (pdf, found)
-                cache_put(keys[i], pdf, found)
+                    meta = json.load(fh)
+                out[i] = (pdf, meta["found"], meta["stamps"])
+                cache_put(keys[i], pdf, meta["found"], meta["stamps"])
     return out, {"chunks": total, "cached": total - len(todo), "laid_out": len(todo), "workers": n,
                  "seconds": round(time.time() - t0, 1)}
 
@@ -223,11 +239,11 @@ def _worker_main(batch_path: str) -> None:
             doc_html = fh.read()
         with open(base + ".want.json") as fh:
             want = json.load(fh)
-        pdf, found = render_chunk(doc_html, want, b["base_url"])
+        pdf, found, stamps = render_chunk(doc_html, want, b["base_url"])
         with open(base + ".pdf", "wb") as fh:
             fh.write(pdf)
         with open(base + ".found.json.tmp", "w") as fh:   # found.json last: its presence = chunk complete
-            json.dump(found, fh)
+            json.dump({"found": found, "stamps": stamps}, fh)
         os.replace(base + ".found.json.tmp", base + ".found.json")
 
 

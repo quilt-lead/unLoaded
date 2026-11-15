@@ -717,12 +717,6 @@
    "count": 3
   },
   {
-   "file": "backend/calcgraph/recalc_pages_layout.py",
-   "rule": "reportReturnType",
-   "message": "Type \"tuple[bytes | None, dict[str, dict[Unknown, Unknown]]]\" is not assignable to return type \"tuple[bytes, dict[Unknown, Unknown]]\"\n\u00a0\u00a0Type \"bytes | None\" is not assignable to type \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"bytes\"",
-   "count": 1
-  },
-  {
    "file": "backend/calcgraph/registry_engine.py",
    "rule": "reportArgumentType",
    "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToInt\" in function \"__new__\"\n\u00a0\u00a0Type \"float | None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0Type \"None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__int__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsIndex\"",
