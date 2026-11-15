@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react';
 import { BimNode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
+import { DIFF_PALETTE } from '../utils/colors';
 
 interface FilterBarProps {
   filters: FilterState;
@@ -124,12 +125,23 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onClick={() => onChangeDiffFilter('added')}
               aria-pressed={diffFilter === 'added'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
-                diffFilter === 'added'
-                  ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-semibold'
-                  : 'text-emerald-400/80 hover:text-emerald-300'
+                diffFilter === 'added' ? 'border font-semibold' : 'hover:text-zinc-100'
               }`}
+              style={
+                diffFilter === 'added'
+                  ? {
+                      backgroundColor: `${DIFF_PALETTE.added}40`,
+                      color: '#d9f3e2',
+                      borderColor: `${DIFF_PALETTE.added}66`,
+                    }
+                  : { color: `${DIFF_PALETTE.added}CC` }
+              }
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />+{diffSummary.addedCount} Added
+              <span
+                className="w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: DIFF_PALETTE.added }}
+              />
+              +{diffSummary.addedCount} Added
             </button>
             <button
               type="button"

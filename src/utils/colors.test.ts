@@ -16,6 +16,7 @@ describe('utilization heatmap', () => {
   it('uses neutral gray for imported elements without utilization while retaining diff colors', () => {
     const node: BimNode = { id: 'beam-1', label: 'B101', type: 'IfcBeam', level: 2, x: 0, y: 0, r: 10 };
     expect(getEffectiveNodeColor(node, true)).toBe('#71717a');
+    expect(getEffectiveNodeColor({ ...node, diffStatus: 'added' }, true, true)).toBe('#14AE5C');
     expect(getEffectiveNodeColor({ ...node, diffStatus: 'removed' }, true, true)).toBe('#ef4444');
   });
 });

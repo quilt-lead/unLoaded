@@ -34,7 +34,6 @@ import { DockableHudPanel } from './components/DockableHudPanel';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<WorkspaceView>('element-graph');
-  const [inspectorVisible, setInspectorVisible] = useState(true);
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
@@ -469,7 +468,6 @@ export const App: React.FC = () => {
     handleClearSelection();
     setViewer3dDock('float');
     setInspectorDock('float');
-    setInspectorVisible(true);
     setDocFilterBySelected(false);
     setInitialDocId(null);
     setDocumentOpenRequest((value) => value + 1);
@@ -516,7 +514,7 @@ export const App: React.FC = () => {
   );
 
   const showViewer3d = activeView === 'element-graph' || activeView === 'calculation-graph';
-  const showInspector = inspectorVisible && activeView !== 'docs';
+  const showInspector = activeView !== 'docs';
 
   const leftDockedHasItems =
     (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
@@ -630,11 +628,6 @@ export const App: React.FC = () => {
       onFocus={() => setTopHudZ((z) => ({ v3d: z.v3d, insp: Math.max(z.v3d, z.insp) + 1 }))}
       onChangeDockSide={setInspectorDock}
       onDragHoverEdge={setHoverEdge}
-      onCloseAction={() => {
-        setInspectorVisible(false);
-        document.getElementById('inspectorToggle')?.focus();
-      }}
-      closeTitle="Close Inspector"
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
@@ -666,13 +659,11 @@ export const App: React.FC = () => {
   );
 
   return (
-    <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
+    <div className="h-full bg-[#252729] text-zinc-100 flex flex-col overflow-hidden select-none">
       <HeaderBar
         projectName={projectName}
         activeView={activeView}
         onChangeView={handleChangeView}
-        inspectorVisible={showInspector}
-        onToggleInspector={() => setInspectorVisible((visible) => !visible)}
         calcCount={calcNodes.filter(isInstanceNode).length}
         docCount={allDocs.length}
         heatmapMode={heatmapMode}

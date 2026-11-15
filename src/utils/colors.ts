@@ -143,7 +143,7 @@ export function getContrastingTextStyle(bgColorStr: string): { fill: string; sha
 
 
 export const DIFF_PALETTE: Record<'added' | 'removed' | 'modified' | 'unchanged', string> = {
-  added: '#10b981',     // Emerald Green (New in Compare DB)
+  added: '#14AE5C',     // New in Compare DB
   removed: '#ef4444',   // Crimson Red (Removed from Base DB)
   modified: '#f59e0b',  // Vivid Amber (Changed section, load, strength, utilization, or PDF rev)
   unchanged: '#475569', // Muted Slate

@@ -259,7 +259,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
         </div>
 
         {/* Document Preview & Revision Selector */}
-        <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto p-6 bg-[#24272d] flex flex-col">
+        <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto p-6 bg-[#252729] flex flex-col">
           {!activeDoc || !activeRevision ? (
             <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs">
               Select a calculation PDF from the left panel to preview its engineering sheet.

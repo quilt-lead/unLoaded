@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import {
-  Network,
   CircleDot,
   Calculator,
   Box,
@@ -11,7 +10,6 @@ import {
   GitCompareArrows,
   ArrowLeftRight,
   X,
-  PanelRight,
 } from 'lucide-react';
 import { DatabaseDiffSummary, WorkspaceView } from '../types/bim';
 
@@ -19,8 +17,6 @@ interface HeaderBarProps {
   projectName: string;
   activeView: WorkspaceView;
   onChangeView: (view: WorkspaceView) => void;
-  inspectorVisible: boolean;
-  onToggleInspector: () => void;
   calcCount: number;
   docCount: number;
   heatmapMode: boolean;
@@ -36,8 +32,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   projectName,
   activeView,
   onChangeView,
-  inspectorVisible,
-  onToggleInspector,
   calcCount,
   docCount,
   heatmapMode,
@@ -52,30 +46,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const compareFileInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.85)] z-30 flex-shrink-0">
-      {/* Left Brand & Project Title */}
-      <div className="flex items-center space-x-3.5 min-w-32">
-        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] flex items-center justify-center flex-shrink-0">
-          <Network className="w-4 h-4" />
-        </div>
+    <header className="apple-glass-chrome border-b border-white/[0.08] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_4px_12px_rgba(0,0,0,0.24)] z-30 flex-shrink-0">
+      <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+        <img
+          src="/unloaded-logo.svg"
+          alt="CalcMap"
+          width={1888}
+          height={580}
+          className="w-28 max-h-9 h-auto object-contain flex-shrink-0"
+        />
         <div className="min-w-0">
-          <h1 className="font-semibold text-[13px] text-white tracking-tight flex items-center gap-2 truncate">
+          <h1 className="font-medium text-xs text-zinc-300 tracking-tight flex items-center gap-2 truncate">
             <span className="truncate">{projectName}</span>
-            {diffSummary ? (
+            {diffSummary && (
               <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
                 DIFF MODE
               </span>
-            ) : (
-              <span className="mono text-[10px] font-medium bg-indigo-500/15 text-indigo-300 px-2 py-0.5 rounded border border-indigo-400/25 tracking-wider flex-shrink-0">
-                IFC 4.3
-              </span>
             )}
           </h1>
-          <p className="mono text-[10px] text-zinc-500 tracking-wide mt-0.5 truncate">
-            {diffSummary
-              ? `A: ${diffSummary.baseName}  ↔  B: ${diffSummary.compareName}`
-              : 'ELEMENT TOPOLOGY ↔ CALCULATION GRAPH ↔ 3D MODEL ↔ PDF REVISIONS'}
-          </p>
         </div>
       </div>
 
@@ -149,20 +137,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       {/* Right Heatmap, Dual-Database Import (DB A + DB B Diff) & Reset */}
       <div className="flex items-center space-x-2 flex-shrink-0">
-        {activeView !== 'docs' && (
-          <button
-            type="button"
-            id="inspectorToggle"
-            onClick={onToggleInspector}
-            aria-pressed={inspectorVisible}
-            aria-controls="inspectorPanel"
-            title={inspectorVisible ? 'Hide Inspector' : 'Show Inspector'}
-            className="bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14]"
-          >
-            <PanelRight className="w-3.5 h-3.5" />
-            <span>Inspector</span>
-          </button>
-        )}
         {!diffSummary && (
           <button
             type="button"
