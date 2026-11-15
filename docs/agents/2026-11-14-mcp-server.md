@@ -52,8 +52,12 @@ calc-mapper hackathon design); its project-file input, findings / groups / compa
   deadline + backoff point: an unreadable / unremovable lock fails with the lock path, never a busy loop (it used to
   wedge the in-process queue). Guard staleness is by observation only, same window as the lock (5 s; it was 3 s until
   review round 3 showed a breaker stalled 3 s inside the guard could unlink a live lock); the guard holds a token and
-  its holder re-checks it immediately before unlinking the lock and before releasing the guard. Residual, one rule:
-  any process frozen > 5 s holding the lock or the guard can have it taken. `DecisionsFile.log` keeps its identity while the bytes are unchanged, so
+  its holder re-checks it immediately before unlinking the lock and before releasing the guard (a guard whose token
+  write failed is removed only if the path is still the file it created). The guard's stale window IS the lock's
+  `staleMs` (passed through `removeLock`; round 4: a fixed 5 s guard window meant short custom timings could never
+  clear a crash-left guard). Residuals: any process frozen > staleMs holding the lock or the guard can have it taken;
+  two processes clearing a crash-left guard at the same moment can both proceed, and then one can remove a lock taken
+  meanwhile (the lock is matched when re-read, not at the unlink). `DecisionsFile.log` keeps its identity while the bytes are unchanged, so
   `Project.computedLog !== fileLog` means "really changed"; `recordDecisions` validates under the lock with
   `Project.effectiveOver` (effectiveDecisions only, no buildState) and recomputes after release: once, or twice when
   someone else had appended (the extra one gives an honest `link_before`). A decisions file without W_OK is refused.

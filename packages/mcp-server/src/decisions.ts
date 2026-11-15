@@ -35,8 +35,9 @@
  *   synchronous work under the lock) while holding the lock OR the guard can have it taken. A lock holder
  *   then writes alongside the next holder. A guard holder re-checks its token right before unlinking the
  *   lock and before releasing the guard, which narrows its window to the instant between that check and
- *   the unlink. Likewise two processes removing a guard left by a crash at the same moment can both
- *   believe they hold it; each still unlinks the lock only if it matches what it judged.
+ *   the unlink. Separately, two processes removing a guard left by a crash at the same moment can both
+ *   believe they hold it; each checks the lock against what it judged when it re-reads it (not at the
+ *   unlink), so in that case one of them can remove a lock taken meanwhile.
  * - A crash can leave `<lock>`, `<lock>.guard` or a `.<name>.<pid>.<hex>.tmp` file. They are harmless:
  *   the lock and guard are broken as above; a temp file is never read and can be deleted.
  * - A write replaces the file (temp + rename): its mode is kept, but its owner can change (to the
@@ -134,13 +135,12 @@ export const LOCK_STALE_MS = 5_000;
 /** How often a holder refreshes its lock's mtime. */
 export const LOCK_HEARTBEAT_MS = 1_000;
 /**
- * `<lock>.guard` is held for one read and one unlink; one unchanged for this long was left by a crash.
- * The same window as the lock's: a guard holder that merely stalls must not lose its guard sooner than a
- * lock holder would lose its lock (and it re-checks that the guard is still its own before unlinking).
+ * `<lock>.guard` is held for one read and one unlink. It goes stale on the SAME window as the lock
+ * (`withFileLock` passes its `staleMs`): a guard holder that merely stalls must not lose its guard sooner
+ * than a lock holder would lose its lock. A break or a release waits for the guard this much longer than
+ * that window, so a guard left by a crash is always cleared within the wait.
  */
-const GUARD_STALE_MS = LOCK_STALE_MS;
-/** How long a break or a release waits for `<lock>.guard` (longer than GUARD_STALE_MS, so a left guard is removed). */
-const GUARD_WAIT_MS = GUARD_STALE_MS + 1_000;
+const GUARD_WAIT_EXTRA_MS = 1_000;
 
 type DiskRead =
   | { state: "missing" }
@@ -447,13 +447,18 @@ export async function observeLock(lock: string): Promise<LockObservation | null>
  * (breaking a stale one, releasing one's own) happens under this guard, so between re-reading the lock
  * and unlinking it no other process can unlink it, and therefore none can create a new one in its
  * place: the lock that is unlinked is exactly the one that was re-read. The guard is held for one read
- * and one unlink (milliseconds), so a guard whose state has not changed for GUARD_STALE_MS (on this
+ * and one unlink (milliseconds), so a guard whose state has not changed for `staleMs` (on this
  * process's monotonic clock) is taken to be left by a process that crashed inside it, and removed.
  * Because a guard can thus be taken from a holder that only stalled, `fn` gets `stillMine()` and must
  * call it immediately before acting; the guard is released only if it is still this holder's. Returns
  * null when the guard could not be had within `waitMs`.
  */
-async function underGuard<T>(lock: string, waitMs: number, fn: (stillMine: () => Promise<boolean>) => Promise<T>): Promise<T | null> {
+async function underGuard<T>(
+  lock: string,
+  waitMs: number,
+  staleMs: number,
+  fn: (stillMine: () => Promise<boolean>) => Promise<T>,
+): Promise<T | null> {
   const guard = `${lock}.guard`;
   const token = randomBytes(8).toString("hex");
   const stillMine = () => readFile(guard, "utf8").then((t) => t === token, () => false);
@@ -471,8 +476,11 @@ async function underGuard<T>(lock: string, waitMs: number, fn: (stillMine: () =>
         await fh.writeFile(token);
         await fh.close();
       } catch (e) {
+        // just created by us and never valid: removed only if the path is still that file (it holds no token yet)
+        const id = await fh.stat().then((st) => `${st.dev}:${st.ino}`, () => null);
         await fh.close().catch(() => {});
-        await unlink(guard).catch(() => {}); // just created by us, never valid
+        const now = await stat(guard).then((st) => `${st.dev}:${st.ino}`, () => null);
+        if (id && now === id) await unlink(guard).catch(() => {});
         throw new Error(`could not write ${guard}: ${(e as Error).message}`);
       }
       try {
@@ -485,7 +493,7 @@ async function underGuard<T>(lock: string, waitMs: number, fn: (stillMine: () =>
       const st = await stat(guard);
       const key = `${st.dev}:${st.ino}:${st.mtimeMs}`;
       if (seen?.key !== key) seen = { key, since: performance.now() };
-      else if (performance.now() - seen.since >= GUARD_STALE_MS) {
+      else if (performance.now() - seen.since >= staleMs) {
         await unlink(guard).catch(() => {}); // residual: see the module docstring
         seen = null;
         continue;
@@ -502,15 +510,18 @@ async function underGuard<T>(lock: string, waitMs: number, fn: (stillMine: () =>
  * Remove `lock` only if it is still exactly what `expected` says (`removeLock(lock, (o) => o.key ===
  * judged.key)` for a stale lock, `(o) => o.info?.token === mine` for one's own). The re-read and the
  * unlink happen under `<lock>.guard`. "removed": it was unlinked; "changed": it is not the expected
- * lock (left alone); "gone": there is no lock; "busy": the guard could not be had within `guardWaitMs`
- * (nothing was done). Throws when the guard cannot be created or the unlink fails (the OS reason).
+ * lock (left alone); "gone": there is no lock; "busy": the guard could not be had within `guardWaitMs`,
+ * or was taken from this caller before the unlink (nothing was done). `staleMs` is the lock's stale
+ * window, which the guard shares; the guard wait defaults to just past it. Throws when the guard cannot
+ * be created or the unlink fails (the OS reason).
  */
 export async function removeLock(
   lock: string,
   expected: (o: LockObservation) => boolean,
-  guardWaitMs = GUARD_WAIT_MS,
+  staleMs: number = LOCK_STALE_MS,
+  guardWaitMs: number = staleMs + GUARD_WAIT_EXTRA_MS,
 ): Promise<"removed" | "changed" | "gone" | "busy"> {
-  const r = await underGuard(lock, guardWaitMs, async (stillMine) => {
+  const r = await underGuard(lock, guardWaitMs, staleMs, async (stillMine) => {
     const now = await observeLock(lock).catch(() => undefined);
     if (now === null) return "gone" as const;
     if (now === undefined || !expected(now)) return "changed" as const;
@@ -537,7 +548,9 @@ export async function removeLock(
  * - Release removes the lock only if it still holds this holder's token. If that cannot be done (the
  *   guard is busy) the lock is left; it stops heartbeating and so goes stale for everyone else.
  *
- * `staleMs` must be below `waitMs` for a waiter to ever break a lock by observation.
+ * `staleMs` must be below `waitMs` for a waiter to ever break a lock by observation (clearing a guard
+ * left by a crash as well takes up to another `staleMs` + GUARD_WAIT_EXTRA_MS; the defaults, 5 s / 15 s,
+ * cover both).
  */
 export async function withFileLock<T>(
   lock: string,
@@ -567,7 +580,7 @@ export async function withFileLock<T>(
         // our own lock, just created and never valid: removed only if it is still that file
         const id = await fh.stat().then((st) => `${st.dev}:${st.ino}:`, () => null);
         await fh.close().catch(() => {});
-        if (id) await removeLock(lock, (o) => o.key.startsWith(id)).catch(() => {});
+        if (id) await removeLock(lock, (o) => o.key.startsWith(id), opts.staleMs).catch(() => {});
         throw new DecisionsFileError(`nothing was written: could not write the lock file ${lock}: ${(e as Error).message}`);
       }
     }
@@ -587,7 +600,12 @@ export async function withFileLock<T>(
       if (ownerGone || now - seen.since >= opts.staleMs) {
         const judged = held.key;
         try {
-          const r = await removeLock(lock, (o) => o.key === judged, Math.max(0, Math.min(GUARD_WAIT_MS, deadline - performance.now())));
+          const r = await removeLock(
+            lock,
+            (o) => o.key === judged,
+            opts.staleMs,
+            Math.max(0, Math.min(opts.staleMs + GUARD_WAIT_EXTRA_MS, deadline - performance.now())),
+          );
           if (r === "removed" || r === "gone") seen = null;
           if (r === "busy") why = `${what} is locked by a writer that looks stale, but ${lock}.guard is held by another process`;
         } catch (e) {
@@ -618,7 +636,7 @@ export async function withFileLock<T>(
     clearInterval(timer);
     await beat;
     await held.close().catch(() => {});
-    await removeLock(lock, (o) => o.info?.token === info.token).catch(() => {});
+    await removeLock(lock, (o) => o.info?.token === info.token, opts.staleMs).catch(() => {});
   }
 }
 

@@ -221,12 +221,24 @@ describe("DecisionsFile", () => {
     // another process is breaking / releasing (holds the guard): nothing is done
     const j3 = (await observeLock(lock))!;
     writeFileSync(`${lock}.guard`, "");
-    expect(await removeLock(lock, (o) => o.key === j3.key, 200)).toBe("busy");
+    expect(await removeLock(lock, (o) => o.key === j3.key, 5_000, 200)).toBe("busy"); // guard wait 200 ms < its 5 s stale window
     expect(existsSync(lock)).toBe(true);
     // a guard left by a crash is removed once unchanged for a few seconds; then the unchanged lock goes
     expect(await removeLock(lock, (o) => o.key === j3.key)).toBe("removed");
     expect(readdirSync(join(lock, ".."))).toEqual([]);
     expect(await removeLock(lock, () => true)).toBe("gone");
+  });
+
+  it("clears a guard left by a crash on the lock's own stale window, so short custom timings still get through", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const lock = `${path}.lock`;
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, host: "another-host", token: "hung", at }));
+    writeFileSync(`${lock}.guard`, ""); // a breaker crashed inside the guard
+    const f = new DecisionsFile(path, { lockWaitMs: 2_000, lockStaleMs: 300 });
+    await f.load();
+    await f.append((cur) => [make(cur, "me")]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toHaveLength(1);
+    expect(readdirSync(join(path, ".."))).toEqual(["decisions.json"]);
   });
 
   it("never unlinks the lock once its guard was taken from it (a breaker that stalled inside the guard), nor the new guard", async () => {
