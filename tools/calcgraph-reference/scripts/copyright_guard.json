@@ -52,6 +52,47 @@
       "sha256": "777828f6eb73fd052f3cb1c2af893a4ab1a946aa2fa39f552f8e0860b12aeb3e"
     }
   ],
-  "term_allowlist": {},
-  "blob_allowlist": {}
+  "term_allowlist": {
+    "prototyping/calc-viewer/build/build.py": [
+      "t1",
+      "t3",
+      "t4",
+      "t9",
+      "t11",
+      "t12"
+    ],
+    "prototyping/calc-viewer/build/make_viewers.py": [
+      "t3",
+      "t4"
+    ],
+    "prototyping/calc-viewer/data/calcs.json": [
+      "t1",
+      "t9"
+    ],
+    "prototyping/calc-viewer/data/documents.json": [
+      "t1",
+      "t3",
+      "t4"
+    ],
+    "prototyping/calc-viewer/data/links.json": [
+      "t9"
+    ],
+    "prototyping/calc-viewer/data/summaries.json": [
+      "t1",
+      "t9"
+    ],
+    "prototyping/calc-viewer/viewers/assets/data.js": [
+      "t1",
+      "t3",
+      "t4",
+      "t9"
+    ]
+  },
+  "blob_allowlist": {
+    "prototyping/calc-graph/docs/screenshots/01-sample-loaded.png": "75f349581e2bccf5b1940c3514bc869bdbe94f82",
+    "prototyping/calc-graph/docs/screenshots/02-element-inspector.png": "cabb015bae5c90b572f30cf67116e66eb69880f3",
+    "prototyping/calc-graph/docs/screenshots/03-evidence-page-highlight.png": "a0b958f0d79ac7fb62b837c94214fbf54370de45",
+    "prototyping/calc-graph/docs/screenshots/04-impact-remove-C8-graph.png": "f831dc278663e0f6be0c0664e410a0496ec90aa0",
+    "prototyping/calc-graph/docs/screenshots/05-rev2-decisions-carried.png": "f68876ef07809cb14586afa02f9d846a665edc45"
+  }
 }
