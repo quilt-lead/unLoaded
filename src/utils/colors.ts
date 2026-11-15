@@ -52,7 +52,9 @@ export function hashStringToJewelColor(str: string): string {
 }
 
 export function getHeatmapColor(utilization?: number): string {
-  const u = Math.max(0, Math.min(1, typeof utilization === 'number' ? utilization : 0.5));
+  // unknown is not a measurement: one neutral 'no data' colour, never a guessed mid-scale value
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return NO_DATA_COLOR;
+  const u = Math.max(0, Math.min(1, utilization));
   const stops = [
     { t: 0.25, r: 6, g: 182, b: 212 },
     { t: 0.55, r: 16, g: 185, b: 129 },
@@ -247,7 +249,7 @@ export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMod
     default:
       if (colorMode === 'review') return node.mappingStatus ? STATUS_COLORS[node.mappingStatus] : NO_DATA_COLOR;
       if (colorMode === 'confidence') return getConfidenceColor(topLiveConfidence(node));
-      if (colorMode === 'utilisation') return typeof node.utilization === 'number' ? getHeatmapColor(node.utilization) : NO_DATA_COLOR;
+      if (colorMode === 'utilisation') return getHeatmapColor(node.utilization);
       return typeColor(node);
   }
 }

@@ -1,7 +1,7 @@
 // Inspector for whatever is selected: an element (its calc links ranked by confidence with
 // review actions, impact, load path, diff before/after), a calc (dependencies, linked elements
 // by tier), a category / family / group, or - with nothing selected - the mapping summary.
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
@@ -35,7 +35,7 @@ import type {
   TypicalGroupView,
 } from '../types/bim';
 import { getDisplayType, getLoadNeighbors } from '../utils/graphEngine';
-import { DIFF_PALETTE, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor } from '../utils/colors';
+import { DIFF_PALETTE, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 import { calcTarget, linkTarget } from './DocumentBrowser';
 import { Chip, ConfidenceChip, RoleChip, StatusDot, TierChip } from './ui/Chips';
 
@@ -136,6 +136,8 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const { node } = p;
   const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  // Escape cancels a rename: the blur that follows unmounting the input must not commit the draft
+  const renameCancelled = useRef(false);
   const [showAllParams, setShowAllParams] = useState(false);
   const nodeById = new Map(p.elementNodes.map((n) => [n.id, n]));
   const calcByKey = new Map(p.calcs.map((c) => [c.key, c]));
@@ -341,21 +343,33 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           {renamingGroupId === g.id ? (
             <input
               type="text"
+              aria-label="Group name"
+              name="groupName"
+              autoComplete="off"
               autoFocus
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
               onBlur={() => {
-                if (renameDraft.trim()) p.onRenameGroup(g.id, renameDraft.trim());
+                // the one commit point: Enter blurs, so a rename is never applied twice
+                if (!renameCancelled.current && renameDraft.trim()) p.onRenameGroup(g.id, renameDraft.trim());
+                renameCancelled.current = false;
                 setRenamingGroupId(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  if (renameDraft.trim()) p.onRenameGroup(g.id, renameDraft.trim());
-                  setRenamingGroupId(null);
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.blur();
                 }
-                if (e.key === 'Escape') setRenamingGroupId(null);
+                if (e.key === 'Escape') {
+                  // an Escape typed in a field is the field's (escapeStack ignores editable targets)
+                  e.preventDefault();
+                  e.stopPropagation();
+                  renameCancelled.current = true;
+                  e.currentTarget.blur();
+                }
               }}
-              className="flex-1 px-2 py-0.5 rounded bg-black/50 text-white mono text-[10px] border border-emerald-400 focus:outline-none"
+              className="min-w-0 flex-1 px-2 py-0.5 rounded bg-black/50 text-white mono text-[10px] border border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-300"
             />
           ) : (
             <button
@@ -465,7 +479,13 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-zinc-400 italic">No property changes between rev A and rev B.</p>
+        <p className="text-[11px] text-zinc-400 italic">
+          {node.diffStatus === 'added'
+            ? 'This element exists only in rev B.'
+            : node.diffStatus === 'removed'
+              ? 'This element exists only in rev A.'
+              : 'No property changes between rev A and rev B.'}
+        </p>
       )}
     </div>
   );
@@ -611,6 +631,9 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
 
   // ------------------------------------------------------------------ element
   const el = node.kind === 'mapped-element' && node.elementId ? nodeById.get(node.elementId) ?? node : node;
+  // utilisation is shown only when a source supplied a finite value (none does yet, D8); a supplied 0 or an
+  // overload is real and shown, a missing or non-finite one is not a measurement and is not drawn
+  const utilPct = typeof el.utilization === 'number' && Number.isFinite(el.utilization) ? Math.round(el.utilization * 100) : null;
   const links = el.calcLinks ?? [];
   const live = links.filter((l) => l.review !== 'rejected');
   const rejected = links.filter((l) => l.review === 'rejected');
@@ -785,6 +808,19 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
             <span className="mono text-[9px] text-zinc-500 uppercase block">GlobalId</span>
             <span className="mono text-[10px] text-zinc-400 select-text">{el.id}</span>
           </div>
+          {utilPct !== null && (
+            <div className="col-span-2 pt-1 border-t border-white/[0.06]">
+              <div className="flex items-center justify-between mono text-[9px] mb-1">
+                <span className="text-zinc-400 uppercase">Demand / Capacity Utilization</span>
+                <span style={{ color: getHeatmapColor(el.utilization) }} className="font-semibold">
+                  {utilPct}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, utilPct))}%`, backgroundColor: getHeatmapColor(el.utilization) }} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

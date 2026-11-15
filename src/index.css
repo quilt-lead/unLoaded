@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: dark;
   --bg-void: #24272d;
   --bg-surface: #2d3139;
   --bg-elevated: #363b45;
@@ -88,4 +89,27 @@ input[type="range"].trace-steps-slider::-webkit-slider-thumb {
 }
 .pdf-text-layer.textLayer ::selection {
   background: rgba(99, 102, 241, 0.35);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+input[type="range"].trace-steps-slider:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

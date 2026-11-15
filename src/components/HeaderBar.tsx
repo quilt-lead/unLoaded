@@ -16,6 +16,7 @@ import {
   Loader2,
   Minimize2,
   Network,
+  PanelRight,
   Sparkles,
   Upload,
   X,
@@ -27,6 +28,9 @@ interface HeaderBarProps {
   subtitle: string;
   activeView: WorkspaceView;
   onChangeView: (view: WorkspaceView) => void;
+  /** the inspector panel is open (its own state: closing it keeps the selection) */
+  inspectorVisible: boolean;
+  onToggleInspector: () => void;
   calcCount: number;
   colorMode: ColorMode;
   onChangeColorMode: (m: ColorMode) => void;
@@ -97,12 +101,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
     setMenuOpen(false);
     ref.current?.click();
   };
-  const fileInput = (ref: React.RefObject<HTMLInputElement>, accept: string, onFile: (f: File) => void) => (
+  const fileInput = (ref: React.RefObject<HTMLInputElement>, accept: string, label: string, onFile: (f: File) => void) => (
     <input
       ref={ref}
       type="file"
       accept={accept}
-      className="sr-only"
+      className="hidden"
+      aria-label={label}
       onChange={(e) => {
         const f = e.target.files?.[0];
         if (f) onFile(f);
@@ -128,8 +133,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   );
 
   return (
-    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.85)] z-30 flex-shrink-0">
-      <div className="flex items-center space-x-3.5 min-w-0">
+    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.85)] z-30 flex-shrink-0">
+      <div className="flex items-center space-x-3.5 min-w-32">
         <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.2)] flex items-center justify-center flex-shrink-0">
           <Network className="w-4 h-4" />
         </div>
@@ -164,26 +169,40 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
       </div>
 
       <nav aria-label="Primary Workspace Views" className="flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0">
-        <button type="button" onClick={() => p.onChangeView('element-graph')} className={viewBtn(p.activeView === 'element-graph')}>
+        <button type="button" onClick={() => p.onChangeView('element-graph')} aria-pressed={p.activeView === 'element-graph'} className={viewBtn(p.activeView === 'element-graph')}>
           <CircleDot className="w-3.5 h-3.5 text-emerald-400" />
           <span>Element Graph</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('calculation-graph')} className={viewBtn(p.activeView === 'calculation-graph')}>
+        <button type="button" onClick={() => p.onChangeView('calculation-graph')} aria-pressed={p.activeView === 'calculation-graph'} className={viewBtn(p.activeView === 'calculation-graph')}>
           <Calculator className="w-3.5 h-3.5 text-amber-400" />
           <span>Calculation Graph</span>
           <span className="mono text-[10px] px-1.5 rounded bg-white/[0.06] text-zinc-400">{p.calcCount}</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('3d')} className={viewBtn(p.activeView === '3d')}>
+        <button type="button" onClick={() => p.onChangeView('3d')} aria-pressed={p.activeView === '3d'} className={viewBtn(p.activeView === '3d')}>
           <Box className="w-3.5 h-3.5 text-cyan-400" />
           <span>3D Model</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('docs')} className={viewBtn(p.activeView === 'docs')}>
+        <button type="button" onClick={() => p.onChangeView('docs')} aria-pressed={p.activeView === 'docs'} className={viewBtn(p.activeView === 'docs')}>
           <FileText className="w-3.5 h-3.5 text-rose-400" />
           <span>PDF Calcs</span>
         </button>
       </nav>
 
       <div className="flex items-center space-x-2 flex-shrink-0">
+        {p.activeView !== 'docs' && (
+          <button
+            type="button"
+            id="inspectorToggle"
+            onClick={p.onToggleInspector}
+            aria-pressed={p.inspectorVisible}
+            aria-controls="inspectorPanel"
+            title={p.inspectorVisible ? 'Hide Inspector' : 'Show Inspector'}
+            className={chromeBtn}
+          >
+            <PanelRight className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Inspector</span>
+          </button>
+        )}
         {!p.diffSummary && (
           <div className="flex items-center bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.14]" role="group" aria-label="Colour elements by">
             {COLOR_MODES.map((m) => (
@@ -191,6 +210,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 key={m.id}
                 type="button"
                 title={m.title}
+                aria-pressed={p.colorMode === m.id}
                 onClick={() => p.onChangeColorMode(m.id)}
                 className={`mono text-[10px] px-2 py-1 rounded-md transition ${
                   p.colorMode === m.id ? 'bg-indigo-500/25 text-indigo-100 border border-indigo-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
@@ -202,6 +222,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
             <button
               type="button"
               disabled={!p.hasUtilization}
+              aria-label="Utilisation heatmap"
+              aria-pressed={p.colorMode === 'utilisation'}
               onClick={() => p.onChangeColorMode(p.colorMode === 'utilisation' ? 'type' : 'utilisation')}
               title={
                 p.hasUtilization
@@ -287,12 +309,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
             </div>
           )}
         </div>
-        {fileInput(modelInput, '.ifc,.json,application/json', p.onUploadModel)}
-        {fileInput(calcInput, '.pdf,application/pdf', p.onUploadCalcs)}
-        {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', p.onOpenFile)}
+        {fileInput(modelInput, '.ifc,.json,application/json', 'Add model revision', p.onUploadModel)}
+        {fileInput(calcInput, '.pdf,application/pdf', 'Add calc package PDF', p.onUploadCalcs)}
+        {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', p.onOpenFile)}
 
         {p.diffRevs && (
-          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
+          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
             <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-300" />
             <span className="hidden xl:inline">Swap A↔B</span>
           </button>
@@ -314,7 +336,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         </button>
 
         {p.diffRevs && (
-          <button type="button" onClick={p.onClearDiff} title="Exit diff mode" className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-rose-400/35">
+          <button type="button" onClick={p.onClearDiff} title="Exit diff mode" aria-label="Exit diff mode" className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-rose-400/35">
             <X className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">Exit Diff</span>
           </button>

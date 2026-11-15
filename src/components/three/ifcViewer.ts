@@ -4,8 +4,8 @@
 // theme, one shared web-ifc engine and file cache, and "ghost" meshes loaded from another revision
 // (diff elements the head model does not have) placed in the same building coordinates.
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { IfcAPI } from 'web-ifc';
+import { Structural3DControls, type CameraPose } from '../Structural3DControls';
 
 let enginePromise: Promise<IfcAPI> | null = null;
 function engine(): Promise<IfcAPI> {
@@ -47,11 +47,25 @@ export interface MeshStyle {
   glow: string | null;
 }
 
+/** the default view direction: from the front-right, above (same as the camera's starting position) */
+const HOME_DIR = new THREE.Vector3(0.75, 0.55, 0.9).normalize();
+const HOME_THETA = Math.atan2(HOME_DIR.x, HOME_DIR.z);
+const HOME_PHI = Math.acos(HOME_DIR.y);
+
+/** Fit / Reset / zoom-to-selection animate (300 ms) unless the user asked for reduced motion. */
+const animateCamera = () =>
+  typeof window === 'undefined' || typeof window.matchMedia !== 'function' || !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export class IfcViewer {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 5000);
-  controls: OrbitControls;
+  /**
+   * Camera navigation (Structural3DControls): orbit / pan / zoom move the camera directly, with no
+   * damping; only Fit, Reset and zoom-to-selection are animated, and any pointer or wheel input takes
+   * over at the displayed pose. A click (under 3 px of movement from pointerdown) goes to onClick.
+   */
+  controls: Structural3DControls;
   /** building coordinates -> scene: offset so the head model sits at the origin */
   world = new THREE.Group();
   group = new THREE.Group();
@@ -72,15 +86,16 @@ export class IfcViewer {
   /** the URL of the head model on screen, set when its load() finished; null while none is */
   private headUrl: string | null = null;
 
-  constructor(public el: HTMLElement) {
+  constructor(
+    public el: HTMLElement,
+    opts: { onClick?: (e: PointerEvent) => void } = {}
+  ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(0x000000, 0);
     el.appendChild(this.renderer.domElement);
-    this.camera.position.set(30, 25, 35);
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.12;
+    const start: CameraPose = { theta: HOME_THETA, phi: HOME_PHI, radius: 50, target: { x: 0, y: 0, z: 0 } };
+    this.controls = new Structural3DControls(this.camera, this.renderer.domElement, start, () => {}, (e) => opts.onClick?.(e));
     this.scene.add(new THREE.HemisphereLight(0xf8fafc, 0x2f333a, 1.7));
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(40, 80, 30);
@@ -95,13 +110,13 @@ export class IfcViewer {
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(el);
     this.resize();
-    const loop = () => {
+    const loop = (now: number) => {
       if (this.disposed) return;
       this.raf = requestAnimationFrame(loop);
-      this.controls.update();
+      this.controls.update(now);
       this.renderer.render(this.scene, this.camera);
     };
-    loop();
+    this.raf = requestAnimationFrame(loop);
   }
 
   dispose() {
@@ -351,22 +366,26 @@ export class IfcViewer {
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const sz = Math.max(box.getSize(new THREE.Vector3()).length(), minSize);
-    const dir = this.camera.position.clone().sub(this.controls.target);
-    if (dir.lengthSq() < 1e-6) dir.set(0.75, 0.55, 0.9);
-    this.controls.target.copy(c);
-    this.camera.position.copy(c).add(dir.normalize().multiplyScalar(sz * 1.15));
+    // keep the current view direction; move the target and distance only
+    this.controls.moveTo({ target: { x: c.x, y: c.y, z: c.z }, radius: sz * 1.15 }, animateCamera());
     this.camera.near = Math.max(0.01, sz / 1000);
     this.camera.far = Math.max(1000, sz * 40);
     this.camera.updateProjectionMatrix();
   }
 
-  fit() {
+  /**
+   * Frame the whole model from the home direction. `animate` is for the user's Fit / Reset; a fit
+   * after a load jumps (there is no previous view of this model to move from).
+   */
+  fit(animate = false) {
     const box = this.boxOf([...this.group.children, ...this.boxGroup.children].filter((m) => m.visible));
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const sz = box.getSize(new THREE.Vector3()).length();
-    this.controls.target.copy(c);
-    this.camera.position.copy(c).add(new THREE.Vector3(0.75, 0.55, 0.9).normalize().multiplyScalar(sz * 0.95));
+    this.controls.moveTo(
+      { theta: HOME_THETA, phi: HOME_PHI, radius: sz * 0.95, target: { x: c.x, y: c.y, z: c.z } },
+      animate && animateCamera()
+    );
     this.camera.near = sz / 1000;
     this.camera.far = sz * 20;
     this.camera.updateProjectionMatrix();

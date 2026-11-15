@@ -82,6 +82,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     isPanning: boolean;
     panButton: number;
     panMoved: boolean;
+    pointerStartX: number;
+    pointerStartY: number;
     startX: number;
     startY: number;
     draggedNodeId: string | null;
@@ -91,6 +93,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     isPanning: false,
     panButton: 0,
     panMoved: false,
+    pointerStartX: 0,
+    pointerStartY: 0,
     startX: 0,
     startY: 0,
     draggedNodeId: null,
@@ -126,7 +130,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (target && (target.isContentEditable || target.closest('input, textarea, select'))) return;
       const el = containerRef.current;
       const cx = (el?.clientWidth || window.innerWidth) / 2;
       const cy = (el?.clientHeight || window.innerHeight) / 2;
@@ -205,6 +210,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     const ix = interactionRef.current;
+    ix.pointerStartX = e.clientX;
+    ix.pointerStartY = e.clientY;
 
     if (e.button === 1 || e.button === 2) {
       e.preventDefault();
@@ -233,7 +240,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     if (ix.isPanning) {
       const nextPanX = e.clientX - ix.startX;
       const nextPanY = e.clientY - ix.startY;
-      if (Math.hypot(nextPanX - cameraRef.current.panX, nextPanY - cameraRef.current.panY) > 2) {
+      if (Math.hypot(e.clientX - ix.pointerStartX, e.clientY - ix.pointerStartY) > 2) {
         ix.panMoved = true;
       }
       setCamera((prev) => ({ ...prev, panX: nextPanX, panY: nextPanY }));
@@ -271,6 +278,11 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     }
   };
 
+  const cancelInteraction = () => {
+    interactionRef.current.isPanning = false;
+    interactionRef.current.draggedNodeId = null;
+  };
+
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (!containerRef.current) return;
@@ -294,6 +306,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     if (e.button === 1 || e.button === 2) return;
     e.stopPropagation();
     if (!containerRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
 
     const rect = containerRef.current.getBoundingClientRect();
     const cam = cameraRef.current;
@@ -316,6 +329,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         <button
           type="button"
           title="Zoom In (+)"
+          aria-label="Zoom in"
           onClick={() => {
             const el = containerRef.current;
             zoomAtPoint(camera.scale * 1.25, (el?.clientWidth || 600) / 2, (el?.clientHeight || 400) / 2);
@@ -330,6 +344,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         <button
           type="button"
           title="Zoom Out (-)"
+          aria-label="Zoom out"
           onClick={() => {
             const el = containerRef.current;
             zoomAtPoint(camera.scale / 1.25, (el?.clientWidth || 600) / 2, (el?.clientHeight || 400) / 2);
@@ -367,7 +382,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
-        onPointerCancel={handleCanvasPointerUp}
+        onPointerCancel={cancelInteraction}
+        onLostPointerCapture={cancelInteraction}
         onWheel={handleWheel}
         onDoubleClick={(e) => {
           const tag = (e.target as Element).tagName?.toLowerCase();
@@ -441,6 +457,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                   if (e.button === 1 || e.button === 2) return;
                   e.stopPropagation();
                   if (containerRef.current) {
+                    e.currentTarget.setPointerCapture(e.pointerId);
                     const rect = containerRef.current.getBoundingClientRect();
                     const ix = interactionRef.current;
                     ix.draggedNodeId = members[0].id;
@@ -492,6 +509,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       >
                         <input
                           type="text"
+                          aria-label="Group name"
                           autoFocus
                           value={editingGroupName}
                           onChange={(e) => setEditingGroupName(e.target.value)}

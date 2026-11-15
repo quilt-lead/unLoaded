@@ -83,5 +83,6 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
   The serialized graph is now stored with every model revision (`src/data/projectStore.ts`).
 - ~~Populate calc links~~ done by `packages/calc-mapper` (merged by GlobalId, not stored on node links).
 - ~~Fit the 3D camera to the model~~ done (the viewer fits on load). ~~"0 kN"~~ gone (no invented loads are shown).
+- Missing Inspector loads/strength and fabricated document mappings were corrected in [the UI review](2026-11-14-ui-review.md).
 - ~~Oriented boxes for diagonal members~~ moot for IFC (real meshes); JSON models still draw axis-aligned boxes.
 - Run IFC parsing in a Web Worker for large files (calc PDFs already run in one).

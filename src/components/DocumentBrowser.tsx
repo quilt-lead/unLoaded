@@ -34,6 +34,21 @@ interface DocumentBrowserProps {
 const pageRange = (c: CalcPackage) =>
   c.pages.length === 0 ? 'no pages' : c.pages.length > 1 ? `pp. ${c.pages[0]}–${c.pages[c.pages.length - 1]}` : `p. ${c.pages[0]}`;
 
+/**
+ * Does a calc match the search? Its own text (title, software, designed type, key) or the id / label of
+ * any element linked to it, so searching "B12" finds the calcs that design B12.
+ */
+export function calcMatchesQuery(
+  c: CalcPackage,
+  query: string,
+  linkedElements: readonly Pick<BimNode, 'id' | 'label'>[]
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (`${c.title} ${c.software} ${c.elementType} ${c.key}`.toLowerCase().includes(q)) return true;
+  return linkedElements.some((n) => n.id.toLowerCase().includes(q) || n.label.toLowerCase().includes(q));
+}
+
 /** Where to open a calc: its first region (it can start mid-page), with the title box highlighted. */
 export function calcTarget(c: CalcPackage): PdfTarget {
   const first = c.regions[0];
@@ -87,9 +102,9 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
 
   const elementLinks = filterBySelectedElement && selectedElement?.kind === 'element' ? selectedElement.calcLinks ?? [] : null;
 
-  const q = searchQuery.trim().toLowerCase();
-  const matchCalc = (c: CalcPackage) =>
-    !q || `${c.title} ${c.software} ${c.elementType} ${c.key}`.toLowerCase().includes(q);
+  const linkedNodesOf = (key: string) =>
+    (calcToElementIds.get(key) ?? []).map((id) => nodeById.get(id) ?? { id, label: id });
+  const matchCalc = (c: CalcPackage) => calcMatchesQuery(c, searchQuery, linkedNodesOf(c.key));
 
   const activeCalc = target?.calcKey ? calcByKey.get(target.calcKey) ?? null : null;
 
@@ -250,10 +265,12 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              type="text"
+              type="search"
+              aria-label="Search PDF calculations"
+              autoComplete="off"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search calcs, software, type..."
+              placeholder="Search calcs, software, members…"
               className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
             />
           </div>
@@ -386,7 +403,13 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
             <div className="text-center py-12 text-zinc-500">
               <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
               <p className="text-xs font-medium text-zinc-300">{calcs.length ? 'No matching calculations' : 'No calc package loaded'}</p>
-              <p className="text-[11px] text-zinc-500 mt-1">{calcs.length ? 'Try clearing the search.' : 'Upload a calc package PDF or load the sample.'}</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                {calcs.length
+                  ? 'Try clearing the search.'
+                  : elementNodes.length
+                  ? 'This model has no calc package yet. Upload a calc package PDF to map it.'
+                  : 'Import a model and upload a calc package PDF, or load the sample.'}
+              </p>
             </div>
           ) : (
             filteredCalcs.map((c) => listRow(c))

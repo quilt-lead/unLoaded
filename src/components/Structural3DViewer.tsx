@@ -57,31 +57,16 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   onSelectRef.current = onSelectNode;
 
   useEffect(() => {
-    const v = new IfcViewer(host.current!);
+    // navigation, click-vs-drag (3 px from pointerdown) and stopping pointer / wheel events from
+    // reaching the panel behind are all Structural3DControls' (inside IfcViewer); a click picks
+    const v: IfcViewer = new IfcViewer(host.current!, {
+      onClick: (e) => {
+        const gid = v.pick(e);
+        if (gid) onSelectRef.current(gid, { toggleMulti: e.shiftKey });
+      },
+    });
     viewer.current = v;
-    const el = v.renderer.domElement;
-    let down: { x: number; y: number } | null = null;
-    const onDown = (e: PointerEvent) => {
-      e.stopPropagation();
-      down = { x: e.clientX, y: e.clientY };
-    };
-    const onUp = (e: PointerEvent) => {
-      if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4 || e.button !== 0) {
-        down = null;
-        return;
-      }
-      down = null;
-      const gid = v.pick(e);
-      if (gid) onSelectRef.current(gid, { toggleMulti: e.shiftKey });
-    };
-    const onWheel = (e: WheelEvent) => e.stopPropagation();
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('wheel', onWheel);
     return () => {
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('wheel', onWheel);
       v.dispose();
       viewer.current = null;
     };
@@ -231,7 +216,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     if (!v || fitTrigger === 0) return;
     const { litIds: lit } = selRef.current;
     if (!lit.any) {
-      v.fit();
+      v.fit(true);
       return;
     }
     const targets = [...lit.primary].flatMap((id) => elementIdsUnder(id, nodes));
@@ -240,7 +225,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   }, [fitTrigger]);
 
   useEffect(() => {
-    if (resetTrigger > 0) viewer.current?.fit();
+    if (resetTrigger > 0) viewer.current?.fit(true);
   }, [resetTrigger]);
 
   return (

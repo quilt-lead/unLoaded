@@ -88,6 +88,10 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<WorkspaceView>('element-graph');
+  /** the inspector panel's own visibility: closing it keeps the selection; the header toggle and Reset reopen it */
+  const [inspectorVisible, setInspectorVisible] = useState(true);
+  /** bumped by every explicit "open this in the PDF view": remounts the browser so its search / comparison cannot hide the target */
+  const [documentOpenRequest, setDocumentOpenRequest] = useState(0);
   const [colorMode, setColorMode] = useState<ColorMode>('type');
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
@@ -177,6 +181,19 @@ export const App: React.FC = () => {
   const [topHudZ, setTopHudZ] = useState<{ v3d: number; insp: number }>({ v3d: 31, insp: 32 });
   const [hoverEdge, setHoverEdge] = useState<'left' | 'right' | null>(null);
 
+  /**
+   * Every view change goes through here. Element and calc searches / type filters address different
+   * records (element categories vs calc groups), so crossing into or out of the calc graph clears them.
+   */
+  const activeViewRef = useRef(activeView);
+  activeViewRef.current = activeView;
+  const changeView = useCallback((next: WorkspaceView) => {
+    if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
+      setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
+    }
+    setActiveView(next);
+  }, []);
+
   const handleClearSelection = useCallback(() => {
     setSelectedNodeId(null);
     setSelectedNodeIds(new Set());
@@ -230,9 +247,13 @@ export const App: React.FC = () => {
   const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
   const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
+  // one timer: a newer toast restarts the countdown; cleared on unmount
+  const toastTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const showToast = useCallback((message: string, isError = false) => {
     setToast({ message, isError, visible: true });
-    window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
   }, []);
 
   // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
@@ -332,7 +353,8 @@ export const App: React.FC = () => {
     return [...m.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
   }, [elementNodes]);
 
-  const isDiffFilterActive = Boolean(diffSummary && diffFilter !== 'ALL');
+  // the diff filter applies to elements only (see matchingNodeIds): in the calc graph it is not an active filter
+  const isDiffFilterActive = Boolean(activeView !== 'calculation-graph' && diffSummary && diffFilter !== 'ALL');
   const isFilterActive = Boolean(filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL' || isDiffFilterActive);
 
   const { matchingNodeIds, totalInstances } = useMemo(() => {
@@ -410,7 +432,7 @@ export const App: React.FC = () => {
 
   const selectCalcByKey = useCallback(
     (key: string) => {
-      setActiveView('calculation-graph');
+      changeView('calculation-graph');
       setCalcAnchorKey(key);
       setSelectedCalcNodeId(calcNodeId(key));
       setSelectedCalcNodeIds(new Set([calcNodeId(key)]));
@@ -418,7 +440,7 @@ export const App: React.FC = () => {
       setSelectedNodeIds(new Set(mapped));
       setSelectedNodeId(mapped[0] ?? null);
     },
-    [view],
+    [view, changeView],
   );
 
   const handleSelectGroup = useCallback(
@@ -522,15 +544,16 @@ export const App: React.FC = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+      if (e.defaultPrevented || (t && (['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) || t.isContentEditable))) return;
+      // groups live on the element graph: Ctrl/Cmd+G elsewhere is the browser's
+      if (activeView === 'element-graph' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleGroupSelection, handleClearSelection]);
+  }, [activeView, handleGroupSelection]);
 
   // ---------------------------------------------------------------- actions
   const run = useCallback(
@@ -730,6 +753,12 @@ export const App: React.FC = () => {
     setMoved(new Map());
     setViewer3dDock('float');
     setInspectorDock('float');
+    setInspectorVisible(true);
+    setLeftDockWidth(340);
+    setRightDockWidth(360);
+    setDocFilterBySelected(false);
+    setPdfTarget(null);
+    setDocumentOpenRequest((c) => c + 1);
     setResetTrigger((c) => c + 1);
     showToast('View, filters & panels reset');
   }, [handleClearSelection, showToast]);
@@ -741,9 +770,10 @@ export const App: React.FC = () => {
         setDocFilterBySelected(true);
       }
       setPdfTarget(t);
-      setActiveView('docs');
+      setDocumentOpenRequest((c) => c + 1);
+      changeView('docs');
     },
-    [handleSelectElementNode],
+    [handleSelectElementNode, changeView],
   );
 
   const showElementCalcs = useCallback(
@@ -754,9 +784,10 @@ export const App: React.FC = () => {
       handleSelectElementNode(elementId, { skipZoomFit: true });
       setDocFilterBySelected(true);
       if (top && c) setPdfTarget({ calcKey: c.key, page: top.evidence.page ?? c.pages[0] ?? 1, rects: top.evidence.rects, caption: `Matched "${top.matchedText}"` });
-      setActiveView('docs');
+      setDocumentOpenRequest((n) => n + 1);
+      changeView('docs');
     },
-    [elementById, view, handleSelectElementNode],
+    [elementById, view, handleSelectElementNode, changeView],
   );
 
   const dropFromHash = (key: string) => {
@@ -786,7 +817,7 @@ export const App: React.FC = () => {
     const v = h.get('view') as WorkspaceView | null;
     if (el && elementById.has(el)) handleSelectElementNode(el);
     if (calc) selectCalcByKey(calc);
-    if (v && ['element-graph', 'calculation-graph', '3d', 'docs'].includes(v)) setActiveView(v);
+    if (v && ['element-graph', 'calculation-graph', '3d', 'docs'].includes(v)) changeView(v);
     if (el && h.get('evidence')) showElementCalcs(el);
     const imp = h.get('impact');
     if (el && (imp === 'change' || imp === 'remove')) setImpactReq({ gid: el, mode: imp });
@@ -795,7 +826,7 @@ export const App: React.FC = () => {
     if (cmp && !(cmp.length === 2 && requestDiff(cmp[0], cmp[1]))) dropFromHash('compare');
     const color = h.get('color') as ColorMode | null;
     if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
-  }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs]);
+  }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs, changeView]);
 
   // ---------------------------------------------------------------- panels
   const defaultV3dPos = useMemo(
@@ -815,7 +846,7 @@ export const App: React.FC = () => {
   );
 
   const showViewer3d = hasProject && (activeView === 'element-graph' || activeView === 'calculation-graph');
-  const showInspector = hasProject && (activeView === 'element-graph' || activeView === 'calculation-graph' || activeView === '3d');
+  const showInspector = hasProject && inspectorVisible && activeView !== 'docs';
   const leftDockedHasItems = (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
   const rightDockedHasItems = (showViewer3d && viewer3dDock === 'right') || (showInspector && inspectorDock === 'right');
 
@@ -932,7 +963,7 @@ export const App: React.FC = () => {
         {viewer3d}
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
           <span className="truncate text-zinc-200">{status3d}</span>
-          <span className="text-zinc-500 ml-2 flex-shrink-0">Drag Orbit • RMB Pan</span>
+          <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
         </div>
       </div>
     </DockableHudPanel>
@@ -956,8 +987,12 @@ export const App: React.FC = () => {
       onFocus={() => setTopHudZ((z) => ({ v3d: z.v3d, insp: Math.max(z.v3d, z.insp) + 1 }))}
       onChangeDockSide={setInspectorDock}
       onDragHoverEdge={setHoverEdge}
-      onCloseAction={handleClearSelection}
-      closeTitle="Clear Selection"
+      onCloseAction={() => {
+        // closing hides the panel; the selection stays (Escape or Clear All clears it)
+        setInspectorVisible(false);
+        document.getElementById('inspectorToggle')?.focus();
+      }}
+      closeTitle="Close Inspector"
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
@@ -982,7 +1017,7 @@ export const App: React.FC = () => {
           canWrite={view?.source === 'project' && !viewIsPlaceholder}
           busy={decide.isPending || Boolean(busyText)}
           onSelectNode={(id) => {
-            if (activeView === 'calculation-graph') setActiveView('element-graph');
+            if (activeView === 'calculation-graph') changeView('element-graph');
             handleSelectElementNode(id);
           }}
           onSelectCalc={selectCalcByKey}
@@ -1080,7 +1115,9 @@ export const App: React.FC = () => {
         projectName={hasProject && view ? view.projectName : 'No Model Loaded'}
         subtitle={subtitle}
         activeView={activeView}
-        onChangeView={setActiveView}
+        onChangeView={changeView}
+        inspectorVisible={showInspector}
+        onToggleInspector={() => setInspectorVisible(!showInspector)}
         calcCount={view?.calcs.length ?? 0}
         colorMode={colorMode}
         onChangeColorMode={setColorMode}
@@ -1141,7 +1178,7 @@ export const App: React.FC = () => {
         traceSteps={traceSteps}
         onChangeTraceSteps={setTraceSteps}
         colorMode={colorMode}
-        diffSummary={diffSummary}
+        diffSummary={activeView === 'calculation-graph' ? null : diffSummary}
         diffFilter={diffFilter}
         onChangeDiffFilter={setDiffFilter}
         impactActive={Boolean(impact)}
@@ -1264,6 +1301,9 @@ export const App: React.FC = () => {
           )}
 
           {hasProject && activeView === 'docs' && view && (
+            // the fragment's key remounts the browser on every explicit open (its search, tab or open
+            // comparison could otherwise hide the target); its own key is the project scope's epoch
+            <React.Fragment key={documentOpenRequest}>
             <DocumentBrowser
               key={scope.epoch}
               calcs={view.calcs}
@@ -1288,10 +1328,11 @@ export const App: React.FC = () => {
               diffMode={diffMode}
               onLocateElement={(nodeId, v) => {
                 handleSelectElementNode(nodeId);
-                setActiveView(v);
+                changeView(v);
               }}
               onLocateCalc={selectCalcByKey}
             />
+            </React.Fragment>
           )}
         </div>
 
@@ -1315,6 +1356,7 @@ export const App: React.FC = () => {
         }`}
         role="status"
         aria-live="polite"
+        aria-atomic="true"
       >
         {busyText || viewBusy ? (
           <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
@@ -1323,7 +1365,7 @@ export const App: React.FC = () => {
         ) : (
           <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
         )}
-        <div className="text-xs font-medium">{busyText || viewBusy || toast.message}</div>
+        <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
       </div>
     </div>
   );
