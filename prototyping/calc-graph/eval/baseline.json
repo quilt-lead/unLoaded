@@ -7,12 +7,6 @@
     "llm_imports_outside_ai": true
    }
   },
-  "calc_spot": {
-   "metrics": {
-    "spot_checks": 39,
-    "spot_pass_rate": 0.8205128205128205
-   }
-  },
   "copyright": {
    "checks": {
     "no_copyrighted_in_head": true
@@ -94,51 +88,14 @@
   },
   "set_coverage": {
    "metrics": {
-    "calc_edges": 303,
-    "calc_pages_linked_frac": 0.09689922480620156,
-    "elements": 638,
-    "elements_linked_frac": 0.3777429467084639,
-    "elements_linked_strong_frac": 0.28213166144200624,
-    "findings": 633,
-    "links": 960,
-    "load_path_edges": 171
-   }
-  },
-  "slice_links": {
-   "metrics": {
-    "correct_links_retained": 1.0,
-    "incorrect_links_present": 8,
-    "judged": 57,
-    "judged_present": 57,
-    "link_precision": 0.8596491228070176
-   }
-  },
-  "slice_tags": {
-   "metrics": {
-    "S2_0_2_grid_compatible": 1.0,
-    "S2_0_2_grid_exact": 0.9743589743589743,
-    "S2_0_2_labelled": 180,
-    "S2_0_2_predicted": 180,
-    "S2_0_2_size_accuracy": 1.0,
-    "S2_0_2_tag_precision": 1.0,
-    "S2_0_2_tag_recall": 1.0,
-    "S2_0_2_type_accuracy": 0.9833333333333333
-   }
-  },
-  "synthetic_v1": {
-   "metrics": {
-    "calc_edges_precision": 0.8461538461538461,
-    "calc_edges_recall": 0.9166666666666666,
-    "decisions_carried": 1.0,
-    "design_f1": 0.962962962962963,
-    "design_precision": 0.9323770491803278,
-    "design_recall": 0.9956236323851203,
-    "load_path_precision": 1.0,
-    "load_path_recall": 1.0,
-    "rev2_load_path_recall": 1.0,
-    "rev_diff_exact": 1.0,
-    "segmentation_exact": 1.0,
-    "xref_precision": 1.0
+    "calc_edges": 0,
+    "calc_pages_linked_frac": 0.2222222222222222,
+    "elements": 416,
+    "elements_linked_frac": 0.3918269230769231,
+    "elements_linked_strong_frac": 0.009615384615384616,
+    "findings": 288,
+    "links": 326,
+    "load_path_edges": 144
    }
   },
   "v2_design": {
@@ -165,7 +122,15 @@
     "profile_accuracy": 1.0,
     "storey_accuracy": 1.0
    }
+  },
+  "v2_ifc_mapping": {
+   "metrics": {
+    "calcs": 37,
+    "design_precision": 0.7274678111587983,
+    "design_recall": 0.9712556732223904,
+    "xref_links": 209
+   }
   }
  },
- "updated": "2026-11-14 19:46 EST"
+ "updated": "2026-11-14 20:28 EST"
 }
