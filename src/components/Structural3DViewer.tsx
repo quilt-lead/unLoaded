@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Loader2 } from 'lucide-react';
 import type { BimNode, ColorMode, HighlightOverlay } from '../types/bim';
-import { TONE_COLORS, getEffectiveNodeColor } from '../utils/colors';
+import { computeLitSet, elementEmphasis } from '../utils/elementEmphasis';
 import { elementIdsUnder } from '../utils/graphEngine';
 import { IfcViewer, type MeshStyle } from './three/ifcViewer';
 
@@ -27,8 +27,6 @@ interface Structural3DViewerProps {
   emptyText?: React.ReactNode;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean }) => void;
 }
-
-const UNMAPPED_MESH = '#6b7280';
 
 export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   nodes,
@@ -151,57 +149,19 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
 
   // the set an active selection lights up: selected elements, everything under a selected
   // category / family / project, and the traced load path
-  const litIds = useMemo(() => {
-    const ids = new Set<string>(activeLoadChainNodeIds);
-    const sel = selectedNodeIds.size > 0 ? selectedNodeIds : selectedNodeId ? new Set([selectedNodeId]) : new Set<string>();
-    sel.forEach((id) => elementIdsUnder(id, nodes).forEach((e) => ids.add(e)));
-    return { ids, primary: sel, any: sel.size > 0 };
-  }, [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds]);
+  const litIds = useMemo(
+    () => computeLitSet(nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds),
+    [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds],
+  );
 
   // restyle every mesh
   useEffect(() => {
     const v = viewer.current;
     if (!v || (!loadedUrl && boxCount === 0)) return;
+    const ctx = { colorMode, diffMode, overlay, lit: litIds, isFilterActive, matchingNodeIds };
     for (const gid of v.meshes.keys()) {
-      const node = nodeById.get(gid);
-      const isGhost = v.ghostIds.has(gid);
-      const s: MeshStyle = { color: UNMAPPED_MESH, opacity: 0.22, visible: true, glow: null };
-      if (node) {
-        s.color = getEffectiveNodeColor(node, colorMode, diffMode);
-        s.opacity = node.elementKind === 'slab' ? 0.32 : 1;
-      }
-      if (diffMode) {
-        const st = node?.diffStatus ?? 'unchanged';
-        s.opacity = st === 'unchanged' ? 0.11 : st === 'removed' ? 0.45 : node?.elementKind === 'slab' ? 0.42 : 1;
-        if (st !== 'unchanged') s.glow = s.color;
-      }
-      if (isGhost && !diffMode) s.visible = false;
-
-      if (overlay) {
-        const tone = overlay.tones.get(gid);
-        if (tone) {
-          s.color = TONE_COLORS[tone];
-          s.opacity = 1;
-          s.glow = tone === 'origin' ? '#6366f1' : TONE_COLORS[tone];
-        } else {
-          s.opacity = Math.min(s.opacity, 0.07);
-          s.glow = null;
-        }
-      } else if (litIds.any) {
-        if (litIds.primary.has(gid)) {
-          s.opacity = 1;
-          s.glow = s.color;
-        } else if (litIds.ids.has(gid)) {
-          s.opacity = Math.max(s.opacity, node?.elementKind === 'slab' ? 0.42 : 1);
-          s.glow = s.color;
-        } else {
-          s.opacity = Math.min(s.opacity, 0.06);
-          s.glow = null;
-        }
-      } else if (isFilterActive && !matchingNodeIds.has(gid)) {
-        s.opacity = Math.min(s.opacity, 0.07);
-        s.glow = null;
-      }
+      const { color, opacity, glow } = elementEmphasis(gid, nodeById.get(gid), ctx);
+      const s: MeshStyle = { color, opacity, glow, visible: !(v.ghostIds.has(gid) && !diffMode) };
       v.style(gid, s);
     }
   }, [loadedUrl, ghostVersion, boxVersion, boxCount, nodeById, colorMode, diffMode, overlay, litIds, isFilterActive, matchingNodeIds]);

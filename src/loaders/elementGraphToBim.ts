@@ -249,6 +249,7 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
       if (s !== undefined) params[k] = s;
     }
     const bb = el.geometry?.bbox;
+    const ax = el.geometry?.axis;
     nodes.push({
       id: el.id,
       label,
@@ -267,6 +268,8 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
       material: el.material,
       params,
       bbox: bb ? { min: [bb.min[0], bb.min[1], bb.min[2]], max: [bb.max[0], bb.max[1], bb.max[2]] } : undefined,
+      axis: ax ? { start: [ax.start[0], ax.start[1], ax.start[2]], end: [ax.end[0], ax.end[1], ax.end[2]] } : undefined,
+      section: el.geometry?.section ? { ...el.geometry.section } : undefined,
       r: 8,
       x: 0,
       y: 0,
@@ -287,5 +290,12 @@ export function elementGraphToBim(graph: ElementGraph, opts: ElementGraphToBimOp
     }
   }
 
-  return { projectName, elementNodes: computeRadialLayout(nodes), hierarchyLinks: links, loadPath, connectivity };
+  return {
+    projectName,
+    elementNodes: computeRadialLayout(nodes),
+    hierarchyLinks: links,
+    loadPath,
+    connectivity,
+    levels: levels.map((l) => ({ id: l.id, name: storeyOf.get(l.id)!.name, elevation: l.elevation })),
+  };
 }

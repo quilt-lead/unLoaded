@@ -68,6 +68,8 @@ import { HeaderBar } from './components/HeaderBar';
 import { FilterBar, type DiffFilter } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
 import { Structural3DViewer } from './components/Structural3DViewer';
+import { countRoles, PlanView2D } from './components/PlanView2D';
+import { buildPlanIndex, formatElevation, levelForElement } from './utils/planSlice';
 import { PropertyInspector } from './components/PropertyInspector';
 import { DocumentBrowser, calcTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
@@ -191,6 +193,11 @@ export const App: React.FC = () => {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
+  // the model panel's views: the 3D model and the 2D plan of one level
+  const [modelTab, setModelTab] = useState<'3d' | 'plan'>('3d');
+  const [planLevelPick, setPlanLevelPick] = useState<string | null>(null);
+  const [planFitTrigger, setPlanFitTrigger] = useState(0);
+  const [planResetTrigger, setPlanResetTrigger] = useState(0);
   const [viewer3dDock, setViewer3dDock] = useState<DockSide>('right');
   const [inspectorDock, setInspectorDock] = useState<DockSide>('left');
   const [leftDockWidth, setLeftDockWidth] = useState(340);
@@ -335,6 +342,22 @@ export const App: React.FC = () => {
     });
   }, [view, moved]);
   const elementById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
+
+  // the 2D plan: every level sliced once per model (graph layout moves don't re-slice)
+  const planIndex = useMemo(() => buildPlanIndex(view?.elementNodes ?? [], view?.levels ?? []), [view]);
+  // the level picked, if the model still has it; else the lowest floor with a slab, else the lowest level
+  const planLevelId =
+    (planLevelPick && planIndex.plans.has(planLevelPick) ? planLevelPick : null) ??
+    planIndex.levels.find((l) => l.hasSlab)?.id ??
+    planIndex.levels[0]?.id ??
+    null;
+  // a selection elsewhere (graph, inspector, 3D) takes the plan to a level the element is drawn on
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const lv = levelForElement(planIndex, selectedNodeId, planLevelId);
+    if (lv && lv !== planLevelId) setPlanLevelPick(lv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, planIndex]);
 
   const calcGraph = useMemo(
     () => withMappingSatellites(view?.calcNodes ?? [], view?.calcLinks ?? [], calcAnchorKey, elementNodes),
@@ -1039,10 +1062,43 @@ export const App: React.FC = () => {
     ? 'Utilisation'
     : 'IFC Model';
 
+  const planView = (
+    <PlanView2D
+      nodes={elementNodes}
+      index={planIndex}
+      levelId={planLevelId}
+      onLevelChange={setPlanLevelPick}
+      selectedNodeId={selectedNodeId}
+      selectedNodeIds={selectedNodeIds}
+      activeLoadChainNodeIds={activeLoadChainNodeIds}
+      matchingNodeIds={matchingNodeIds}
+      isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
+      colorMode={colorMode}
+      diffMode={diffMode}
+      overlay={overlay}
+      fitTrigger={planFitTrigger}
+      resetTrigger={planResetTrigger}
+      revealTrigger={fit3dTrigger}
+      emptyText={view?.source === 'file' ? 'An export JSON carries no geometry; open the project file or add the IFC to see the plan.' : undefined}
+      onSelectNode={handleSelectElementNode}
+    />
+  );
+  const shownPlan = planLevelId ? planIndex.plans.get(planLevelId) : undefined;
+  const statusPlan = shownPlan
+    ? `${shownPlan.level.name}  ${formatElevation(shownPlan.level.elevation)}  ·  ${countRoles(shownPlan.items)}`
+    : 'No levels';
+  const onPlanTab = modelTab === 'plan';
+
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
+      title={diffMode ? 'Diff A vs B' : 'Model'}
+      tabs={[
+        { id: '3d', label: '3D' },
+        { id: 'plan', label: 'Plan' },
+      ]}
+      activeTab={modelTab}
+      onTabChange={(t) => setModelTab(t === 'plan' ? 'plan' : '3d')}
       indicatorClassName={
         diffMode || impact
           ? 'bg-amber-400'
@@ -1060,7 +1116,7 @@ export const App: React.FC = () => {
         <>
           <button
             type="button"
-            onClick={() => setFit3dTrigger((c) => c + 1)}
+            onClick={() => (onPlanTab ? setPlanFitTrigger : setFit3dTrigger)((c) => c + 1)}
             title="Zoom to selection"
             className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
@@ -1068,9 +1124,9 @@ export const App: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setResetTrigger((c) => c + 1)}
-            title="Reset 3D camera"
-            aria-label="Reset 3D camera"
+            onClick={() => (onPlanTab ? setPlanResetTrigger : setResetTrigger)((c) => c + 1)}
+            title={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
+            aria-label={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
             className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
           >
             <RotateCcw className="w-3 h-3" />
@@ -1079,10 +1135,20 @@ export const App: React.FC = () => {
       }
     >
       <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
-        {viewer3d}
+        {/* both views stay mounted: switching tabs must not drop the WebGL context or reload the IFC */}
+        <div className="absolute inset-0" hidden={onPlanTab}>
+          {viewer3d}
+        </div>
+        <div className="absolute inset-0" hidden={!onPlanTab}>
+          {planView}
+        </div>
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
-          <span className="truncate text-zinc-200">{status3d}</span>
-          <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          <span className="truncate text-zinc-200">{onPlanTab ? statusPlan : status3d}</span>
+          {onPlanTab ? (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: pan · Wheel or + / −: zoom · Page Up / Page Down or [ ]: change level">Drag Pan • Wheel Zoom • PgUp/PgDn Level</span>
+          ) : (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          )}
         </div>
       </div>
     </DockableHudPanel>
