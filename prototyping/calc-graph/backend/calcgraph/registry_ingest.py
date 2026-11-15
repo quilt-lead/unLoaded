@@ -1086,12 +1086,20 @@ def ingest_calcs(R: Registry, path: str, pf) -> dict:
                 if src != r["id"]:
                     R.rel(src, r["id"], "feeds", "record mentions an element / detail designed by another record", "inferred")
     # load path -> calc dependency: the record designing a supported member feeds the record designing its
-    # support (the reaction is a load on it) and the record designing the connection between them
+    # support (the reaction is a load on it) and the record designing the connection between them. The
+    # reaction lands on the support's FIRST-printed record (its gravity design), not on every later record
+    # of it (in-frame / collector checks); a brace delivers no gravity reaction, only its own connection
+    def _first_at(x: str) -> tuple:
+        occ = [o for o in R.nodes[x].get("occurrences", []) if o.get("doc") == "calcs"]
+        return min(((o["page"], o["bbox"][1]) for o in occ), default=(10 ** 9, 0.0))
+
+    first = {e: min(rs, key=_first_at) for e, rs in by_subject.items() if rs}
     for (s, d, k), rel in list(R.rels.items()):
         if k not in ("frames-into", "bears-on") or R.nodes[s]["type"] == "deck":
             continue
+        sup = [first[d]] if d in first and R.nodes[s]["type"] != "brace" else []
         for rs in by_subject.get(s, []):
-            for rd in by_subject.get(d, []) + by_subject.get(rel.get("via") or "", []):
+            for rd in sup + by_subject.get(rel.get("via") or "", []):
                 R.rel(rs, rd, "feeds", "load path: the supported member's design reaction loads its support / connection", "inferred")
     return {"records": len(res["records"]), "unreadable_pages": res["unreadable_pages"], "stats": res["stats"],
             "software": {p["sheet_id"]: p["software"] for p in pk["pages"]}}
