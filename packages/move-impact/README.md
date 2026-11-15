@@ -2,14 +2,17 @@
 
 "What happens if this column moves (or goes)?" - screened on **uploaded data**: the element graph
 the app builds from the IFC (`@unloaded/element-graph`), plus, optionally, the values the calc package
-states. Pure TypeScript, no runtime dependencies (type-only imports of the element graph and
-`@unloaded/calc-mapper`), runs in the browser and in Node.
+states. Pure TypeScript, runs in the browser and in Node. Its only runtime dependency is
+`@unloaded/calc-mapper`, for the shared contracts: `Quantity` + `convert()` (units), `SheetRect`
+(rects) and `Provenance` + `inputList()` (provenance) - none of them is redefined here.
 
 ```ts
 import { impact } from "@unloaded/move-impact";
+import { sha256Json } from "@unloaded/calc-mapper";
 
 const r = impact({
   graph,                                           // ElementGraph.serialize()
+  graphSha256: await sha256Json(graph),            // provenance input
   move: { column: gid, dx: 1.5, dy: 0 },           // metres; or { column: gid, remove: true }
   facts,                                           // optional CalcFact[] - what calc rows state
   links,                                           // optional calc-mapper Link[] - for stale calcs
@@ -22,6 +25,14 @@ r.health;        // only with facts: easy / moderate / hard / do-not-move, with 
 r.stale;         // only with facts or links: calcs on affected elements
 ```
 
+Every record (topological element, screened element, estimate, stale row, stale calc, health) carries
+calc-mapper's provenance shape: producer `move-impact@<version>/<impact|health>`, a stable rule id,
+method `rule` or `estimate`, and `inputs` = the sha256 of the graph and of the calc package(s) its
+facts came from (`r.inputs` lists them for the whole result). calc-mapper's `Producer` type admits
+only its own modules, so the producer field is narrowed in `MoveImpactProvenance`; widening
+`Producer` in calc-mapper would let this be its plain `Provenance`. Physical values are `Quantity`;
+unit `"1"` marks a relative magnitude (unit area load, deflection with EI = 1) - compare ratios only.
+
 Nothing in the output is a recalculation. Every utilisation is a printed value scaled by a
 geometric ratio and says what it was scaled by; nothing calc-dependent is present without calc facts.
 
@@ -33,14 +44,16 @@ geometric ratio and says what it was scaled by; nothing calc-dependent is presen
   column at the same plan position, e.g. a pier) and its foundation chain move with it.
 - **`CalcFact`** - one calc row: `id`, `kind` (beam / column / footing / connection / typical_detail /
   brace / frame / frame_girder / collector / seismic / other), `elements` (GlobalIds), `source`
-  (`calcKey` = calc-mapper `Calc.key`, `page`, `rects` in PDF points), and whatever the row prints:
+  (`calcKey` = calc-mapper `Calc.key`, `page`, `rects` as `SheetRect`, `documentSha256` = the calc
+  package's sha256), and whatever the row prints, every physical value a `Quantity`:
   `utilisation`, `demand` / `capacity`, `governs`, `checks[]` (per mode: flexure, shear,
   deflection_live, deflection_total, ...), `span`, `lineLoad` {dead, live, roofLive, unit},
   `reactions` {i, j} by component, `axial`, `serviceLoad` / `allowableBearing` / `width` (footing),
   `detailType` / `bolts` (connections, typical details), `combination` (governing load combination),
   `seismic` {cs, r, ie, system} (ELF row), `chevron` (AISC 341 F2.3 values), plus `role`
-  (gravity / lateral) and `group` (frame line) as the sheet header names them. Values carry their unit
-  as printed. Reaction end "i" is the element's axis start in the model.
+  (gravity / lateral) and `group` (frame line) as the sheet header names them. Units are converted
+  once (`facts.ts`, calc-mapper `convert()`); a value in the wrong dimension or an unknown unit is
+  dropped and listed in `assumptions`, never used. Reaction end "i" is the element's axis start.
 - **Links**: calc-mapper `Link`s (`global_id`, `calc_key`; rejected links ignored).
 - **Sections** (optional): profile -> `{unit, d, tf, bf, A, Ix, Zx, Sx, ry, rts, ho, J}` from a
   published shape table the caller supplies. The package ships no shape table.

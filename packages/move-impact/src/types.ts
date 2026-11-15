@@ -8,13 +8,30 @@
  *
  * Every number that is not read straight from the model or a calc is an ESTIMATE and says so:
  * `method: "estimate"` plus `scaledBy` (what it was scaled by). Nothing here is a recalculation.
+ *
+ * Shared contracts are calc-mapper's, not redefined here: physical values are its `Quantity`
+ * (closed unit set, `convert()`), rects are its `SheetRect`, and every output record carries its
+ * `Provenance` shape (producer "move-impact@<version>/<module>", rule, method, input sha256s).
  */
 import type { SerializedElementGraph } from "@unloaded/element-graph";
-import type { Link, Rect } from "@unloaded/calc-mapper/types";
+import type { Link, Provenance, Quantity, SheetRect, Unit } from "@unloaded/calc-mapper/types";
 
-export type { SerializedElementGraph, Link, Rect };
+export type { SerializedElementGraph, Link, Provenance, Quantity, SheetRect, Unit };
 
 export const ENGINE_VERSION = "move-impact-v1.0" as const;
+
+// ---------------------------------------------------------------- provenance
+
+/** The modules of this package that produce records. */
+export type MoveImpactModule = "impact" | "health";
+/** "move-impact@0.1.0/impact". */
+export type MoveImpactProducer = `move-impact@${string}/${MoveImpactModule}`;
+/**
+ * calc-mapper's `Provenance`, with this package as the producer. calc-mapper's `Producer` type only
+ * admits its own modules, so the producer field is narrowed here; every other field (rule, method,
+ * inputs - lowercase sha256, validated by calc-mapper's `inputList`) is calc-mapper's.
+ */
+export type MoveImpactProvenance = Omit<Provenance, "producer"> & { producer: MoveImpactProducer };
 
 // ---------------------------------------------------------------- the move
 
@@ -26,35 +43,30 @@ export type Move =
 // ---------------------------------------------------------------- calc facts (optional input)
 
 /**
- * Where a calc states a value: the calc (calc-mapper `Calc.key`), the page, and the highlight
- * rect(s) in PDF points (top-left origin, y down - calc-mapper's convention).
+ * Where a calc states a value: the calc (calc-mapper `Calc.key`), the page, the highlight rect(s)
+ * (calc-mapper `SheetRect`), and the sha256 of the calc package's bytes (calc-mapper's
+ * `CalcPage.doc_sha256`) - it goes into the provenance inputs of everything derived from the row.
  */
 export interface CalcSource {
   calcKey: string;
   page: number | null;
-  rects: Rect[];
-}
-
-/** A stated number with its unit as the calc prints it (e.g. "kip", "kip-ft", "klf", "ksf", "ft", "in"). */
-export interface Stated {
-  value: number;
-  unit: string;
+  rects: SheetRect[];
+  documentSha256: string;
 }
 
 /** Load components as a calc states them. `live` on a reaction is "L + Lr only" (the engine puts it
  * in the roof-live slot for a member at the roof level, as the hackathon did). */
-export interface StatedComponents {
-  dead?: number;
-  live?: number;
-  roofLive?: number;
-  unit: string;
+export interface LoadComponents {
+  dead?: Quantity;
+  live?: Quantity;
+  roofLive?: Quantity;
 }
 
 /** One check a calc row states: demand against capacity (and/or the ratio it prints). */
 export interface StatedCheck {
   mode: CheckMode;
-  demand?: Stated;
-  capacity?: Stated;
+  demand?: Quantity;
+  capacity?: Quantity;
   /** The printed ratio (demand / capacity, or deflection / allowable). */
   utilisation?: number;
 }
@@ -110,25 +122,25 @@ export interface CalcFact {
   /** Governing utilisation / unity check as printed. */
   utilisation?: number;
   /** Governing demand and capacity as printed (used when utilisation is not printed). */
-  demand?: Stated;
-  capacity?: Stated;
+  demand?: Quantity;
+  capacity?: Quantity;
   /** Which check governs, as printed. */
   governs?: CheckMode;
   checks?: StatedCheck[];
 
-  span?: Stated;
-  tributaryWidth?: Stated;
+  span?: Quantity;
+  tributaryWidth?: Quantity;
   /** Uniform line load on a beam (e.g. "Uniform Load: D = 0.203, L = 0.65 k/ft"). */
-  lineLoad?: StatedComponents;
+  lineLoad?: LoadComponents;
   /** Unfactored end reactions by component (end "i" = axis start, "j" = axis end) and the
    * factored maximum the row prints. */
-  reactions?: { i?: StatedComponents; j?: StatedComponents; factoredI?: Stated; factoredJ?: Stated };
+  reactions?: { i?: LoadComponents; j?: LoadComponents; factoredI?: Quantity; factoredJ?: Quantity };
   /** Factored axial load (column Pu, brace Pu). */
-  axial?: Stated;
+  axial?: Quantity;
   /** Footing: unfactored service column load, allowable bearing pressure, plan width. */
-  serviceLoad?: Stated;
-  allowableBearing?: Stated;
-  width?: Stated;
+  serviceLoad?: Quantity;
+  allowableBearing?: Quantity;
+  width?: Quantity;
   /** Connection / typical detail: detail type (e.g. "ST-4"), bolts in the row (typical detail). */
   detailType?: string;
   bolts?: number;
@@ -139,11 +151,11 @@ export interface CalcFact {
   seismic?: { cs: number; r: number; ie?: number; system?: string };
   /** AISC 341 F2.3 chevron check printed for a braced-frame girder (frame_girder rows). */
   chevron?: {
-    unbalancedLoad: Stated;
-    gravityMoment: Stated;
-    axial: Stated;
-    axialCapacity: Stated;
-    momentCapacity: Stated;
+    unbalancedLoad: Quantity;
+    gravityMoment: Quantity;
+    axial: Quantity;
+    axialCapacity: Quantity;
+    momentCapacity: Quantity;
     equation: "H1-1a" | "H1-1b";
   };
 }
@@ -154,6 +166,7 @@ export interface CalcFact {
  * (bolt-row limit with flange thickness 0; brace pair taken as rigid).
  */
 export interface SectionProps {
+  /** Length unit of every property (areas / moduli / inertias are its powers). */
   unit: "in" | "mm";
   /** depth, flange thickness (unit), area (unit^2), strong-axis moment of inertia (unit^4) */
   d?: number;
@@ -176,6 +189,8 @@ export type CalcLink = Pick<Link, "global_id" | "calc_key"> & Partial<Pick<Link,
 
 export interface ImpactInput {
   graph: SerializedElementGraph;
+  /** sha256 of the graph's canonical JSON (calc-mapper `sha256Json(graph)`): a provenance input. */
+  graphSha256: string;
   move: Move;
   facts?: CalcFact[];
   links?: CalcLink[];
@@ -198,6 +213,7 @@ export interface TopoElement {
   name: string | null;
   reasons: string[];
   chain: string[];
+  provenance: MoveImpactProvenance;
 }
 
 export interface MemberGeometry {
@@ -225,10 +241,11 @@ export interface GeometryChange {
     | "connection_reaction"
     | "brace_force"
     | "tributary_width";
-  before: number;
-  after: number;
+  /** Unit "1" = a relative magnitude (unit area load, or a deflection with EI = 1): compare ratios only. */
+  before: Quantity;
+  after: Quantity;
+  /** after / before (Infinity when before is 0 and after is not; serialises as null). */
   ratio: number;
-  unit: string;
   /** "stated loads" = the calc's line loads / reactions; "unit area load" = geometry only. */
   basis: "stated loads" | "unit area load" | "geometry";
 }
@@ -243,6 +260,7 @@ export interface ScreenedElement {
   /** True when the screen could not compute a change and kept the element because topology says
    * it is on the path (the hackathon's rule). */
   keptWithoutEstimate: boolean;
+  provenance: MoveImpactProvenance;
 }
 
 export interface Estimate {
@@ -255,8 +273,9 @@ export interface Estimate {
   governs: string | null;
   source: CalcSource;
   fact: string;
+  provenance: MoveImpactProvenance;
   /** Footing: required plan width from the stated allowable bearing (estimate). */
-  requiredWidth?: Stated;
+  requiredWidth?: Quantity;
   /** Connection: next typical detail whose capacity covers the new end reaction, or null. */
   nextTypical?: string | null;
   special?: boolean;
@@ -275,6 +294,7 @@ export interface Health {
   reasons: { band: Band; reason: string; factor: string }[];
   worstUtilisation: number | null;
   method: "estimate";
+  provenance: MoveImpactProvenance;
 }
 
 export interface StaleCalc {
@@ -285,6 +305,15 @@ export interface StaleCalc {
   elements: string[];
   screened: boolean;
   reasons: string[];
+  provenance: MoveImpactProvenance;
+}
+
+export interface StaleRow {
+  fact: string;
+  calcKey: string;
+  screened: boolean;
+  elements: string[];
+  provenance: MoveImpactProvenance;
 }
 
 export interface Clash {
@@ -296,6 +325,8 @@ export interface Clash {
 export interface ImpactResult {
   engine: typeof ENGINE_VERSION;
   move: Move;
+  /** sha256 of every input document the result rests on: the graph, then each calc package the facts came from. */
+  inputs: string[];
   /** Elements reachable from the moved column through supports / connection nodes, with why. */
   topological: TopoElement[];
   /** Of those, the ones whose governing geometry changes > 5 % (or that the screen kept). */
@@ -313,6 +344,6 @@ export interface ImpactResult {
   /** Present only with facts or links: calcs linked to affected elements. */
   stale?: StaleCalc[];
   /** Present only with facts: calc rows on topological elements and whether the screen keeps them. */
-  staleRows?: { fact: string; calcKey: string; screened: boolean; elements: string[] }[];
+  staleRows?: StaleRow[];
   labels: Record<string, string>;
 }

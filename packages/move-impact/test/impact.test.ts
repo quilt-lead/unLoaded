@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ElementNode, GraphEdge, SerializedElementGraph } from "@unloaded/element-graph";
-import { buildModel, impact, solveSpan, UnknownColumn, type CalcFact } from "../src/index.ts";
+import { readFileSync } from "node:fs";
+import { sheetRect } from "@unloaded/calc-mapper";
+import { buildModel, impact, PACKAGE_VERSION, solveSpan, UnknownColumn, type CalcFact } from "../src/index.ts";
+
+const GRAPH_SHA = "a".repeat(64);
+const DOC_SHA = "b".repeat(64);
 
 // A one-level frame (metres, Z up), the way Carl's graph stores it: columns C1..C5, girders G1 (C1-C3)
 // and G2 (C2-C4) along y, edge beams E1 (C1-C2), E2 (C3-C4), E3 (C2-C5) along x, infill beam B1 from G1
@@ -68,9 +73,9 @@ const b1Fact: CalcFact = {
   id: "B1#row1",
   kind: "beam",
   elements: ["B1"],
-  source: { calcKey: "b1-floor-framing", page: 3, rects: [[10, 20, 300, 30]] },
+  source: { calcKey: "b1-floor-framing", page: 3, rects: [sheetRect(10, 20, 300, 30)], documentSha256: DOC_SHA },
   utilisation: 0.5,
-  lineLoad: { dead: 1, live: 0, roofLive: 0, unit: "klf" },
+  lineLoad: { dead: { value: 1, unit: "klf" }, live: { value: 0, unit: "klf" }, roofLive: { value: 0, unit: "klf" } },
   checks: [{ mode: "flexure", utilisation: 0.5 }],
 };
 
@@ -100,7 +105,7 @@ describe("model from the element graph", () => {
 });
 
 describe("impact without calc facts", () => {
-  const r = impact({ graph: frame(), move: { column: "C2", dx: 1, dy: 0 } });
+  const r = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 } });
 
   it("walks the path: moved framing, re-spanned infill, connections, foundation", () => {
     const ids = r.topological.map((t) => t.element);
@@ -126,15 +131,15 @@ describe("impact without calc facts", () => {
   it("never reads params: clearing them changes nothing", () => {
     const g = frame();
     for (const n of g.nodes) n.params = {};
-    expect(impact({ graph: g, move: { column: "C2", dx: 1, dy: 0 } })).toEqual(r);
+    expect(impact({ graph: g, graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 } })).toEqual(r);
   });
 
   it("refuses an element that is not a column", () => {
-    expect(() => impact({ graph: frame(), move: { column: "B1", dx: 1, dy: 0 } })).toThrow(UnknownColumn);
+    expect(() => impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "B1", dx: 1, dy: 0 } })).toThrow(UnknownColumn);
   });
 
   it("removal merges the collinear pair with the shortest span into a transfer member", () => {
-    const rr = impact({ graph: frame(), move: { column: "C2", remove: true } });
+    const rr = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", remove: true } });
     expect(rr.notes.some((n) => n.includes("E1") && n.includes("E3") && n.includes("transfer"))).toBe(true);
     const g2 = rr.topological.find((t) => t.element === "G2")!;
     expect(g2.reasons.some((x) => x.includes("transfer member"))).toBe(true);
@@ -142,7 +147,7 @@ describe("impact without calc facts", () => {
   });
 
   it("links alone give stale calcs (no rows, no estimates)", () => {
-    const rl = impact({ graph: frame(), move: { column: "C2", dx: 1, dy: 0 }, links: [{ global_id: "B1", calc_key: "b1-calc" }, { global_id: "C5", calc_key: "far" }] });
+    const rl = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, links: [{ global_id: "B1", calc_key: "b1-calc" }, { global_id: "C5", calc_key: "far" }] });
     expect(rl.stale?.map((s) => s.calcKey)).toEqual(["b1-calc"]);
     expect(rl.stale?.[0]?.screened).toBe(true);
     expect(rl.staleRows).toBeUndefined();
@@ -150,8 +155,52 @@ describe("impact without calc facts", () => {
   });
 });
 
+describe("provenance and units", () => {
+  const r = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [b1Fact] });
+
+  it("pins the producer version to package.json", () => {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    expect(PACKAGE_VERSION).toBe(pkg.version);
+  });
+
+  it("puts calc-mapper provenance on every output record, resting on the graph and the calc package", () => {
+    expect(r.inputs).toEqual([GRAPH_SHA, DOC_SHA]);
+    const e = r.estimates!.B1!;
+    expect(e.provenance).toEqual({ producer: `move-impact@${PACKAGE_VERSION}/impact`, rule: "move.estimate.beam-checks-scaled", method: "estimate", inputs: [GRAPH_SHA, DOC_SHA] });
+    for (const t of r.topological) expect(t.provenance.method).toBe("rule");
+    for (const s of r.screened) expect(s.provenance.inputs[0]).toBe(GRAPH_SHA);
+    expect(r.staleRows![0]!.provenance.rule).toBe("move.stale.row-on-path");
+    expect(r.stale![0]!.provenance.inputs).toEqual([GRAPH_SHA, DOC_SHA]);
+    expect(r.health!.provenance.producer).toBe(`move-impact@${PACKAGE_VERSION}/health`);
+  });
+
+  it("reports physical values as calc-mapper Quantities", () => {
+    const m = r.screened.find((x) => x.element === "B1")!.changes.find((c) => c.quantity === "moment")!;
+    expect(m.before.unit).toBe("kip*ft");
+    const span = r.screened.find((x) => x.element === "B1")!.changes.find((c) => c.quantity === "span")!;
+    expect(span.after.unit).toBe("m");
+    expect(span.after.value).toBeCloseTo(10.5, 9);
+  });
+
+  it("converts stated units: the same line load in kN/m gives the same ratio", () => {
+    const kn: CalcFact = { ...b1Fact, lineLoad: { dead: { value: 14.5939, unit: "kN/m" } } };
+    const r2 = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [kn] });
+    expect(r2.estimates!.B1!.utilisationAfter).toBeCloseTo(0.551, 3);
+  });
+
+  it("refuses a value in the wrong dimension instead of using it", () => {
+    const bad: CalcFact = { ...b1Fact, lineLoad: { dead: { value: 1, unit: "ft" } } };
+    const r3 = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [bad] });
+    expect(r3.assumptions.some((a) => a.includes("B1#row1.lineLoad.dead"))).toBe(true);
+  });
+
+  it("rejects a graph hash that is not a sha256", () => {
+    expect(() => impact({ graph: frame(), graphSha256: "nope", move: { column: "C2", dx: 1, dy: 0 } })).toThrow(/sha256/);
+  });
+});
+
 describe("impact with calc facts", () => {
-  const r = impact({ graph: frame(), move: { column: "C2", dx: 1, dy: 0 }, facts: [b1Fact] });
+  const r = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [b1Fact] });
 
   it("estimates utilisation only where a calc states one, labelled as an estimate with its scaling", () => {
     const e = r.estimates!.B1!;
@@ -164,7 +213,9 @@ describe("impact with calc facts", () => {
   });
 
   it("returns the calc row as stale and screened, and a health band", () => {
-    expect(r.staleRows).toEqual([{ fact: "B1#row1", calcKey: "b1-floor-framing", screened: true, elements: ["B1"] }]);
+    expect(r.staleRows?.map(({ provenance: _p, ...row }) => row)).toEqual([
+      { fact: "B1#row1", calcKey: "b1-floor-framing", screened: true, elements: ["B1"] },
+    ]);
     expect(r.stale?.[0]?.calcKey).toBe("b1-floor-framing");
     expect(r.health?.band).toBe("easy");
     expect(r.health?.method).toBe("estimate");
@@ -172,13 +223,13 @@ describe("impact with calc facts", () => {
 
   it("gives no estimate for a row that states no utilisation", () => {
     const { utilisation: _u, checks: _c, ...noUc } = b1Fact;
-    const r2 = impact({ graph: frame(), move: { column: "C2", dx: 1, dy: 0 }, facts: [noUc] });
+    const r2 = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [noUc] });
     expect(r2.estimates).toEqual({});
   });
 
   it("puts a column on a lateral frame when a lateral calc row on it names the frame", () => {
-    const lat: CalcFact = { id: "C2#frame", kind: "column", role: "lateral", group: "SMF-1", elements: ["C2", "C5"], source: { calcKey: "smf", page: 9, rects: [] }, utilisation: 0.4 };
-    const r3 = impact({ graph: frame(), move: { column: "C2", dx: 1, dy: 0 }, facts: [b1Fact, lat] });
+    const lat: CalcFact = { id: "C2#frame", kind: "column", role: "lateral", group: "SMF-1", elements: ["C2", "C5"], source: { calcKey: "smf", page: 9, rects: [], documentSha256: DOC_SHA }, utilisation: 0.4 };
+    const r3 = impact({ graph: frame(), graphSha256: GRAPH_SHA, move: { column: "C2", dx: 1, dy: 0 }, facts: [b1Fact, lat] });
     expect(r3.lateral.some((l) => l.includes("SMF-1"))).toBe(true);
     expect(r3.topological.map((t) => t.element)).toContain("C5");
     expect(r3.health?.band).toBe("hard");
