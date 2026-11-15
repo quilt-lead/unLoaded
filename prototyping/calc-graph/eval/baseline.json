@@ -86,6 +86,11 @@
     "rel_specified-by_recall": 0.5
    }
   },
+  "schema_strict": {
+   "checks": {
+    "provenance_from_producers": true
+   }
+  },
   "set_coverage": {
    "metrics": {
     "calc_edges": 0,
@@ -132,5 +137,5 @@
    }
   }
  },
- "updated": "2026-11-14 20:28 EST"
+ "updated": "2026-11-14 20:36 EST"
 }
