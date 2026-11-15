@@ -244,16 +244,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
             ))}
             <button
               type="button"
-              disabled={!p.hasUtilization}
               title={
                 p.hasUtilization
                   ? 'Colour elements by demand / capacity utilisation'
-                  : 'No utilisation data: this project has no demand / capacity values yet'
+                  : 'No utilisation data: unknown values will stay neutral until the source provides demand / capacity values'
               }
               aria-label="Toggle utilization heatmap"
               aria-pressed={p.colorMode === 'utilisation'}
               onClick={() => p.onChangeColorMode(p.colorMode === 'utilisation' ? 'type' : 'utilisation')}
-              className={`mono text-[10px] px-2 py-1 rounded-md transition flex items-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed ${
+              className={`mono text-[10px] px-2 py-1 rounded-md transition flex items-center gap-1 ${
                 p.colorMode === 'utilisation'
                   ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
                   : 'text-zinc-400 hover:text-zinc-200 border border-transparent'

@@ -133,7 +133,8 @@ instructions to fetch their contents.
 ## 5. Views
 
 - **Element graph** (`RadialGraphCanvas`): the hierarchy, review-status rings, traced load path, impact and
-  diff colouring, namable groups.
+  diff colouring, namable groups, and directional box selection (left-to-right encloses; right-to-left crosses;
+  Shift adds). Escape cancels an active box selection and clears the shared selection in the graph and 3D views.
 - **Calculation graph**: calcs by the element type they design, calc → calc dependencies, and the selected
   calc's linked elements with edges styled by review state.
 - **3D** (`Structural3DViewer`, `three/ifcViewer.ts`): the head revision's real IFC meshes via web-ifc, keyed by

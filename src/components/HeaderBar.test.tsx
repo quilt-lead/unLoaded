@@ -61,7 +61,7 @@ describe('workspace header', () => {
     expect(markup).not.toContain('bg-indigo-600/25');
   });
 
-  it('restores color-mode controls and keeps the heatmap unavailable without utilization data', () => {
+  it('restores color-mode controls and keeps the heatmap selectable without utilization data', () => {
     const markup = renderHeader({ colorMode: 'confidence' });
 
     expect(markup).toContain('aria-label="Colour elements by"');
@@ -71,8 +71,8 @@ describe('workspace header', () => {
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain('aria-label="Toggle utilization heatmap"');
     const heatmapButton = markup.match(/<button[^>]*aria-label="Toggle utilization heatmap"[^>]*>/)?.[0];
-    expect(heatmapButton).toContain('disabled=""');
-    expect(markup).toContain('No utilisation data');
+    expect(heatmapButton).not.toContain('disabled=""');
+    expect(heatmapButton).toContain('No utilisation data');
   });
 
   it('enables the heatmap when utilization data exists and removes the reset control', () => {

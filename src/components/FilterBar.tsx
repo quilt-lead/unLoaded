@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, ArrowDown, ArrowUp, ArrowUpDown, X } from 'lucide-react';
 import type { BimNode, ColorMode, DatabaseDiffSummary, DiffStatus, FilterState, TraceDirection } from '../types/bim';
-import { NO_DATA_COLOR, STATUS_COLORS, STATUS_LABELS } from '../utils/colors';
+import { NO_DATA_COLOR, NO_UTILIZATION_COLOR, STATUS_COLORS, STATUS_LABELS } from '../utils/colors';
 
 export type DiffFilter = 'ALL' | 'CHANGED' | DiffStatus;
 
@@ -264,7 +264,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <div className="w-24 h-2 rounded-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #10b981 35%, #f59e0b 70%, #ef4444 100%)' }} />
             <span className="mono text-[9px] text-rose-400">95%+</span>
             <span className="mono text-[9px] text-zinc-300 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NO_DATA_COLOR }} /> No data
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NO_UTILIZATION_COLOR }} /> No data
             </span>
           </div>
         ) : null}

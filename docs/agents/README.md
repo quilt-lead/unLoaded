@@ -18,6 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-theme-aware-favicon.md](2026-11-15-theme-aware-favicon.md) | done | Adds light/dark SVG favicons selected by the operating system color preference |
 | [2026-11-15-graph-controls-and-upward-trace.md](2026-11-15-graph-controls-and-upward-trace.md) | done | Restores type/review/confidence coloring and the data-gated utilization heatmap, removes the top-right reset control, and makes upward traces exhaustive |
 | [2026-11-15-harborview-synthetic-calcs.md](2026-11-15-harborview-synthetic-calcs.md) | active | Plan for a synthetic calc package (PDFs + IFC + ground truth) matching the Harborview tower demo; open questions on marks, IFC, sample wiring
 | [2026-11-15-selection-dimming.md](2026-11-15-selection-dimming.md) | done | Refreshes 3D material shaders when transparency changes so deselected elements reliably dim |

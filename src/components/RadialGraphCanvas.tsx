@@ -10,7 +10,9 @@ import {
   isProjectNode,
   loadPathKey,
 } from '../utils/graphEngine';
+import { selectNodesInBox } from '../utils/graphSelection';
 import { DIFF_PALETTE, TONE_COLORS, getContrastingTextStyle, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
+import { useEscapeLayer } from './escapeStack';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -31,6 +33,7 @@ interface RadialGraphCanvasProps {
   showStatusRings?: boolean;
   resetTrigger: number;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean; preserveMulti?: boolean; skipZoomFit?: boolean }) => void;
+  onSelectNodes: (ids: string[], opts?: { additive?: boolean }) => void;
   onSelectGroup?: (groupId: string, opts?: { toggleMulti?: boolean }) => void;
   onRenameGroup?: (groupId: string, newName: string) => void;
   onClearSelection: () => void;
@@ -65,6 +68,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   showStatusRings = false,
   resetTrigger,
   onSelectNode,
+  onSelectNodes,
   onSelectGroup,
   onRenameGroup,
   onClearSelection,
@@ -73,6 +77,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
 }) => {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string>('');
+  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number; crossing: boolean } | null>(null);
+  const [selectionActive, setSelectionActive] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [camera, setCamera] = useState({ panX: 0, panY: 0, scale: 0.74 });
   const cameraRef = useRef(camera);
@@ -80,7 +86,10 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
 
   const interactionRef = useRef<{
     isPanning: boolean;
-    panButton: number;
+    isSelecting: boolean;
+    selectionAdditive: boolean;
+    selectionStartX: number;
+    selectionStartY: number;
     panMoved: boolean;
     pointerStartX: number;
     pointerStartY: number;
@@ -91,7 +100,10 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     lastDragGraphY: number;
   }>({
     isPanning: false,
-    panButton: 0,
+    isSelecting: false,
+    selectionAdditive: false,
+    selectionStartX: 0,
+    selectionStartY: 0,
     panMoved: false,
     pointerStartX: 0,
     pointerStartY: 0,
@@ -125,6 +137,21 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
       };
     });
   }, []);
+
+  const cancelInteraction = useCallback(() => {
+    const ix = interactionRef.current;
+    ix.isPanning = false;
+    ix.isSelecting = false;
+    ix.panMoved = false;
+    ix.draggedNodeId = null;
+    setSelectionActive(false);
+    setSelectionBox(null);
+  }, []);
+
+  useEscapeLayer(selectionActive, () => {
+    cancelInteraction();
+    onClearSelection();
+  });
 
   // Keyboard zoom shortcuts (+, -, 0)
   useEffect(() => {
@@ -216,7 +243,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     if (e.button === 1 || e.button === 2) {
       e.preventDefault();
       ix.isPanning = true;
-      ix.panButton = e.button;
+      ix.isSelecting = false;
       ix.panMoved = false;
       ix.draggedNodeId = null;
       ix.startX = e.clientX - cameraRef.current.panX;
@@ -227,17 +254,38 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     const tag = (e.target as Element).tagName?.toLowerCase();
     const elId = (e.target as Element).id;
     if (e.button === 0 && !ix.draggedNodeId && (tag === 'svg' || elId === 'graphContainer' || elId === 'viewport')) {
-      ix.isPanning = true;
-      ix.panButton = 0;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const cam = cameraRef.current;
+      ix.isSelecting = true;
+      ix.isPanning = false;
       ix.panMoved = false;
-      ix.startX = e.clientX - cameraRef.current.panX;
-      ix.startY = e.clientY - cameraRef.current.panY;
+      ix.selectionAdditive = e.shiftKey;
+      ix.selectionStartX = (e.clientX - rect.left - cam.panX) / cam.scale;
+      ix.selectionStartY = (e.clientY - rect.top - cam.panY) / cam.scale;
+      ix.draggedNodeId = null;
+      setSelectionActive(true);
+      setSelectionBox(null);
     }
   };
 
   const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const ix = interactionRef.current;
-    if (ix.isPanning) {
+    if (ix.isSelecting && containerRef.current) {
+      if (Math.hypot(e.clientX - ix.pointerStartX, e.clientY - ix.pointerStartY) > 2) {
+        ix.panMoved = true;
+        const rect = containerRef.current.getBoundingClientRect();
+        const cam = cameraRef.current;
+        const endX = (e.clientX - rect.left - cam.panX) / cam.scale;
+        const endY = (e.clientY - rect.top - cam.panY) / cam.scale;
+        setSelectionBox({
+          x: Math.min(ix.selectionStartX, endX),
+          y: Math.min(ix.selectionStartY, endY),
+          width: Math.abs(endX - ix.selectionStartX),
+          height: Math.abs(endY - ix.selectionStartY),
+          crossing: endX < ix.selectionStartX,
+        });
+      }
+    } else if (ix.isPanning) {
       const nextPanX = e.clientX - ix.startX;
       const nextPanY = e.clientY - ix.startY;
       if (Math.hypot(e.clientX - ix.pointerStartX, e.clientY - ix.pointerStartY) > 2) {
@@ -268,19 +316,30 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     }
   };
 
-  const handleCanvasPointerUp = () => {
+  const handleCanvasPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const ix = interactionRef.current;
-    const wasEmptyLeftClick = ix.isPanning && ix.panButton === 0 && !ix.panMoved && !ix.draggedNodeId;
+    if (ix.isSelecting) {
+      if (ix.panMoved && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const cam = cameraRef.current;
+        const end = {
+          x: (e.clientX - rect.left - cam.panX) / cam.scale,
+          y: (e.clientY - rect.top - cam.panY) / cam.scale,
+        };
+        const ids = selectNodesInBox(nodes, { x: ix.selectionStartX, y: ix.selectionStartY }, end);
+        onSelectNodes(ids, { additive: ix.selectionAdditive });
+      } else if (!ix.selectionAdditive && selectedNodeId) {
+        onClearSelection();
+      }
+      ix.isSelecting = false;
+      ix.panMoved = false;
+      setSelectionActive(false);
+      setSelectionBox(null);
+      return;
+    }
+
     ix.isPanning = false;
     ix.draggedNodeId = null;
-    if (wasEmptyLeftClick && selectedNodeId) {
-      onClearSelection();
-    }
-  };
-
-  const cancelInteraction = () => {
-    interactionRef.current.isPanning = false;
-    interactionRef.current.draggedNodeId = null;
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -553,7 +612,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
             </g>
 
             {/* Hierarchy wires (centre to centre, beneath nodes) */}
-            <g>
+            <g pointerEvents="none">
               {links.map((link, idx) => {
                 if (link.relation !== 'hierarchy') return null;
                 const s = nodeById.get(link.source);
@@ -601,7 +660,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
             )}
 
             {/* Calc dependencies (output feeds input) and calc-mapping edges styled by review state */}
-            <g>
+            <g pointerEvents="none">
               {links.map((link, idx) => {
                 if (link.relation !== 'calc-dependency' && link.relation !== 'calc-mapping') return null;
                 const s = nodeById.get(link.source);
@@ -725,6 +784,21 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 );
               })}
             </g>
+            {selectionBox && (
+              <rect
+                aria-hidden="true"
+                x={selectionBox.x}
+                y={selectionBox.y}
+                width={selectionBox.width}
+                height={selectionBox.height}
+                fill="#14AE5C"
+                fillOpacity={0.12}
+                stroke={selectionBox.crossing ? '#D2F2DF' : '#14AE5C'}
+                strokeWidth={1.4 / camera.scale}
+                strokeDasharray={selectionBox.crossing ? `${5 / camera.scale} ${3 / camera.scale}` : undefined}
+                pointerEvents="none"
+              />
+            )}
           </g>
         </svg>
       </div>
@@ -743,7 +817,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         <span className="text-zinc-700">|</span>
         <span className="flex items-center gap-1.5">
           <Layers className="w-3 h-3 text-emerald-400" />
-          Shift + Click: Multi-select • Ctrl+G: Group
+          Drag L→R: contain • R→L: cross • Shift: add
         </span>
       </div>
     </section>
