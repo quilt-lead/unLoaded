@@ -26,9 +26,14 @@
  * A size on a line that names no mark ("typical beams W12X19") links the calc to the TYPICAL GROUP
  * (same size + storey + kind) once; members keep a per-element link marked `via_group`. A design-role line that NAMES the mark (exact / range
  * tier) and a different size than the model has is a size-mismatch finding.
+ *
+ * Every link, group link and finding carries provenance: producer calc-mapper/matcher, the rule id
+ * (`matcher.tier.<tier>`, `matcher.typical-group`, `matcher.finding.size-mismatch`) and the two
+ * documents it rests on - the element graph (`graphSha256`) and the PDF of the page it was read on.
  */
 import { rectsForSpan } from "./pdf.ts";
 import { normaliseProfile } from "./profile.ts";
+import { RULES, ruleProvenance } from "./provenance.ts";
 import { CAT_WORDS, calcRegions } from "./segment.ts";
 import type {
   Calc, CalcPage, ConfidenceBand, ElementRow, Finding, GroupLink, Link, LinkEvidence, LinkRole, Rect, Snippet, Tier,
@@ -122,11 +127,12 @@ interface Hit {
 }
 
 /**
- * Map elements to calcs. `elements` = graphElements(graph); `calcs` + `pages` = the calc package.
+ * Map elements to calcs. `elements` = graphElements(graph); `calcs` + `pages` = the calc package;
+ * `graphSha256` = sha256 of the graph the elements were read from (sha256Json(graph)).
  * Returns auto links (status "auto"), sorted by (calc_key, global_id), plus typical groups, group
  * links and size-mismatch findings.
  */
-export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPage[]): MappingResult {
+export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPage[], graphSha256: string): MappingResult {
   const groups = typicalGroups(elements);
   const empty = { links: [], groups, group_links: [], findings: [] };
   if (!elements.length || !calcs.length) return empty;
@@ -215,12 +221,14 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
     if (loadsLine) ev.evidence.push({ kind: "loads-context", weight: 0, note: "the line is about reactions / loads / a reference", page: pg.n, rects: [] });
     if (viaGroup) ev.evidence.push({ kind: "group", weight: 0, note: `linked through typical group ${viaGroup}`, page: pg.n, rects: [] });
     // a design-role mark line naming another size: the calc sized something else
+    const inputs = [graphSha256, pg.doc_sha256];
     const mm = ev.evidence.find((e) => e.kind === "size-mismatch");
     if (mm && !loadsLine && NAMED_TIERS.has(tier) && !mismatch.has(k)) {
       mismatch.set(k, {
         kind: "size-mismatch", global_id: el.global_id, calc_key: c.key, model_size: normProfile(el.profile),
         calc_size: ev.sizes[0]!, page: pg.n, span: [idx, idx + n], rects: [...rects, ...mm.rects], snippet: snippet(pg.text, idx, n),
         note: `${c.title} gives ${ev.sizes.join(", ")} for ${el.mark || el.global_id}; the model has ${normProfile(el.profile)}`,
+        provenance: ruleProvenance("matcher", RULES.matcher.sizeMismatch, inputs),
       });
     }
     const sum = clamp01(ev.evidence.reduce((s, e) => s + e.weight, 0));
@@ -228,6 +236,7 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
       global_id: el.global_id, calc_key: c.key, conf: sum, tier, rule, page: pg.n, span: [idx, idx + n],
       token: pg.text.slice(idx, idx + n), snippet: snippet(pg.text, idx, n), rects, status: "auto",
       role: "loads", band: bandOf(sum), evidence: ev.evidence, caveats: ev.caveats, ...(viaGroup ? { via_group: viaGroup } : {}),
+      provenance: ruleProvenance("matcher", RULES.matcher.tier(tier), inputs),
     };
     const ex = kept.get(k);
     if (!ex || conf > ex.conf) kept.set(k, { conf, link: rec });
@@ -330,6 +339,7 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
               page: pg.n, token: pg.text.slice(m.index, m.index + m[0].length), span: [m.index, m.index + m[0].length],
               snippet: snippet(pg.text, m.index, m[0].length), rects, evidence: ev.evidence,
               caveats: [...ev.caveats, `Size-only match: covers every ${g.title.toLowerCase()} - check the calc covers this group.`],
+              provenance: ruleProvenance("matcher", RULES.matcher.typicalGroup, [graphSha256, pg.doc_sha256]),
             });
           }
         }
@@ -376,6 +386,6 @@ export function mapElements(elements: ElementRow[], calcs: Calc[], pages: CalcPa
 }
 
 /** The auto links only (the reference engine's run_mapping signature). */
-export function runMapping(elements: ElementRow[], calcs: Calc[], pages: CalcPage[]): Link[] {
-  return mapElements(elements, calcs, pages).links;
+export function runMapping(elements: ElementRow[], calcs: Calc[], pages: CalcPage[], graphSha256: string): Link[] {
+  return mapElements(elements, calcs, pages, graphSha256).links;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normaliseProfile as parserNormalise } from "../../ifc-parser/src/profile.ts";
 import { BANDS, CONF, WEIGHTS, bandOf, mapElements, normaliseProfile, pageParts, segment } from "../src/index.ts";
-import { el, page, styledPage } from "./helpers.ts";
+import { GRAPH_SHA, el, page, styledPage } from "./helpers.ts";
 
 describe("profile normaliser", () => {
   it.each(["W12x26", " hea 200 ", "600 × 300", "HSS6x6x3/8", "W 18 X 35", "305x165x40 UB", "w14*90"])(
@@ -13,7 +13,7 @@ describe("profile normaliser", () => {
 describe("link role", () => {
   const pages = [page(1, "GIRDER 3G1 SPOT CHECK\nGirder 3G1 W18X35 design check OK\nLoads: reactions from beams 3B1 - 3B2")];
   const els = [el("g", "Beam", "3G1", "W18X35", "Level 3"), el("b1", "Beam", "3B1"), el("b2", "Beam", "3B2")];
-  const { links } = mapElements(els, segment(pages), pages);
+  const { links } = mapElements(els, segment(pages), pages, GRAPH_SHA);
   const role = (g: string) => links.find((l) => l.global_id === g)?.role;
 
   it("is design for the member the calc checks, loads for members it only takes reactions from", () => {
@@ -34,7 +34,7 @@ describe("confidence = sum of weighted evidence", () => {
   it("adds size / storey agreement, subtracts a size mismatch, clamps to [0, 1], bands", () => {
     const pages = [page(1, "BEAM SPOT CHECK - LEVEL 3\nLevel 3 beam 3B5 W18X35 OK\nbeam 3B6 W27X94 OK")];
     const els = [el("ok", "Beam", "3B5", "W18X35", "Level 3"), el("bad", "Beam", "3B6", "W18X35", "Level 3")];
-    const { links, findings } = mapElements(els, segment(pages), pages);
+    const { links, findings } = mapElements(els, segment(pages), pages, GRAPH_SHA);
     const ok = links.find((l) => l.global_id === "ok")!;
     expect(ok.evidence.map((e) => e.kind)).toEqual(["tier", "storey-match", "size-match"]);
     expect(ok.evidence[0]!.weight).toBe(CONF.exact);
@@ -59,7 +59,7 @@ describe("typical groups", () => {
 
   it("a size-only line links the group once; members are linked via the group", () => {
     const pages = [page(1, "LEVEL 3 BEAM VIBRATION CHECK - TYPICAL\nLevel 3 typical beams W18X35, no marks\nfn = 6.1 Hz OK")];
-    const r = mapElements(els, segment(pages), pages);
+    const r = mapElements(els, segment(pages), pages, GRAPH_SHA);
     expect(r.groups.find((g) => g.id === "group:Beam:Level 3:W18X35")?.members).toEqual(["a", "b"]);
     expect(r.group_links.map((g) => [g.group, g.role])).toEqual([["group:Beam:Level 3:W18X35", "design"]]);
     expect(r.links.map((l) => [l.global_id, l.tier, l.via_group])).toEqual([
@@ -68,7 +68,7 @@ describe("typical groups", () => {
 
   it("a size beside a mark is not a typical statement: no group link", () => {
     const pages = [page(1, "BEAM DESIGN CHECK\nbeam 3B3 W18X35 OK")];
-    const r = mapElements(els, segment(pages), pages);
+    const r = mapElements(els, segment(pages), pages, GRAPH_SHA);
     expect(r.group_links).toEqual([]);
     expect(r.links.filter((l) => l.via_group)).toEqual([]);
   });
@@ -110,7 +110,7 @@ describe("calcs as spans of page regions", () => {
 
   it("matches only inside the calc's own regions", () => {
     const calcs = segment([p1]);
-    const { links } = mapElements([el("g", "Beam", "3G1", "W18X35", "Level 3")], calcs, [p1]);
+    const { links } = mapElements([el("g", "Beam", "3G1", "W18X35", "Level 3")], calcs, [p1], GRAPH_SHA);
     expect(links.map((l) => l.calc_key)).toEqual(["girder-3g1-spot-check"]);
   });
 });

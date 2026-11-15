@@ -11,16 +11,53 @@ import { extractPdf, segmentCalcs, mapCalcs, buildExport, impactOf, diffGraphs, 
 
 const text = await extractPdf(pdfBytes);                 // pages: text + word boxes + spans; scanned flag
 const pkg = segmentCalcs(text.pages, "calcs.pdf");       // calcs: key, title, software, element type, pages
-const run = mapCalcs(graph, pkg);                        // auto links (status "auto") + calc dependency edges
-let decisions = addDecision([], { global_id, calc_key, action: "confirm" });
+const run = await mapCalcs(graph, pkg);                  // auto links (status "auto") + calc dependency edges
+let decisions = addDecision([], { global_id, calc_key, action: "confirm" }, { inputs: run.inputs });
 const exp = buildExport(graph, pkg, run, decisions);     // the retired backend's /export (+ connectivity)
-const imp = impactOf(graph, pkg, run, decisions, gid, "remove");
+const imp = await impactOf(graph, pkg, run, decisions, gid, "remove");
 const cmp = diffGraphs(graphRev1, graphRev2);            // the retired backend's /compare
 ```
 
 The output shapes are the retired Python backend's, with snake_case kept (`src/types.ts`). They
 cover `/export`, `/compare`, `/impact`, the `/state` pieces (`buildState`) and the decision
 records.
+
+## Auditability contract (`src/types.ts`)
+
+Ported from the reference schema (`calcgraph/schema/{models,units,frames}.py`). Every addition is a
+new field; no field of the export was renamed or removed.
+
+- **Provenance is required** (`provenance.ts`) on every `Link`, `GroupLink`, `CalcEdge`, `Calc`,
+  `Finding`, `Impact` and `Decision`: `{ producer: "calc-mapper@<version>/<module>", rule, method,
+  inputs }`. `method` is `"rule"`, `"human"` (decisions, hand links: plus `actor` and `at`) or
+  `"estimate"`. `inputs` are the sha256 of the documents the record rests on. A record built without
+  provenance does not type-check, and `inputList` throws on anything that is not a sha256.
+  - Rule ids: `segment.calc-title | scanned-run | front-matter`, `matcher.tier.<tier>`,
+    `matcher.typical-group`, `matcher.finding.size-mismatch`,
+    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference` (joined with "+" when an
+    edge has both), `impact.propagate.<mode>`, `decision.<action>`.
+  - A link a person confirmed / rejected keeps the matcher's provenance and gains
+    `review_provenance` (the decision's).
+  - A decision read back from a store or file may lack provenance (`DecisionFields`).
+    `buildState`, `buildExport` and `impactOf` accept those and pass each through `decisionFrom`,
+    which states the provenance from the decision's own fields.
+  - `PACKAGE_VERSION` is the version in every producer string; a test pins it to `package.json`.
+- **Document hashes** (WebCrypto `crypto.subtle.digest`, in browsers, workers and Node >= 20):
+  - `extractPdf` hashes the PDF's bytes once, and every page carries the hash (`doc_sha256`).
+  - `mapCalcs` hashes the graph's canonical JSON.
+  - `MappingRun.producers` and `Export.producers` hold the producers (`calc-mapper@<version>`, the
+    graph's `<format>@<version>`) and both hashes. `MappingRun.inputs` is `[graph, pdf]`.
+  - So `mapCalcs` and `impactOf` are async.
+- **Units** (`units.ts`): `Quantity { value, unit }`. `Unit` is units.py's fixed set of 57 canonical
+  units. `convert()` uses the same table.
+  - An unknown unit throws `UnknownUnit`, and a literal one is a type error. Mixed dimensions
+    throw `UnitMismatch`.
+  - The engine reports the load-path `gap` as `Quantity<"m">` (beside `gap_m`).
+  - A graph whose `meta.units` is not metres is refused.
+  - Section designations stay strings.
+- **Frames** (`frames.ts`): every rect is a `SheetRect` (PDF points on one page). Graph geometry is
+  `ModelPointM` (world metres). `BuildingPointFt` is declared for drawing-set ingest. The brands
+  are type-level only, so JSON stays plain arrays.
 
 ## What it does (rules unchanged from the reference engine)
 

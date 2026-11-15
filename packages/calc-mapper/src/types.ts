@@ -6,20 +6,35 @@
  * export, so a client that read those routes reads these unchanged. Snake_case field names are
  * kept on purpose for that reason.
  *
- * Coordinates: PDF points, origin top-left, y down (as PyMuPDF and the backend reported them).
+ * Auditability contract (additive to those shapes: fields were added, none renamed or removed):
+ * - PROVENANCE (provenance.ts) is a REQUIRED field on every Link, GroupLink, CalcEdge, Calc,
+ *   Finding, Impact and Decision: producer "calc-mapper@<version>/<module>", rule id, method
+ *   ("rule" | "human" | "estimate") and the sha256 of each input document it rests on.
+ * - PRODUCER RECORDS per mapping run (`MappingRun.producers`, `Export.producers`): who produced
+ *   the element graph and the engine, and the sha256 of the graph JSON and of the PDF bytes.
+ * - UNITS (units.ts): a physical quantity is a `Quantity { value, unit }` over a fixed unit set.
+ * - FRAMES (frames.ts): rects are `SheetRect` (PDF points on a page, origin top-left, y down);
+ *   graph geometry is `ModelPointM` (world metres). Type-level brands; JSON stays plain numbers.
  */
 import type { SerializedElementGraph } from "@unloaded/element-graph";
+import type { ModelPointM, SheetRect } from "./frames.ts";
+import type { Provenance } from "./provenance.ts";
+import type { Quantity } from "./units.ts";
 
 export type { SerializedElementGraph };
+export type { CalcMapperModule, Producer, Provenance, ProvenanceMethod } from "./provenance.ts";
+export type { Dim, Quantity, Unit } from "./units.ts";
+export type { BuildingPointFt, Framed, ModelPointM, SheetRect } from "./frames.ts";
 
-export const ENGINE_VERSION = "mapper-v1.0" as const;
+/** The mapping engine's version. Bumped to v1.1 with the provenance contract, so a stored run made before it is recomputed. */
+export const ENGINE_VERSION = "mapper-v1.1" as const;
 
 // ---------------------------------------------------------------- PDF text
 
 /** One word on a page: [x0, y0, x1, y1, start, end] - box in PDF points, [start, end) = its span in page.text. */
 export type WordBox = [number, number, number, number, number, number];
-/** [x0, y0, x1, y1] in PDF points. */
-export type Rect = [number, number, number, number];
+/** [x0, y0, x1, y1] in PDF points on one calc page: the sheet frame (frames.ts). Every rect in these types is one. */
+export type Rect = SheetRect;
 
 export interface CalcPage {
   /** 1-based page number. */
@@ -31,11 +46,14 @@ export interface CalcPage {
   height: number;
   /** No text layer (< 25 characters of text): a scan / hand calc. Never mapped. */
   scanned: boolean;
+  /** sha256 of the PDF's bytes: the document this page is a page of (with `n`, the page's sheet frame). */
+  doc_sha256: string;
 }
 
 export interface PdfText {
   pages: CalcPage[];
-  meta: { page_count: number; title: string };
+  /** `sha256`: of the PDF's bytes (WebCrypto). */
+  meta: { page_count: number; title: string; sha256: string };
 }
 
 // ---------------------------------------------------------------- calcs (segmentation)
@@ -86,12 +104,16 @@ export interface Calc {
   content_hash: string;
   /** The calc as ordered spans of page regions (`pages` stays: the distinct pages, in order). */
   spans: CalcSpan[];
+  /** Which segmentation rule made this calc, resting on the PDF. */
+  provenance: Provenance;
 }
 
 /** A segmented calc package: its pages + calcs (`segmentCalcs(extractPdf(bytes).pages)`). */
 export interface CalcPackage {
   /** File name shown in exports, e.g. "calc_package.pdf". */
   source_name: string | null;
+  /** sha256 of the PDF's bytes (every page's `doc_sha256`). */
+  source_sha256: string;
   pages: CalcPage[];
   calcs: Calc[];
 }
@@ -110,7 +132,8 @@ export interface ElementRow {
   profile: string;
   storey: string;
   params: Record<string, string | number | boolean | null>;
-  geom: { min: number[]; max: number[]; p1?: number[]; p2?: number[] } | null;
+  /** Bounding box + axis, in the graph's world metres. */
+  geom: { min: ModelPointM; max: ModelPointM; p1?: ModelPointM; p2?: ModelPointM } | null;
   /** Hash of the fields a revision diff compares (diff.ts). */
   content_hash: string;
 }
@@ -129,6 +152,8 @@ export interface LoadPathEdge {
   /** First evidence rule of the graph edge. */
   rule: string;
   gap_m: number | null;
+  /** `gap_m` as a quantity (metres). */
+  gap: Quantity<"m"> | null;
 }
 
 /** A `connects` edge of the graph (undirected, a < b). */
@@ -190,6 +215,10 @@ export interface Link {
   caveats: string[];
   /** Set when the element is linked through its typical group (a size-only calc). */
   via_group?: string;
+  /** Who / what rule made the link (matcher; a hand link: the decision). */
+  provenance: Provenance;
+  /** The human decision that set `status`, when one did (confirm / reject / manual). */
+  review_provenance?: Provenance;
 }
 
 /** Elements of one size on one storey, of one kind: what a size-only ("W12X19 typ.") calc links to. */
@@ -220,6 +249,7 @@ export interface GroupLink {
   rects: Rect[];
   evidence: LinkEvidence[];
   caveats: string[];
+  provenance: Provenance;
 }
 
 /** Something the evidence says is wrong. Today: the calc designs a different size than the model has. */
@@ -234,6 +264,7 @@ export interface Finding {
   rects: Rect[];
   snippet: Snippet;
   note: string;
+  provenance: Provenance;
 }
 
 export interface CalcEdgeEvidence {
@@ -251,6 +282,25 @@ export interface CalcEdge {
   dst: string;
   rules: string[];
   evidence: CalcEdgeEvidence[];
+  /** `rule`: the ids of `rules`, joined with "+". */
+  provenance: Provenance;
+}
+
+/** Who produced each input of a mapping run, and the sha256 of each input document. */
+export interface RunProducers {
+  /** This engine. */
+  calc_mapper: { producer: `calc-mapper@${string}`; engine: typeof ENGINE_VERSION };
+  /** The element graph: producer from its format / version ("unloaded.element-graph@1"), sha256 of its canonical JSON. */
+  element_graph: {
+    producer: string;
+    format: string;
+    version: number;
+    /** What the graph says it was built from (meta.source), e.g. { format: "ifc", file: "model.ifc" }. */
+    source: unknown;
+    sha256: string;
+  };
+  /** The calc package PDF: sha256 of its bytes. */
+  calc_package: { name: string | null; sha256: string; pages: number };
 }
 
 /** One mapping run of a (graph, calc package) pair: the auto links (status "auto") + calc edges. */
@@ -261,6 +311,9 @@ export interface MappingRun {
   groups: TypicalGroup[];
   group_links: GroupLink[];
   findings: Finding[];
+  producers: RunProducers;
+  /** The run's input documents: [element graph sha256, calc PDF sha256]. */
+  inputs: string[];
 }
 
 // ---------------------------------------------------------------- decisions (append-only log)
@@ -290,7 +343,16 @@ export interface Decision extends DecisionIn {
   /** Revision labels the decision was made against (informational). */
   model_rev?: string | number | null;
   calc_rev?: string | number | null;
+  /** method "human", rule "decision.<action>", actor + at; inputs: the documents it was made against, when known. */
+  provenance: Provenance;
 }
+
+/**
+ * A decision as a store or a decision-log file holds it: with or without its provenance (records
+ * written before the contract lack one). The engine's entry points accept these and attach the
+ * provenance the decision's own fields state (decisionFrom), so a Decision never lacks it.
+ */
+export type DecisionFields = Omit<Decision, "provenance"> & { provenance?: Provenance };
 
 // ---------------------------------------------------------------- export (/export)
 
@@ -310,6 +372,8 @@ export interface ExportLink {
   reasons: LinkEvidence[];
   caveats: string[];
   via_group?: string;
+  provenance: Provenance;
+  review_provenance?: Provenance;
 }
 
 export interface ExportElement {
@@ -332,6 +396,7 @@ export interface ExportCalc {
   front_matter: boolean;
   title_box: TitleBox | null;
   spans: CalcSpan[];
+  provenance: Provenance;
 }
 
 export interface Export {
@@ -340,7 +405,7 @@ export interface Export {
   calc_package: string | null;
   calc_revision: string | number | null;
   engine: typeof ENGINE_VERSION;
-  producers: Record<string, unknown>;
+  producers: ExportProducers;
   calcs: ExportCalc[];
   calc_edges: CalcEdge[];
   /** The graph's `supports` edges. */
@@ -351,6 +416,22 @@ export interface Export {
   groups: TypicalGroup[];
   group_links: GroupLink[];
   findings: Finding[];
+}
+
+/**
+ * The export's producer records. `model` and `mapping` are the original keys (kept); the rest were
+ * added with the provenance contract and are optional only because export files written before it
+ * lack them - buildExport always writes them.
+ */
+export interface ExportProducers {
+  model?: { element_graph: { format: string; version: number; source: unknown } };
+  mapping?: { "calc-mapper": string };
+  calc_mapper?: RunProducers["calc_mapper"];
+  element_graph?: RunProducers["element_graph"];
+  calc_package?: RunProducers["calc_package"];
+  /** The input documents every derived record rests on: [element graph sha256, calc PDF sha256]. */
+  inputs?: string[];
+  [key: string]: unknown;
 }
 
 /** Labels written into the export header (the backend's revision ids / file names). */
@@ -418,4 +499,5 @@ export interface Impact {
   /** Calc key -> reason it is stale. */
   stale: Record<string, string>;
   waves: number;
+  provenance: Provenance;
 }

@@ -9,8 +9,13 @@
  * 2. cross-reference - a calc that mentions (xref tier) an element designed by another calc takes
  *    that calc's output as input (designer -> this), unless the same line has a "to" cue before
  *    the mention ("carried to ST-1 design"), then this -> designer.
+ *
+ * Provenance: producer calc-mapper/calcdeps, rule = the ids of the edge's rules joined with "+"
+ * (`calcdeps.page-reference.input|output`, `calcdeps.cross-reference`), inputs = the PDF of every
+ * page the evidence sits on, plus, for a cross-reference, the inputs of the links it was read from.
  */
 import { rectsForSpan } from "./pdf.ts";
+import { RULES, inputList, ruleProvenance } from "./provenance.ts";
 import { calcRegions } from "./segment.ts";
 import type { Calc, CalcEdge, CalcEdgeEvidence, CalcPage, Link } from "./types.ts";
 
@@ -28,13 +33,15 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
     for (const r of calcRegions(c, pages)) if (!pageOwner.has(r.page) || r.start === 0) pageOwner.set(r.page, c);
   }
   const pageByN = new Map(pages.map((p) => [p.n, p]));
-  const edges = new Map<string, CalcEdge>();
-  const add = (src: string, dst: string, rule: string, ev: CalcEdgeEvidence) => {
+  const edges = new Map<string, Omit<CalcEdge, "provenance"> & { ruleIds: string[]; inputs: string[] }>();
+  const add = (src: string, dst: string, rule: string, ruleId: string, ev: CalcEdgeEvidence, inputs: readonly string[]) => {
     if (src === dst) return;
     const k = `${src}\u0000${dst}`;
     let e = edges.get(k);
-    if (!e) edges.set(k, (e = { src, dst, rules: [], evidence: [] }));
+    if (!e) edges.set(k, (e = { src, dst, rules: [], evidence: [], ruleIds: [], inputs: [] }));
     if (!e.rules.includes(rule)) e.rules.push(rule);
+    if (!e.ruleIds.includes(ruleId)) e.ruleIds.push(ruleId);
+    e.inputs = inputList(e.inputs, inputs);
     if (e.evidence.length < 6) e.evidence.push(ev);
   };
 
@@ -63,8 +70,8 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
             calc: c.key, page: pn, text: pg.text.slice(start, end), line: pg.text.slice(ls, le >= 0 ? le : undefined),
             rects: rectsForSpan(pg, start, end),
           };
-          if (out) add(c.key, o.key, "page reference (output to)", ev);
-          else add(o.key, c.key, "page reference (input from)", ev);
+          if (out) add(c.key, o.key, "page reference (output to)", RULES.calcdeps.pageOutput, ev, [pg.doc_sha256]);
+          else add(o.key, c.key, "page reference (input from)", RULES.calcdeps.pageInput, ev, [pg.doc_sha256]);
         }
       }
     }
@@ -89,8 +96,11 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
     const ls = lineStart(U, l.span[0]);
     const to = lastCue(U.slice(ls, l.span[0])) === "TO";
     const [src, dst] = to ? [l.calc_key, d.calc_key] : [d.calc_key, l.calc_key];
-    add(src, dst, "cross-reference (mentions an element the other calc designs)",
-      { calc: l.calc_key, page: l.page, text: l.token, global_id: l.global_id, rects: l.rects });
+    add(src, dst, "cross-reference (mentions an element the other calc designs)", RULES.calcdeps.crossReference,
+      { calc: l.calc_key, page: l.page, text: l.token, global_id: l.global_id, rects: l.rects },
+      [...l.provenance.inputs, pg.doc_sha256, ...d.provenance.inputs]);
   }
-  return [...edges.values()].sort((p, q) => cmp(p.src, q.src) || cmp(p.dst, q.dst));
+  return [...edges.values()]
+    .map(({ ruleIds, inputs, ...e }): CalcEdge => ({ ...e, provenance: ruleProvenance("calcdeps", ruleIds.join("+"), inputs) }))
+    .sort((p, q) => cmp(p.src, q.src) || cmp(p.dst, q.dst));
 }

@@ -14,8 +14,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { parseArgs } from "node:util";
 import {
-  buildExport, diffGraphs, extractPdf, impactOf, mapCalcs, parseGraph, segmentCalcs,
-  type Decision, type ImpactMode, type PdfjsLike,
+  buildExport, decisionFrom, diffGraphs, extractPdf, impactOf, mapCalcs, parseGraph, segmentCalcs,
+  type DecisionFields, type ImpactMode, type PdfjsLike,
 } from "../src/index.ts";
 
 const { values } = parseArgs({
@@ -32,17 +32,20 @@ const graph = parseGraph(readFileSync(values.graph, "utf8"));
 const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as unknown as PdfjsLike;
 const text = await extractPdf(new Uint8Array(readFileSync(values.pdf)), { pdfjs });
 const pkg = segmentCalcs(text.pages, basename(values.pdf));
-const run = mapCalcs(graph, pkg);
-const decisions: Decision[] = values.decisions ? JSON.parse(readFileSync(values.decisions, "utf8")) : [];
+const run = await mapCalcs(graph, pkg);
+// a decision-log file may predate provenance: decisionFrom keeps a decision's provenance or states it from its own fields
+const decisions = values.decisions
+  ? (JSON.parse(readFileSync(values.decisions, "utf8")) as DecisionFields[]).map((d) => decisionFrom(d))
+  : [];
 const out: Record<string, unknown> = {
   export: buildExport(graph, pkg, run, decisions, { model: basename(values.graph) }),
   run,
   pdf: { meta: text.meta, pages: text.pages.map((p) => ({ n: p.n, text: p.text, scanned: p.scanned })) },
-  impacts: Object.fromEntries((values.impact ?? []).map((spec) => {
+  impacts: Object.fromEntries(await Promise.all((values.impact ?? []).map(async (spec) => {
     const i = spec.lastIndexOf(":");
     const gid = spec.slice(0, i), mode = spec.slice(i + 1) as ImpactMode;
-    return [spec, impactOf(graph, pkg, run, decisions, gid, mode)];
-  })),
+    return [spec, await impactOf(graph, pkg, run, decisions, gid, mode)] as const;
+  }))),
 };
 if (values["compare-to"]) {
   out.compare = diffGraphs(graph, parseGraph(readFileSync(values["compare-to"], "utf8")), {

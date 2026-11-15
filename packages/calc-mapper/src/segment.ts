@@ -13,10 +13,15 @@
  * Two deliberate changes from the mockup: software named in the title wins over software the
  * body cites, and the element type falls back to the line directly UNDER the title line (the
  * mockup took the page's second line, which is the title itself once a page has a running header).
+ *
+ * Every calc carries provenance: the segmentation rule that made it (a scanned run, front matter, or
+ * a calc title) and the sha256 of the PDF its pages come from (each page's `doc_sha256`).
  */
+import { sheetRect } from "./frames.ts";
 import { rectsForSpan } from "./pdf.ts";
 import { sha1Json } from "./hash.ts";
-import type { Calc, CalcPackage, CalcPage, CalcRegion, CalcSpan, ElementCategory, Rect, TitleBox } from "./types.ts";
+import { RULES, inputList, ruleProvenance } from "./provenance.ts";
+import type { Calc, CalcPackage, CalcPage, CalcRegion, CalcSpan, ElementCategory, TitleBox } from "./types.ts";
 
 const SOFTWARE: [RegExp, string][] = [
   [/RAM\s*CONCEPT/i, "RAM Concept"], [/RAM\s*(STRUCTURAL|STEEL|FRAME|ELEMENTS)/i, "RAM Structural System"],
@@ -69,7 +74,7 @@ function slug(s: string): string {
  */
 export function titleBox(page: CalcPage, title: string, scanned = false, front = false, from = 0): TitleBox {
   const whole = (note: string): TitleBox => ({
-    page: page.n, rects: [[0, 0, round2(page.width), round2(page.height)]], span: null, rule: TITLE_BOX_RULE, note,
+    page: page.n, rects: [sheetRect(0, 0, round2(page.width), round2(page.height))], span: null, rule: TITLE_BOX_RULE, note,
   });
   if (scanned) return whole("scanned page, no text layer: located by the whole page");
   if (front) return whole("front matter / contents page: located by the whole page");
@@ -171,7 +176,7 @@ function regionOf(p: Part): CalcRegion {
   }
   const top = start === 0 || !Number.isFinite(y0) ? 0 : Math.max(0, round1(y0 - 4));
   const bottom = end >= page.text.length || !Number.isFinite(y1) ? round2(page.height) : Math.min(round2(page.height), round1(y1 + 4));
-  return { page: page.n, rect: [0, full ? 0 : top, round2(page.width), full ? round2(page.height) : bottom], start, end };
+  return { page: page.n, rect: sheetRect(0, full ? 0 : top, round2(page.width), full ? round2(page.height) : bottom), start, end };
 }
 
 /** Regions in reading order -> spans: a region continues the span when it picks up exactly where the last one stopped. */
@@ -261,10 +266,12 @@ export function segment(pages: CalcPage[]): Calc[] {
       c.cat = catOfText(c.title) || catOfText(under);
     }
     const first = c.parts[0]!;
+    const rule = c.scanned ? RULES.segment.scanned : c.front ? RULES.segment.front : RULES.segment.calc;
     return {
       key, ord, title: c.title, software: c.software, cat: c.cat, pages: [...new Set(c.parts.map((p) => p.page.n))],
       scanned: c.scanned, front: c.front, title_box: titleBox(first.page, c.title, c.scanned, c.front, first.start),
       content_hash: sha1Json([c.title, c.text]), spans: spansOf(c.parts),
+      provenance: ruleProvenance("segment", rule, c.parts.map((p) => p.page.doc_sha256)),
     };
   });
 }
@@ -275,13 +282,26 @@ export function calcRegions(calc: Pick<Calc, "pages"> & { spans?: CalcSpan[] }, 
   const byN = new Map(pages.map((p) => [p.n, p]));
   return calc.pages.flatMap((n) => {
     const p = byN.get(n);
-    return p ? [{ page: n, rect: [0, 0, p.width, p.height] as Rect, start: 0, end: p.text.length }] : [];
+    return p ? [{ page: n, rect: sheetRect(0, 0, p.width, p.height), start: 0, end: p.text.length }] : [];
   });
+}
+
+/**
+ * The one document a calc package's pages come from: their shared `doc_sha256`. Throws when pages
+ * carry none (not from extractPdf) or come from more than one PDF.
+ */
+export function packageSha256(pages: Pick<CalcPage, "doc_sha256">[]): string {
+  if (!pages.length || pages.some((p) => !p.doc_sha256)) {
+    throw new Error("calc pages carry no document hash (doc_sha256): extract them with extractPdf");
+  }
+  const docs = inputList(pages.map((p) => p.doc_sha256));
+  if (docs.length !== 1) throw new Error(`a calc package is one PDF, but its pages come from ${docs.length} documents`);
+  return docs[0]!;
 }
 
 /** Segment extracted pages into a calc package. */
 export function segmentCalcs(pages: CalcPage[], sourceName: string | null = null): CalcPackage {
-  return { source_name: sourceName, pages, calcs: segment(pages) };
+  return { source_name: sourceName, source_sha256: packageSha256(pages), pages, calcs: segment(pages) };
 }
 
 /** Each calc's text (its regions joined, as the matcher reads it). */

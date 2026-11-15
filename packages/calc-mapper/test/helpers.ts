@@ -1,5 +1,9 @@
 import type { CalcPage, ElementRow, SerializedElementGraph } from "../src/index.ts";
 
+/** A stand-in sha256 of "the" calc PDF the helper pages come from, and of "the" element graph. */
+export const DOC_SHA = "d".repeat(64);
+export const GRAPH_SHA = "a".repeat(64);
+
 /** A page whose words are laid out one per line position (boxes are dummies; spans are real). */
 export function page(n: number, text: string): CalcPage {
   const words: CalcPage["words"] = [];
@@ -10,7 +14,7 @@ export function page(n: number, text: string): CalcPage {
       pos += w.length + 1;
     }
   }
-  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25 };
+  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25, doc_sha256: DOC_SHA };
 }
 
 /**
@@ -36,7 +40,7 @@ export function styledPage(n: number, lines: string[]): CalcPage {
     out.push(line);
   }
   const text = out.join("\n");
-  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25 };
+  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25, doc_sha256: DOC_SHA };
 }
 
 export function el(global_id: string, cat: ElementRow["cat"], mark: string, profile = "", storey = "Level 2"): ElementRow {
