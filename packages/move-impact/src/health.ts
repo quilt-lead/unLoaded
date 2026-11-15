@@ -11,16 +11,17 @@
  *               drift is already within 5 % of its limit
  */
 import type { Model } from "./model.ts";
-import { BANDS, type Band, type CalcFact, type Clash, type Estimate, type Health } from "./types.ts";
+import { BANDS, type Band, type Clash, type Estimate, type Health } from "./types.ts";
+import type { WFact } from "./facts.ts";
 import { utilOf } from "./facts.ts";
 
 export interface HealthInput {
   model: Model;
   column: string;
   remove: boolean;
-  est: Map<string, Estimate>;
-  facts: CalcFact[];
-  factsOf: Map<string, CalcFact[]>;
+  est: Map<string, Omit<Estimate, "provenance">>;
+  facts: WFact[];
+  factsOf: Map<string, WFact[]>;
   staleRows: { fact: string }[];
   clashes: Clash[];
   lateral: string[];
@@ -28,7 +29,7 @@ export interface HealthInput {
   name: (id: string) => string | null;
 }
 
-export function healthOf(h: HealthInput): Health {
+export function healthOf(h: HealthInput): Omit<Health, "provenance"> {
   const { model, est, factsOf, frames, name } = h;
   const reasons: [number, string, string][] = [];
   const kind = (id: string) => model.nodes.get(id)?.kind;

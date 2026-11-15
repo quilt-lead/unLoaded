@@ -8,11 +8,12 @@
 import { buildModel, below, dist, lineIntersect, spanOf, type End, type Member, type Model, type P2 } from "./model.ts";
 import { fac, ru, solveSpan, type SpanResult, type Vec3 } from "./statics.ts";
 import { healthOf } from "./health.ts";
-import { utilOf } from "./facts.ts";
+import { normaliseFacts, utilOf, type WFact } from "./facts.ts";
+import { provenance, RULES } from "./provenance.ts";
+import { q, type Unit } from "@unloaded/calc-mapper";
 import { phiMn, yieldFromMaterial, type FlexureSection } from "./flexure.ts";
 import {
   ENGINE_VERSION,
-  type CalcFact,
   type Clash,
   type Estimate,
   type GeometryChange,
@@ -22,6 +23,7 @@ import {
   type ScreenedElement,
   type SectionProps,
   type StaleCalc,
+  type StaleRow,
   type TopoElement,
 } from "./types.ts";
 
@@ -59,8 +61,10 @@ function memberWeightKlf(profile: string | null): number | null {
 
 export function impact(input: ImpactInput): ImpactResult {
   const { graph, move } = input;
-  const facts = input.facts ?? [];
+  const { facts, problems } = normaliseFacts(input.facts ?? []);
   const hasFacts = input.facts !== undefined;
+  // every input document the result rests on: the graph, then each calc package a fact came from
+  const runInputs = provenance("impact", RULES.topological, "rule", [input.graphSha256], facts.map((f) => f.source.documentSha256)).inputs;
   const links = (input.links ?? []).filter((l) => l.status !== "rejected");
   const model = buildModel(graph);
   const column = move.column;
@@ -68,13 +72,13 @@ export function impact(input: ImpactInput): ImpactResult {
   const remove = move.remove === true;
   const dx = move.remove ? 0 : move.dx;
   const dy = move.remove ? 0 : move.dy;
-  const assumptions = [...model.assumptions];
+  const assumptions = [...model.assumptions, ...problems];
   const notes: string[] = [];
   const name = (id: string) => model.nodes.get(id)?.name ?? model.nodes.get(id)?.mark ?? null;
   const kindOf = (id: string) => model.nodes.get(id)?.kind ?? "unknown";
 
   // ---- facts by element
-  const factsOf = new Map<string, CalcFact[]>();
+  const factsOf = new Map<string, WFact[]>();
   for (const f of facts) for (const e of f.elements) (factsOf.get(e) ?? factsOf.set(e, []).get(e)!).push(f);
   const factOf = (e: string, kinds: string[]) => (factsOf.get(e) ?? []).find((f) => kinds.includes(f.kind));
   const typicals = facts.filter((f) => f.kind === "typical_detail" && f.detailType && f.capacity);
@@ -123,7 +127,11 @@ export function impact(input: ImpactInput): ImpactResult {
   const mark = (e: string, reason: string, chain: string[]) => {
     if (!model.nodes.has(e)) return;
     let t = topo.get(e);
-    if (!t) topo.set(e, (t = { element: e, kind: kindOf(e), name: name(e), reasons: [], chain: [...chain, e] }));
+    if (!t)
+      topo.set(e, (t = {
+        element: e, kind: kindOf(e), name: name(e), reasons: [], chain: [...chain, e],
+        provenance: provenance("impact", RULES.topological, "rule", runInputs),
+      }));
     if (!t.reasons.includes(reason)) t.reasons.push(reason);
   };
 
@@ -222,10 +230,9 @@ export function impact(input: ImpactInput): ImpactResult {
       "no calc states beam line loads: the screen uses a unit area load on each beam's tributary width (geometry only); demands are compared as ratios, never as values",
     );
   else assumptions.push("beam self weight added from the W-shape designation's nominal weight (lb/ft) where the profile names one");
-  // stated line loads are per foot (klf) or per metre (kN/m): solve in that length unit so line
-  // loads and point loads (reactions) combine consistently; geometry stays in metres everywhere else
-  const lineUnit = facts.find((f) => f.kind === "beam" && f.lineLoad)?.lineLoad?.unit ?? "";
-  const ls = basis === "stated loads" && /klf|k\/ft|kip\/ft|plf|lb\/ft/i.test(lineUnit) ? 1 / FT : 1;
+  // stated values are in working units (facts.ts: kip, klf, kip*ft): solve in feet so line loads and
+  // point loads (reactions) combine consistently; geometry stays in metres everywhere else
+  const ls = basis === "stated loads" ? 1 / FT : 1;
   const spanSolve = (Lm: number, w: Vec3, ptsM: [number, Vec3][], roof: boolean): SpanResult => {
     const r = solveSpan(Lm * ls, w, ptsM.map(([a, p]) => [a * ls, p] as [number, Vec3]), roof);
     return { ...r, L: Lm, lb: r.lb / ls };
@@ -325,20 +332,24 @@ export function impact(input: ImpactInput): ImpactResult {
   const after = solve(geo, effCarried);
 
   const changes = new Map<string, GeometryChange[]>();
-  const addChange = (e: string, c: GeometryChange) => (changes.get(e) ?? changes.set(e, []).get(e)!).push(c);
+  type RawChange = Omit<GeometryChange, "before" | "after"> & { before: number; after: number; unit: Unit };
+  const addChange = (e: string, c: RawChange) => {
+    const { unit, before: b0, after: a0, ...rest } = c;
+    (changes.get(e) ?? changes.set(e, []).get(e)!).push({ ...rest, before: q(b0, unit), after: q(a0, unit) });
+  };
   const ratio = (a: number, b: number) => (Math.abs(a) > 1e-12 ? b / a : Math.abs(b) > 1e-12 ? Infinity : 1);
   const lbasis = basis;
-  const metric = /kN/i.test(lineUnit);
-  const loadUnit = basis === "unit area load" ? "unit" : ls !== 1 ? "kip" : metric ? "kN" : "stated force unit";
-  const momUnit = basis === "unit area load" ? "unit" : ls !== 1 ? "kip-ft" : metric ? "kN-m" : "stated moment unit";
+  // unit "1": a relative magnitude (unit area load, or deflection with EI = 1)
+  const loadUnit: Unit = basis === "unit area load" ? "1" : "kip";
+  const momUnit: Unit = basis === "unit area load" ? "1" : "kip*ft";
   for (const [mid, r] of after) {
     const b = before.get(mid)!;
     const m = model.members.get(mid)!;
     addChange(mid, { quantity: "moment", before: b.mu, after: r.mu, ratio: ratio(b.mu, r.mu), unit: momUnit, basis: lbasis });
     addChange(mid, { quantity: "span", before: spanOf(m), after: r.L, ratio: ratio(spanOf(m), r.L), unit: "m", basis: "geometry" });
     addChange(mid, { quantity: "shear", before: b.vu, after: r.vu, ratio: ratio(b.vu, r.vu), unit: loadUnit, basis: lbasis });
-    addChange(mid, { quantity: "deflection_live", before: b.dLive, after: r.dLive, ratio: ratio(b.dLive, r.dLive), unit: "EI=1", basis: lbasis });
-    addChange(mid, { quantity: "deflection_total", before: b.dTotal, after: r.dTotal, ratio: ratio(b.dTotal, r.dTotal), unit: "EI=1", basis: lbasis });
+    addChange(mid, { quantity: "deflection_live", before: b.dLive, after: r.dLive, ratio: ratio(b.dLive, r.dLive), unit: "1", basis: lbasis });
+    addChange(mid, { quantity: "deflection_total", before: b.dTotal, after: r.dTotal, ratio: ratio(b.dTotal, r.dTotal), unit: "1", basis: lbasis });
     addChange(mid, { quantity: "end_reaction_i", before: ru(b.Ri), after: ru(r.Ri), ratio: ratio(ru(b.Ri), ru(r.Ri)), unit: loadUnit, basis: lbasis });
     addChange(mid, { quantity: "end_reaction_j", before: ru(b.Rj), after: ru(r.Rj), ratio: ratio(ru(b.Rj), ru(r.Rj)), unit: loadUnit, basis: lbasis });
   }
@@ -346,7 +357,7 @@ export function impact(input: ImpactInput): ImpactResult {
   for (const m of affected) if (!after.has(m) && model.members.get(m)?.kind === "beam" && basis === "stated loads")
     notes.push(`${name(m) ?? m}: no calc states its line loads - kept on the path without a screened number`);
 
-  const est = new Map<string, Estimate>();
+  const est = new Map<string, Omit<Estimate, "provenance">>();
   const frameRatio = new Map<string, number>(); // frame_girder fact -> frame moment ratio
   const resolvedIds = [...after.keys()];
   const mergedIds = merged.flatMap((mg) => mg.members);
@@ -401,7 +412,7 @@ export function impact(input: ImpactInput): ImpactResult {
       let how = `frame utilisation x gravity moment ratio ${fmt(gr, 3)} (capacity held)`;
       const cv = fg.chevron;
       if (cv && fg.governs === "F2.3") {
-        const lu = /kN/i.test(cv.unbalancedLoad.unit) ? 1 : 1 / FT; // span in the load's length unit
+        const lu = 1 / FT; // span in feet (chevron values are in kip / kip*ft, facts.ts)
         const m = (cv.unbalancedLoad.value * (L1 * lu)) / 4 + cv.gravityMoment.value * gr;
         const m0 = (cv.unbalancedLoad.value * (L0 * lu)) / 4 + cv.gravityMoment.value;
         frameRatio.set(fg.id, m0 ? m / m0 : 1);
@@ -463,7 +474,7 @@ export function impact(input: ImpactInput): ImpactResult {
         ruNew = f.demand ? f.demand.value * ratio(r0, r1) : null;
         how = `stated utilisation x end reaction ratio ${fmt(ratio(r0, r1), 3)} (${basis})`;
       }
-      const e: Estimate = {
+      const e: Omit<Estimate, "provenance"> = {
         element: cx, method: "estimate", scaledBy: how, utilisationBefore: utilOf(f), utilisationAfter: round(uc, 3),
         governs: "connection", source: f.source, fact: f.id,
       };
@@ -573,7 +584,7 @@ export function impact(input: ImpactInput): ImpactResult {
     const pu1 = pu0 + dpu;
     const r = ratio(pu0, pu1);
     addChange(c, {
-      quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? (cf?.axial?.unit ?? "kip") : loadUnit,
+      quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit,
       basis: statedAbs ? "stated loads" : lbasis,
     });
     if (Math.abs(dpu) / Math.max(Math.abs(pu0), 1e-6) > TOUCH || c === column)
@@ -588,7 +599,7 @@ export function impact(input: ImpactInput): ImpactResult {
     // the column's base plate and pier carry its axial load: same change (the footing gets its own below)
     for (const x of chainBelow)
       if (!model.footings.has(x))
-        addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? (cf?.axial?.unit ?? "kip") : loadUnit, basis: statedAbs ? "stated loads" : lbasis });
+        addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit, basis: statedAbs ? "stated loads" : lbasis });
     const fid = chainBelow.find((x) => model.footings.has(x));
     if (!fid) continue;
     const ff = factOf(fid, ["footing"]);
@@ -607,28 +618,19 @@ export function impact(input: ImpactInput): ImpactResult {
     }
     const ps1 = ps0 + ds;
     const fr = ratio(ps0, ps1);
-    addChange(fid, { quantity: "footing_load", before: ps0, after: ps1, ratio: fr, unit: fAbs ? (ff?.serviceLoad?.unit ?? "kip") : loadUnit, basis: fAbs ? "stated loads" : lbasis });
+    addChange(fid, { quantity: "footing_load", before: ps0, after: ps1, ratio: fr, unit: fAbs ? "kip" : loadUnit, basis: fAbs ? "stated loads" : lbasis });
     if (ff) {
       const fp = model.footings.get(fid)!;
       const qa = ff.allowableBearing;
       const u0 = utilOf(ff);
-      let e: Estimate | null = null;
-      if (fAbs && qa && /ksf/i.test(qa.unit) && /kip/i.test(ff.serviceLoad!.unit)) {
+      let e: Omit<Estimate, "provenance"> | null = null;
+      if (fAbs && qa) {
         const B0 = Math.min(fp.bx, fp.by) / FT;
         const breq = Math.max(4.0, Math.ceil(Math.sqrt(Math.max(ps1, 0) / qa.value) * 2) / 2);
         e = {
           element: fid, method: "estimate", utilisationBefore: u0, utilisationAfter: round(ps1 / (qa.value * B0 * B0), 3), governs: "bearing",
           scaledBy: `bearing: stated service load ${fmt(ps0, 1)} + reaction deltas ${fmt(ds, 1)} kip over the model's ${fmt(B0, 2)} ft footing at the stated qa ${qa.value} ksf`,
-          source: ff.source, fact: ff.id, requiredWidth: { value: breq, unit: "ft" },
-        };
-      } else if (fAbs && qa && /kpa/i.test(qa.unit) && /kn/i.test(ff.serviceLoad!.unit)) {
-        const B0 = Math.min(fp.bx, fp.by);
-        const step = 0.5 * FT;
-        const breq = Math.max(4.0 * FT, Math.ceil(Math.sqrt(Math.max(ps1, 0) / qa.value) / step) * step);
-        e = {
-          element: fid, method: "estimate", utilisationBefore: u0, utilisationAfter: round(ps1 / (qa.value * B0 * B0), 3), governs: "bearing",
-          scaledBy: `bearing: stated service load + reaction deltas over the model's footing at the stated allowable bearing`,
-          source: ff.source, fact: ff.id, requiredWidth: { value: round(breq, 3), unit: "m" },
+          source: ff.source, fact: ff.id, requiredWidth: q(breq, "ft"),
         };
       } else if (u0 != null)
         e = {
@@ -658,7 +660,7 @@ export function impact(input: ImpactInput): ImpactResult {
       const fx = f0.cx + dx;
       const fy = f0.cy + dy;
       const req = est.get(movedFooting)?.requiredWidth;
-      const breqM = req ? (req.unit === "ft" ? req.value * FT : req.value) : 0;
+      const breqM = req ? (req.unit === "ft" ? req.value * FT : req.value) : 0; // requiredWidth is in ft
       const B = Math.max(breqM, Math.min(f0.bx, f0.by));
       for (const o of model.footings.values()) {
         if (o.id === movedFooting) continue;
@@ -699,7 +701,7 @@ export function impact(input: ImpactInput): ImpactResult {
     // cancels and R = d0 k_beam is an UPPER BOUND - a brace screened as unmoved cannot have moved more.
     const dFac = Math.max(0, 0.9 - 0.2 * (sds ?? 0)) / 1.2;
     const beamSec = sectionIn(model.members.get(mid)!.profile);
-    const dM = Math.abs(mc.after - mc.before);
+    const dM = Math.abs(mc.after.value - mc.before.value);
     const Lin = after.get(mid)!.L / 0.0254;
     const moved: string[] = [];
     for (const br of braces) {
@@ -745,8 +747,8 @@ export function impact(input: ImpactInput): ImpactResult {
   const GOV_ORDER = ["moment", "brace_force", "connection_reaction", "footing_load", "column_load"] as const;
   const govOf = (e: string) => {
     const cs = changes.get(e) ?? [];
-    for (const q of GOV_ORDER) {
-      const c = cs.find((x) => x.quantity === q);
+    for (const gq of GOV_ORDER) {
+      const c = cs.find((x) => x.quantity === gq);
       if (c) return c;
     }
     return null;
@@ -762,14 +764,27 @@ export function impact(input: ImpactInput): ImpactResult {
     // tributary area and the eccentricity of every reaction on it change, not only its axial load
     const keep = mergedSet.has(t.element) || movesWithColumn.has(t.element) ? true : gov ? Math.abs(gov.ratio - 1) > CHANGE : true;
     screenOf.set(t.element, keep);
-    if (keep) screenedEls.push({ element: t.element, kind: t.kind, name: t.name, governing: gov, changes: cs, keptWithoutEstimate: !gov && !mergedSet.has(t.element) });
+    if (keep) {
+      const rule = mergedSet.has(t.element)
+        ? RULES.screen.merged
+        : movesWithColumn.has(t.element)
+          ? RULES.screen.movesWithColumn
+          : gov
+            ? RULES.screen.change
+            : RULES.screen.noNumber;
+      screenedEls.push({
+        element: t.element, kind: t.kind, name: t.name, governing: gov, changes: cs, keptWithoutEstimate: !gov && !mergedSet.has(t.element),
+        provenance: provenance("impact", rule, "rule", runInputs),
+      });
+    }
   }
 
   // ---- stale rows / calcs
   let staleRows: ImpactResult["staleRows"];
   let stale: StaleCalc[] | undefined;
   if (hasFacts || links.length) {
-    const rowMap = new Map<string, { fact: string; calcKey: string; screened: boolean; elements: string[] }>();
+    const rowMap = new Map<string, StaleRow>();
+    const docOf = new Map<string, string>(facts.map((f) => [f.id, f.source.documentSha256]));
     for (const f of facts) {
       const on = f.elements.filter((e) => topo.has(e));
       if (!on.length) continue;
@@ -787,10 +802,13 @@ export function impact(input: ImpactInput): ImpactResult {
           : decided
             ? screenOf.get(decided)!
             : true;
-      rowMap.set(f.id, { fact: f.id, calcKey: f.source.calcKey, screened: scr, elements: on });
+      rowMap.set(f.id, {
+        fact: f.id, calcKey: f.source.calcKey, screened: scr, elements: on,
+        provenance: provenance("impact", RULES.staleRow, "rule", [input.graphSha256, f.source.documentSha256]),
+      });
     }
     if (hasFacts) staleRows = [...rowMap.values()].sort((a, b) => a.fact.localeCompare(b.fact));
-    const byCalc = new Map<string, StaleCalc>();
+    const byCalc = new Map<string, Omit<StaleCalc, "provenance">>();
     const get = (k: string) => byCalc.get(k) ?? byCalc.set(k, { calcKey: k, rows: [], elements: [], screened: false, reasons: [] }).get(k)!;
     for (const r of rowMap.values()) {
       const s = get(r.calcKey);
@@ -809,12 +827,16 @@ export function impact(input: ImpactInput): ImpactResult {
       s.elements.sort();
       s.reasons = [...new Set(s.elements.flatMap((e) => topo.get(e)?.reasons ?? []))].slice(0, 5);
     }
-    stale = [...byCalc.values()].sort((a, b) => a.calcKey.localeCompare(b.calcKey));
+    // a calc known only from links rests on the graph alone here (the link's own provenance names its PDF)
+    stale = [...byCalc.values()]
+      .sort((a, b) => a.calcKey.localeCompare(b.calcKey))
+      .map((sc) => ({ ...sc, provenance: provenance("impact", RULES.staleCalc, "rule", [input.graphSha256], sc.rows.map((r) => docOf.get(r))) }));
   }
 
   const result: ImpactResult = {
     engine: ENGINE_VERSION,
     move,
+    inputs: runInputs,
     topological: [...topo.values()].sort((a, b) => a.element.localeCompare(b.element)),
     screened: screenedEls.sort((a, b) => a.element.localeCompare(b.element)),
     geometry: [...geo].map(([element, v]) => {
@@ -834,10 +856,24 @@ export function impact(input: ImpactInput): ImpactResult {
     },
   };
   if (hasFacts) {
-    result.estimates = Object.fromEntries([...est].sort(([a], [b]) => a.localeCompare(b)));
-    result.health = healthOf({
-      model, column, remove, est, facts, factsOf, staleRows: staleRows ?? [], clashes, lateral, frames, name,
-    });
+    const ruleOf = (e: Omit<Estimate, "provenance">): string => {
+      const k = e.element.startsWith("NEW:") ? "transfer" : kindOf(e.element);
+      if (k === "transfer") return RULES.estimate.transfer;
+      if (k === "connection") return RULES.estimate.connection;
+      if (k === "column") return RULES.estimate.column;
+      if (k === "footing") return RULES.estimate.footing;
+      if (k === "brace") return RULES.estimate.brace;
+      return e.governs === "frame" ? RULES.estimate.frameGirder : RULES.estimate.beam;
+    };
+    result.estimates = Object.fromEntries(
+      [...est]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, e]) => [k, { ...e, provenance: provenance("impact", ruleOf(e), "estimate", [input.graphSha256, e.source.documentSha256]) }]),
+    );
+    result.health = {
+      ...healthOf({ model, column, remove, est, facts, factsOf, staleRows: staleRows ?? [], clashes, lateral, frames, name }),
+      provenance: provenance("health", RULES.health, "estimate", runInputs),
+    };
   }
   if (staleRows) result.staleRows = staleRows;
   if (stale) result.stale = stale;
@@ -946,11 +982,11 @@ function topoOrder(ids: string[], deps: (id: string) => string[]): string[] {
 
 /** Scale each stated check by its geometric ratio; the governing one is the largest. */
 function scaleChecks(
-  f: CalcFact,
+  f: WFact,
   scale: Record<string, number>,
   basis: string,
   absolute: Record<string, number> = {},
-): Omit<Estimate, "element"> | null {
+): Omit<Estimate, "element" | "provenance"> | null {
   const u0 = utilOf(f);
   const parts: [string, number, number][] = [];
   for (const c of f.checks ?? []) {

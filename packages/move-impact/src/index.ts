@@ -5,4 +5,4 @@ export { impact, UnknownColumn, CHANGE, TOUCH } from "./impact.ts";
 export { buildModel } from "./model.ts";
 export type { Model, Member, End } from "./model.ts";
 export { solveSpan, COMBOS } from "./statics.ts";
-export { utilOf } from "./facts.ts";
+export { PACKAGE_NAME, PACKAGE_VERSION, RULES, producerOf } from "./provenance.ts";

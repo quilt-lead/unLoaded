@@ -69,6 +69,12 @@ def main() -> None:
             frame_of.setdefault(rel["src"], []).append(rel["dst"][6:])
             members_of.setdefault(rel["dst"][6:], []).append(rel["src"])
 
+    import hashlib
+    pdf_sha = hashlib.sha256(open(os.path.join(a.dir, "calc_package.pdf"), "rb").read()).hexdigest()
+
+    def comps(d, l, rl, unit, n):
+        return drop_none({"dead": q(d, unit, n), "live": q(l, unit, n), "roofLive": q(rl, unit, n)})
+
     def flipped(eid: str) -> bool:
         """True when the row's end 1 ("far left", the design's p1) is the graph axis END - so the
         printed reactions are re-labelled to the model's axis ends, as a reader of the sheet would."""
@@ -95,25 +101,25 @@ def main() -> None:
         role = "lateral" if (k in LATERAL or (k == "column_design" and rec["section"] == "C")) else "gravity"
         f = {"id": rec["id"], "elements": els,
              "source": {"calcKey": slug(f"{rec['calc']} {rec['calc_title']}"), "page": rec.get("page"),
-                        "rects": [rec["bbox"]] if rec.get("bbox") else []},
+                        "rects": [rec["bbox"]] if rec.get("bbox") else [], "documentSha256": pdf_sha},
              "role": role, "group": group if role == "lateral" else None,
              "utilisation": r(rec.get("uc"), 3)}
         if k == "beam_design":
             flip = flipped(rec["elements"][0])
-            ri = {"dead": r(v["R_i_D"], 2), "live": r(v["R_i_L"], 2), "unit": "kip"}
-            rj = {"dead": r(v["R_j_D"], 2), "live": r(v["R_j_L"], 2), "unit": "kip"}
+            ri = comps(v["R_i_D"], v["R_i_L"], None, "kip", 2)
+            rj = comps(v["R_j_D"], v["R_j_L"], None, "kip", 2)
             f.update(kind="beam", span=q(v["span_ft"], "ft", 2), governs=GOVERNS.get(v["governs"], v["governs"]),
-                     lineLoad={"dead": r(v["w_D_klf"], 3), "live": r(v["w_L_klf"], 3), "roofLive": r(v["w_Lr_klf"], 3), "unit": "klf"},
+                     lineLoad=comps(v["w_D_klf"], v["w_L_klf"], v["w_Lr_klf"], "klf", 3),
                      reactions={"i": rj if flip else ri, "j": ri if flip else rj,
                                 "factoredI": q(v["R_j_k"] if flip else v["R_i_k"], "kip", 1),
                                 "factoredJ": q(v["R_i_k"] if flip else v["R_j_k"], "kip", 1)},
-                     checks=[{"mode": "flexure", "demand": q(v["Mu_kft"], "kip-ft", 1), "capacity": q(v["phiMn_kft"], "kip-ft", 1)},
+                     checks=[{"mode": "flexure", "demand": q(v["Mu_kft"], "kip*ft", 1), "capacity": q(v["phiMn_kft"], "kip*ft", 1)},
                              {"mode": "shear", "demand": q(v["Vu_k"], "kip", 1), "capacity": q(v["phiVn_k"], "kip", 1)},
                              {"mode": "deflection_live", "demand": q(v["defl_L_in"], "in", 2), "capacity": q(v["defl_L_allow_in"], "in", 2)},
                              {"mode": "deflection_total", "demand": q(v["defl_T_in"], "in", 2), "capacity": q(v["defl_T_allow_in"], "in", 2)}])
         elif k == "smf_beam":
             f.update(kind="beam", span=q(v.get("span_ft"), "ft", 2),
-                     checks=[{"mode": "flexure", "demand": q(v["Mu_kft"], "kip-ft", 1), "capacity": q(v["phiMn_kft"], "kip-ft", 1)}])
+                     checks=[{"mode": "flexure", "demand": q(v["Mu_kft"], "kip*ft", 1), "capacity": q(v["phiMn_kft"], "kip*ft", 1)}])
         elif k == "column_design":
             f.update(kind="column", axial=q(v["Pu_k"], "kip", 1), capacity=q(v.get("phiPn_k"), "kip", 1), combination=rec.get("lc") or None)
         elif k == "footing":
@@ -131,17 +137,18 @@ def main() -> None:
                      span=q(v.get("span_ft"), "ft", 2))
             f23 = v.get("F2_3")
             if f23 and f23.get("Pv_unbalanced") is not None and v.get("phiPn_k") and v.get("phiMn_kft"):
-                f["chevron"] = {"unbalancedLoad": q(f23["Pv_unbalanced"], "kip", 1), "gravityMoment": q(f23.get("M_gravity") or 0, "kip-ft", 1),
+                f["chevron"] = {"unbalancedLoad": q(f23["Pv_unbalanced"], "kip", 1), "gravityMoment": q(f23.get("M_gravity") or 0, "kip*ft", 1),
                                 "axial": q(f23.get("P_axial") or 0, "kip", 1), "axialCapacity": q(v["phiPn_k"], "kip", 1),
-                                "momentCapacity": q(v["phiMn_kft"], "kip-ft", 1), "equation": f23.get("eq", "H1-1b")}
+                                "momentCapacity": q(v["phiMn_kft"], "kip*ft", 1), "equation": f23.get("eq", "H1-1b")}
         elif k == "collector":
             f.update(kind="collector", axial=q(v.get("Pu_k"), "kip", 1))
         elif k == "frame_analysis":
-            f.update(kind="frame", demand=q(rec.get("demand"), "ratio", 3), capacity=q(rec.get("capacity"), "ratio", 3))
+            f.update(kind="frame", demand=q(rec.get("demand"), "1", 3), capacity=q(rec.get("capacity"), "1", 3))
         elif k == "seismic":
             f.update(kind="seismic", seismic=drop_none({"cs": r(v.get("Cs"), 4), "r": v.get("R"), "ie": v.get("Ie"), "system": v.get("system")}))
         elif rec["elements"]:
-            f.update(kind="other", demand=q(rec.get("demand"), rec.get("unit") or "", 1), capacity=q(rec.get("capacity"), rec.get("unit") or "", 1))
+            unit = {"kip-ft": "kip*ft", "": "1", "ratio": "1"}.get(rec.get("unit") or "", rec.get("unit") or "1")
+            f.update(kind="other", demand=q(rec.get("demand"), unit, 1), capacity=q(rec.get("capacity"), unit, 1))
         else:
             continue   # criteria / area loads / ELF / wind: no element to link
         for c in f.get("checks", []):

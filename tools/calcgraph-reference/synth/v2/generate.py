@@ -4,13 +4,15 @@
     uv run python -m synth.v2.generate [--out data/synthetic_v2] [--check]
 
 Writes design.json (elements, types, relations, calc records, verification of the AISC
-table), model.ifc and calc_package.pdf. --check generates twice into temp dirs and compares
-sha256 of every file (byte-stable).
+table), model.ifc, calc_package.pdf, drawings.pdf (the structural drawing set) and
+registry_truth.json (every element / type / detail / record and where it occurs in the IFC, the
+drawings and the calcs). --check generates twice into temp dirs and compares sha256 of every file
+(byte-stable).
 
 Standalone copy of the hackathon's synth/v2 (calc-graph prototype, 2026-11-14) for the move-impact
-gate (packages/move-impact). Left out on purpose: the drawing set, spec book, registry truth and
-platform writers, the ETABS adapter, and the structural analysis model inside the IFC - none of
-them feed the move answer key. Outside synth/v2 it imports only synth/ifc_common.py (the shared IFC builder the v1 generator
+gate (packages/move-impact). Left out on purpose: the spec book, the
+platform writers, the ETABS adapter (so the registry truth has no etabs occurrences), and the
+structural analysis model inside the IFC. Outside synth/v2 it imports only synth/ifc_common.py (the shared IFC builder the v1 generator
 also uses).
 """
 from __future__ import annotations
@@ -22,7 +24,7 @@ import os
 import tempfile
 import time
 
-from . import aisc, calc_pdf_v2, design, ifc_v2, model, records
+from . import aisc, calc_pdf_v2, design, drawings_v2, ifc_v2, model, records, registry_truth
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 OUT = os.path.join(ROOT, "data", "synthetic_v2")
@@ -95,8 +97,11 @@ def _generate_into(out: str) -> tuple[list[str], dict]:
     for e in exp["elements"]:
         if e["id"] in gids:
             e["global_id"] = gids[e["id"]]
-    # the calc package: its writer records each record's page / bbox / sheet into exp in place
+    # document writers record their occurrences (page / bbox / sheet) into exp in place, in the
+    # hackathon's order (calc package, then drawing set), then the registry truth reads them
     calc_pdf_v2.write(exp, d, os.path.join(out, "calc_package.pdf"))
+    drawings_v2.write(exp, d, os.path.join(out, "drawings.pdf"))
+    registry_truth.write(exp, os.path.join(out, "registry_truth.json"))
     with open(os.path.join(out, "design.json"), "w") as fh:
         json.dump(exp, fh, indent=1, sort_keys=True)
     return (sorted(f for f in os.listdir(out) if os.path.isfile(os.path.join(out, f))),
