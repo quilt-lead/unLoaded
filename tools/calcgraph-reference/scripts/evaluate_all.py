@@ -18,8 +18,6 @@ Stages (a stage whose inputs are missing reports SKIPPED; see Gating for what a 
                    UC error, health band. Skipped unless data/synthetic_v2/ holds design.json,
                    answer_key.json and model.graph.json (synth.v2.generate, synth.v2.scenarios,
                    scripts/build_graph.mjs). Needs Node.
-  (The copyright guard is not a stage: the CI `copyright` job runs its --self-test, --tracked and the
-  PR / push range, and the pre-commit hook runs --staged. Re-running --tracked here cost ~30 s per run.)
 
 Gating (compare(), over the UNION of the baseline's and the run's keys):
   - gated metric (higher is better): a drop larger than --tolerance (default 0.005 absolute) is a

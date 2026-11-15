@@ -32,8 +32,6 @@ __pycache__/
 
 # reference tooling's local data: synthetic package, eval output, caches - never committed.
 # Only small fixtures and the sources list are tracked.
-# tools/calcgraph-reference/data/sets/ and tools/calcgraph-reference/data/labels/ (copyrighted permit set, private hand labels) stay ignored;
-# the copyright guard (tools/calcgraph-reference/scripts/check_no_copyrighted.py) also blocks them.
 tools/calcgraph-reference/data/*
 !tools/calcgraph-reference/data/fixtures/
 !tools/calcgraph-reference/data/SOURCES.md
@@ -41,7 +39,5 @@ tools/calcgraph-reference/data/*
 
 # AISC shapes data is not openly licensed and this repo is public: never commit it (see decision log D22)
 tools/calcgraph-reference/synth/v2/data/aisc_*.csv
-# Source documents (copyrighted / permit set) - keep out of git
-*.pdf
 # double-click viewer build: packed copies of the source PDFs
 prototyping/calc-viewer/viewers/assets/pdf-*.js

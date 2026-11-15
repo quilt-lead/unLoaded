@@ -2,7 +2,7 @@
 name = "calcgraph-reference"
 version = "0.1.0"
 requires-python = ">=3.12"
-description = "Offline dev tooling for the calc engine (packages/calc-mapper): synthetic fixture generator, scorer, copyright guard"
+description = "Offline dev tooling for the calc engine (packages/calc-mapper): synthetic fixture generator, scorer"
 dependencies = [
     # synth/: writes the synthetic model (IFC), member forces and calc package (PDF)
     "ifcopenshell>=0.9.0.post1",

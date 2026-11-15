@@ -13,13 +13,13 @@
    PR #4's code and docs win. Sample and fixture paths point at `data/`. `copy-assets.mjs` keeps copying what
    **Load sample** needs into `public/samples/`, but now from `data/`. That is on demand, so `prod`'s "workspace starts
    empty" still holds.
-2. **Copyright guard allowlist (decided by Carl).** PR #5 put extracted Building 12 permit-set text into
-   `prototyping/calc-viewer/` (data JSON, `viewers/assets/data.js`, build scripts). The guard's `--tracked` scan blocked
-   it. Carl chose to allowlist rather than untrack. Entries are per path and per term id, so a new file carrying a
-   protected term is still blocked. The five `prototyping/calc-graph/docs/screenshots/*.png` are pinned by blob sha
-   after a visual check: they show only the synthetic sample ("JOB 2611 - SAMPLE OFFICE BUILDING").
-   **Still open:** the repo is public and that data is in `prod`'s history either way. Untracking or scrubbing the
-   history is the repo owner's call (see open question 4 in the calc-engine note).
+2. **Copyright guard removed: project PDFs and data are allowed (decided by Carl, 2026-11-14).** `prod` now commits
+   the Building 12 permit-set PDFs (`data/sampleCalc/`, in Git LFS) and the calc-viewer's extracted data. Carl:
+   "We are going to allow pdfs. Assume that anything I've given you is okay. Change the repo standards. Public
+   exposure is okay right now." So the guard (`check_no_copyrighted.py`, its config, tests, pre-commit hook and the CI
+   `copyright` job) and the `*.pdf` ignore rule are gone. This supersedes D11 / D14 in the calc-engine note and
+   answers its open question 4. Kept: the AISC shapes ignore (D22), which is a third-party licence matter, not Carl's
+   data. An allowlist was tried first (`a2cf717`); it was dropped with the guard.
 3. **Two Windows-only test fixes.** `App.scope.test.ts` sliced `App.tsx` on `\n  };\n`, which never matches a CRLF
    checkout (`core.autocrlf=true`), so it now normalises line endings. A calc-mapper test expected an old `parseGraph`
    error message (`f7eedc4`, from the Phase 2 branch).

@@ -124,10 +124,3 @@ def test_local_only_skip_is_a_github_warning_annotation_in_ci():
     assert ev.annotate(notices, {}) == []                     # a local run prints the banner only
     src = open(os.path.join(ROOT, "scripts", "evaluate_all.py")).read()
     assert "for line in annotate(local_only):" in src
-
-
-def test_copyright_guard_is_not_rerun_by_evaluate_all():
-    """The CI copyright job runs the guard (pinned in test_copyright_guard); evaluate_all must not repeat
-    the ~30 s --tracked scan, and the baseline must not expect a copyright stage."""
-    assert "copyright" not in {n for n, _ in ev.STAGES}
-    assert "copyright" not in json.load(open(ev.BASELINE))["stages"]

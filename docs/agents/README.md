@@ -25,4 +25,5 @@ Read it before starting work. Write to it before handing off.
 | [2026-11-14-ui-review.md](2026-11-14-ui-review.md) | done | Inspector visibility, panel/graph gestures, honest missing data, document filters/revisions, and keyboard controls |
 | [2026-11-14-data-consolidation.md](2026-11-14-data-consolidation.md) | done | All IFC and JSON app data (samples + test fixtures) moved into one `data/` folder |
 | [2026-11-14-drag-drop-import.md](2026-11-14-drag-drop-import.md) | done | Drop a model, calc PDF or project file anywhere on the window to add it; or onto the Compare target to diff a new model revision against the current one |
-| [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | active | Integrates PR #4 with prod (PR #5, #7, #8, #10 merges; calc-parser retired into calc-mapper; copyright allowlist; Windows test fixes) |
+| [2026-11-14-git-lfs-setup.md](2026-11-14-git-lfs-setup.md) | done | PDFs moved to Git LFS; `setup.md` added with clone/LFS/install instructions |
+| [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | active | Integrates PR #4 with prod (PR #5, #7, #8, #10 + LFS PDFs merges; calc-parser retired into calc-mapper; copyright guard removed (PDFs allowed); Windows test fixes) |
