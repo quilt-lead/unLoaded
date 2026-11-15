@@ -1,22 +1,20 @@
-// THE ONLY PLACE backend shapes become view data.
+// THE ONLY PLACE calc-engine output becomes view data.
 //
-//   backend /export (+ /state)  ──┐
-//                                 ├─> toCalcData() ──> CalcData ──┐
-//   export JSON loaded from file ─┘                               ├─> mergeProject() ──> ProjectViewModel
-//   ElementGraph ──> src/loaders/elementGraphToBim.ts ──> ElementTopology ──┘   (src/data/mergeProject.ts)
+//   @unloaded/calc-mapper Export ──> toCalcData() ──> CalcData ──┐
+//   (from the worker, or an export JSON opened from disk)        ├─> mergeProject() ──> ProjectViewModel
+//   ElementGraph ──> src/loaders/elementGraphToBim.ts ──> ElementTopology ┘   (src/data/mergeProject.ts)
 //
 // The element graph (packages/element-graph) is the source of truth for elements and topology; the
-// backend is the calc engine (links, evidence, review status, calcs, calc dependencies, impact,
-// revisions). /export is the calc contract (what "Download export JSON" saves and offline mode reads
-// back); /state only adds calc colours and the model revision's project name.
-// Impact, compare and revision payloads are converted here too (toImpactView, toModelDiff,
-// toRevisionList) so no component ever reads an Api* type.
+// calc engine (packages/calc-mapper, in a Web Worker) gives links, evidence, review status, calcs,
+// calc dependencies, impact and the revision diff. Impact, diff and the store's revision list are
+// converted here too (toImpactView, toModelDiff, toRevisionList) so no component reads an engine type.
 //
-// exportToModelInput() exists for one case: an export opened from disk (or a backend revision whose
-// serialized graph is not available) carries no element graph, so its elements and load path are
-// turned into a ModelInput and go through the SAME buildGraph -> elementGraphToBim path as an IFC.
+// exportToElementGraph() exists for one case: an export opened from disk carries no element graph,
+// so its elements, load path and connectivity are turned into a ModelInput and go through the SAME
+// buildGraph -> elementGraphToBim path as an IFC.
 import { buildGraph, type ElementKind, type ModelInput, type ElementGraph } from '@unloaded/element-graph';
-import type { ApiCompare, ApiExport, ApiImpact, ApiRevision, ApiRevisions, ApiState } from '../api/types';
+import type { Compare, Export, ExportProducers, Impact, Provenance } from '@unloaded/calc-mapper/types';
+import type { RevisionRecord } from './projectStore';
 import type {
   BimLink,
   BimNode,
@@ -24,10 +22,14 @@ import type {
   CalcDependency,
   CalcLink,
   CalcPackage,
+  FindingView,
   ImpactView,
+  TypicalGroupView,
   MappingStatus,
   ModelDiff,
   NodeDiffMeta,
+  ProducerRecords,
+  ProvenanceView,
   RevisionInfo,
 } from '../types/bim';
 import { computeRadialLayout } from '../utils/graphEngine';
@@ -37,28 +39,13 @@ export const CALC_ROOT_ID = 'calc-root';
 export const calcNodeId = (key: string) => `calc:${key}`;
 const calcCategoryId = (type: string) => `calccat:${type || 'general'}`;
 
-function metaProject(r: ApiRevision | null | undefined): string | null {
-  if (!r) return null;
-  let meta = r.meta;
-  if (!meta && r.meta_json) {
-    try {
-      meta = JSON.parse(r.meta_json) as Record<string, unknown>;
-    } catch {
-      meta = undefined;
-    }
-  }
-  const p = meta?.project;
-  return typeof p === 'string' && p.trim() ? p.trim() : null;
-}
-
 function shortCalcLabel(title: string): string {
   const head = title.split(' - ')[0].trim();
   return head.length > 26 ? `${head.slice(0, 25)}…` : head;
 }
 
 /** Calc engine output -> CalcData: calcs, the calc graph, and every element's links by GlobalId. */
-export function toCalcData(exp: ApiExport, state?: ApiState | null): CalcData {
-  const stateCalcColor = new Map<string, string>((state?.calcs ?? []).map((c) => [c.key, c.color]));
+export function toCalcData(exp: Export, info: { projectName?: string | null; modelRevisionId?: number | null; calcRevisionId?: number | null } = {}): CalcData {
 
   const calcs: CalcPackage[] = exp.calcs.map((c, i) => ({
     key: c.key,
@@ -69,7 +56,8 @@ export function toCalcData(exp: ApiExport, state?: ApiState | null): CalcData {
     scanned: Boolean(c.scanned),
     frontMatter: Boolean(c.front_matter),
     titleBox: c.title_box ? { page: c.title_box.page, rects: c.title_box.rects ?? [] } : null,
-    color: stateCalcColor.get(c.key) ?? CALC_PALETTE[i % CALC_PALETTE.length],
+    color: CALC_PALETTE[i % CALC_PALETTE.length],
+    regions: (c.spans ?? []).flatMap((sp) => sp.regions.map((r) => ({ page: r.page, rect: [...r.rect] }))),
   }));
   const calcByKey = new Map(calcs.map((c) => [c.key, c]));
 
@@ -94,6 +82,14 @@ export function toCalcData(exp: ApiExport, state?: ApiState | null): CalcData {
         matchedText: l.matched_text ?? '',
         review: l.review,
         evidence: { page: l.evidence?.page ?? l.page ?? null, rects: l.evidence?.rects ?? [], snippet: l.evidence?.snippet ?? null },
+        // exports written before roles existed: treat as design links, banded by confidence
+        role: l.role ?? 'design',
+        band: l.band ?? (l.confidence >= 0.8 ? 'high' : l.confidence >= 0.5 ? 'medium' : 'low'),
+        reasons: (l.reasons ?? []).map((r) => ({ kind: r.kind, weight: r.weight, note: r.note, page: r.page, rects: r.rects ?? [] })),
+        caveats: l.caveats ?? [],
+        viaGroup: l.via_group,
+        provenance: toProvenance(l.provenance),
+        reviewProvenance: toProvenance(l.review_provenance),
       }))
       .sort((a, b) => b.confidence - a.confidence);
     linksByElement.set(e.global_id, links);
@@ -161,12 +157,53 @@ export function toCalcData(exp: ApiExport, state?: ApiState | null): CalcData {
     calcLinks.push({ source: calcNodeId(d.source), target: calcNodeId(d.target), relation: 'calc-dependency' });
   }
 
+  const groupLinks = exp.group_links ?? [];
+  const groups: TypicalGroupView[] = (exp.groups ?? []).map((g) => ({
+    id: g.id,
+    category: g.cat,
+    storey: g.storey,
+    profile: g.profile,
+    title: g.title,
+    members: g.members,
+    links: groupLinks
+      .filter((gl) => gl.group === g.id && calcByKey.has(gl.calc_key))
+      .map((gl) => ({ calcKey: gl.calc_key, confidence: gl.conf, band: gl.band, role: gl.role, rule: gl.rule, page: gl.page, rects: gl.rects ?? [], caveats: gl.caveats ?? [] }))
+      .sort((a, b) => b.confidence - a.confidence),
+  }));
+  const findings: FindingView[] = (exp.findings ?? []).map((f) => ({
+    kind: f.kind,
+    elementId: f.global_id,
+    calcKey: f.calc_key,
+    modelSize: f.model_size,
+    calcSize: f.calc_size,
+    page: f.page,
+    rects: f.rects ?? [],
+    snippet: f.snippet ?? null,
+    note: f.note,
+  }));
+
+  const pr: ExportProducers = exp.producers ?? {};
+  const producers: ProducerRecords | null =
+    pr.calc_mapper || pr.element_graph || pr.calc_package
+      ? {
+          engine: exp.engine,
+          engineProducer: pr.calc_mapper?.producer ?? null,
+          graph: pr.element_graph
+            ? { producer: pr.element_graph.producer, source: describeSource(pr.element_graph.source), sha256: pr.element_graph.sha256 }
+            : null,
+          calcPackage: pr.calc_package ? { name: pr.calc_package.name, sha256: pr.calc_package.sha256, pages: pr.calc_package.pages } : null,
+        }
+      : null;
+
   return {
-    projectName: metaProject(state?.model_rev),
+    groups,
+    findings,
+    producers,
+    projectName: info.projectName ?? null,
     modelName: exp.model,
-    modelRevisionId: exp.model_revision,
+    modelRevisionId: info.modelRevisionId ?? (typeof exp.model_revision === 'number' ? exp.model_revision : null),
     calcPackageName: exp.calc_package,
-    calcRevisionId: exp.calc_revision,
+    calcRevisionId: info.calcRevisionId ?? (typeof exp.calc_revision === 'number' ? exp.calc_revision : null),
     engine: exp.engine || '',
     calcs,
     calcDependencies,
@@ -178,10 +215,20 @@ export function toCalcData(exp: ApiExport, state?: ApiState | null): CalcData {
   };
 }
 
-/** Element-graph kind of an exported element: the backend category when /state gives it, else the IFC type. */
-function kindOf(ifcType: string, cat: string | undefined): ElementKind {
-  const c = (cat ?? '').toLowerCase();
-  if (c && c !== 'other') return c;
+function toProvenance(p: Provenance | undefined): ProvenanceView | null {
+  if (!p) return null; // exports written before the provenance contract
+  return { producer: p.producer, rule: p.rule, method: p.method, inputs: p.inputs ?? [], actor: p.actor ?? null, at: p.at ?? null };
+}
+
+/** An element graph's meta.source ({ format, file }) in words. */
+function describeSource(src: unknown): string {
+  if (!src || typeof src !== 'object') return '';
+  const o = src as { format?: unknown; file?: unknown };
+  return [typeof o.file === 'string' ? o.file : null, typeof o.format === 'string' ? `(${o.format})` : null].filter(Boolean).join(' ');
+}
+
+/** Element-graph kind of an exported element, from its IFC type. */
+function kindOf(ifcType: string): ElementKind {
   const t = ifcType.toLowerCase().replace(/standardcase$|elementedcase$/, '');
   const table: Record<string, ElementKind> = {
     ifcbeam: 'beam',
@@ -210,67 +257,71 @@ function storeyRank(name: string, i: number): number {
 }
 
 /**
- * An export without its element graph -> ModelInput (elements, storeys, the backend's load path as
+ * An export without its element graph -> ModelInput (elements, storeys, the engine's load path as
  * `supports` relations), for the shared buildGraph -> elementGraphToBim path. No geometry, so no
  * inference: the topology is exactly what the export recorded.
  */
-export function exportToElementGraph(exp: ApiExport, state?: ApiState | null): ElementGraph {
-  const stateEls = new Map((state?.elements ?? []).map((e) => [e.global_id, e]));
+export function exportToElementGraph(exp: Export): ElementGraph {
   const storeyNames = [...new Set(exp.elements.map((e) => e.storey).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  const z = (name: string): number | null => {
-    const zs = exp.elements.filter((e) => e.storey === name).map((e) => stateEls.get(e.global_id)?.geom?.min[2]).filter((v): v is number => typeof v === 'number');
-    return zs.length ? zs.reduce((a, b) => a + b, 0) / zs.length : null;
-  };
+  const ids = new Set(exp.elements.map((e) => e.global_id));
   const input: ModelInput = {
     meta: {
       version: 1,
-      project: metaProject(state?.model_rev) ?? (exp.model ? exp.model.replace(/\.ifc$/i, '') : undefined),
+      project: exp.model ? exp.model.replace(/\.ifc$/i, '') : undefined,
       units: 'm',
       source: { format: 'calc-graph-export', file: exp.model ?? undefined },
     },
-    levels: storeyNames.map((name, i) => ({ id: `storey:${name}`, name, elevation: z(name) ?? storeyRank(name, i) })),
-    elements: exp.elements.map((e) => {
-      const se = stateEls.get(e.global_id);
-      return {
-        id: e.global_id,
-        kind: kindOf(e.ifc_type, se?.cat),
-        mark: e.mark || undefined,
-        name: se?.name || undefined,
-        profile: e.size || se?.profile || undefined,
-        levelId: e.storey ? `storey:${e.storey}` : undefined,
-        params: { ...(se?.params ?? {}), ...(se?.type_name ? { 'Attr.TypeName': se.type_name } : {}) },
-        source: { format: 'ifc', file: exp.model ?? undefined, nativeType: e.ifc_type },
-      };
-    }),
-    relations: exp.load_path.map((l) => ({ a: l.src, b: l.dst, kind: 'supports', evidence: { rule: l.rule || 'calc-graph load path', source: 'inferred' as const } })),
+    levels: storeyNames.map((name, i) => ({ id: `storey:${name}`, name, elevation: storeyRank(name, i) })),
+    elements: exp.elements.map((e) => ({
+      id: e.global_id,
+      kind: kindOf(e.ifc_type),
+      mark: e.mark || undefined,
+      profile: e.size || undefined,
+      levelId: e.storey ? `storey:${e.storey}` : undefined,
+      params: {},
+      source: { format: 'ifc', file: exp.model ?? undefined, nativeType: e.ifc_type },
+    })),
+    relations: [
+      ...exp.load_path
+        .filter((l) => ids.has(l.src) && ids.has(l.dst))
+        .map((l) => ({ a: l.src, b: l.dst, kind: 'supports', evidence: { rule: l.rule || 'calc-graph load path', source: 'inferred' as const } })),
+      ...(exp.connectivity ?? [])
+        .filter((c) => ids.has(c.a) && ids.has(c.b))
+        .map((c) => ({ a: c.a, b: c.b, kind: 'connects', evidence: { rule: c.rule, source: c.explicit ? ('explicit' as const) : ('inferred' as const) } })),
+    ],
     warnings: [],
   };
   return buildGraph(input, { infer: false }).graph;
 }
 
-/** A calc-graph export JSON (GET /api/projects/{pid}/export) - told apart from a ModelInput by `calcs` and no `meta`. */
-export function isCalcGraphExport(d: unknown): d is ApiExport {
+/** A calc-graph export JSON ("Download export JSON") - told apart from a ModelInput by `calcs` and no `meta`. */
+export function isCalcGraphExport(d: unknown): d is Export {
   if (!d || typeof d !== 'object') return false;
-  const o = d as Partial<ApiExport> & { meta?: unknown };
+  const o = d as Partial<Export> & { meta?: unknown };
   return Array.isArray(o.elements) && Array.isArray(o.calcs) && o.meta === undefined;
 }
 
 /** Normalise an export read from disk (older files may miss the optional arrays). */
-export function normaliseExport(o: ApiExport): ApiExport {
+export function normaliseExport(o: Export): Export {
   return {
     model: o.model ?? null,
     model_revision: o.model_revision ?? null,
     calc_package: o.calc_package ?? null,
     calc_revision: o.calc_revision ?? null,
-    engine: o.engine ?? '',
+    engine: o.engine,
+    producers: o.producers ?? {},
     calcs: o.calcs,
     calc_edges: Array.isArray(o.calc_edges) ? o.calc_edges : [],
     load_path: Array.isArray(o.load_path) ? o.load_path : [],
+    connectivity: Array.isArray(o.connectivity) ? o.connectivity : [],
     elements: o.elements,
+    groups: Array.isArray(o.groups) ? o.groups : [],
+    group_links: Array.isArray(o.group_links) ? o.group_links : [],
+    findings: Array.isArray(o.findings) ? o.findings : [],
   };
 }
 
-export function toImpactView(i: ApiImpact): ImpactView {
+export function toImpactView(i: Impact): ImpactView {
   return {
     elementId: i.global_id,
     mode: i.mode,
@@ -293,7 +344,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 /** GET /compare -> the diff view model (per element status + before/after field changes). */
-export function toModelDiff(c: ApiCompare): ModelDiff {
+export function toModelDiff(c: Compare): ModelDiff {
   const meta = new Map<string, NodeDiffMeta>();
   for (const x of c.added) {
     meta.set(x.global_id, { status: 'added', changes: [{ field: 'Presence', before: `Not in rev A`, after: `Added in rev B` }] });
@@ -312,8 +363,8 @@ export function toModelDiff(c: ApiCompare): ModelDiff {
     });
   }
   return {
-    a: c.a,
-    b: c.b,
+    a: Number(c.a),
+    b: Number(c.b),
     meta,
     onlyInA: c.removed.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: x.cat || '' })),
     onlyInB: c.added.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: x.cat || '' })),
@@ -322,20 +373,19 @@ export function toModelDiff(c: ApiCompare): ModelDiff {
   };
 }
 
-/** Every ingest makes its revision the head of its kind, so the head is the newest of each kind. */
-export function toRevisionList(r: ApiRevisions): RevisionInfo[] {
-  const head = new Map<string, number>();
-  for (const x of r.revisions) head.set(x.kind, Math.max(head.get(x.kind) ?? 0, x.id));
-  return r.revisions
+/** The store's revisions -> the revision panel's list (newest first; heads from the project record). */
+export function toRevisionList(revs: RevisionRecord[], heads: { model: number | null; calcs: number | null }, counts: Map<number, number>): RevisionInfo[] {
+  return revs
     .map((x) => ({
       id: x.id,
       kind: x.kind,
       seq: x.seq,
-      label: x.label || x.source_name,
-      sourceName: x.source_name,
-      createdAt: x.created_at,
-      count: typeof x.count === 'number' ? x.count : null,
-      isHead: head.get(x.kind) === x.id,
+      label: x.label || x.sourceName,
+      sourceName: x.sourceName,
+      createdAt: x.createdAt,
+      count: counts.get(x.id) ?? null,
+      isHead: (x.kind === 'model' ? heads.model : heads.calcs) === x.id,
+      isIfc: x.mediaType === 'application/x-step',
     }))
     .sort((a, b) => b.id - a.id);
 }

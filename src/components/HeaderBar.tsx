@@ -7,6 +7,7 @@ import {
   CircleDot,
   Database,
   Download,
+  FolderPlus,
   FileJson,
   FileText,
   Flame,
@@ -29,15 +30,24 @@ interface HeaderBarProps {
   colorMode: ColorMode;
   onChangeColorMode: (m: ColorMode) => void;
   hasUtilization: boolean;
-  backend: 'checking' | 'online' | 'offline';
+  /** the project store persists (IndexedDB) rather than living in memory for this tab only */
+  persistent: boolean;
+  /** the open project carries legacy demo data (invented documents) */
+  hasDemoData: boolean;
   source: ProjectSource | null;
   busy: boolean;
+  projects: { id: string; name: string }[];
+  activeProjectId: string | null;
+  onSwitchProject: (id: string) => void;
+  onNewProject: () => void;
+  /** null when there is no project to save */
+  onSaveProject: (() => void) | null;
   onLoadSample: () => void;
+  onLoadDemo: () => void;
   onUploadModel: (file: File) => void;
   onUploadCalcs: (file: File) => void;
-  /** open an IFC / element graph / ModelInput / calc-graph export in the browser only */
+  /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
   onOpenFile: (file: File) => void;
-  exportUrl: string | null;
   diffSummary: DatabaseDiffSummary | null;
   compareOpen: boolean;
   onToggleCompare: () => void;
@@ -47,7 +57,7 @@ interface HeaderBarProps {
 }
 
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+  `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
     active
       ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
       : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
@@ -68,15 +78,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const modelInput = useRef<HTMLInputElement | null>(null);
   const calcInput = useRef<HTMLInputElement | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
-  const online = p.backend === 'online';
 
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuOpen(false);
     window.addEventListener('pointerdown', onDown);
-    return () => window.removeEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [menuOpen]);
 
   const pick = (ref: React.RefObject<HTMLInputElement>) => {
@@ -102,7 +116,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="w-full text-left flex items-start gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/[0.06] transition disabled:opacity-40 disabled:cursor-not-allowed"
+      role="menuitem"
+      className="w-full text-left flex items-start gap-2.5 px-2.5 py-2 rounded-lg hover:bg-white/[0.06] focus-visible:bg-white/[0.08] focus-visible:outline-none transition disabled:opacity-40 disabled:cursor-not-allowed"
     >
       <span className="mt-0.5">{icon}</span>
       <span className="min-w-0">
@@ -121,16 +136,24 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         <div className="min-w-0">
           <h1 className="font-semibold text-[13px] text-white tracking-tight flex items-center gap-2 truncate">
             <span className="truncate">{p.projectName}</span>
+            {p.hasDemoData && (
+              <span
+                title="Loaded from legacy demo JSON: its documents are invented, not calcs"
+                className="mono text-[10px] font-semibold bg-amber-500/15 text-amber-200 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0"
+              >
+                DEMO DATA
+              </span>
+            )}
             {p.diffSummary ? (
               <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
                 DIFF MODE
               </span>
-            ) : p.source === 'file' || p.source === 'local' ? (
+            ) : p.source === 'file' ? (
               <span
-                title={p.source === 'file' ? 'Opened from an export JSON file: read-only' : 'Opened in the browser, not uploaded: no calcs, read-only'}
+                title="Opened from an export JSON file: read-only"
                 className="mono text-[10px] font-medium bg-white/[0.06] text-zinc-300 px-2 py-0.5 rounded border border-white/[0.16] tracking-wider flex-shrink-0"
               >
-                {p.source === 'file' ? 'OFFLINE EXPORT' : 'LOCAL · NOT UPLOADED'}
+                EXPORT · READ-ONLY
               </span>
             ) : null}
           </h1>
@@ -196,37 +219,77 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         )}
 
         <div className="relative" ref={menuRef}>
-          <button type="button" onClick={() => setMenuOpen((v) => !v)} className={`${chromeBtn} hover:border-indigo-400/40`} aria-expanded={menuOpen}>
-            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-indigo-300 animate-spin" /> : <Upload className="w-3.5 h-3.5 text-indigo-400" />}
-            <span>Import</span>
-            <ChevronDown className="w-3 h-3 text-zinc-500" />
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className={`${chromeBtn} hover:border-indigo-400/40 max-w-[220px]`}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-indigo-300 animate-spin" aria-hidden="true" /> : <Upload className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />}
+            <span>Project</span>
+            <ChevronDown className="w-3 h-3 text-zinc-500" aria-hidden="true" />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 bg-[#2d3139]/96 backdrop-blur-2xl border border-white/[0.14] rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50">
-              {menuItem(<Sparkles className="w-3.5 h-3.5 text-indigo-300" />, 'Load sample', 'Synthetic office building + its calc package', () => {
+            <div role="menu" className="absolute right-0 top-full mt-2 w-80 max-h-[calc(100vh-80px)] overflow-y-auto bg-[#2d3139]/96 backdrop-blur-2xl border border-white/[0.14] rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50">
+              {p.projects.length > 0 && (
+                <>
+                  <p className="mono text-[9px] text-zinc-500 uppercase tracking-wider px-2.5 pt-1.5 pb-1">Projects in this browser</p>
+                  <div className="max-h-40 overflow-y-auto">
+                    {p.projects.map((pr) => (
+                      <button
+                        key={pr.id}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={pr.id === p.activeProjectId}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          p.onSwitchProject(pr.id);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs truncate transition ${
+                          pr.id === p.activeProjectId ? 'bg-indigo-500/20 text-white' : 'text-zinc-300 hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        {pr.name}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="h-px bg-white/[0.08] my-1" />
+                </>
+              )}
+              {menuItem(<Sparkles className="w-3.5 h-3.5 text-indigo-300" aria-hidden="true" />, 'Load sample', 'Synthetic office building + its calc package, as a new project', () => {
                 setMenuOpen(false);
                 p.onLoadSample();
-              }, !online || p.busy)}
-              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" />, 'Upload IFC model', 'Parsed in the browser, uploaded with its element graph; links re-mapped', () => pick(modelInput), !online || p.busy)}
-              {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" />, 'Upload calc package PDF', 'New calc revision; links are re-mapped', () => pick(calcInput), !online || p.busy)}
+              }, p.busy)}
+              {menuItem(<Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Harborview A/B demo', 'Two legacy JSON revisions with invented documents (demo data)', () => {
+                setMenuOpen(false);
+                p.onLoadDemo();
+              }, p.busy)}
+              {menuItem(<FolderPlus className="w-3.5 h-3.5 text-zinc-300" aria-hidden="true" />, 'New empty project', 'Start a project and add its files', () => {
+                setMenuOpen(false);
+                p.onNewProject();
+              }, p.busy)}
               <div className="h-px bg-white/[0.08] my-1" />
-              {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" />, 'Open file in browser', 'IFC, element graph or saved export JSON; read-only, not uploaded', () => pick(openInput))}
-              {p.exportUrl &&
-                menuItem(<Download className="w-3.5 h-3.5 text-zinc-300" />, 'Download export JSON', 'The current mapping, to share or open offline', () => {
+              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Add model revision', 'IFC (or element graph / ModelInput / legacy JSON); parsed in this browser', () => pick(modelInput), p.busy || p.source !== 'project')}
+              {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, 'Add calc package PDF', 'Read and mapped in a background worker', () => pick(calcInput), p.busy || p.source !== 'project')}
+              <div className="h-px bg-white/[0.08] my-1" />
+              {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Open file…', 'A project file (new project), an export JSON (read-only), a model or a PDF', () => pick(openInput), p.busy)}
+              {p.onSaveProject &&
+                menuItem(<Download className="w-3.5 h-3.5 text-zinc-300" aria-hidden="true" />, 'Save project file', 'Everything (files, graphs, decisions) in one file for a colleague', () => {
                   setMenuOpen(false);
-                  window.open(p.exportUrl!, '_blank', 'noopener');
-                })}
-              {!online && (
-                <p className="mono text-[9.5px] text-zinc-500 px-2.5 py-1.5 leading-snug">
-                  {p.backend === 'checking' ? 'Checking the backend…' : 'Backend offline at /api: uploads and the sample need it.'}
+                  p.onSaveProject?.();
+                }, p.busy)}
+              {!p.persistent && (
+                <p className="mono text-[9.5px] text-amber-300/90 px-2.5 py-1.5 leading-snug">
+                  Storage is blocked in this browser: projects last until the tab closes. Save a project file to keep work.
                 </p>
               )}
             </div>
           )}
         </div>
-        {fileInput(modelInput, '.ifc', p.onUploadModel)}
+        {fileInput(modelInput, '.ifc,.json,application/json', p.onUploadModel)}
         {fileInput(calcInput, '.pdf,application/pdf', p.onUploadCalcs)}
-        {fileInput(openInput, '.ifc,.json,application/json', p.onOpenFile)}
+        {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', p.onOpenFile)}
 
         {p.diffSummary && (
           <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
@@ -238,8 +301,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         <button
           type="button"
           onClick={p.onToggleCompare}
-          disabled={!online || p.source !== 'api'}
-          title={online ? 'Compare two model revisions across the graph, 3D and calcs' : 'Revision compare needs the backend'}
+          disabled={p.source !== 'project'}
+          title={p.source === 'project' ? 'Compare two model revisions across the graph, 3D and calcs' : 'Revisions belong to a project; an export JSON has none'}
           className={
             p.diffSummary || p.compareOpen
               ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/45 shadow-[0_0_14px_rgba(245,158,11,0.2)]'
@@ -258,19 +321,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         )}
 
         <span
-          title={p.backend === 'online' ? 'Backend online' : p.backend === 'checking' ? 'Checking backend' : 'Backend offline'}
+          title={p.persistent ? 'Projects are saved in this browser (IndexedDB)' : 'Storage blocked: projects last until this tab closes'}
           className="flex items-center gap-1.5 mono text-[10px] text-zinc-500 px-1"
         >
-          <Database className="w-3.5 h-3.5" />
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              p.backend === 'online' ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : p.backend === 'checking' ? 'bg-zinc-500 animate-pulse' : 'bg-rose-500'
-            }`}
-          />
+          <Database className="w-3.5 h-3.5" aria-hidden="true" />
+          <span className={`w-1.5 h-1.5 rounded-full ${p.persistent ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-amber-400'}`} />
+          <span className="sr-only">{p.persistent ? 'Saved in this browser' : 'Not persisted'}</span>
         </span>
 
-        <button type="button" onClick={p.onResetAll} title="Reset view, filters & panels" className={chromeBtn}>
-          <Minimize2 className="w-3.5 h-3.5 text-zinc-400" />
+        <button type="button" onClick={p.onResetAll} title="Reset view, filters & panels" aria-label="Reset view, filters and panels" className={chromeBtn}>
+          <Minimize2 className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
         </button>
       </div>
     </header>

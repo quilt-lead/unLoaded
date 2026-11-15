@@ -22,24 +22,28 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
 ## Decisions
 
 - **Two layers, one adapter.** `ElementGraph` is the domain model and the source of truth for topology.
-  `BimGraphData` stays the UI view model. `src/loaders/elementGraphToBim.ts` is the only place they meet.
+  `BimGraphData` stayed the UI view model. `src/loaders/elementGraphToBim.ts` is the only place they meet.
+  *(Since the calc-engine merge the view model is `ElementTopology` + `ProjectViewModel` in `src/types/bim.ts`;
+  the adapter is still the only ElementGraph → view code. See `docs/ARCHITECTURE.md`.)*
   The UI components were not changed to consume `ElementGraph` directly.
 - **Category ids reuse prod's ids** (`cat-beam`, `cat-col`, `cat-slab`, `cat-conn`, `cat-wall`, `cat-footing`, ...),
   because `CATEGORY_PALETTE`, `getStructuralGravityRank`, `classifyCalcCategory` and the 3D slab check key on them.
 - **Direction conventions match.** In element-graph, `supports` means `a` is supported by `b` (load flows a → b).
   In prod, a load-path `BimLink` flows source → target. The adapter emits `{source: a, target: b, relation: 'load-path'}`.
-  `computeLoadPathTrace` uses only `load-path` links, unoriented, whenever any exist. Otherwise it falls
-  back to the old heuristic (the demo DB has none: its links use a `rel` key, not `relation`).
+  `computeLoadPathTrace` follows these directed edges only; the old floor/type heuristic fallback is deleted
+  (legacy demo JSON now goes through `buildGraph`, which infers its `supports` edges from the boxes).
 - **Column stacks** are derived with union-find over column → column `supports` edges, following through a
   `connection` node (splices). They are only emitted if at least one stack has 2 or more segments.
   `computeRadialLayout` only places columns that sit under a stack once any stack exists, so either all columns are stacked or none are.
-- **3D frame:** bbox (m, Z-up) → feet, Y-up: `three = (x, z, -y)`. Recentred in plan, with the lowest point at y = 0.
-  The viewer has no rotation support, so boxes are axis-aligned bboxes.
+- **3D frame:** ~~bbox boxes in feet~~ superseded: the viewer draws the real IFC meshes (web-ifc) by GlobalId and falls
+  back to the element-graph bboxes (metres, same `three = (x, z, -y)` frame) only when there is no IFC.
 - **No fake engineering data.** Utilization and axial load are left undefined for imported models.
-- **Calc mapping hook:** `ElementNode.links` entries with `kind: 'calc'` become `BimNode.documents`
-  (`target` = doc id, `data` = title / rev / pages / ...). Nothing populates these yet.
+- **Calc mapping hook:** ~~`kind: 'calc'` links → `BimNode.documents`~~ removed: real calc links come from
+  `packages/calc-mapper` and are merged by GlobalId (`src/data/mergeProject.ts`). The only node links the adapter
+  reads are `kind: 'demo-document'`, the legacy demo JSON's invented documents, shown labelled "demo data".
 - **Dropped:** the regex STEP parser (superseded) and `apps/graph-viewer` (it duplicated the prod UI).
-  Prod's legacy JSON importer survives as `src/loaders/legacyBimJson.ts`.
+  Prod's legacy JSON importer survives as `src/loaders/legacyBimJson.ts`, now converting to a `ModelInput` so
+  legacy files are built, viewed and diffed (`diffGraphs`) like any model.
 
 ## Gotchas
 
@@ -64,8 +68,8 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
 ## Update: prod merged back in (c69ef3d, "added diff compare to the ui")
 
 - Prod now starts with an empty workspace (no auto-load of `public/data/bim-database.json`; the sample lives in
-  `sample-data/`) and adds Diff Mode: `handleUploadFile(file, slot: 'base' | 'compare')` with `computeDatabaseDiff`.
-  The merged handler keeps prod's slot logic on top of the async `importModel`.
+  `sample-data/`) and adds Diff Mode. *(Since superseded: `computeDatabaseDiff` and the A/B file slots are gone; A and
+  B are two model revisions of a project and the one diff is `diffGraphs` in `packages/calc-mapper`.)*
 - Diffing two IFC imports works well because element ids are IFC GlobalIds (stable across re-exports).
   Importing the same file as A and B gives +0 / ~0 / -0.
 - Fixed a null-deref in prod's `getEffectiveNodeColor` (it read `node.diffStatus` before the null check), which also
@@ -75,11 +79,9 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
 
 ## Open items / next steps
 
-- Hold the `ElementGraph` instance in app state (`ImportResult.elementGraph` is returned but discarded) so the UI
-  can edit topology, export `.element-graph.json`, and show edge evidence (the dropped graph-viewer had an evidence
-  inspector worth porting).
-- Populate calc links (PDF ↔ element mapping) on `ElementNode.links`.
-- The 3D default camera is hard-coded for the 168 ft demo tower. Fit to the model bounds on load.
-- The Inspector shows "0 kN" when `axialLoadKn` is undefined. Show "—" instead.
-- Oriented boxes for diagonal members (needs rotation support in `Structural3DViewer`).
-- Run IFC parsing in a Web Worker for large files.
+- Edit topology in the UI and show edge evidence (the dropped graph-viewer had an evidence inspector worth porting).
+  The serialized graph is now stored with every model revision (`src/data/projectStore.ts`).
+- ~~Populate calc links~~ done by `packages/calc-mapper` (merged by GlobalId, not stored on node links).
+- ~~Fit the 3D camera to the model~~ done (the viewer fits on load). ~~"0 kN"~~ gone (no invented loads are shown).
+- ~~Oriented boxes for diagonal members~~ moot for IFC (real meshes); JSON models still draw axis-aligned boxes.
+- Run IFC parsing in a Web Worker for large files (calc PDFs already run in one).

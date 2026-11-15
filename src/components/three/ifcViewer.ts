@@ -56,6 +56,9 @@ export class IfcViewer {
   world = new THREE.Group();
   group = new THREE.Group();
   ghostGroup = new THREE.Group();
+  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / legacy JSON models, their diff ghosts) */
+  boxGroup = new THREE.Group();
+  boxIds = new Set<string>();
   meshes = new Map<string, THREE.Mesh[]>(); // GlobalId -> meshes (head model and ghosts)
   meshToGid = new Map<THREE.Object3D, string>();
   ghostIds = new Set<string>();
@@ -85,6 +88,7 @@ export class IfcViewer {
     this.scene.add(rim);
     this.world.add(this.group);
     this.world.add(this.ghostGroup);
+    this.world.add(this.boxGroup);
     this.scene.add(this.world);
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(el);
@@ -139,8 +143,57 @@ export class IfcViewer {
     this.ghostIds.clear();
   }
 
+  clearBoxes() {
+    for (const gid of this.boxIds) {
+      const kept = (this.meshes.get(gid) ?? []).filter((m) => m.parent !== this.boxGroup);
+      if (kept.length) this.meshes.set(gid, kept);
+      else this.meshes.delete(gid);
+    }
+    this.boxGroup.children.forEach((m) => this.meshToGid.delete(m));
+    this.disposeGroup(this.boxGroup);
+    this.boxIds.clear();
+  }
+
+  /**
+   * Draw boxes (IFC frame: metres, Z up) for elements that have no mesh. Same frame conversion as
+   * web-ifc (three = x, z, -y), so boxes and meshes line up. With no IFC loaded, the boxes set the
+   * re-centring and the camera fit.
+   */
+  setBoxes(boxes: { gid: string; min: number[]; max: number[] }[], standalone: boolean) {
+    this.clearBoxes();
+    const geom = new THREE.BoxGeometry(1, 1, 1);
+    for (const b of boxes) {
+      const sx = Math.max(b.max[0] - b.min[0], 0.05);
+      const sy = Math.max(b.max[2] - b.min[2], 0.05);
+      const sz = Math.max(b.max[1] - b.min[1], 0.05);
+      const m = new THREE.Mesh(geom.clone(), new THREE.MeshLambertMaterial({ color: '#9aa3ad', transparent: true }));
+      m.scale.set(sx, sy, sz);
+      m.position.set((b.min[0] + b.max[0]) / 2, (b.min[2] + b.max[2]) / 2, -(b.min[1] + b.max[1]) / 2);
+      this.boxGroup.add(m);
+      if (!this.meshes.has(b.gid)) this.meshes.set(b.gid, []);
+      this.meshes.get(b.gid)!.push(m);
+      this.meshToGid.set(m, b.gid);
+      this.boxIds.add(b.gid);
+    }
+    geom.dispose();
+    if (standalone && boxes.length) {
+      this.world.position.set(0, 0, 0);
+      this.world.updateMatrixWorld(true);
+      const bb = new THREE.Box3().setFromObject(this.boxGroup);
+      const c = bb.getCenter(new THREE.Vector3());
+      this.world.position.set(-c.x, -bb.min.y, -c.z);
+      this.world.updateMatrixWorld(true);
+      if (this.grid) {
+        this.scene.remove(this.grid);
+        this.grid = null;
+      }
+      this.fit();
+    }
+  }
+
   clear() {
     this.clearGhosts();
+    this.clearBoxes();
     this.disposeGroup(this.group);
     this.meshes.clear();
     this.meshToGid.clear();
@@ -261,7 +314,7 @@ export class IfcViewer {
   }
 
   fit() {
-    const box = this.boxOf(this.group.children.filter((m) => m.visible));
+    const box = this.boxOf([...this.group.children, ...this.boxGroup.children].filter((m) => m.visible));
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3());
     const sz = box.getSize(new THREE.Vector3()).length();
@@ -290,7 +343,7 @@ export class IfcViewer {
     const r = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     this.ray.setFromCamera(ndc, this.camera);
-    const cand = [...this.group.children, ...this.ghostGroup.children].filter((m) => m.visible);
+    const cand = [...this.group.children, ...this.ghostGroup.children, ...this.boxGroup.children].filter((m) => m.visible);
     const hits = this.ray.intersectObjects(cand, false);
     // dimmed members are a highlight state, not unpickable: prefer the nearest solid one
     const solid = hits.find((h) => ((h.object as THREE.Mesh).material as THREE.Material).opacity > 0.3);

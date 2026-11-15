@@ -190,10 +190,14 @@ export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
     return { cat, clusters, leaves, demand: Math.max(demand, 90) };
   });
   const total = plan.reduce((acc, p) => acc + p.demand, 0);
+  // every category gets at least enough arc for its own circle on the type ring, the rest by demand
+  const minArc = Math.min(0.32, (Math.PI * 2) / plan.length);
+  const spare = Math.PI * 2 - minArc * plan.length;
+  const arcOf = (p: (typeof plan)[number]) => minArc + (p.demand / total) * spare;
 
-  let cursor = -Math.PI / 2 - (plan[0].demand / total) * Math.PI;
+  let cursor = -Math.PI / 2 - arcOf(plan[0]) / 2;
   for (const p of plan) {
-    const arc = (p.demand / total) * Math.PI * 2;
+    const arc = arcOf(p);
     const angle = cursor + arc / 2;
     cursor += arc;
     p.cat.x = Math.cos(angle) * TYPE_RADIUS;

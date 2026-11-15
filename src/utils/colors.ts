@@ -168,11 +168,6 @@ export const TIER_LABELS: Record<string, string> = {
   manual: 'Linked by hand',
 };
 
-/** Tailwind classes for a confidence chip. */
-export function confidenceTone(conf: number): 'good' | 'warn' | 'bad' {
-  return conf >= 0.8 ? 'good' : conf >= 0.5 ? 'warn' : 'bad';
-}
-
 export function getConfidenceColor(conf: number | undefined): string {
   if (typeof conf !== 'number') return NO_DATA_COLOR;
   if (conf >= 0.8) return '#059669';
@@ -220,9 +215,9 @@ export function ifcTypeColor(ifcType: string | undefined, fallbackKey: string): 
   return IFC_ENTITY_PALETTE[key] ?? hashStringToJewelColor(fallbackKey);
 }
 
-/** Strongest live link of an element (rejected links ignored). */
+/** Strongest live DESIGN link of an element (rejected and loads-only links ignored, as the mapping status does). */
 export function topLiveConfidence(node: BimNode): number | undefined {
-  const live = (node.calcLinks ?? []).filter((l) => l.review !== 'rejected');
+  const live = (node.calcLinks ?? []).filter((l) => l.review !== 'rejected' && l.role === 'design');
   if (!live.length) return undefined;
   return Math.max(...live.map((l) => (l.review === 'confirmed' || l.review === 'manual' ? 1 : l.confidence)));
 }

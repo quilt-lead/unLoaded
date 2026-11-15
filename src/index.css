@@ -1,3 +1,5 @@
+@import url('https://fonts.cdnfonts.com/css/apercu');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,10 +10,12 @@
   --bg-elevated: #363b45;
   --border-subtle: rgba(255, 255, 255, 0.12);
   --border-strong: rgba(255, 255, 255, 0.22);
+  --font-sans: 'Apercu Pro', 'Apercu', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
 }
 
 body {
-  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
   background-color: var(--bg-void);
   color: #f4f4f6;
   -webkit-font-smoothing: antialiased;
@@ -19,7 +23,7 @@ body {
 }
 
 .mono, code, pre {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .canvas-grid {

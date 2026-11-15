@@ -1,5 +1,5 @@
 // Revisions of the project (model + calc package) and the compare picker: base A vs compare B,
-// both model revisions; the diff itself comes from the backend (/compare).
+// both model revisions; the diff itself is the calc engine's diffGraphs (src/engine/).
 import React, { useEffect, useState } from 'react';
 import { Box, ExternalLink, FileText, GitCompareArrows, Loader2, Sparkles, Upload, X } from 'lucide-react';
 import type { RevisionInfo } from '../types/bim';
@@ -9,9 +9,10 @@ interface RevisionPanelProps {
   loading: boolean;
   active: { a: number; b: number } | null;
   busy: boolean;
-  fileUrl: (rid: number) => string;
+  onOpenRevisionFile: (rid: number) => void;
   onCompare: (a: number, b: number) => void;
   onLoadSampleRev2: () => void;
+  onLoadSupplement: () => void;
   onUploadModel: (file: File) => void;
   onClose: () => void;
 }
@@ -19,7 +20,7 @@ interface RevisionPanelProps {
 /** "11-14 16:41 ET": stored times carry their own Eastern offset */
 const shortTime = (iso: string) => `${iso.slice(5, 16).replace('T', ' ')} ET`;
 
-export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading, active, busy, fileUrl, onCompare, onLoadSampleRev2, onUploadModel, onClose }) => {
+export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading, active, busy, onOpenRevisionFile, onCompare, onLoadSampleRev2, onLoadSupplement, onUploadModel, onClose }) => {
   const models = (revisions ?? []).filter((r) => r.kind === 'model');
   const calcs = (revisions ?? []).filter((r) => r.kind === 'calcs');
   const [a, setA] = useState<number | null>(active?.a ?? null);
@@ -108,16 +109,16 @@ export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading
               type="button"
               disabled={busy}
               onClick={() => inputRef.current?.click()}
-              title="Upload another IFC as a new model revision (it becomes the head)"
+              title="Add another IFC (or JSON model) as a new model revision; it becomes the head"
               className="bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border border-white/[0.14] flex items-center gap-1.5 disabled:opacity-40"
             >
               <Upload className="w-3 h-3 text-indigo-400" />
-              Upload rev
+              Add rev
             </button>
             <input
               ref={inputRef}
               type="file"
-              accept=".ifc"
+              accept=".ifc,.json,application/json"
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -155,18 +156,33 @@ export const RevisionPanel: React.FC<RevisionPanelProps> = ({ revisions, loading
                   </div>
                 </div>
                 {r.isHead && <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-400/30">head</span>}
-                <a href={fileUrl(r.id)} target="_blank" rel="noopener noreferrer" title="Open this revision's PDF" className="text-zinc-400 hover:text-white">
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                <button
+                  type="button"
+                  onClick={() => onOpenRevisionFile(r.id)}
+                  aria-label={`Open the PDF of calc revision ${r.id}`}
+                  title="Open this revision's PDF"
+                  className="text-zinc-400 hover:text-white w-6 h-6 rounded-md flex items-center justify-center hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
               </div>
             ))}
             {!loading && calcs.length === 0 && <p className="text-[11px] text-zinc-500 italic">No calc package revisions yet.</p>}
           </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onLoadSupplement}
+            className="mt-1.5 w-full bg-white/[0.03] hover:bg-white/[0.07] text-zinc-300 border border-white/[0.1] rounded-lg py-1.5 text-[11px] transition flex items-center justify-center gap-1.5 disabled:opacity-40"
+          >
+            <Sparkles className="w-3 h-3 text-indigo-300" aria-hidden="true" />
+            Add sample calc supplement (roles, typical group, size mismatch)
+          </button>
         </div>
 
         <p className="text-[10.5px] text-zinc-500 leading-snug border-t border-white/[0.06] pt-3">
-          The graphs, links and calcs always show the head revisions (each upload becomes the head). A compare colours the head model by what changed between A and B; elements only in the
-          other revision are drawn as ghosts from that revision's IFC.
+          The graphs, links and calcs always show the head revisions (each added file becomes the head). A compare colours the head model by what changed between A and B; elements only in
+          the other revision are drawn as ghosts from that revision's IFC (or its element boxes for a JSON model).
         </p>
       </div>
     </div>

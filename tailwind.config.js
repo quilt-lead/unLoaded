@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['"IBM Plex Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['"Apercu Pro"', 'Apercu', 'Segoe UI', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
     },

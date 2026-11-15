@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "5.105.0",
+    "@unloaded/calc-mapper": "0.1.0",
     "@unloaded/element-graph": "0.1.0",
     "@unloaded/ifc-parser": "0.1.0",
     "lucide-react": "^0.460.0",

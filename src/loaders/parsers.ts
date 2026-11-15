@@ -6,17 +6,21 @@
  * - .json, dispatched on content:
  *     serialized element graph         -> ElementGraph.deserialize
  *     ModelInput                       -> buildGraph -> ElementGraph
- *     calc-graph export (/export)      -> returned as-is for src/data/loadProject.ts (offline, read-only)
+ *     legacy BIM graph ({ nodes, links }) -> legacyBimJson.ts -> ModelInput -> buildGraph -> ElementGraph
+ *     calc-graph export                -> returned as-is for src/data/loadProject.ts (read-only view)
+ *     calc-graph project file          -> returned as-is for src/data/projectStore.ts importProject
  *
- * The ElementGraph then goes through src/loaders/elementGraphToBim.ts (the only ElementGraph -> view
- * adapter); with the backend up, an IFC is also POSTed with its serialized graph as a model revision.
+ * A model's ElementGraph is stored with its revision in the local project store and goes through
+ * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter).
  * New formats (Revit, Tekla, ETABS, ...) should emit a ModelInput and reuse the element-graph
  * pipeline, so connectivity inference and load paths come for free.
  */
 import { buildGraph, ElementGraph, ELEMENT_GRAPH_FORMAT, type ModelInput, type SerializedElementGraph } from '@unloaded/element-graph';
 import type { IfcParsePhase } from '@unloaded/ifc-parser';
-import type { ApiExport } from '../api/types';
+import type { Export } from '@unloaded/calc-mapper/types';
 import { isCalcGraphExport, normaliseExport } from '../data/loadProject';
+import { isProjectFile, type ProjectFile } from '../data/projectStore';
+import { isLegacyBimJson, legacyToElementGraph } from './legacyBimJson';
 
 export type ImportResult =
   | {
@@ -25,11 +29,12 @@ export type ImportResult =
       elementGraph: ElementGraph;
       projectName: string;
       /** 'ifc' when the bytes were an IFC (it can then be uploaded as a model revision). */
-      format: 'ifc' | 'element-graph' | 'model-input';
+      format: 'ifc' | 'element-graph' | 'model-input' | 'legacy-json';
       /** Parser + graph-build warnings, prefixed with their origin. */
       warnings: string[];
     }
-  | { kind: 'export'; export: ApiExport; warnings: string[] };
+  | { kind: 'export'; export: Export; warnings: string[] }
+  | { kind: 'project-file'; project: ProjectFile; warnings: string[] };
 
 export interface BimParserPlugin {
   id: string;
@@ -135,7 +140,7 @@ export const BIM_PARSERS: BimParserPlugin[] = [
   },
   {
     id: 'json',
-    name: 'JSON (Element Graph / ModelInput / calc-graph export)',
+    name: 'JSON (Element Graph / ModelInput / legacy BIM graph / calc-graph export / project file)',
     extensions: ['.json'],
     canParse: (fileName, head) => /\.json$/i.test(fileName) || looksLikeJson(head),
     parse: async (bytes, fileName, onProgress) => {
@@ -152,8 +157,15 @@ export const BIM_PARSERS: BimParserPlugin[] = [
         };
       }
       if (isModelInput(data)) return fromModelInput(data, fileName, 'model-input', onProgress);
+      if (isProjectFile(data)) return { kind: 'project-file', project: data, warnings: [] };
       if (isCalcGraphExport(data)) return { kind: 'export', export: normaliseExport(data), warnings: [] };
-      throw new Error(`${fileName}: JSON is not an element graph, a ModelInput or a calc-graph export`);
+      if (isLegacyBimJson(data)) {
+        onProgress('Converting legacy BIM JSON and inferring connectivity');
+        await nextFrame();
+        const { graph, projectName, warnings } = legacyToElementGraph(data, fileName);
+        return { kind: 'model', elementGraph: graph, projectName, format: 'legacy-json', warnings };
+      }
+      throw new Error(`${fileName}: JSON is not an element graph, a ModelInput, a legacy BIM graph, a calc-graph export or a project file`);
     },
   },
 ];

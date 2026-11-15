@@ -1,7 +1,7 @@
 // Small status chips shared by the inspector and the PDF browser.
 import React from 'react';
 import type { CalcLink, DiffStatus, LinkReview, MappingStatus } from '../../types/bim';
-import { DIFF_PALETTE, REVIEW_LABELS, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, confidenceTone } from '../../utils/colors';
+import { DIFF_PALETTE, REVIEW_LABELS, STATUS_COLORS, STATUS_LABELS, TIER_LABELS } from '../../utils/colors';
 
 const TONE_CLASS = {
   good: 'bg-emerald-500/15 text-emerald-300 border-emerald-400/30',
@@ -21,12 +21,25 @@ export const ConfidenceChip: React.FC<{ link: CalcLink }> = ({ link }) => {
   if (link.review === 'confirmed') return <Chip tone="good">confirmed</Chip>;
   if (link.review === 'manual') return <Chip tone="info">by hand</Chip>;
   if (link.review === 'rejected') return <Chip tone="bad">rejected</Chip>;
+  const tone = link.band === 'high' ? 'good' : link.band === 'medium' ? 'warn' : 'bad';
   return (
-    <Chip tone={confidenceTone(link.confidence)} title="Matcher confidence">
+    <Chip tone={tone} title={`Confidence ${Math.round(link.confidence * 100)}% (${link.band}): the sum of the weighted evidence`}>
       {Math.round(link.confidence * 100)}%
     </Chip>
   );
 };
+
+/** Design = the calc sizes the element; Loads = it only takes loads from / refers to it. */
+export const RoleChip: React.FC<{ role: CalcLink['role'] }> = ({ role }) =>
+  role === 'design' ? (
+    <Chip tone="info" title="The calc sizes this element">
+      design
+    </Chip>
+  ) : (
+    <Chip tone="muted" title="The calc only takes loads from or refers to this element; it does not size it">
+      loads only
+    </Chip>
+  );
 
 export const TierChip: React.FC<{ tier: string }> = ({ tier }) => (
   <Chip tone="muted" title={`Matcher tier: ${tier}`}>

@@ -24,16 +24,20 @@ import type {
   CalcPackage,
   ConnectivityEdge,
   DecisionAction,
+  FindingView,
   ImpactView,
   LoadPathEdge,
   MappingStatus,
   NodeGroup,
   PdfTarget,
+  ProducerRecords,
+  ProvenanceView,
+  TypicalGroupView,
 } from '../types/bim';
 import { getDisplayType, getLoadNeighbors } from '../utils/graphEngine';
 import { DIFF_PALETTE, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor } from '../utils/colors';
 import { calcTarget, linkTarget } from './DocumentBrowser';
-import { Chip, ConfidenceChip, StatusDot, TierChip } from './ui/Chips';
+import { Chip, ConfidenceChip, RoleChip, StatusDot, TierChip } from './ui/Chips';
 
 interface PropertyInspectorProps {
   node: BimNode | null;
@@ -43,6 +47,9 @@ interface PropertyInspectorProps {
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
   calcToElementIds: Map<string, string[]>;
+  typicalGroups: TypicalGroupView[];
+  findings: FindingView[];
+  producers: ProducerRecords | null;
   counts: Record<MappingStatus, number> | null;
   groups: NodeGroup[];
   selectedNodeIds: Set<string>;
@@ -50,7 +57,7 @@ interface PropertyInspectorProps {
   diffMode: boolean;
   impact: ImpactView | null;
   impactLoading: boolean;
-  /** decisions and impact need the backend; an export opened from file is read-only */
+  /** decisions and impact need a project; an export JSON opened from disk is read-only */
   canWrite: boolean;
   busy: boolean;
   onSelectNode: (id: string) => void;
@@ -80,22 +87,49 @@ const Section: React.FC<{ title: React.ReactNode; tone?: string; action?: React.
   </div>
 );
 
+const shortHash = (h: string) => (h ? `${h.slice(0, 10)}…` : '—');
+const shortTime = (iso: string | null) => (iso ? `${iso.slice(0, 16).replace('T', ' ')} ET` : '');
+
+/** Who / which rule made a record, how, and on which input documents (sha256). */
+const ProvenanceLine: React.FC<{ label: string; prov: ProvenanceView }> = ({ label, prov }) => (
+  <div className="text-[10px] leading-snug">
+    <span className="mono text-[9px] text-zinc-500 uppercase">{label}</span>
+    <div className="mono text-[9.5px] text-zinc-300 break-all">
+      {prov.method === 'human' ? (
+        <>
+          {prov.actor ?? 'reviewer'} · {shortTime(prov.at)} · {prov.rule}
+        </>
+      ) : (
+        <>
+          {prov.producer} · {prov.rule} · {prov.method}
+        </>
+      )}
+    </div>
+    {prov.inputs.length > 0 && (
+      <div className="mono text-[9px] text-zinc-500" title={prov.inputs.join('\n')}>
+        inputs sha256 {prov.inputs.map(shortHash).join(', ')}
+      </div>
+    )}
+  </div>
+);
+
 const smallBtn =
   'mono text-[9px] px-1.5 py-0.5 rounded border transition flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed';
 
 const NodeRow: React.FC<{ node: BimNode; right?: React.ReactNode; onClick: () => void; tone?: string }> = ({ node, right, onClick, tone }) => (
-  <div
+  <button
+    type="button"
     onClick={onClick}
-    className={`flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition border ${
+    className={`w-full text-left flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
       tone ?? 'bg-white/[0.03] hover:bg-white/[0.07] border-white/[0.06]'
     }`}
   >
-    <div className="flex items-center space-x-2 min-w-0">
-      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getEffectiveNodeColor(node, 'type') }} />
+    <span className="flex items-center space-x-2 min-w-0">
+      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: getEffectiveNodeColor(node, 'type') }} aria-hidden="true" />
       <span className="text-[11px] font-medium text-zinc-100 truncate">{node.label}</span>
-    </div>
+    </span>
     {right && <span className="mono text-[9px] text-zinc-400 flex-shrink-0 ml-2 truncate max-w-[55%] text-right">{right}</span>}
-  </div>
+  </button>
 );
 
 export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
@@ -105,7 +139,8 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const [showAllParams, setShowAllParams] = useState(false);
   const nodeById = new Map(p.elementNodes.map((n) => [n.id, n]));
   const calcByKey = new Map(p.calcs.map((c) => [c.key, c]));
-  const writeTitle = p.canWrite ? undefined : 'Needs the backend (this project was opened from a file)';
+  const groupTitle = (id: string) => p.typicalGroups.find((g) => g.id === id)?.title ?? id;
+  const writeTitle = p.canWrite ? undefined : 'Read-only: this is an export JSON (open the project file to review)';
 
   const impactBox = p.impact && (
     <div className="bg-amber-500/[0.08] border border-amber-400/30 rounded-xl p-2.5 space-y-2">
@@ -136,10 +171,11 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           {[...p.impact.stale.entries()].map(([k, why]) => {
             const c = calcByKey.get(k);
             return (
-              <div
+              <button
+                type="button"
                 key={k}
                 onClick={() => p.onSelectCalc(k)}
-                className="px-2 py-1 rounded-lg bg-black/25 hover:bg-black/40 border border-white/[0.06] cursor-pointer"
+                className="block w-full text-left px-2 py-1 rounded-lg bg-black/25 hover:bg-black/40 border border-white/[0.06] cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
               >
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} />
@@ -150,7 +186,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
                   {why}
                   {c?.scanned || c?.software === 'Hand calc' ? ' · hand calc: flag for engineer' : ''}
                 </p>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -190,6 +226,23 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
         </div>
       );
     }
+    if (p.calcs.length === 0) {
+      return (
+        <div className="space-y-3">
+          {impactBox}
+          <div className="text-center py-5">
+            <div className="w-10 h-10 bg-white/[0.03] border border-white/[0.06] text-zinc-500 rounded-xl flex items-center justify-center mx-auto mb-2.5">
+              <Calculator className="w-4 h-4" aria-hidden="true" />
+            </div>
+            <p className="font-medium text-zinc-300 text-xs">No calc package in this project</p>
+            <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+              Click an element to see its properties, load path and connections. Add the calc package PDF (Project menu) to link elements to the calcs that design
+              them.
+            </p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="space-y-3">
         {impactBox}
@@ -207,6 +260,57 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
             </div>
           ))}
         </div>
+        {p.findings.length > 0 && (
+          <Section title={`Findings (${p.findings.length})`} tone="text-rose-400">
+            <ul className="space-y-1 max-h-36 overflow-y-auto">
+              {p.findings.map((f, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => p.onOpenTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize}` }, f.elementId)}
+                    className="w-full text-left px-2 py-1.5 rounded-lg bg-rose-500/[0.06] hover:bg-rose-500/[0.14] border border-rose-400/20 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                  >
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-zinc-100 truncate">{nodeById.get(f.elementId)?.label ?? f.elementId}</span>
+                      <span className="mono text-[9px] text-rose-200 flex-shrink-0">
+                        {f.modelSize} ≠ {f.calcSize}
+                      </span>
+                    </span>
+                    <span className="block mono text-[9px] text-zinc-500 truncate">
+                      {calcByKey.get(f.calcKey)?.title ?? f.calcKey} · p. {f.page}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+        {p.producers && (
+          <Section title="Provenance" tone="text-zinc-400">
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-[10px]">
+              <dt className="mono text-[9px] text-zinc-500 uppercase">Engine</dt>
+              <dd className="mono text-zinc-300 break-all">
+                {p.producers.engineProducer ?? 'calc-mapper'} · {p.producers.engine}
+              </dd>
+              {p.producers.graph && (
+                <>
+                  <dt className="mono text-[9px] text-zinc-500 uppercase">Model</dt>
+                  <dd className="mono text-zinc-300 break-all" title={p.producers.graph.sha256}>
+                    {p.producers.graph.source || p.producers.graph.producer} · sha256 {shortHash(p.producers.graph.sha256)}
+                  </dd>
+                </>
+              )}
+              {p.producers.calcPackage && (
+                <>
+                  <dt className="mono text-[9px] text-zinc-500 uppercase">Calcs</dt>
+                  <dd className="mono text-zinc-300 break-all" title={p.producers.calcPackage.sha256}>
+                    {p.producers.calcPackage.name ?? 'calc package'} · {p.producers.calcPackage.pages} pp · sha256 {shortHash(p.producers.calcPackage.sha256)}
+                  </dd>
+                </>
+              )}
+            </dl>
+          </Section>
+        )}
         {[
           { title: 'Needs review', list: review, tone: 'text-amber-400' },
           { title: 'No calc found', list: unmapped, tone: 'text-rose-400' },
@@ -300,16 +404,18 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
       </div>
       <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
         {multiList.map((mn) => (
-          <span
+          <button
+            type="button"
             key={mn.id}
             onClick={() => p.onSelectNode(mn.id)}
-            title="Click to focus solo"
-            className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border ${
+            title="Focus this element alone"
+            aria-pressed={mn.id === node.id}
+            className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
               mn.id === node.id ? 'bg-white text-zinc-900 border-white font-semibold' : 'bg-black/40 text-zinc-200 border-white/15 hover:border-indigo-400/50'
             }`}
           >
             {mn.label}
-          </span>
+          </button>
         ))}
       </div>
     </div>
@@ -400,22 +506,22 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           <Section title={`Dependencies (${inputs.length + feeds.length})`} tone="text-indigo-300">
             <div className="space-y-1">
               {inputs.map((d, i) => (
-                <div key={`i${i}`} onClick={() => p.onSelectCalc(d.source)} className="px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer">
+                <button type="button" key={`i${i}`} onClick={() => p.onSelectCalc(d.source)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400">
                   <div className="text-[11px] text-zinc-100 truncate">
                     <span className="mono text-[9px] text-indigo-300 mr-1.5">INPUT FROM</span>
                     {calcByKey.get(d.source)?.title ?? d.source}
                   </div>
                   <p className="mono text-[9px] text-zinc-500 truncate">{d.rules.join('; ')}</p>
-                </div>
+                </button>
               ))}
               {feeds.map((d, i) => (
-                <div key={`f${i}`} onClick={() => p.onSelectCalc(d.target)} className="px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer">
+                <button type="button" key={`f${i}`} onClick={() => p.onSelectCalc(d.target)} className="block w-full text-left px-2 py-1.5 rounded-lg bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400">
                   <div className="text-[11px] text-zinc-100 truncate">
                     <span className="mono text-[9px] text-indigo-300 mr-1.5">FEEDS</span>
                     {calcByKey.get(d.target)?.title ?? d.target}
                   </div>
                   <p className="mono text-[9px] text-zinc-500 truncate">{d.rules.join('; ')}</p>
-                </div>
+                </button>
               ))}
             </div>
           </Section>
@@ -510,6 +616,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
   const rejected = links.filter((l) => l.review === 'rejected');
   const candidates = p.calcs.filter((c) => !c.frontMatter && !links.some((l) => l.calcKey === c.key && l.review !== 'rejected'));
   const { carriesFrom, deliversTo } = getLoadNeighbors(el.id, p.loadPath);
+  const elFindings = p.findings.filter((f) => f.elementId === el.id);
   const connected = p.connectivity
     .filter((e) => e.source === el.id || e.target === el.id)
     .map((e) => ({ e, other: nodeById.get(e.source === el.id ? e.target : e.source) }))
@@ -529,11 +636,62 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           <ConfidenceChip link={l} />
         </div>
         <div className="flex items-center gap-1 flex-wrap mt-1.5 pl-4">
+          <RoleChip role={l.role} />
           <TierChip tier={l.tier} />
+          {l.viaGroup && (
+            <Chip tone="muted" title={`Linked through its typical group: ${groupTitle(l.viaGroup)}`}>
+              via typical group
+            </Chip>
+          )}
           {l.evidence.page != null && <Chip>p. {l.evidence.page}</Chip>}
           {c?.software && <Chip tone="info">{c.software}</Chip>}
         </div>
         <p className="text-[10px] text-zinc-400 mt-1 pl-4 leading-snug">{l.rule}</p>
+        {l.caveats.length > 0 && (
+          <ul className="mt-1 ml-4 space-y-0.5">
+            {l.caveats.map((cv, i) => (
+              <li key={i} className="text-[10px] text-amber-200/90 leading-snug flex gap-1">
+                <AlertTriangle className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-amber-300" aria-hidden="true" />
+                <span>{cv}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(l.reasons.length > 0 || l.provenance) && (
+          <details className="mt-1 ml-4 group">
+            <summary className="mono text-[9px] text-zinc-400 hover:text-zinc-200 cursor-pointer select-none list-none flex items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 rounded">
+              <span className="inline-block transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+              Why {Math.round(l.confidence * 100)}%: {l.reasons.length} evidence item{l.reasons.length === 1 ? '' : 's'}, provenance
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {l.reasons.map((r, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[10px] leading-snug">
+                  <span className={`mono tabular-nums w-10 flex-shrink-0 text-right ${r.weight < 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                    {r.weight > 0 ? '+' : ''}
+                    {r.weight.toFixed(2)}
+                  </span>
+                  <span className="text-zinc-300 flex-1">{r.note}</span>
+                  {r.page != null && r.rects.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => p.onOpenTarget({ calcKey: l.calcKey, page: r.page!, rects: r.rects, caption: r.note }, el.id)}
+                      className="mono text-[9px] text-indigo-300 hover:text-white underline flex-shrink-0"
+                      aria-label={`Show on page ${r.page}: ${r.note}`}
+                    >
+                      p. {r.page}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {(l.provenance || l.reviewProvenance) && (
+              <div className="mt-1.5 pt-1.5 border-t border-white/[0.06] space-y-1">
+                {l.provenance && <ProvenanceLine label="Made by" prov={l.provenance} />}
+                {l.reviewProvenance && <ProvenanceLine label="Reviewed" prov={l.reviewProvenance} />}
+              </div>
+            )}
+          </details>
+        )}
         {l.evidence.snippet && (
           <p className="mono text-[9.5px] text-zinc-400 mt-1 ml-4 px-2 py-1 rounded bg-black/30 border border-white/[0.05] leading-snug">
             {l.evidence.snippet.before}
@@ -655,6 +813,28 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
         </div>
       )}
 
+      {elFindings.map((f, i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={() => p.onOpenTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize}` }, el.id)}
+          className="w-full text-left rounded-xl p-2.5 border border-rose-400/40 bg-rose-500/[0.08] hover:bg-rose-500/[0.14] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+        >
+          <span className="mono text-[10px] font-semibold text-rose-200 uppercase tracking-wider flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+            Size mismatch
+          </span>
+          <span className="block mono text-[11px] mt-1">
+            <span className="text-zinc-300">model {f.modelSize}</span>
+            <span className="text-zinc-500"> · </span>
+            <span className="text-rose-200">calc {f.calcSize}</span>
+          </span>
+          <span className="block text-[10px] text-zinc-400 mt-0.5 leading-snug">
+            {f.note} · {calcByKey.get(f.calcKey)?.title ?? f.calcKey}, p. {f.page}
+          </span>
+        </button>
+      ))}
+
       {!el.isGhost && (
         <Section
           title={
@@ -753,6 +933,33 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           {p.activeLoadChainNodeIds.size > 1 && (
             <p className="mono text-[9px] text-zinc-500 mt-1.5">{p.activeLoadChainNodeIds.size - 1} elements on the traced chain (see Trace in the filter bar)</p>
           )}
+        </Section>
+      )}
+
+      {el.demoDocuments && el.demoDocuments.length > 0 && (
+        <Section
+          title={`Documents (${el.demoDocuments.length})`}
+          tone="text-zinc-400"
+          action={
+            <span
+              className="mono text-[9px] px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-500/15 text-amber-200 uppercase tracking-wider"
+              title="Invented documents from a legacy demo JSON: not a calc package, never matched or linked"
+            >
+              Demo data
+            </span>
+          }
+        >
+          <ul className="space-y-1">
+            {el.demoDocuments.map((d) => (
+              <li key={d.id} className="px-2 py-1.5 rounded-lg bg-white/[0.02] border border-dashed border-white/[0.12]">
+                <p className="text-[11px] text-zinc-300 leading-snug">{d.title}</p>
+                <p className="mono text-[9px] text-zinc-500 mt-0.5">
+                  {[d.type, d.code, d.rev, d.date].filter(Boolean).join(' · ')}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">From a legacy demo file. There is no PDF behind these; real calc links come only from a calc package.</p>
         </Section>
       )}
 

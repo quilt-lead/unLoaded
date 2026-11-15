@@ -523,7 +523,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                         <g transform={`translate(${badgeX + badgeWidth - 15}, ${badgeY + 3})`} onPointerDown={(e) => e.stopPropagation()} onClick={startRename}>
                           <title>Rename group</title>
                           <rect width={12} height={12} rx={3} fill="rgba(255,255,255,0.12)" />
-                          <text x={6} y={9.2} textAnchor="middle" fill="#e0e7ff" fontSize="8px" fontFamily="'IBM Plex Sans', sans-serif">
+                          <text x={6} y={9.2} textAnchor="middle" fill="#e0e7ff" fontSize="8px" fontFamily="'Apercu Pro', 'Apercu', sans-serif">
                             ✎
                           </text>
                         </g>
@@ -681,7 +681,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                         textAnchor="middle"
                         y={node.r + 11}
                         fill="#e4e4e7"
-                        fontFamily="'IBM Plex Sans', sans-serif"
+                        fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                         fontWeight={500}
                         fontSize="9px"
                         pointerEvents="none"
@@ -694,7 +694,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                         textAnchor="middle"
                         dy="0.34em"
                         fill={textStyle.fill}
-                        fontFamily="'IBM Plex Sans', sans-serif"
+                        fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                         fontWeight={isProj || isCategory || isFamily ? 600 : 500}
                         fontSize={getFittedFontSize(node.label, node.r)}
                         pointerEvents="none"

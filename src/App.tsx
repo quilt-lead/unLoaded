@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   Box,
@@ -27,22 +28,25 @@ import type {
   WorkspaceView,
 } from './types/bim';
 import {
-  useBackendHealth,
   useCompare,
+  useCreateProject,
   useDecide,
   useImpact,
+  useInitialProject,
+  useLoadDemo,
   useLoadSample,
-  useProjectCalc,
-  useProjectId,
-  useRevisionTopology,
-  useRevisions,
+  useLoadSupplement,
+  useProjectList,
+  useProjectView,
+  useRevisionUrls,
+  useStoreInfo,
   useUploadCalcs,
   useUploadModel,
-} from './api/hooks';
-import { urls } from './api/client';
+} from './engine/hooks';
+import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
 import { calcNodeId } from './data/loadProject';
-import { applyModelDiff, mergeProject } from './data/mergeProject';
-import { openFileLocally } from './data/openFile';
+import { applyModelDiff } from './data/mergeProject';
+import { exportFileView } from './data/openFile';
 import {
   computeLoadPathTrace,
   isElementTypeNode,
@@ -68,24 +72,39 @@ export const App: React.FC = () => {
   const [traceSteps, setTraceSteps] = useState<number>(16);
 
   // ---------------------------------------------------------------- data
-  // backend project: element graph of the head model revision (topology) + calc engine output,
-  // merged by GlobalId; or a file opened in the browser (localView), read-only.
-  const health = useBackendHealth();
-  const backend: 'checking' | 'online' | 'offline' = health.isSuccess ? 'online' : health.isError ? 'offline' : 'checking';
-  const online = backend === 'online';
-  const [localView, setLocalView] = useState<{ view: ProjectViewModel; dispose: () => void } | null>(null);
+  // A project in the local store (IndexedDB): its head model revision's element graph (topology)
+  // merged with the calc engine's export (worker), by GlobalId. Or a plain calc-graph export JSON
+  // opened from disk (exportView), read-only.
+  const queryClient = useQueryClient();
   const [busyText, setBusyText] = useState('');
-  const pidQ = useProjectId(online);
-  const pid = online && !localView ? (pidQ.data ?? null) : null;
-  const calcQ = useProjectCalc(pid);
-  const modelRid = calcQ.data?.calc.modelRevisionId ?? null;
-  const topoQ = useRevisionTopology(modelRid);
-  const revisionsQ = useRevisions(pid);
+  const storeInfo = useStoreInfo();
+  const initialProject = useInitialProject();
+  const [projectId, setProjectId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!projectId && initialProject.data) setProjectId(initialProject.data.id);
+  }, [projectId, initialProject.data]);
+  const [exportView, setExportView] = useState<ProjectViewModel | null>(null);
+  const pid = exportView ? null : projectId;
+  // progress of (re)building the project view: mapping runs in the worker the first time a
+  // (model, calcs) pair is seen; shown only while that query is fetching
+  const [viewProgress, setViewProgress] = useState('');
+  const projectQ = useProjectView(pid, setViewProgress);
+  const viewBusy = projectQ.isFetching && viewProgress ? viewProgress : '';
+  const projectsQ = useProjectList();
   const decide = useDecide(pid);
-  const sample = useLoadSample(pid, setBusyText);
+  const sample = useLoadSample(setBusyText);
+  const demo = useLoadDemo(setBusyText);
+  const supplement = useLoadSupplement(setBusyText);
   const uploadModel = useUploadModel(pid, setBusyText);
-  const uploadCalcs = useUploadCalcs(pid);
-  useEffect(() => () => localView?.dispose(), [localView]);
+  const uploadCalcs = useUploadCalcs(pid, setBusyText);
+  const createProject = useCreateProject();
+  const revisions = projectQ.data?.revisions ?? null;
+
+  const switchProject = useCallback((id: string) => {
+    rememberActiveProject(id);
+    setExportView(null);
+    setProjectId(id);
+  }, []);
 
   const [diffRevs, setDiffRevs] = useState<{ a: number; b: number } | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>('ALL');
@@ -96,27 +115,16 @@ export const App: React.FC = () => {
   const impactQ = useImpact(pid, impactReq?.gid ?? null, impactReq?.mode ?? 'change');
   const impact = impactReq && impactQ.data && impactQ.data.elementId === impactReq.gid && impactQ.data.mode === impactReq.mode ? impactQ.data : null;
 
-  const apiView = useMemo<ProjectViewModel | null>(() => {
-    if (!calcQ.data) return null;
-    // the revision's stored element graph; the export's own topology only when there is none
-    const topology = topoQ.data ?? (modelRid == null || topoQ.isError ? calcQ.data.fallbackTopology() : null);
-    if (!topology) return null;
-    return mergeProject(topology, calcQ.data.calc, {
-      source: 'api',
-      projectId: pid,
-      modelFileUrl: modelRid != null ? urls.revisionFile(modelRid) : null,
-    });
-  }, [calcQ.data, topoQ.data, topoQ.isError, modelRid, pid]);
-  const baseView: ProjectViewModel | null = localView?.view ?? apiView;
+  const baseView: ProjectViewModel | null = exportView ?? projectQ.data?.view ?? null;
 
   const diffApplied = useMemo(() => {
     if (!baseView || !diffRevs || !compareQ.data) return null;
     const label = (rid: number) => {
-      const r = revisionsQ.data?.find((x) => x.id === rid);
+      const r = revisions?.find((x) => x.id === rid);
       return r ? `#${rid} ${r.label}` : `Revision #${rid}`;
     };
     return applyModelDiff(baseView, compareQ.data, { base: label(diffRevs.a), compare: label(diffRevs.b) });
-  }, [baseView, diffRevs, compareQ.data, revisionsQ.data]);
+  }, [baseView, diffRevs, compareQ.data, revisions]);
   const diffSummary = diffApplied?.summary ?? null;
   const diffMode = Boolean(diffSummary);
   const view = diffApplied?.view ?? baseView;
@@ -148,8 +156,8 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (calcQ.error) showToast(`Could not load the project: ${errMsg(calcQ.error)}`, true);
-  }, [calcQ.error, showToast]);
+    if (projectQ.error) showToast(`Could not load the project: ${errMsg(projectQ.error)}`, true);
+  }, [projectQ.error, showToast]);
   useEffect(() => {
     if (impactQ.error) showToast(`Impact check failed: ${errMsg(impactQ.error)}`, true);
   }, [impactQ.error, showToast]);
@@ -169,7 +177,7 @@ export const App: React.FC = () => {
   }, []);
 
   // a different project / revision pair: drop layout tweaks, groups and selection
-  const projectKey = baseView ? `${baseView.source}:${baseView.modelRevisionId}:${baseView.calcRevisionId}:${baseView.projectName}` : 'none';
+  const projectKey = baseView ? `${baseView.source}:${baseView.projectId}:${baseView.modelRevisionId}:${baseView.calcRevisionId}` : 'none';
   useEffect(() => {
     setGroups([]);
     setMoved(new Map());
@@ -438,50 +446,111 @@ export const App: React.FC = () => {
     [showToast],
   );
 
+  const sampleError = (e: unknown) => (e instanceof SampleMissingError ? e.message : errMsg(e));
+
   const handleLoadSample = () =>
-    run('Ingesting the sample building and calc package…', async () => {
-      setLocalView(null);
+    run('Loading the sample building and calc package…', async () => {
+      setExportView(null);
       setDiffRevs(null);
-      await sample.mutateAsync(1);
+      try {
+        const out = await sample.mutateAsync({ rev: 1, projectId: null });
+        switchProject(out.projectId);
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
       return 'Sample loaded: model, calc package and links';
     });
 
   const handleLoadSampleRev2 = () =>
-    run('Ingesting sample model rev 2 (column C8 removed)…', async () => {
+    run('Adding sample model rev 2 (column C8 removed)…', async () => {
       const before = baseView?.modelRevisionId ?? null;
-      const out = await sample.mutateAsync(2);
+      let out: { projectId: string; modelRevisionId: number };
+      try {
+        out = await sample.mutateAsync({ rev: 2, projectId: pid });
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      switchProject(out.projectId);
       setCompareOpen(false);
-      if (before != null && out.modelRevisionId != null) {
+      if (before != null) {
         setDiffRevs({ a: before, b: out.modelRevisionId });
         setDiffFilter('ALL');
       }
-      return 'Model rev 2 ingested and made the head';
+      return 'Model rev 2 added and made the head';
+    });
+
+  const handleLoadSupplement = () =>
+    run('Adding the sample calc supplement…', async () => {
+      if (!pid) throw new Error('Open a project first (Load sample).');
+      try {
+        await supplement.mutateAsync(pid);
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      setCompareOpen(false);
+      return 'Calc supplement added as the head calc package';
+    });
+
+  const handleLoadDemo = () =>
+    run('Loading the Harborview A/B demo (legacy JSON, demo data)…', async () => {
+      setExportView(null);
+      let out: { projectId: string; a: number; b: number };
+      try {
+        out = await demo.mutateAsync();
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      switchProject(out.projectId);
+      setDiffRevs({ a: out.a, b: out.b });
+      setDiffFilter('ALL');
+      return 'Harborview demo loaded as two model revisions, compared A → B';
     });
 
   const handleUpload = (kind: 'model' | 'calcs', file: File) =>
     run(`Reading ${file.name}…`, async () => {
-      setLocalView(null);
+      setExportView(null);
       setDiffRevs(null);
       if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ file });
         if (out.warnings.length) console.warn(`${file.name}: ${out.warnings.length} import warnings`, out.warnings);
-        return `Model ${file.name} ingested as revision #${out.revisionId} and re-mapped`;
+        return `Model ${file.name} added as revision #${out.revisionId}`;
       }
-      await uploadCalcs.mutateAsync(file);
-      return `Calc package ${file.name} ingested and re-mapped`;
+      await uploadCalcs.mutateAsync({ file });
+      return `Calc package ${file.name} added and mapped`;
     });
 
-  /** IFC, element graph, ModelInput or calc-graph export, opened in the browser only (read-only). */
+  /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) =>
     run(`Opening ${file.name}…`, async () => {
-      const opened = await openFileLocally(file, online, setBusyText);
+      if (!projectId) throw new Error('The project store is still opening; try again in a moment.');
+      const opened = await openAnyFile(projectId, file, setBusyText);
       setDiffRevs(null);
-      setLocalView({ view: opened.view, dispose: opened.dispose });
+      if (opened.kind === 'export') {
+        const v = exportFileView(opened.export);
+        setExportView(v);
+        return `Opened ${file.name}: ${v.elementNodes.filter((x) => x.kind === 'element').length} elements, ${v.calcs.length} calcs (read-only export)`;
+      }
+      setExportView(null);
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      if (opened.kind === 'project') {
+        switchProject(opened.projectId);
+        return `Imported project from ${file.name}`;
+      }
       if (opened.warnings.length) console.warn(`${file.name}: ${opened.warnings.length} import warnings`, opened.warnings);
-      const n = opened.view.elementNodes.filter((x) => x.kind === 'element').length;
-      return opened.view.source === 'file'
-        ? `Opened ${file.name}: ${n} elements, ${opened.view.calcs.length} calcs (read-only)`
-        : `Opened ${file.name}: ${n} elements (not uploaded; calcs need the backend)`;
+      return `${file.name} added as ${opened.revision.kind === 'model' ? 'model' : 'calc'} revision #${opened.revision.id}`;
+    });
+
+  const handleSaveProject = () =>
+    run('Packing the project…', async () => {
+      if (!pid) throw new Error('No project to save.');
+      return `Saved ${await downloadProjectFile(pid)}`;
+    });
+
+  const handleNewProject = () =>
+    run('Creating a project…', async () => {
+      switchProject(await createProject.mutateAsync('Untitled project'));
+      setDiffRevs(null);
+      return 'New empty project';
     });
 
   const handleDecide = useCallback(
@@ -615,18 +684,24 @@ export const App: React.FC = () => {
     window.addEventListener('pointerup', onUp);
   };
 
-  // a backend revision's IFC needs the backend; a locally opened IFC has an object URL
-  const modelUrl = view?.modelFileUrl && (view.source === 'local' || online) ? view.modelFileUrl : null;
-  const pdfUrl = online && view?.calcRevisionId != null ? urls.revisionFile(view.calcRevisionId) : null;
+  const modelUrl = view?.modelFileUrl ?? null;
+  // ghosts of a diff are meshed from their own revision's IFC; JSON-model revisions fall back to boxes
+  const ghostRids = (diffApplied?.ghosts ?? []).map((g) => g.revisionId).filter((rid) => revisions?.find((r) => r.id === rid)?.isIfc);
+  const ghostUrls = useRevisionUrls(ghostRids);
+  const pdfUrl = exportView ? null : (projectQ.data?.pdfUrl ?? null);
   const ghostSources = useMemo(
-    () => (diffApplied?.ghosts ?? []).map((g) => ({ url: urls.revisionFile(g.revisionId), gids: g.elementIds })),
-    [diffApplied],
+    () =>
+      (diffApplied?.ghosts ?? [])
+        .filter((g) => ghostUrls.data?.has(g.revisionId))
+        .map((g) => ({ url: ghostUrls.data!.get(g.revisionId)!, gids: g.elementIds })),
+    [diffApplied, ghostUrls.data],
   );
-  const model3dEmpty = !view?.modelFileUrl
-    ? view?.source === 'local'
-      ? 'This file has no IFC geometry (an element graph or ModelInput); open the .ifc to see the model.'
-      : 'No IFC model in this project yet.'
-    : 'Model geometry is served by the backend; it is offline, so only the graphs and links are shown.';
+  const model3dEmpty =
+    view?.source === 'file'
+      ? 'An export JSON carries no geometry; open the project file or add the IFC to see the model.'
+      : view?.modelRevisionId != null
+        ? 'This model revision has no geometry (no IFC, and its elements carry no bounding boxes).'
+        : 'No model in this project yet.';
 
   const viewer3d = (
     <Structural3DViewer
@@ -668,7 +743,7 @@ export const App: React.FC = () => {
         diffMode || impact
           ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
           : selectedNodeId
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] animate-pulse'
+          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] motion-safe:animate-pulse'
           : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
       }
       dockSide={viewer3dDock}
@@ -691,6 +766,7 @@ export const App: React.FC = () => {
             type="button"
             onClick={() => setResetTrigger((c) => c + 1)}
             title="Reset 3D camera"
+            aria-label="Reset 3D camera"
             className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
           >
             <RotateCcw className="w-3 h-3" />
@@ -719,7 +795,7 @@ export const App: React.FC = () => {
     <DockableHudPanel
       id="inspectorPanel"
       title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
-      indicatorClassName={inspectorNode ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse' : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] animate-pulse'}
+      indicatorClassName={inspectorNode ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] motion-safe:animate-pulse' : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] motion-safe:animate-pulse'}
       dockSide={inspectorDock}
       defaultPos={defaultInspPos}
       zIndex={topHudZ.insp}
@@ -738,6 +814,9 @@ export const App: React.FC = () => {
           loadPath={view?.loadPath ?? []}
           connectivity={view?.connectivity ?? []}
           calcToElementIds={view?.calcToElementIds ?? new Map()}
+          typicalGroups={view?.groups ?? []}
+          findings={view?.findings ?? []}
+          producers={view?.producers ?? null}
           counts={view ? view.counts : null}
           groups={groups}
           selectedNodeIds={activeView === 'calculation-graph' ? EMPTY_SET : selectedNodeIds}
@@ -745,7 +824,7 @@ export const App: React.FC = () => {
           diffMode={diffMode}
           impact={impact}
           impactLoading={Boolean(impactReq) && impactQ.isFetching}
-          canWrite={online && view?.source === 'api'}
+          canWrite={view?.source === 'project'}
           busy={decide.isPending || Boolean(busyText)}
           onSelectNode={(id) => {
             if (activeView === 'calculation-graph') setActiveView('element-graph');
@@ -766,7 +845,8 @@ export const App: React.FC = () => {
     </DockableHudPanel>
   );
 
-  const loading = backend === 'checking' || (online && !localView && (pidQ.isLoading || calcQ.isLoading || (modelRid != null && topoQ.isLoading)));
+  const loading = storeInfo.isLoading || initialProject.isLoading || (pid != null && projectQ.isLoading);
+  const calcOnly = Boolean(projectQ.data?.hasCalcPackage) && !projectQ.data?.view;
 
   const emptyState = (
     <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
@@ -774,14 +854,18 @@ export const App: React.FC = () => {
         <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-300 flex items-center justify-center mb-3">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Network className="w-5 h-5" />}
         </div>
-        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">{loading ? 'Connecting' : 'No project loaded yet'}</p>
-        <h3 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h3>
+        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+          {loading ? 'Opening project' : calcOnly ? 'Calc package added' : 'No model in this project yet'}
+        </p>
+        <h2 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h2>
         <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-          Upload an IFC model and its calc package PDF; every element is linked to the calcs that design it, with the matched text as evidence.
+          {calcOnly
+            ? 'Add the IFC model the calcs design; every element is then linked to the calcs that name it, with the matched text as evidence.'
+            : 'Add an IFC model and its calc package PDF; every element is linked to the calcs that design it, with the matched text as evidence. Everything stays in this browser.'}
         </p>
         <button
           type="button"
-          disabled={!online || Boolean(busyText)}
+          disabled={Boolean(busyText)}
           onClick={handleLoadSample}
           className="mt-4 w-full bg-indigo-500/25 hover:bg-indigo-500/35 text-white border border-indigo-400/50 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -790,15 +874,13 @@ export const App: React.FC = () => {
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           {[
-            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" />, label: 'IFC model', accept: '.ifc', on: (f: File) => handleUpload('model', f), needs: true },
-            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f), needs: true },
-            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" />, label: 'Open file', accept: '.ifc,.json,application/json', on: handleOpenFile, needs: false },
+            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', on: (f: File) => handleUpload('model', f) },
+            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f) },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', on: handleOpenFile },
           ].map((b) => (
             <label
               key={b.label}
-              className={`bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 ${
-                b.needs && !online ? 'opacity-40 pointer-events-none' : 'cursor-pointer'
-              }`}
+              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-400/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
             >
               {b.icon}
               {b.label}
@@ -815,10 +897,18 @@ export const App: React.FC = () => {
             </label>
           ))}
         </div>
-        {backend === 'offline' && (
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
+          onClick={handleLoadDemo}
+          className="mt-2 w-full text-[11px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
+        >
+          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(legacy JSON, demo data)</span>
+        </button>
+        {storeInfo.data && !storeInfo.data.persistent && (
           <p className="mt-3 text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/25 rounded-lg px-3 py-2 leading-snug text-left">
-            The backend is not reachable at <code className="mono text-amber-100">/api</code>. Start it with{' '}
-            <code className="mono text-amber-100">cd backend && uv run calc-graph serve</code>, or open an IFC or a saved export JSON in the browser (read-only).
+            This browser is not letting the app use IndexedDB (private window or blocked storage), so projects last only until the
+            tab closes. Use <span className="font-semibold">Save project file</span> to keep your work.
           </p>
         )}
       </div>
@@ -840,14 +930,20 @@ export const App: React.FC = () => {
         colorMode={colorMode}
         onChangeColorMode={setColorMode}
         hasUtilization={Boolean(view?.hasUtilization)}
-        backend={backend}
+        persistent={storeInfo.data?.persistent ?? true}
+        hasDemoData={Boolean(view?.hasDemoData)}
         source={view?.source ?? null}
         busy={Boolean(busyText)}
+        projects={(projectsQ.data ?? []).map((x) => ({ id: x.id, name: x.name }))}
+        activeProjectId={pid}
+        onSwitchProject={switchProject}
+        onNewProject={handleNewProject}
+        onSaveProject={pid ? handleSaveProject : null}
         onLoadSample={handleLoadSample}
+        onLoadDemo={handleLoadDemo}
         onUploadModel={(f) => handleUpload('model', f)}
         onUploadCalcs={(f) => handleUpload('calcs', f)}
         onOpenFile={handleOpenFile}
-        exportUrl={online && pid != null && hasProject && view?.source === 'api' ? urls.exportProject(pid) : null}
         diffSummary={diffSummary}
         compareOpen={compareOpen}
         onToggleCompare={() => setCompareOpen((v) => !v)}
@@ -858,20 +954,23 @@ export const App: React.FC = () => {
 
       {compareOpen && (
         <RevisionPanel
-          revisions={revisionsQ.data ?? null}
-          loading={revisionsQ.isLoading}
+          revisions={revisions}
+          loading={projectQ.isLoading}
           active={diffRevs}
           busy={Boolean(busyText)}
-          fileUrl={urls.revisionFile}
+          onOpenRevisionFile={(rid) => {
+            revisionFileUrl(rid).then((u) => u && window.open(u, '_blank', 'noopener'));
+          }}
           onCompare={handleCompare}
           onLoadSampleRev2={handleLoadSampleRev2}
+          onLoadSupplement={handleLoadSupplement}
           onUploadModel={(f) => {
             const before = baseView?.modelRevisionId ?? null;
             run(`Reading ${f.name}…`, async () => {
               const out = await uploadModel.mutateAsync({ file: f });
               setCompareOpen(false);
               if (before != null) setDiffRevs({ a: before, b: out.revisionId });
-              return `${f.name} ingested as model revision #${out.revisionId}`;
+              return `${f.name} added as model revision #${out.revisionId}`;
             });
           }}
           onClose={() => setCompareOpen(false)}
@@ -1011,6 +1110,14 @@ export const App: React.FC = () => {
               elementNodes={elementNodes}
               calcToElementIds={view.calcToElementIds}
               calcDependencies={view.calcDependencies}
+              groups={view.groups}
+              findings={view.findings}
+              onSelectElements={(ids) => {
+                if (!ids.length) return;
+                setSelectedNodeIds(new Set(ids));
+                setSelectedNodeId(ids[0]);
+                setFit3dTrigger((c) => c + 1);
+              }}
               selectedElement={selectedNodeId ? elementById.get(selectedNodeId) ?? null : null}
               filterBySelectedElement={docFilterBySelected}
               onClearElementFilter={() => setDocFilterBySelected(false)}
@@ -1041,19 +1148,20 @@ export const App: React.FC = () => {
       {showInspector && inspectorDock === 'float' && renderInspectorPanel()}
 
       <div
-        className={`fixed bottom-5 left-5 bg-[#2d3139]/92 backdrop-blur-xl text-zinc-100 px-4 py-3 rounded-xl border border-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.9)] flex items-center space-x-3 transition-all duration-300 z-50 max-w-md ${
-          busyText || toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
+        className={`fixed bottom-5 left-5 bg-[#2d3139]/92 backdrop-blur-xl text-zinc-100 px-4 py-3 rounded-xl border border-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.9)] flex items-center space-x-3 transition-[transform,opacity] duration-300 z-50 max-w-md ${
+          busyText || viewBusy || toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
         }`}
         role="status"
+        aria-live="polite"
       >
-        {busyText ? (
-          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" />
+        {busyText || viewBusy ? (
+          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
         ) : toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
           <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
         )}
-        <div className="text-xs font-medium">{busyText || toast.message}</div>
+        <div className="text-xs font-medium">{busyText || viewBusy || toast.message}</div>
       </div>
     </div>
   );
