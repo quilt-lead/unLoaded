@@ -28,8 +28,8 @@ tooling (generated, not committed):
 cd tools/calcgraph-reference && uv run python -m synth.generate && cd ../.. && npm run assets
 ```
 
-The **Harborview A/B demo** (two legacy JSON revisions in `data/`, with invented documents shown
-labelled as demo data) needs nothing extra.
+The **Harborview A/B demo** (two model bundles in `data/`: each an element graph plus a calc graph of
+invented calcs, shown labelled as demo data) needs nothing extra.
 
 ## Pipeline
 
@@ -49,5 +49,6 @@ calc PDF ──> Web Worker: @unloaded/calc-mapper (pdf.js, segment, matcher, de
 - `src/`: the React app. See `docs/ARCHITECTURE.md` for the data flow, the store schema and the views.
 
 Other model inputs reach the same element graph: a serialized element graph, a `ModelInput` JSON, or a
-legacy BIM JSON (`src/loaders/legacyBimJson.ts`). A new format (Revit, Tekla, ETABS, ...) only needs to emit a
-`ModelInput`. See `packages/*/README.md`.
+**model bundle** (`*.bundle.json`: the element graph and its calc graph side by side in one file;
+`packages/calc-mapper/src/bundle.ts`, written by **Project → Export model + calc graph**). A new format (Revit,
+Tekla, ETABS, ...) only needs to emit a `ModelInput`. See `packages/*/README.md`.

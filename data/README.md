@@ -9,11 +9,16 @@ auto-loaded; the app starts with an empty workspace.
 | `Building-Structural-IFC4.ifc` | IFC4 (buildingSMART sample) | `packages/ifc-parser` tests, `src/loaders/elementGraphToBim.test.ts`, `npm run smoke`, `packages/ifc-parser/scripts/dump.ts` |
 | `tiny-frame-mm.ifc` | IFC4, mm units, hand-written | `packages/ifc-parser/test/tiny.test.ts` |
 | `simple-frame.json` | `ModelInput` | `packages/element-graph` tests, `src/loaders/elementGraphToBim.test.ts` |
-| `bim-database.json` | legacy BIM graph (`{ projectName, nodes, links }`) | manual import sample |
-| `harborview-tower-rev1-base.json` | legacy BIM graph | Diff Mode sample: load as Base (A) |
-| `harborview-tower-rev2-compare.json` | legacy BIM graph | Diff Mode sample: load as Compare (B) |
+| `harborview-tower-rev1-base.bundle.json` | model bundle (`unloaded.model-bundle`): element graph + demo calc graph | **Harborview A/B demo** (rev A), `src/loaders/harborviewBundle.test.ts` |
+| `harborview-tower-rev2-compare.bundle.json` | model bundle | **Harborview A/B demo** (rev B), same test |
 
 Tests reference these files by path, so renaming or editing one can break them.
+
+The Harborview bundles are **demo data**: their calcs are invented (no PDF behind them) and the app labels
+them so. They were converted from Noah's legacy `{ projectName, nodes, links }` JSON with
+`node scripts/convert-legacy-demo.ts <legacy.json> <out.bundle.json> "<revision label>"`; the legacy files are
+in git history (`git log --all -- data/harborview-tower-rev1-base.json`). The app no longer opens the legacy format.
+The bundle format is described in `packages/calc-mapper/src/bundle.ts`.
 Calculation PDFs are git-ignored (`*.pdf`) and are not kept here.
 
 ## Provenance

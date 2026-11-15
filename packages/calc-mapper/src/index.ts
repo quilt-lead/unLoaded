@@ -12,6 +12,8 @@
  * sheet-frame and graph geometry model-metre types (frames.ts).
  *   const cmp = diffGraphs(graphRev1, graphRev2);              // the backend's /compare shape
  *   decisions = addDecision(decisions, { global_id, calc_key, action: "confirm" });
+ *   const b = parseBundle(json);                               // model bundle: element graph + calc graph in one file
+ *   const exp2 = await bundleExport(b.elementGraph, b.calcGraph!, decisions);
  */
 export * from "./types.ts";
 export {
@@ -38,6 +40,11 @@ export {
   CALC_REF_SEP, KEY_OVERLAP_MIN,
   type CalcSet, type CalcSetDoc, type CalcSetDocument, type KnownDocument, type RevisionTarget, type CalcSetDiff, type CalcDiffEntry,
 } from "./calcset.ts";
+export {
+  BUNDLE_FORMAT, BUNDLE_VERSION, BundleFormatError, isBundle, parseBundle, makeBundle, bundleExport, bundleDecisions, exportToCalcGraph,
+  type ModelBundle, type BundleMeta, type BundleCalcGraph, type BundleCalcSource, type BundleDocument, type BundleCalc, type BundleCalcEdge,
+  type BundleLink, type BundleReview,
+} from "./bundle.ts";
 export { sha1, sha1Json, sha256, sha256Json, SHA256_HEX, canonicalJson } from "./hash.ts";
 export {
   PACKAGE_NAME, PACKAGE_VERSION, RULES, producerOf, inputList, ruleProvenance, estimateProvenance, humanProvenance,

@@ -165,6 +165,22 @@ new field; no field of the export was renamed or removed.
   - The latest decision for a pair wins, and "undo" clears it.
   - Decisions carry forward to later revisions while both keys exist.
 
+## Model bundle (`bundle.ts`)
+
+One file, `unloaded.model-bundle` v1: `{ format, version, meta, elementGraph, calcGraph }`. The element
+graph is `ElementGraph.serialize()` unchanged; the calc graph is `{ source, calcs, edges, links }` with the
+export's field names. `docs/ARCHITECTURE.md` has the full shape.
+
+- `parseBundle(json)` validates it in full and throws `BundleFormatError` naming the field at fault.
+- `bundleExport(graph, calcGraph, decisions)` builds the `Export` the app reads. It applies the bundle's own
+  review state as decisions older than any in the log, then `decisions`. Records carry provenance producer
+  `calc-mapper@<v>/bundle`, resting on the graph's sha256 (and each PDF's).
+- `exportToCalcGraph(exp)` is the reverse. It drops rejected links, keeps evidence and provenance, and names
+  the PDFs by sha256.
+- A demo source (`{ kind: "demo" }`) means invented calcs with no PDF. Its records are
+  `method: "estimate"`, `rule: "bundle.demo"`, and links carry `DEMO_CAVEAT`.
+- Links a bundle states use tier `stated` (not matched by this engine) unless the bundle names a tier.
+
 ## Versions that key stored results (`types.ts`)
 
 - `SEGMENTER_VERSION` is recorded on every `CalcPackage` (`segmenter`). project-file's

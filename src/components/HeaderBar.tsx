@@ -38,6 +38,8 @@ interface HeaderBarProps {
   onNewProject: () => void;
   /** null when there is no project to save */
   onSaveProject: (() => void) | null;
+  /** the model on screen + its calc graph as one model bundle file; null when no model is shown */
+  onExportBundle?: (() => void) | null;
   onLoadSample: () => void;
   onLoadDemo: () => void;
   onUploadModel: (file: File) => void;
@@ -311,7 +313,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 setMenuOpen(false);
                 p.onLoadSample();
               }, p.busy)}
-              {menuItem(<Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Harborview A/B demo', 'Two legacy JSON revisions with invented documents (demo data)', () => {
+              {menuItem(<Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Harborview A/B demo', 'Two model bundle revisions with invented calcs (demo data)', () => {
                 setMenuOpen(false);
                 p.onLoadDemo();
               }, p.busy)}
@@ -320,7 +322,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 p.onNewProject();
               }, p.busy)}
               <div className="h-px bg-white/[0.08] my-1" />
-              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Add model revision', 'IFC (or element graph / ModelInput / legacy JSON); parsed in this browser', () => pick(modelInput), p.busy || p.source !== 'project')}
+              {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Add model revision', 'IFC (or model bundle / element graph / ModelInput); parsed in this browser', () => pick(modelInput), p.busy || p.source !== 'project')}
               {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, 'Add calc PDFs', 'One package or one PDF per calc; each joins a calc document', () => pick(calcInput), p.busy || p.source !== 'project')}
               <div className="h-px bg-white/[0.08] my-1" />
               {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Open file…', 'A project file (new project), an export JSON (read-only), a model or a PDF', () => pick(openInput), p.busy)}
@@ -328,6 +330,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 menuItem(<Download className="w-3.5 h-3.5 text-zinc-300" aria-hidden="true" />, 'Save project file', 'Everything (files, graphs, decisions) in one file for a colleague', () => {
                   setMenuOpen(false);
                   p.onSaveProject?.();
+                }, p.busy)}
+              {p.onExportBundle &&
+                menuItem(<FileJson className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Export model + calc graph', 'The model on screen and its calc links in one .bundle.json (PDFs named, not included)', () => {
+                  setMenuOpen(false);
+                  p.onExportBundle?.();
                 }, p.busy)}
               {!p.persistent && (
                 <p className="mono text-[9.5px] text-amber-300/90 px-2.5 py-1.5 leading-snug">

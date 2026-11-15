@@ -25,6 +25,7 @@ import type {
   CalcRevisionDiffView,
   CalcDependency,
   CalcLink,
+  CalcOrigin,
   CalcPackage,
   FindingView,
   ImpactView,
@@ -81,8 +82,10 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
       regions: (c.spans ?? []).flatMap((sp) => sp.regions.map((r) => ({ page: own(c.key, r.page), rect: [...r.rect] }))),
       docId: doc?.doc_id ?? null,
       docName: doc?.name ?? null,
+      ...(c.meta ? { meta: c.meta } : {}),
     };
   });
+  const calcOrigin: CalcOrigin = exp.calc_source ? (exp.calc_source.kind === 'demo' ? 'bundle-demo' : 'bundle-pdf') : 'pdf';
   const calcByKey = new Map(calcs.map((c) => [c.key, c]));
 
   const calcDependencies: CalcDependency[] = exp.calc_edges.map((e) => ({
@@ -130,7 +133,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
   const calcNodes: BimNode[] = [
     {
       id: CALC_ROOT_ID,
-      label: docs.size > 1 ? 'Calc set' : 'Calc package',
+      label: calcOrigin === 'bundle-demo' ? 'Demo calcs' : docs.size > 1 ? 'Calc set' : 'Calc package',
       kind: 'calc-root',
       level: 0,
       r: 36,
@@ -236,6 +239,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
     calcToElementIds,
     linksByElement,
     statusByElement,
+    calcOrigin,
   };
 }
 

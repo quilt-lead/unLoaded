@@ -240,13 +240,13 @@ export function useLoadSupplement(onProgress: Progress) {
   });
 }
 
-/** Noah's Harborview A/B demo (legacy JSON with invented documents): two model revisions of a new project. */
+/** The Harborview A/B demo: two model bundles (element graph + demo calc graph, invented calcs, no PDF) as two model revisions of a new project. */
 export function useLoadDemo(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const a = await sampleFile('demo/harborview-tower-rev1-base.json', 'harborview-tower-rev1-base.json');
-      const b = await sampleFile('demo/harborview-tower-rev2-compare.json', 'harborview-tower-rev2-compare.json');
+      const a = await sampleFile('demo/harborview-tower-rev1-base.bundle.json', 'harborview-tower-rev1-base.bundle.json');
+      const b = await sampleFile('demo/harborview-tower-rev2-compare.bundle.json', 'harborview-tower-rev2-compare.bundle.json');
       const pid = (await createProject('Harborview Corporate Center (demo data)')).id;
       rememberActiveProject(pid);
       const ra = await addModelRevision(pid, a, 'Rev 1 base (demo)', onProgress);

@@ -1,15 +1,18 @@
 /**
- * A small synthetic project built in the test, in memory: two element-graph revisions and a two-page
- * calc PDF written here byte by byte (Helvetica, no embedded fonts), so no generated PDF is committed.
+ * A small project built in the test, in memory: two element-graph revisions and two calc PDFs written
+ * here byte by byte (Helvetica, no embedded fonts), so no generated PDF is committed and the suites
+ * need nothing generated (the synthetic package in tools/calcgraph-reference is gitignored).
  * Marks and sizes follow the synthetic package's conventions (tools/calcgraph-reference/synth):
- * calc titles "<KIND> DESIGN CHECK", design lines naming mark + section + storey, a "see page" cross
- * reference, a loads-only line, and one planted size mismatch (calc says W12X40, model W12X53).
+ * calc titles "<KIND> DESIGN CHECK", design lines naming mark + section + storey, a "see page"
+ * reference, a loads-only line, and one planted size mismatch (calc says W12X40, model W12X53). The
+ * supplement PDF designs the shear tabs and mentions beam B-101 (designed in the main PDF): a
+ * cross-reference across the two PDFs.
  */
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CalcPackage, SerializedElementGraph } from "@unloaded/calc-mapper";
-import { makeProjectFile, type InputDecision } from "../src/makeProjectFile.ts";
+import { makeProjectFile, type InputDecision } from "../scripts/makeProjectFile.ts";
 import type { ProjectFile } from "@unloaded/project-file";
 
 // ------------------------------------------------------------------ PDF
@@ -64,6 +67,16 @@ export const CALC_PDF_PAGES: PdfLine[][] = [
     { text: "Column C-1 W12X53 Level 1 design OK", size: 10 },
     { text: "Column C-2 W12X40 Level 1 design OK", size: 10 },
     { text: "Loads from beam B-101 reactions", size: 10 },
+  ],
+];
+
+/** A second calc PDF: the connection calcs, which take beam B-101's reactions from the main package. */
+export const SUPPLEMENT_PDF_PAGES: PdfLine[][] = [
+  [
+    { text: "CONNECTION DESIGN CHECK", size: 16 },
+    { text: "Shear tab ST-1 Level 2 design OK", size: 10 },
+    { text: "Shear tab ST-2 Level 2 design OK", size: 10 },
+    { text: "End reactions from beam B-101 per beam design", size: 10 },
   ],
 ];
 
@@ -133,7 +146,13 @@ export function graphRev2(): SerializedElementGraph {
  * heads 3 and 2. `stripExtraction` drops the document hashes from the stored extraction, as an
  * extraction saved before the provenance contract has none.
  */
-export async function buildProjectFile(opts: { decisions?: InputDecision[]; stripExtraction?: boolean } = {}): Promise<{ file: ProjectFile; pdf: Uint8Array }> {
+/**
+ * Model rev 1 (id 1), the calc PDF (id 2, document d1), model rev 2 (id 3); with `supplement`, the
+ * supplement PDF as a second calc document d2 (id 4).
+ */
+export async function buildProjectFile(
+  opts: { decisions?: InputDecision[]; stripExtraction?: boolean; supplement?: boolean } = {},
+): Promise<{ file: ProjectFile; pdf: Uint8Array }> {
   const pdf = minimalPdf(CALC_PDF_PAGES);
   const enc = (v: unknown) => new TextEncoder().encode(JSON.stringify(v));
   const file = await makeProjectFile({
@@ -142,6 +161,9 @@ export async function buildProjectFile(opts: { decisions?: InputDecision[]; stri
       { kind: "model", name: "test_rev1.graph.json", bytes: enc(graphRev1()), label: "rev 1" },
       { kind: "calcs", name: "test_calcs.pdf", bytes: pdf, label: "calcs" },
       { kind: "model", name: "test_rev2.graph.json", bytes: enc(graphRev2()), label: "rev 2" },
+      ...(opts.supplement
+        ? [{ kind: "calcs" as const, name: "Supplement A.pdf", bytes: minimalPdf(SUPPLEMENT_PDF_PAGES), label: "supplement", docId: "d2" }]
+        : []),
     ],
     decisions: opts.decisions ?? [],
   });
@@ -159,4 +181,21 @@ export function writeTemp(file: ProjectFile, name = "test.calcgraph.json"): stri
   const path = join(dir, name);
   writeFileSync(path, JSON.stringify(file));
   return path;
+}
+
+/** The fixture project as files in a fresh temp directory: two graph revisions and the two calc PDFs. */
+export function writeFixtureFiles(): { dir: string; rev1: string; rev2: string; main: string; supplement: string } {
+  const dir = mkdtempSync(join(tmpdir(), "unloaded-mcp-fixture-"));
+  const put = (name: string, bytes: Uint8Array | string) => {
+    const path = join(dir, name);
+    writeFileSync(path, bytes);
+    return path;
+  };
+  return {
+    dir,
+    rev1: put("test_rev1.graph.json", JSON.stringify(graphRev1())),
+    rev2: put("test_rev2.graph.json", JSON.stringify(graphRev2())),
+    main: put("test_calcs.pdf", minimalPdf(CALC_PDF_PAGES)),
+    supplement: put("Supplement A.pdf", minimalPdf(SUPPLEMENT_PDF_PAGES)),
+  };
 }

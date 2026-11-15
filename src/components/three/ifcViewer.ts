@@ -70,7 +70,7 @@ export class IfcViewer {
   world = new THREE.Group();
   group = new THREE.Group();
   ghostGroup = new THREE.Group();
-  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / legacy JSON models, their diff ghosts) */
+  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / model bundle models, their diff ghosts) */
   boxGroup = new THREE.Group();
   boxIds = new Set<string>();
   meshes = new Map<string, THREE.Mesh[]>(); // GlobalId -> meshes (head model and ghosts)
@@ -423,7 +423,13 @@ export class IfcViewer {
       m.visible = s.visible;
       mat.color.set(s.color);
       mat.opacity = s.opacity;
-      mat.transparent = s.opacity < 1;
+      const transparent = s.opacity < 1;
+      if (mat.transparent !== transparent) {
+        mat.transparent = transparent;
+        // Re-select the shader variant: a cached OPAQUE shader forces alpha to 1,
+        // so opacity alone cannot dim a previously solid element.
+        mat.needsUpdate = true;
+      }
       mat.depthWrite = s.opacity >= 0.5;
       mat.emissive.set(s.glow ?? '#000000');
       mat.emissiveIntensity = s.glow ? 0.55 : 0;
