@@ -1,11 +1,11 @@
 # MCP server on the calc engine (`packages/mcp-server`)
 
-- **Status:** active (ported to calc-mapper and parity-green; review round 1 fixed 2026-11-15, uncommitted when written)
+- **Status:** active. Review rounds 1-4 done (2026-11-15 overnight; last commit of the loop fea40ca); no PR opened
+  (Issy has not asked for one; the default target would be Carl's `cs/phase1-calc-engine`, not prod).
 - **Branch:** `issy/mcp-server`, rebased onto Carl's PR #9 (`origin/cs/phase1-calc-engine`, 7a970d7). Not on `prod`.
 - **Owned files:** `packages/mcp-server/**`, the `@unloaded/mcp-server` entries in `package-lock.json`, the two MCP
   references in `packages/project-file/README.md` and `packages/project-file/src/index.ts`
-- **Working files (review round 1):** `src/{decisions,project,tools,server,engine,check,cli}.ts`,
-  `scripts/{mcp-parity,minimalPdf}.ts`, `test/{decisions,multipdf,tools,projectfile}.test.ts`, `test/{fixtures,helpers}.ts`
+- **Working files:** none in flight (everything committed and pushed).
 
 ## Context
 
@@ -113,6 +113,28 @@ calc-mapper hackathon design); its project-file input, findings / groups / compa
   main calc wins a tie, and the parity asserts that the supplement's mention is fed by exactly one designer.
 - The local test-blocking hook also matches `npm run check`. Run `node packages/mcp-server/bin/unloaded-mcp-server.mjs
   ... --check` directly instead.
+
+## Verification, review rounds 2-4 + real-world testing (2026-11-15 overnight, this machine + CI)
+
+- Rounds (Opus, high, each on the previous fix delta): R2 6 findings (0 high; 2 medium lock defects: unbounded wait
+  that wedged the server, move-aside/link-back break race; plus 30 s age breaking live holders, recompute under the
+  lock, chmod 444 overwritten, undocumented FS assumptions); R3 3 (1 medium: a breaker stalled inside the guard could
+  unlink a live lock, reproduced); R4 3 lows, no behavioural defect. Stopped on severity: R4 found wording and a
+  latent custom-timing limit only. Commits 3198f02, f72f711 (TS narrowing, CI typecheck), 2300d3a, fea40ca.
+- CI green on each fix head after f72f711 (mcp-server vitest 74 -> 76 -> 77 tests, none skipped).
+- Parity after every wave: default 82/82, --two-pdf 85/85, project file 83/83, + seeded decision 82/82, one model +
+  one PDF 80/80, rev1 + rev2 + main + supplement 82/82. Two processes x 15 appends: 30/30, ids 1..30.
+- Synthetic seeds 1, 2, 3, 42, 1234: --check OK and parity 82/82 each. NOTE: `synth.generate --seed` only varies the
+  scanned page's noise; the IFC is byte-identical across seeds, so seeds give no structural variety.
+- Bad inputs (all fail with a clear message and non-zero exit, or warn): duplicate stem slug, same PDF twice,
+  truncated PDF, LFS pointer, IFC passed as PDF and vice versa, missing model, malformed / wrong-shape / empty
+  decisions (NOT READY), decisions dir missing, no --calcs, unknown flag, manifest with an unknown key; a manifest
+  with spaces and relative paths, 3 PDFs with spaces, and an identical-content supplement (warned) all load.
+- End to end: `claude mcp add` (local scope, scratch dir) -> Connected; two `claude -p` sessions called
+  project_summary, search_elements, get_element, record_decision (confirm, undo), record_decisions (2 rejects),
+  get_page_image (crop with the highlight), compare_revisions and the decisions resource; the decision persisted
+  across a restart and the file is calc-mapper's log format with the right actor. Ergonomic nit: the client first
+  passed `element` to get_element (its parameter is `id`; other tools use `global_id` / `element` / `column`).
 
 ## Verification, review round 1 (2026-11-15, this machine)
 
