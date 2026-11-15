@@ -88,7 +88,7 @@ function columnStacks(graph: ElementGraph): Map<string, string[]> {
   columns.forEach((c) => parent.set(c.id, c.id));
   for (const c of columns) {
     // Directly on a column, or through a splice / connection node that sits on one.
-    const below = graph.supportsOf(c.id).flatMap((id) => (graph.getNode(id)?.kind === 'connection' ? graph.supportsOf(id) : [id]));
+    const below = graph.supportedBy(c.id).flatMap((id) => (graph.getNode(id)?.kind === 'connection' ? graph.supportedBy(id) : [id]));
     for (const b of below) {
       if (parent.has(b) && b !== c.id) parent.set(find(c.id), find(b));
     }

@@ -156,6 +156,125 @@ def page_title(title: str) -> str:
     return t if TITLE_KW.search(t) else f"{t} Design"
 
 
+def _generate_beam_column_plates(elements: list[Element]) -> list[Element]:
+    """Generate connection plates at each beam-column intersection.
+    
+    Returns a list of new connection plate elements to add to the model.
+    Each plate is positioned where a beam frames into a column.
+    Internal columns get 4 plates (one per side where a beam connects).
+    """
+    beams = {e.id: e for e in elements if e.kind == "beam"}
+    columns = {e.id: e for e in elements if e.kind == "column"}
+    
+    # Map: (column_grid, level) -> list of beams framing into this column
+    intersections: dict[tuple[str, str], list[Element]] = {}
+    
+    for beam in beams.values():
+        # A beam grid like "A1-B1" touches columns A1 and B1
+        beam_grids = beam.grid.split("-") if "-" in beam.grid else [beam.grid]
+        for col_grid in beam_grids:
+            key = (col_grid, beam.storey)
+            if key not in intersections:
+                intersections[key] = []
+            intersections[key].append(beam)
+    
+    # Generate one plate for each beam-column connection
+    new_plates: list[Element] = []
+    plate_counter = 0
+    
+    for (col_grid, level), beams_at_col in sorted(intersections.items()):
+        # Find the column
+        col = next((c for c in columns.values() if c.grid == col_grid and c.storey == level), None)
+        if not col:
+            continue
+        
+        col_bbox = col.geom["bbox"]
+        col_min, col_max = col_bbox["min"], col_bbox["max"]
+        col_center_x = (col_min[0] + col_max[0]) / 2
+        col_center_y = (col_min[1] + col_max[1]) / 2
+        
+        # For each beam, create a plate positioned towards where the beam comes from
+        for beam in beams_at_col:
+            plate_counter += 1
+            
+            # Get the beam elevation (top of beam)
+            beam_z_top = beam.geom["bbox"]["max"][2]
+            
+            # Determine the position relative to the column
+            # Offset the plate slightly away from the column center towards the beam
+            beam_grids = beam.grid.split("-")
+            
+            # Plates are small (about 20% larger than column cross-section)
+            plate_w = abs(col_max[0] - col_min[0]) * 1.2
+            plate_h = abs(col_max[1] - col_min[1]) * 1.2
+            plate_t = 0.05  # 50mm thickness in meters
+            
+            # Offset plate position based on which grid point the beam is connecting to
+            if len(beam_grids) == 2:
+                grid_a, grid_b = beam_grids
+                
+                if grid_a == col_grid:
+                    # Beam goes from this column to grid_b, so offset towards grid_a
+                    other_grid = grid_b
+                else:
+                    # Beam comes from grid_a to this column, so offset towards grid_a
+                    other_grid = grid_a
+                
+                # Calculate offset direction based on grid coordinates
+                col_letter = col_grid[0]
+                col_number = int(col_grid[1:])
+                other_letter = other_grid[0]
+                other_number = int(other_grid[1:])
+                
+                # Offset plate towards the OTHER grid point
+                offset_x = 0
+                offset_y = 0
+                if other_letter < col_letter:
+                    offset_x = -(plate_w * 0.3)  # Offset west
+                elif other_letter > col_letter:
+                    offset_x = (plate_w * 0.3)   # Offset east
+                
+                if other_number < col_number:
+                    offset_y = -(plate_h * 0.3)  # Offset south
+                elif other_number > col_number:
+                    offset_y = (plate_h * 0.3)   # Offset north
+            else:
+                offset_x = 0
+                offset_y = 0
+            
+            plate_z = beam_z_top
+            
+            plate_min = [col_center_x + offset_x - plate_w/2, col_center_y + offset_y - plate_h/2, plate_z - plate_t/2]
+            plate_max = [col_center_x + offset_x + plate_w/2, col_center_y + offset_y + plate_h/2, plate_z + plate_t/2]
+            
+            plate_geom = {
+                "bbox": {"min": plate_min, "max": plate_max}
+            }
+            
+            # Create unique ID for this beam-column connection
+            plate_id = f"conn-plate-{beam.id}-{col_grid}"
+            plate_mark = f"CN-{col_grid}-{beam.grid}".replace('-', '-')
+            
+            plate = Element(
+                id=plate_id,
+                kind="connection",
+                mark=plate_mark,
+                label=plate_mark,
+                desc=f"Connection plate at {col_grid} for beam {beam.grid}",
+                profile='8x 7/8" A325',
+                material=col.material,
+                storey=level,
+                geom=plate_geom,
+                kn=0.0,
+                uc=0.0,
+                fy=None,
+                role=None
+            )
+            new_plates.append(plate)
+    
+    return new_plates
+
+
 def load(rev: int) -> Model:
     b = json.load(open(bundle_path(rev), encoding="utf-8"))
     params = json.load(open(os.path.join(HERE, "legacy_params.json"), encoding="utf-8"))["revs"][str(rev)]
@@ -163,11 +282,13 @@ def load(rev: int) -> Model:
     levels = [(lv["name"], float(lv["elevation"])) for lv in eg["levels"]]
     elements = []
     for n in eg["nodes"]:
-        p = params[n["id"]]
+        # Use params if available, otherwise use defaults for generated elements (like new plates)
+        p = params.get(n["id"], {"kn": 0, "uc": 0, "fy": None, "role": None})
         elements.append(Element(
-            id=n["id"], kind=n["kind"], mark=space_free_mark(n["mark"]), label=n["mark"], desc=n.get("name") or "",
-            profile=n.get("profile") or "", material=n.get("material") or "", storey=n["levelId"].split(":", 1)[1],
-            geom=n["geometry"], kn=float(p["kn"] or 0), uc=float(p["uc"] or 0), fy=p["fy"], role=p["role"]))
+            id=n["id"], kind=n["kind"], mark=space_free_mark(n.get("mark", "")), label=n.get("name", ""), desc="",
+            profile=n.get("profile") or "", material=n.get("material") or "", storey=n.get("levelId", "").split(":", 1)[1] if n.get("levelId") else "",
+            geom=n.get("geometry", {}), kn=float(p.get("kn") or 0), uc=float(p.get("uc") or 0), fy=p.get("fy"), role=p.get("role")))
+    
     by_id = {e.id: e for e in elements}
     members: dict[str, list[str]] = {}
     for l in cg["links"]:

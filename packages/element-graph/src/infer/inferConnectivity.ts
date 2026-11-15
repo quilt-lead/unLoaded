@@ -258,8 +258,30 @@ export function inferConnectivity(graph: ElementGraph, opts: InferOptions = {}):
             );
           const sitsOnTop = Math.abs(bb.min[2] - tb.max[2]) <= tol.contact && planOverlapArea(bb, tb) > 0;
           if (!endBears && !sitsOnTop) continue;
-          connects(beam.id, t.id, "beamOnColumn", gap);
-          supports(beam.id, t.id, "beamOnColumn", gap);
+          
+          // Check if there's a connection (plate) touching both beam and column at this intersection
+          let connectedViaPlate = false;
+          for (const [plate, plateGap] of touchingOf(beam.id)) {
+            if (plate.kind !== CONNECTION_KIND) continue;
+            // Check if this plate also touches the column
+            const plateTouchingColumn = [...(touching.get(plate.id) ?? [])].some(([otherId]) => otherId === t.id);
+            if (plateTouchingColumn) {
+              // Route through plate: beam -> plate -> column
+              connects(beam.id, plate.id, "beamOnColumn", plateGap);
+              supports(beam.id, plate.id, "beamOnColumn", plateGap);
+              connects(plate.id, t.id, "beamOnColumn", gapOf(plate.id, t.id));
+              supports(plate.id, t.id, "beamOnColumn", gapOf(plate.id, t.id));
+              connectedViaPlate = true;
+              joined.add(pairKey(beam.id, t.id)); // Mark as joined to skip direct connection
+              break;
+            }
+          }
+          
+          // If no plate at intersection, connect directly
+          if (!connectedViaPlate) {
+            connects(beam.id, t.id, "beamOnColumn", gap);
+            supports(beam.id, t.id, "beamOnColumn", gap);
+          }
         }
       }
     }

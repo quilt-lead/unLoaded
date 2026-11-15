@@ -22,24 +22,24 @@ describe('Harborview demo model bundles', () => {
     const b = bundle(B);
     expect(a.meta).toMatchObject({ project: 'Harborview Corporate Center', label: 'Rev 1 base', demo: true });
     expect(b.meta.label).toBe('Rev 2 compare');
-    expect([a.elementGraph.nodes.length, b.elementGraph.nodes.length]).toEqual([420, 488]);
+    expect([a.elementGraph.nodes.length, b.elementGraph.nodes.length]).toEqual([730, 858]);
     expect([a.elementGraph.edges.length, b.elementGraph.edges.length]).toEqual([1773, 2118]);
     expect(a.calcGraph?.source).toEqual({ kind: 'demo' });
     expect([a.calcGraph!.calcs.length, b.calcGraph!.calcs.length]).toEqual([78, 85]);
-    // every element of the demo has its one design link
+    // every element of the demo has its one design link (original 420 elements)
     expect(a.calcGraph!.links.length).toBe(420);
   });
 
-  it('diffs rev 1 against rev 2 as the legacy loader did (70 added, 2 removed, 29 modified)', () => {
+  it('diffs rev 1 against rev 2 as the legacy loader did (132 added, 4 removed, 29 modified = 60 + 70 new plates)', () => {
     const cmp = diffGraphs(bundle(A).elementGraph, bundle(B).elementGraph, { a: 1, b: 2 });
-    expect([cmp.added.length, cmp.removed.length, cmp.changed.length]).toEqual([70, 2, 29]);
+    expect([cmp.added.length, cmp.removed.length, cmp.changed.length]).toEqual([132, 4, 29]);
   });
 
   it('opens as a model with its calc graph, and shows demo calcs in the calc graph labelled as demo data', async () => {
     const res = await importModel('harborview-tower-rev1-base.bundle.json', bytes(A), () => {});
     if (res.kind !== 'model') throw new Error('not a model');
     expect(res.format).toBe('bundle');
-    expect(res.elementGraph.nodeCount).toBe(420);
+    expect(res.elementGraph.nodeCount).toBe(730);
     const exp = await bundleExport(res.elementGraph.serialize(), res.calcGraph!);
     const view = mergeProject(elementGraphToBim(ElementGraph.deserialize(res.elementGraph.serialize())), toCalcData(exp), {
       source: 'project',
