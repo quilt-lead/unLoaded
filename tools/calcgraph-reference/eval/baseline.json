@@ -1,0 +1,52 @@
+{
+ "about": "calc-graph evaluation baseline - numbers only, no drawing text. Written by scripts/evaluate_all.py --update-baseline.",
+ "stages": {
+  "copyright": {
+   "checks": {
+    "no_copyrighted_in_head": true
+   }
+  },
+  "synthetic_v1": {
+   "metrics": {
+    "calc_edges_fn": 1,
+    "calc_edges_fp": 2,
+    "calc_edges_precision": 0.8461538461538461,
+    "calc_edges_recall": 0.9166666666666666,
+    "calc_edges_tp": 11,
+    "decisions_carried": 1.0,
+    "design_f1": 0.962962962962963,
+    "design_precision": 0.9323770491803278,
+    "design_recall": 0.9956236323851203,
+    "diff_added": 0,
+    "diff_changed": 12,
+    "diff_removed": 15,
+    "impact_c8_hit": 36,
+    "impact_c8_removed": 15,
+    "impact_c8_stale_calcs": 8,
+    "load_path_precision": 1.0,
+    "load_path_recall": 1.0,
+    "rev2_load_path_recall": 1.0,
+    "rev_diff_exact": 1.0,
+    "segmentation_exact": 1.0,
+    "segmentation_exact_count": 12,
+    "segmentation_truth_calcs": 12,
+    "tier_exact_correct": 384,
+    "tier_exact_links": 384,
+    "tier_family_correct": 6,
+    "tier_family_links": 6,
+    "tier_loose_correct": 2,
+    "tier_loose_links": 2,
+    "tier_partial_correct": 0,
+    "tier_partial_links": 1,
+    "tier_size_correct": 43,
+    "tier_size_links": 75,
+    "tier_type_correct": 20,
+    "tier_type_links": 20,
+    "xref_links": 312,
+    "xref_precision": 1.0,
+    "xref_real_mentions": 312
+   }
+  }
+ },
+ "updated": "2026-11-14 19:21 EST"
+}

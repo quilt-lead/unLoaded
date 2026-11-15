@@ -19,12 +19,11 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
-# backend local data: store, synthetic package, eval output, caches - never committed.
-# Only the open sample model, small fixtures and the sources list are tracked.
-# backend/data/sets/ and backend/data/labels/ (copyrighted permit set, private hand labels) stay ignored;
-# the copyright guard (backend/scripts/check_no_copyrighted.py) also blocks them.
-backend/data/*
-!backend/data/open/
-!backend/data/fixtures/
-!backend/data/SOURCES.md
+# reference tooling's local data: synthetic package, eval output, caches - never committed.
+# Only small fixtures and the sources list are tracked.
+# tools/calcgraph-reference/data/sets/ and tools/calcgraph-reference/data/labels/ (copyrighted permit set, private hand labels) stay ignored;
+# the copyright guard (tools/calcgraph-reference/scripts/check_no_copyrighted.py) also blocks them.
+tools/calcgraph-reference/data/*
+!tools/calcgraph-reference/data/fixtures/
+!tools/calcgraph-reference/data/SOURCES.md
 *.sqlite

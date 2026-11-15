@@ -1,0 +1,57 @@
+{
+  "about": "Config for tools/calcgraph-reference/scripts/check_no_copyrighted.py. terms: salted SHA-256 of each protected term's canonical form (see the script's docstring) - never the term itself. max_n: the largest token count of any term. term_allowlist: repo path -> term ids that file may carry. image_allowlist: synthetic images pinned by blob sha.",
+  "salt": "c897b0407fd8997db95fff712b218035",
+  "max_n": 2,
+  "terms": [
+    {
+      "id": "t1",
+      "sha256": "3947d1c12103e4e57048ebcff1c5719676776b661a556fd2fc5b2188ede21428"
+    },
+    {
+      "id": "t2",
+      "sha256": "97b69ac8a39a049132186e745a42c9abf96931b08d577f6e7c2cd5eb4580861a"
+    },
+    {
+      "id": "t3",
+      "sha256": "19c118bdc6701d8eccc4344eef9962a384560d5e517857e0854a5df7900a2fcf"
+    },
+    {
+      "id": "t4",
+      "sha256": "386787b126e952ea5a4dce81796d44564b195510d44bdd124ed13b95348d6b25"
+    },
+    {
+      "id": "t5",
+      "sha256": "a90bf3d4599ca89d14ca3d392c82d2b1d792b5efed926f78bcbb46339ad4af77"
+    },
+    {
+      "id": "t6",
+      "sha256": "2f2e0c52fcd58716ab108315257bac3734a8ab68b8de45ea0ab0ac82fe46840f"
+    },
+    {
+      "id": "t7",
+      "sha256": "0a59cacbbf81e7401b071470ce5e53abd1ef6aa4782321206d84c5e5d3a38e23"
+    },
+    {
+      "id": "t8",
+      "sha256": "e191a9e99305045fa25ae4256cdd9d2231b469a1ea77d68fb2385a16ec9cef84"
+    },
+    {
+      "id": "t9",
+      "sha256": "5958b39327dd815c23d3ad9b000fb430a14388a6b6e2bdcd5ec5e4b988e6e355"
+    },
+    {
+      "id": "t10",
+      "sha256": "ef8b3a445e73bc748fe6831442109379a3da5124c8a6ad74d6492caab7a7d7b9"
+    },
+    {
+      "id": "t11",
+      "sha256": "97816c44d2f692d145ed7a963f7f7cc618813bf7f496fd1813c4d96556efab93"
+    },
+    {
+      "id": "t12",
+      "sha256": "777828f6eb73fd052f3cb1c2af893a4ab1a946aa2fa39f552f8e0860b12aeb3e"
+    }
+  ],
+  "term_allowlist": {},
+  "image_allowlist": {}
+}
