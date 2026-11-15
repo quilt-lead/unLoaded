@@ -112,7 +112,8 @@ describe("parseProjectFile returns only declared fields", () => {
 
 describe("storedExtractionFor: the one rule for using a stored calc package", () => {
   const sha = "a".repeat(64);
-  const pkg = (h: string | undefined = sha) => ({ source_name: "c.pdf", source_sha256: h, pages: [{ n: 1, doc_sha256: h }], calcs: [] });
+  // null = no hashes (an explicit `undefined` would fall back to the default and build a hashed package)
+  const pkg = (h: string | null = sha) => ({ source_name: "c.pdf", source_sha256: h ?? undefined, pages: [{ n: 1, doc_sha256: h ?? undefined }], calcs: [] });
   it("uses an extraction whose every document hash names the PDF", () => {
     const p = pkg();
     expect(storedExtractionFor(p, sha)).toEqual({ pkg: p, reason: null });
@@ -125,7 +126,7 @@ describe("storedExtractionFor: the one rule for using a stored calc package", ()
     ["source_sha256 but no pages", { source_sha256: sha, calcs: [] }, /malformed \(pages/],
     ["no pages at all", { ...pkg(), pages: [] }, /malformed \(pages/],
     ["calcs missing", { ...pkg(), calcs: undefined }, /malformed \(calcs/],
-    ["no hashes", pkg(undefined), /predates document hashes/],
+    ["no hashes", pkg(null), /predates document hashes/],
     ["a page without its hash", { ...pkg(), pages: [{ n: 1, doc_sha256: sha }, { n: 2 }] }, /predates document hashes/],
     ["another PDF's hash", pkg("b".repeat(64)), /does not match the PDF/],
     ["a page from another PDF", { ...pkg(), pages: [{ n: 1, doc_sha256: "b".repeat(64) }] }, /does not match the PDF/],
