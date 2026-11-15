@@ -5,7 +5,7 @@
 // Calcs reach map / export / impact as a calc SET (the head revision of every calc document); the set
 // is combined here, in the worker, so the main thread never copies the combined pages.
 import {
-  buildCalcSet, buildExport, diffCalcSets, diffGraphs, extractPdf, impactOf, mapCalcs, resolveRevisionTarget, segmentCalcs, type PdfjsLike,
+  buildCalcSet, buildExport, bundleExport, diffCalcSets, diffGraphs, extractPdf, impactOf, mapCalcs, resolveRevisionTarget, segmentCalcs, type PdfjsLike,
 } from '@unloaded/calc-mapper';
 import type { EngineOp, EngineOps } from './protocol';
 
@@ -30,6 +30,7 @@ export function engineOps(pdfjs: unknown): { [K in EngineOp]: Op<K> } {
       return mapCalcs(graph, set);
     },
     export: async ({ graph, docs, run, decisions, info }) => buildExport(graph, buildCalcSet(docs), run, decisions, info),
+    bundleExport: async ({ graph, calcGraph, decisions, info }) => bundleExport(graph, calcGraph, decisions, info),
     impact: async ({ graph, docs, run, decisions, globalId, mode }) =>
       impactOf(graph, docs ? buildCalcSet(docs) : null, run, decisions, globalId, mode),
     diff: async ({ a, b, labelA, labelB }) => diffGraphs(a, b, { a: labelA, b: labelB }),

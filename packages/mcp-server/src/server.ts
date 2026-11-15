@@ -1,42 +1,56 @@
 /**
- * The MCP server: one tool per question an engineer asks of a project, every one read-only
- * (annotations say so; nothing here can write - the project file is only ever read).
- * Tool bodies are in tools.ts; this file is the schemas, descriptions and the result envelope.
+ * The MCP server: schemas, descriptions, annotations and the result envelope. Tool bodies are in
+ * tools.ts. Reads are read-only; record_decision / record_decisions append to the decisions file
+ * (the only thing the server ever writes).
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import * as z from "zod";
-import type { LoadedProject, ProjectSource } from "./project.ts";
+import type { Project } from "./project.ts";
 import * as tools from "./tools.ts";
 
-export const SERVER_NAME = "unloaded-calc-graph";
+export const SERVER_NAME = "unloaded";
 /** Pinned to package.json by a test. */
 export const SERVER_VERSION = "0.1.0";
 
-export const INSTRUCTIONS = `This server answers questions about ONE structural project saved from the unLoaded calc-graph app \
-(a *.calcgraph.json file on this machine): the element graph built from the IFC model (beams, columns, connections, \
-footings... with their load path and connectivity), the calc package PDF split into calcs, the links between elements \
-and calcs with their evidence, typical groups, size-mismatch findings, revisions, and what goes stale when an element changes.
+export const INSTRUCTIONS = `This server answers questions about ONE structural project on this machine: an IFC model \
+(turned into an element graph: beams, columns, slabs, footings, braces and connection nodes, with physical connectivity and \
+the load path inferred from geometry) mapped to one or more calc-package PDFs (split into calcs), optionally with older model \
+revisions to compare against. Everything is computed locally and deterministically by the unLoaded engine (calc-mapper; no AI \
+inside); each result has a "source" block naming the model and calc PDFs with their sha256 and the engine version - cite it.
 
-Everything is computed locally by the app's own calc engine (@unloaded/calc-mapper) from the file. Every link, calc, \
-calc edge, finding and impact carries "provenance" (producer, rule, method, and the sha256 of the documents it rests on), \
-and every result has a "source" block naming the project file, revisions and engine. Quote those when you cite a result. \
-Links have a confidence "band" (high / medium / low), a "role" (design = the calc sizes the element; loads = it only takes \
-loads from it), "reasons" (weighted evidence) and "caveats" - surface the caveats; a low or medium band is not a confirmed link. \
-"review" says whether a person confirmed or rejected a link in the app; "auto" means nobody has reviewed it.
+Links between elements and calcs have a tier (exact, range, loose, family, size, partial, xref, type, manual), a \
+confidence "conf" (0..1, the sum of weighted "reasons") with a band (high >= 0.75, medium >= 0.5, low), a role (design = the \
+calc sizes the element; loads = it only takes loads from / refers to it), caveats in plain words, the rule, page, matched token \
+and highlight rects, provenance, and a review "status" (auto = nobody has reviewed it; confirmed / rejected / manual = a person \
+decided). An element's status counts DESIGN links only: confirmed (a confirmed/manual design link or a high-band one), review, or \
+unmapped. Findings are size mismatches (the calc designs a different size than the model has). Typical groups are elements of \
+one kind, storey and size that a size-only calc links to once.
 
-Start with project_summary, then search_elements / get_element, or get_calc on a calc key. To see the evidence, call \
-get_page_image with a link's page and rects (rect to crop, highlight to outline). Elements can be named by GlobalId or mark. \
-Tools default to the head revisions (what the app shows); pass model_revision / calc_revision (ids from list_revisions) for others. \
-Nothing here changes the project: impact_of_change and move_column are what-if analyses only.`;
+Start with project_summary. Elements can be named by GlobalId or (unique) mark. Calc keys come from list_calcs: they are calc refs \
+"<docId>#<key>" (each calc PDF is a document d1, d2, ..., as in the app); a bare key works when only one PDF has it. Page \
+numbers are pages of the PDF the result names (export_mapping alone gives the app's set pages). To show evidence, \
+call get_page_image with global_id + calc_key (a link) or edge_src + edge_dst (calc-edge evidence) - it crops to the \
+highlighted words. impact_of_change, move_column and compare_revisions are what-if / read-only analyses.
+
+Writing: record_decision / record_decisions append review decisions (confirm, reject, manual, undo) to the decisions \
+file, as the engineer. Only record a decision the user has asked for or clearly agreed to; tell them what you recorded. \
+Nothing else is ever modified.`;
 
 const RO = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
+const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 
-const revisionShape = {
-  model_revision: z.number().int().optional().describe("Model revision id from list_revisions. Default: the head model revision."),
-  calc_revision: z.number().int().optional().describe("Calc revision id from list_revisions. Default: the head calc package."),
+const offset = z.number().int().min(0).optional().describe("Pagination offset (default 0). Use next_offset from the previous page.");
+const limit = (d: number, max = 500) => z.number().int().min(1).max(max).optional().describe(`Page size (default ${d}, max ${max}).`);
+const elementId = z.string().describe('GlobalId, or a mark that names one element (e.g. "2B21", "C5").');
+const decisionShape = {
+  global_id: z.string().describe("Exact IFC GlobalId of the element (not a mark)."),
+  calc_key: z.string().describe("Exact calc key (from list_calcs / get_element)."),
+  action: z.enum(["confirm", "reject", "manual", "undo"]).describe(
+    "confirm / reject an automatic link; manual = link by hand (any element + calc); undo = clear the latest decision on this pair.",
+  ),
+  note: z.string().max(2000).optional().describe("Why (recorded in the file)."),
 };
-const rect = z.array(z.number()).length(4);
 
 function json(v: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(v) }] };
@@ -47,168 +61,392 @@ function failure(e: unknown): CallToolResult {
   return { isError: true, content: [{ type: "text", text: `${err?.name ?? "Error"}: ${err?.message ?? String(e)}` }] };
 }
 
-export function createServer(source: ProjectSource): McpServer {
+export function createServer(project: Project): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: INSTRUCTIONS });
 
-  const run = <A>(fn: (p: LoadedProject, a: A) => Promise<unknown>) =>
+  const run =
+    <A>(fn: (p: Project, a: A) => unknown | Promise<unknown>) =>
     async (a: A): Promise<CallToolResult> => {
       try {
-        return json(await fn(await source.get(), a));
+        await project.refresh();
+        return json(await fn(project, a));
       } catch (e) {
         return failure(e);
       }
     };
 
-  server.registerTool("project_summary", {
-    title: "Project summary",
-    description: "Overview of the project: name, revisions, element counts (by kind, storey and review status: confirmed / review / " +
-      "unmapped), link counts by review and role, calc edges, load-path and connectivity edges, typical groups, findings, decisions, " +
-      "and the calc list (key, title, software, element type, pages). Call this first.",
-    inputSchema: revisionShape,
-    annotations: RO,
-  }, run((p, a: tools.RevisionArgs) => tools.projectSummary(p, a)));
-
-  server.registerTool("search_elements", {
-    title: "Search elements",
-    description: "Find elements (filters combine with AND, case-insensitive substrings): mark (also matches name / GlobalId), kind " +
-      "(Beam, Column, Connection, Footing, Slab, Wall, Brace, Pile, or an IFC type like IfcBeam), storey (\"Level 2\"), size (section, " +
-      "spaces ignored: \"W18X35\", \"W18\"), grid (the model's grid parameter: \"B-C/2\", \"E/1\"), status (confirmed | review | unmapped). " +
-      "Returns {count, returned, elements: [{global_id, mark, kind, storey, size, grid, status, calcs: [{calc, role, band, confidence, review}]}]}.",
-    inputSchema: {
-      mark: z.string().optional(), kind: z.string().optional(), storey: z.string().optional(), size: z.string().optional(),
-      grid: z.string().optional(), status: z.enum(["confirmed", "review", "unmapped"]).optional(),
-      limit: z.number().int().min(1).max(500).optional().describe("Max rows (default 50); count is always the full number of matches."),
-      ...revisionShape,
+  server.registerTool(
+    "project_summary",
+    {
+      title: "Project summary",
+      description:
+        "Overview: model (elements by kind / category / storey, connection nodes, edges by kind incl. supports = load path), model " +
+        "revisions, each calc PDF (pages, calcs, key prefix, pages with no text layer), every calc (key, title, software, category, PDF, " +
+        "pages), links by tier / role / band / review status, element status counts (confirmed / review / unmapped), calc edges (within / " +
+        "across PDFs), typical groups, findings, the decisions file, warnings and source hashes. Call this first.",
+      inputSchema: {},
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.SearchArgs) => tools.searchElements(p, a)));
+    run((p) => tools.projectSummary(p)),
+  );
 
-  server.registerTool("get_element", {
-    title: "Get element",
-    description: "Everything known about one element (GlobalId or mark): its parameters and geometry (metres), review status, every " +
-      "calc link (calc, page, confidence, band, role, tier, rule, matched text, evidence location + rects, weighted reasons, caveats, " +
-      "provenance, review provenance), its typical groups and their group links, size-mismatch findings, load path neighbours " +
-      "(bears_on: what it is supported by; carries: what it supports) and connectivity, and the decisions made on it.",
-    inputSchema: { id: z.string().describe("GlobalId or mark, e.g. \"2B21\" or \"C5\"."), ...revisionShape },
-    annotations: RO,
-  }, run((p, a: tools.GetElementArgs) => tools.getElement(p, a)));
-
-  server.registerTool("get_calc", {
-    title: "Get calc",
-    description: "One calc from the calc package (key from project_summary, or its exact title): title, software, element type, " +
-      "pages, spans of page regions, title box, provenance; the elements it links to (with confidence, band, role, caveats, evidence, " +
-      "provenance), its typical-group links, findings, and calc -> calc edges (feeds / fed_by, with the evidence text). " +
-      "include_text returns the calc's own text from the PDF (its regions only). Calc keys are calc refs \"<docId>#<key>\" " +
-      "(a project's calcs can be many PDFs); a bare key works when only one document has it.",
-    inputSchema: {
-      key: z.string(),
-      include_text: z.boolean().optional(),
-      max_chars: z.number().int().min(500).max(200000).optional().describe("Text limit with include_text (default 20000)."),
-      ...revisionShape,
+  server.registerTool(
+    "search_elements",
+    {
+      title: "Search elements",
+      description:
+        "Find elements. Filters combine with AND (case-insensitive): query (any of GlobalId / mark / name / profile / storey / kind), mark, " +
+        "name, kind (element-graph kind: beam, column, slab, footing, brace, wall, connection... or IFC type like IfcBeam), category " +
+        "(engine category: Beam, Column, Slab, Footing, Pile, Wall, Brace, Connection, Other), profile (spaces ignored: W18X35, HSS6), " +
+        "storey, status (confirmed | review | unmapped), calc (linked to this calc key). Returns a page of elements with status and best link.",
+      inputSchema: {
+        query: z.string().optional(),
+        mark: z.string().optional(),
+        name: z.string().optional(),
+        kind: z.string().optional(),
+        category: z.string().optional(),
+        profile: z.string().optional(),
+        storey: z.string().optional(),
+        status: z.enum(["confirmed", "review", "unmapped"]).optional(),
+        calc: z.string().optional(),
+        offset,
+        limit: limit(50),
+      },
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.GetCalcArgs) => tools.getCalc(p, a)));
+    run((p, a: tools.SearchElementsArgs) => tools.searchElements(p, a)),
+  );
 
-  server.registerTool("impact_of_change", {
-    title: "Impact of a change",
-    description: "What a change to, or the removal of, one element hits down the load path, and which calcs go stale - the app's " +
-      "impact analysis. Returns the engine's impact (removed, hit: element -> wave, why, stale: calc -> reason, waves, provenance) " +
-      "plus the hit elements with marks and the stale calcs with titles. Analysis only; nothing is changed.",
-    inputSchema: {
-      id: z.string().describe("GlobalId or mark of the element."),
-      mode: z.enum(["change", "remove"]).optional().describe("Default change."),
-      ...revisionShape,
+  server.registerTool(
+    "get_element",
+    {
+      title: "Get element",
+      description:
+        "Everything about one element: graph node data (params, geometry in metres, IFC type), mapping status, every calc link sorted by " +
+        "confidence (tier, conf, band, role, reasons, caveats, rule, page, token, snippet, rects, PDF, provenance, review status and " +
+        "decision: who / when / note), its typical groups and their group links, size-mismatch findings, its decisions, connectivity " +
+        "(connections, members, parts, bears_on = supports out, carries = supports in, connected) with edge evidence, and one hop of the " +
+        "load path up and down.",
+      inputSchema: { id: elementId },
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.ImpactArgs) => tools.impactOfChange(p, a)));
+    run((p, a: { id: string }) => tools.getElement(p, a)),
+  );
 
-  server.registerTool("list_revisions", {
-    title: "List revisions",
-    description: "Model revisions (IFC / element graph) and calc revisions (PDF) in the project, oldest first, with which is head, " +
-      "plus the size of the decision log. Use the ids with compare_revisions and the model_revision / calc_revision arguments.",
-    inputSchema: {},
-    annotations: RO,
-  }, run((p, _a: unknown) => tools.listRevisions(p)));
-
-  server.registerTool("compare_revisions", {
-    title: "Compare model revisions",
-    description: "Element-level diff of two MODEL revisions (the app's one revision diff): removed, added and changed elements " +
-      "(per field: [before, after]) and load-path edges removed / added. Defaults: b = head model revision, a = the one before it.",
-    inputSchema: { a: z.number().int().optional(), b: z.number().int().optional() },
-    annotations: RO,
-  }, run((p, a: tools.CompareArgs) => tools.compareRevisions(p, a)));
-
-  server.registerTool("list_findings", {
-    title: "List findings",
-    description: "Size-mismatch findings: a calc's design line names an element's mark with a different size than the model. Each " +
-      "has element, calc, model size, calc size, page, rects, snippet and provenance. Filter by calc key or element (GlobalId / mark).",
-    inputSchema: {
-      calc: z.string().optional(), element: z.string().optional(), limit: z.number().int().min(1).max(500).optional(), ...revisionShape,
+  server.registerTool(
+    "list_calcs",
+    {
+      title: "List calcs",
+      description:
+        "Calcs across all calc PDFs (key, title, software, category, PDF, pages, scanned / front matter, live link counts by tier, element " +
+        "count, calc edges in / out). Filter by pdf (file name or doc id), category, software, query (key / title text).",
+      inputSchema: { pdf: z.string().optional(), category: z.string().optional(), software: z.string().optional(), query: z.string().optional(), offset, limit: limit(100) },
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.FindingsArgs) => tools.listFindings(p, a)));
+    run((p, a: tools.ListCalcsArgs) => tools.listCalcs(p, a)),
+  );
 
-  server.registerTool("list_typical_groups", {
-    title: "List typical groups",
-    description: "Typical groups (elements of one kind, storey and size) and the calcs linked to a whole group by a size-only line " +
-      "(\"Level 3 typical beams W18X35\"). Filter by kind, storey, size; linked_only keeps groups with a group link.",
-    inputSchema: {
-      kind: z.string().optional(), storey: z.string().optional(), size: z.string().optional(), linked_only: z.boolean().optional(),
-      limit: z.number().int().min(1).max(500).optional(), ...revisionShape,
+  server.registerTool(
+    "get_calc",
+    {
+      title: "Get calc",
+      description:
+        "One calc: metadata, its PDF, pages and page regions (a calc can start or end mid-page), provenance, linked elements sorted by " +
+        "confidence (tier, conf, band, role, caveats, review status; paginated with element_offset / element_limit), group links, findings, " +
+        "calc edges in (fed_by) and out (feeds) with rules and evidence. include_text returns the calc's page text with the ranges that " +
+        "belong to the calc, paginated by page (page_offset / page_limit, default 5 pages).",
+      inputSchema: {
+        key: z.string().describe("Calc key (or exact title)."),
+        include_text: z.boolean().optional(),
+        page_offset: z.number().int().min(0).optional(),
+        page_limit: z.number().int().min(1).max(50).optional(),
+        element_offset: z.number().int().min(0).optional(),
+        element_limit: z.number().int().min(1).max(1000).optional(),
+      },
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.GroupsArgs) => tools.listTypicalGroups(p, a)));
+    run((p, a: tools.GetCalcArgs) => tools.getCalc(p, a)),
+  );
 
-  server.registerTool("get_page_image", {
-    title: "Calc page image",
-    description: "A page of the calc package PDF as a PNG, rendered locally. rect crops to [x0, y0, x1, y1] and highlight outlines " +
-      "boxes, both in PDF points with the origin top-left - the frame of every rects / rect / title_box in the other results, so " +
-      "copy them straight in. width is the image width in pixels (200-3000, default 1200). page is a page of ONE PDF: when the " +
-      "project has several calc documents, name it with calc_revision and give that PDF's own page (a page number in the other " +
-      "results is a SET page: subtract that document's page_offset from source.calc_documents).",
-    inputSchema: {
-      page: z.number().int().min(1),
-      rect: rect.optional(),
-      highlight: z.array(rect).optional(),
-      width: z.number().int().min(200).max(3000).optional(),
-      calc_revision: revisionShape.calc_revision,
+  server.registerTool(
+    "search_calc_text",
+    {
+      title: "Search calc text",
+      description:
+        "Full-text search (literal, case-insensitive by default) over the text of every page of every calc PDF. Each hit: pdf, page, " +
+        "calc key / title, span [start, end) in the page text, snippet and highlight rects. Pass span + pdf + page to get_page_image to see it.",
+      inputSchema: { query: z.string().min(1), pdf: z.string().optional(), calc: z.string().optional(), case_sensitive: z.boolean().optional(), offset, limit: limit(50) },
+      annotations: RO,
     },
-    annotations: RO,
-  }, async (a: tools.PageImageArgs): Promise<CallToolResult> => {
-    try {
-      const { image, meta } = await tools.getPageImage(await source.get(), a);
-      return {
-        content: [
-          { type: "image", data: Buffer.from(image.png).toString("base64"), mimeType: "image/png" },
-          { type: "text", text: JSON.stringify(meta) },
-        ],
-      };
-    } catch (e) {
-      return failure(e);
-    }
-  });
+    run((p, a: tools.SearchTextArgs) => tools.searchCalcText(p, a)),
+  );
 
-  server.registerTool("move_column", {
-    title: "Move a column (what-if)",
-    description: "What happens if a column moves in plan by (dx, dy) metres, or is removed - read-only screening by the app's " +
-      "move-impact engine on the model's geometry and load path: the elements on the path with reasons and chains, those whose " +
-      "governing geometry changes > 5 % (before / after / ratio), member re-framing, clashes, and calcs linked to affected elements. " +
-      "No calc values are read yet, so there are no utilisation estimates or health band. Nothing is changed.",
-    inputSchema: {
-      column: z.string().describe("GlobalId or mark of the column."),
-      dx: z.number().optional().describe("Plan move along model x, metres."),
-      dy: z.number().optional().describe("Plan move along model y, metres."),
-      remove: z.boolean().optional(),
-      ...revisionShape,
+  server.registerTool(
+    "trace_load_path",
+    {
+      title: "Trace load path",
+      description:
+        "Multi-hop load path from an element over supports edges: down = what it bears on, transitively (to the footings); up = what " +
+        "bears on it. Each element has its depth (connection nodes are pass-through) and best calc; plus the supports edges among them.",
+      inputSchema: {
+        id: elementId,
+        direction: z.enum(["down", "up", "both"]).optional().describe("Default down."),
+        max_depth: z.number().int().min(1).max(500).optional().describe("Default 50."),
+      },
+      annotations: RO,
     },
-    annotations: RO,
-  }, run((p, a: tools.MoveArgs) => tools.moveColumn(p, a)));
+    run((p, a: tools.TraceArgs) => tools.traceLoadPath(p, a)),
+  );
+
+  server.registerTool(
+    "calc_dependencies",
+    {
+      title: "Calc dependencies",
+      description:
+        "The calc graph: edges src -> dst where src's output feeds dst's input, with rules (page reference, cross-reference) and evidence " +
+        "(calc, pdf, page, text, line, rects). With key: the neighbourhood up to depth hops (direction feeds | fed_by | both). Without: " +
+        "the whole graph, paginated. cross_pdf marks edges between two PDFs.",
+      inputSchema: {
+        key: z.string().optional(),
+        depth: z.number().int().min(1).max(20).optional().describe("Default 1."),
+        direction: z.enum(["feeds", "fed_by", "both"]).optional(),
+        cross_pdf_only: z.boolean().optional(),
+        offset,
+        limit: limit(100),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.CalcDepsArgs) => tools.calcDependencies(p, a)),
+  );
+
+  server.registerTool(
+    "impact_of_change",
+    {
+      title: "Impact of a change",
+      description:
+        "What a change to (mode change) or the removal of (mode remove) one element hits down the load path, and which calcs go stale " +
+        "(linked to a hit / removed element, or downstream of a stale calc in the calc graph), with reasons and PDFs. Returns the engine's " +
+        "impact (with provenance) plus readable lists. What-if analysis only; nothing is changed.",
+      inputSchema: { id: elementId, mode: z.enum(["change", "remove"]).optional().describe("Default change.") },
+      annotations: RO,
+    },
+    run((p, a: { id: string; mode?: "change" | "remove" }) => tools.impactOfChange(p, a)),
+  );
+
+  server.registerTool(
+    "review_status",
+    {
+      title: "Review status",
+      description:
+        "Review progress: status counts, elements that need review (with their links), unmapped elements (with any loads-only links), and " +
+        "unreviewed links below a confidence threshold (default 0.75, the high band), each list paginated with the same offset / limit.",
+      inputSchema: { offset, limit: limit(50), low_conf_below: z.number().min(0).max(1).optional() },
+      annotations: RO,
+    },
+    run((p, a: { offset?: number; limit?: number; low_conf_below?: number }) => tools.reviewStatus(p, a)),
+  );
+
+  server.registerTool(
+    "list_findings",
+    {
+      title: "List findings",
+      description:
+        "Size-mismatch findings: a design line names the element's mark and a different size than the model gives (model size, calc " +
+        "size, page, span, rects, snippet, provenance), with the element and calc. Findings on rejected links are left out. Filter by calc, " +
+        "element (GlobalId or mark) or pdf.",
+      inputSchema: { calc: z.string().optional(), element: z.string().optional(), pdf: z.string().optional(), offset, limit: limit(100) },
+      annotations: RO,
+    },
+    run((p, a: tools.FindingsArgs) => tools.listFindings(p, a)),
+  );
+
+  server.registerTool(
+    "list_typical_groups",
+    {
+      title: "List typical groups",
+      description:
+        "Typical groups: the elements of one kind, storey and size (id group:<category>:<storey>:<profile>, members with marks), and the " +
+        "group links of size-only calcs (\"Level 3 typical beams W18X35\") that link a calc to the whole group once. Filter by kind " +
+        "(category), storey, profile; linked_only keeps groups some calc links to.",
+      inputSchema: {
+        kind: z.string().optional(),
+        storey: z.string().optional(),
+        profile: z.string().optional(),
+        linked_only: z.boolean().optional(),
+        offset,
+        limit: limit(100),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.GroupsArgs) => tools.listTypicalGroups(p, a)),
+  );
+
+  server.registerTool(
+    "compare_revisions",
+    {
+      title: "Compare model revisions",
+      description:
+        "Diff two model revisions (the engine's diffGraphs, keyed on GlobalId): removed, added and changed elements (each changed field " +
+        "before / after) and load-path edges removed / added, plus the calcs linked to an element in the diff. a and b are revision " +
+        "numbers (project_summary.model_revisions) or file names; default: b = the current model, a = the revision before it. Needs " +
+        "two model revisions (repeat --model, or a project file with several).",
+      inputSchema: {
+        a: z.union([z.string(), z.number().int()]).optional().describe("Base revision (before)."),
+        b: z.union([z.string(), z.number().int()]).optional().describe("Compared revision (after). Default: the current model."),
+        limit: z.number().int().min(1).max(20000).optional().describe("Max items per list (default 500)."),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.CompareArgs) => tools.compareRevisions(p, a)),
+  );
+
+  server.registerTool(
+    "move_column",
+    {
+      title: "Move or remove a column (what-if)",
+      description:
+        "What happens if a column moves by dx / dy metres in plan, or is removed (remove true): @unloaded/move-impact on the current " +
+        "model's geometry and supports edges - elements on the path with reasons and chains, the geometric screen (governing quantity " +
+        "before / after, > 5 % change), re-framing, clashes, notes, assumptions, and stale calcs from the reviewed links. No calc values " +
+        "are read, so no utilisation estimates or health band. Nothing is changed.",
+      inputSchema: {
+        column: elementId,
+        dx: z.number().optional().describe("Plan move in x, metres."),
+        dy: z.number().optional().describe("Plan move in y, metres."),
+        remove: z.boolean().optional().describe("Remove the column instead of moving it."),
+      },
+      annotations: RO,
+    },
+    run((p, a: tools.MoveArgs) => tools.moveColumn(p, a)),
+  );
+
+  server.registerTool(
+    "export_mapping",
+    {
+      title: "Export mapping",
+      description:
+        "The engine's export (buildExport), one report per calc PDF: calcs, calc edges, load path, connectivity, typical groups, group " +
+        "links, findings, producers, and every element with its status and calcs (confidence, tier, role, band, reasons, caveats, rule, " +
+        "matched text, review, provenance). Large: page the elements with element_offset / element_limit.",
+      inputSchema: { element_offset: z.number().int().min(0).optional(), element_limit: z.number().int().min(1).max(5000).optional() },
+      annotations: RO,
+    },
+    run((p, a: { element_offset?: number; element_limit?: number }) => tools.exportMappingTool(p, a)),
+  );
+
+  server.registerTool(
+    "get_page_image",
+    {
+      title: "Calc page image",
+      description:
+        "Render a calc PDF page as PNG, highlighting evidence: global_id + calc_key (a link's matched words), edge_src + edge_dst " +
+        "(+ evidence_index) for calc-edge evidence, span [start, end) of the page text (from search_calc_text), or highlight rects. With " +
+        "evidence it crops to a full-width band around the highlight, padding pt above / below (default 48; tight true pads all four sides); " +
+        "crop false for the full page, or rect [x0, y0, x1, y1] to choose. " +
+        "Frame: PDF points, origin top-left. pdf defaults to the main PDF; page defaults to the evidence page. width in pixels (200-3000).",
+      inputSchema: {
+        pdf: z.string().optional(),
+        page: z.number().int().min(1).optional(),
+        global_id: z.string().optional(),
+        calc_key: z.string().optional(),
+        span: z.tuple([z.number().int(), z.number().int()]).optional(),
+        edge_src: z.string().optional(),
+        edge_dst: z.string().optional(),
+        evidence_index: z.number().int().min(0).optional(),
+        highlight: z.array(z.array(z.number()).length(4)).optional(),
+        crop: z.boolean().optional(),
+        tight: z.boolean().optional(),
+        padding: z.number().min(0).max(500).optional(),
+        rect: z.array(z.number()).length(4).optional(),
+        width: z.number().int().min(200).max(3000).optional(),
+      },
+      annotations: RO,
+    },
+    async (a: tools.PageImageArgs): Promise<CallToolResult> => {
+      try {
+        await project.refresh();
+        const { image, meta } = await tools.getPageImage(project, a);
+        return {
+          content: [
+            { type: "image", data: Buffer.from(image.png).toString("base64"), mimeType: "image/png" },
+            { type: "text", text: JSON.stringify(meta) },
+          ],
+        };
+      } catch (e) {
+        return failure(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "record_decision",
+    {
+      title: "Record a review decision",
+      description:
+        "WRITES: append one review decision to the decisions file (append-only; nothing is deleted or rewritten): confirm or reject an " +
+        "automatic element-calc link, manual = link an element to a calc by hand, undo = clear the latest decision on that pair. Recorded " +
+        "with the time and the configured actor. Only on the user's request. Returns the link and element status before and after.",
+      inputSchema: decisionShape,
+      annotations: WRITE,
+    },
+    run((p, a: tools.DecisionInput) => tools.recordDecisions(p, { decisions: [a] })),
+  );
+
+  server.registerTool(
+    "record_decisions",
+    {
+      title: "Record review decisions (batch)",
+      description:
+        "WRITES: append several review decisions at once (same rules as record_decision). All or nothing: if any decision is invalid, " +
+        "none is written and every problem is listed.",
+      inputSchema: { decisions: z.array(z.object(decisionShape)).min(1).max(500) },
+      annotations: WRITE,
+    },
+    run((p, a: { decisions: tools.DecisionInput[] }) => tools.recordDecisions(p, a)),
+  );
+
+  // resources: cheap read-only views
+  server.registerResource(
+    "summary",
+    "unloaded://project/summary",
+    { title: "Project summary", description: "project_summary as a resource", mimeType: "application/json" },
+    async (uri) => {
+      await project.refresh();
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(tools.projectSummary(project)) }] };
+    },
+  );
+  server.registerResource(
+    "decisions",
+    "unloaded://project/decisions",
+    { title: "Decisions log", description: "The review decisions file, as currently on disk", mimeType: "application/json" },
+    async (uri) => {
+      await project.refresh();
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(tools.decisionsLog(project)) }] };
+    },
+  );
 
   return server;
 }
 
-/** Tool names, in registration order (the README and a test list them). */
+/** Tool names, in registration order (the README, tests and parity script list them). */
 export const TOOL_NAMES = [
-  "project_summary", "search_elements", "get_element", "get_calc", "impact_of_change", "list_revisions", "compare_revisions",
-  "list_findings", "list_typical_groups", "get_page_image", "move_column",
+  "project_summary",
+  "search_elements",
+  "get_element",
+  "list_calcs",
+  "get_calc",
+  "search_calc_text",
+  "trace_load_path",
+  "calc_dependencies",
+  "impact_of_change",
+  "review_status",
+  "list_findings",
+  "list_typical_groups",
+  "compare_revisions",
+  "move_column",
+  "export_mapping",
+  "get_page_image",
+  "record_decision",
+  "record_decisions",
 ] as const;
+export const WRITE_TOOLS = ["record_decision", "record_decisions"] as const;

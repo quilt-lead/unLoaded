@@ -20,7 +20,9 @@ Read it before starting work. Write to it before handing off.
 |---|---|---|
 | [2026-11-15-harborview-synthetic-calcs.md](2026-11-15-harborview-synthetic-calcs.md) | active | Plan for a synthetic calc package (PDFs + IFC + ground truth) matching the Harborview tower demo; open questions on marks, IFC, sample wiring
 | [2026-11-15-selection-dimming.md](2026-11-15-selection-dimming.md) | done | Refreshes 3D material shaders when transparency changes so deselected elements reliably dim |
+| [2026-11-15-model-bundle.md](2026-11-15-model-bundle.md) | done | `unloaded.model-bundle`: element graph + calc graph in one JSON; Harborview demo converted (demo calcs now in the Calculation Graph, superseding D19); legacy JSON loader retired to a converter script; Export model + calc graph |
 | [2026-11-15-current-ui-prod-integration.md](2026-11-15-current-ui-prod-integration.md) | blocked | Repairs the UI merge onto prod's project/revision model while retaining the latest palette, selection, and workspace-view behavior; branch pushed, PR creation needs authenticated GitHub access |
+| [2026-11-15-mission-readiness-review.md](2026-11-15-mission-readiness-review.md) | done | Mission gap review: multi-PDF/version workflows, real-document segmentation, connectivity reliability, and UI acceptance coverage |
 | [2026-11-14-parser-graph-merge.md](2026-11-14-parser-graph-merge.md) | done | Merged the IFC parser and element-graph packages into the React UI via an adapter |
 | [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (frontend only: calc-mapper, move-impact, provenance contract) and extraction ideas into main; decision log D1-D27 |
 | [2026-11-14-font-update.md](2026-11-14-font-update.md) | done | Switched the app to Apercu across the global styles and canvas text overrides |
@@ -33,3 +35,4 @@ Read it before starting work. Write to it before handing off.
 | [2026-11-14-git-lfs-setup.md](2026-11-14-git-lfs-setup.md) | done | PDFs moved to Git LFS; `setup.md` added with clone/LFS/install instructions |
 | [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | done | Integrates PR #4 with prod (PR #5, #7, #8, #10 + LFS PDFs merges; calc-parser retired into calc-mapper; copyright guard removed (PDFs allowed); Windows test fixes) |
 | [2026-11-14-phase2-calc-sets.md](2026-11-14-phase2-calc-sets.md) | active | Calc sets: one large PDF, one PDF per calc, or a mix; per-document revisions, placement of uploads, calc revision diff |
+| [2026-11-14-mcp-server.md](2026-11-14-mcp-server.md) | in review | Local stdio MCP server (`packages/mcp-server`) on calc-mapper: query tools, findings / groups / revision compare / move_column, project files (v2 calc sets), append-only calc-mapper decision log, several PDFs as one calc set, engine boundary in `src/engine.ts` |

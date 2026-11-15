@@ -45,7 +45,7 @@ import {
   useChangeDocument,
   useUploadModel,
 } from './engine/hooks';
-import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
+import { downloadModelBundle, downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
 
 /** Where an added calc PDF went, in words (a toast): a new calc document, a new revision of one, or already loaded. */
 function calcPlacementText(fileName: string, p: CalcPlacement, revisionId: number | null): string {
@@ -649,7 +649,7 @@ export const App: React.FC = () => {
     });
 
   const handleLoadDemo = () =>
-    run('Loading the Harborview A/B demo (legacy JSON, demo data)…', async () => {
+    run('Loading the Harborview A/B demo (demo data)…', async () => {
       let out: { projectId: string; a: number; b: number };
       try {
         out = await demo.mutateAsync();
@@ -765,6 +765,12 @@ export const App: React.FC = () => {
     run('Packing the project…', async () => {
       if (!pid) throw new Error('No project to save.');
       return `Saved ${await downloadProjectFile(pid)}`;
+    });
+
+  const handleExportBundle = () =>
+    run('Packing the model bundle…', async () => {
+      if (!pid) throw new Error('No project to export.');
+      return `Saved ${await downloadModelBundle(pid, shownModelRev)}`;
     });
 
   const handleNewProject = () =>
@@ -1160,7 +1166,7 @@ export const App: React.FC = () => {
           onClick={handleLoadDemo}
           className="mt-2 w-full text-[11px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
         >
-          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(legacy JSON, demo data)</span>
+          Or open the Harborview A/B diff demo <span className="text-amber-300/90">(invented calcs, demo data)</span>
         </button>
         {storeInfo.data && !storeInfo.data.persistent && (
           <p className="mt-3 text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-400/25 rounded-lg px-3 py-2 leading-snug text-left">
@@ -1186,6 +1192,7 @@ export const App: React.FC = () => {
         onSwitchProject={switchProject}
         onNewProject={handleNewProject}
         onSaveProject={pid ? handleSaveProject : null}
+        onExportBundle={pid && view?.source === 'project' ? handleExportBundle : null}
         onLoadSample={handleLoadSample}
         onLoadDemo={handleLoadDemo}
         onUploadModel={(f) => handleUpload('model', f)}
@@ -1373,6 +1380,7 @@ export const App: React.FC = () => {
               key={scope.epoch}
               calcs={view.calcs}
               calcPackageName={view.calcPackageName}
+              calcOrigin={view.calcOrigin}
               pdfUrl={pdfUrl}
               pdfUrls={pdfUrls}
               elementNodes={elementNodes}

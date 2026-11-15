@@ -2,9 +2,9 @@
 // records which ops reached it.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
-import { SEGMENTER_VERSION, sha256 } from '@unloaded/calc-mapper';
-import { __testing, addRevision, createProject, getExtraction, getRevision, listRevisions } from '../data/projectStore';
-import { addModelRevision, compareRevisions, projectSnapshot } from './projectService';
+import { SEGMENTER_VERSION, bundleExport, makeBundle, sha256 } from '@unloaded/calc-mapper';
+import { __testing, addDecision, addRevision, createProject, exportProject, getExtraction, getRevision, importProject, listRevisions } from '../data/projectStore';
+import { addModelRevision, buildModelBundle, compareRevisions, projectSnapshot } from './projectService';
 
 // one memory backend for the whole file, set before any test: tests remove stored blobs through it.
 // (Swapping backends between tests would restart revision ids under projectService's per-id caches.)
@@ -38,15 +38,19 @@ const storedPkg = (h: string) => ({
   calcs: [],
 });
 
+const bundleArgs = (a: { graph: never; calcGraph: never; decisions: never; info: never }) => [a.graph, a.calcGraph, a.decisions, a.info] as const;
+
 const ops: string[] = [];
 const FRESH = { source_name: 'c.pdf', source_sha256: 'f'.repeat(64), pages: [{ n: 1, doc_sha256: 'f'.repeat(64) }], calcs: [] };
 class FakeWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onmessageerror: (() => void) | null = null;
   onerror: (() => void) | null = null;
-  postMessage(msg: { id: number; op: string }) {
+  postMessage(msg: { id: number; op: string; args: never }) {
     ops.push(msg.op);
-    queueMicrotask(() => this.onmessage?.({ data: { id: msg.id, type: 'result', result: msg.op === 'extract' ? FRESH : null } } as MessageEvent));
+    // bundleExport needs no PDF or pdf.js: the stand-in runs the real op, so the bundle path is tested end to end
+    const result = msg.op === 'bundleExport' ? bundleExport(...bundleArgs(msg.args)) : Promise.resolve(msg.op === 'extract' ? FRESH : null);
+    void result.then((r) => this.onmessage?.({ data: { id: msg.id, type: 'result', result: r } } as MessageEvent));
   }
   terminate() {}
 }
@@ -175,5 +179,56 @@ describe('an imported model is stored only if it can be saved and reopened', () 
     const file = new File([JSON.stringify(g)], 'feet.json', { type: 'application/json' });
     await expect(addModelRevision(p.id, file, undefined, () => {})).rejects.toThrow(/feet\.json: its element graph could not be reopened once saved \(graph\.meta\.units must be "m"/);
     expect(await listRevisions(p.id)).toEqual([]);
+  });
+});
+
+describe('a model bundle revision carries its calc graph', () => {
+  const bundleFile = () =>
+    new File(
+      [
+        JSON.stringify(
+          makeBundle(
+            graph('C1'),
+            {
+              source: { kind: 'demo' },
+              calcs: [{ key: 'k1', title: 'Column C1 design', cat: 'Column' }],
+              edges: [],
+              links: [{ element: 'C1', calc: 'k1', role: 'design', review: 'auto' }],
+            },
+            { label: 'Rev A', demo: true },
+          ),
+        ),
+      ],
+      'demo.bundle.json',
+      { type: 'application/json' },
+    );
+
+  it('shows the calc graph when the project has no calc PDF, with the review decisions applied (bare keys survive the legacy-ref read)', async () => {
+    const p = await createProject('bundle');
+    const { revision } = await addModelRevision(p.id, bundleFile(), undefined, () => {});
+    expect(revision.label).toBe('Rev A');
+    expect(revision.meta).toMatchObject({ format: 'bundle', hasCalcGraph: true, demo: true, calcs: 1 });
+    // the store reads a bare calc key back as "d1#k1" (pre-calc-set projects); the bundle path must still match it
+    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'k1', action: 'confirm', actor: 'r', note: null, modelRev: revision.id, calcRev: null });
+    const snap = await projectSnapshot(p.id);
+    expect(ops).toContain('bundleExport');
+    expect(snap.exp?.calc_source).toEqual({ kind: 'demo' });
+    expect(snap.exp?.elements[0]?.calcs[0]).toMatchObject({ calc: 'k1', review: 'confirmed' });
+
+    const { bundle, name } = await buildModelBundle(p.id);
+    expect(name).toMatch(/\.bundle\.json$/);
+    expect(bundle.meta.demo).toBe(true);
+    expect(bundle.calcGraph?.links[0]).toMatchObject({ element: 'C1', calc: 'k1', review: 'confirmed', decided_by: 'r' });
+  });
+
+  it('travels in a project file: the revision file is the bundle, so the reopened project shows the same calc graph and decisions', async () => {
+    const p = await createProject('bundle trip');
+    const { revision } = await addModelRevision(p.id, bundleFile(), undefined, () => {});
+    await addDecision({ projectId: p.id, globalId: 'C1', calcKey: 'k1', action: 'confirm', actor: 'r', note: null, modelRev: revision.id, calcRev: null });
+    const reopened = await importProject(JSON.parse(JSON.stringify(await exportProject(p.id))));
+    const snap = await projectSnapshot(reopened.id);
+    expect(snap.modelRev?.meta).toMatchObject({ format: 'bundle', hasCalcGraph: true });
+    expect(snap.exp?.calcs.map((c) => c.key)).toEqual(['k1']);
+    expect(snap.exp?.elements[0]?.calcs[0]).toMatchObject({ calc: 'k1', review: 'confirmed' });
   });
 });

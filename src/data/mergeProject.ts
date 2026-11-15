@@ -64,7 +64,8 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
     producers: calc?.producers ?? null,
     counts,
     hasUtilization: elementNodes.some((n) => typeof n.utilization === 'number'),
-    hasDemoData: elementNodes.some((n) => Boolean(n.demoDocuments?.length)),
+    calcOrigin: calc?.calcOrigin ?? null,
+    hasDemoData: calc?.calcOrigin === 'bundle-demo',
   };
 }
 

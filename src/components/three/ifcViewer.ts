@@ -70,7 +70,7 @@ export class IfcViewer {
   world = new THREE.Group();
   group = new THREE.Group();
   ghostGroup = new THREE.Group();
-  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / legacy JSON models, their diff ghosts) */
+  /** element-graph bounding boxes, for elements with no IFC mesh (ModelInput / model bundle models, their diff ghosts) */
   boxGroup = new THREE.Group();
   boxIds = new Set<string>();
   meshes = new Map<string, THREE.Mesh[]>(); // GlobalId -> meshes (head model and ghosts)

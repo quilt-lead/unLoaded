@@ -1,12 +1,12 @@
 /**
  * Render one page of a calc PDF to PNG in Node: pdf.js's legacy build (the same pdfjs-dist 4.10.38
- * calc-mapper extracts text with) drawing onto @napi-rs/canvas - the canvas pdf.js itself uses in Node
+ * the engine extracts text with) drawing onto @napi-rs/canvas - the canvas pdf.js itself uses in Node
  * (its NodeCanvasFactory loads @napi-rs/canvas, an optional dependency of pdfjs-dist), so there is
  * one canvas implementation in the tree, prebuilt per platform, with no system libraries to install.
  *
- * Coordinates are calc-mapper's sheet frame: PDF points on the page, origin top-left, y down - the
- * frame of every `rects`, `rect` and `title_box` the engine returns - so any rect from a tool result
- * can be passed straight back as `rect` (crop) or `highlight`.
+ * Coordinates are the engine's page frame: PDF points, origin top-left, y down - the frame of every
+ * `rects` on links, calc-edge evidence and `rectsForSpan` - so they can be passed straight back as
+ * `rect` (crop) or `highlight`. This is presentation only; it makes no engine call.
  */
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";

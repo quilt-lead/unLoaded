@@ -192,7 +192,8 @@ export interface ConnectivityEdge {
 
 // ---------------------------------------------------------------- links (mapping)
 
-export type Tier = "exact" | "range" | "loose" | "family" | "size" | "partial" | "xref" | "type" | "manual";
+/** How a link was made: a matcher tier, "manual" (a person linked it), or "stated" (a model bundle states it; not matched by this engine). */
+export type Tier = "exact" | "range" | "loose" | "family" | "size" | "partial" | "xref" | "type" | "manual" | "stated";
 export type LinkReview = "auto" | "confirmed" | "rejected" | "manual";
 
 export interface Snippet {
@@ -437,6 +438,8 @@ export interface ExportCalc {
   title_box: TitleBox | null;
   spans: CalcSpan[];
   provenance: Provenance;
+  /** Document metadata a model bundle's calc states (a demo calc has no PDF to read it from). */
+  meta?: { code?: string; rev?: string; date?: string; summary?: string };
 }
 
 export interface Export {
@@ -461,6 +464,11 @@ export interface Export {
    * number is a SET page (document page + the document's page_offset). Absent for a one-package export.
    */
   documents?: CalcSetDocRecord[];
+  /**
+   * Set when the export was made from a model bundle's calc graph (bundle.ts) rather than by mapping
+   * PDFs: a demo calc graph (no PDF at all) or a PDF one (the PDFs named by sha256, not included).
+   */
+  calc_source?: { kind: "demo" } | { kind: "pdf"; documents: { doc_id: string | null; name: string | null; revision: string | number | null; sha256: string; pages: number; page_offset: number }[] };
 }
 
 /**

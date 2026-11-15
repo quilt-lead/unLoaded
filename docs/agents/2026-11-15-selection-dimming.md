@@ -26,6 +26,12 @@ keep the cached program. Selection membership and load-path behavior do not need
   not a full app interaction test; no browser dependencies were added.
 - Vite/esbuild needed normal filesystem access because the sandbox blocked ancestor directories.
 
+## Merge follow-up
+
+The pull of `922a97c` conflicted only in the handoff index; kept all three entries for the synthetic
+calcs, selection dimming, and model bundle. The renderer fix survived the automatic merge unchanged.
+The 19 renderer, Harborview bundle, and project-service tests passed, as did the production build.
+
 ## Working files
 
 None.
