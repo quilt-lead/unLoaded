@@ -25,8 +25,11 @@ export const PACKAGE_NAME = "calc-mapper" as const;
 /** The modules that produce records. */
 export type CalcMapperModule = "segment" | "matcher" | "calcdeps" | "impact" | "decisions";
 
-/** "calc-mapper@0.1.0/matcher". */
-export type Producer = `${typeof PACKAGE_NAME}@${string}/${CalcMapperModule}`;
+/** "<package>@<version>/<module>", e.g. "calc-mapper@0.1.0/matcher" or "move-impact@0.1.0/impact".
+ * Any package in the workspace produces records under this one contract; calc-mapper's own producers
+ * are the narrower `CalcMapperProducer`. */
+export type Producer = `${string}@${string}/${string}`;
+export type CalcMapperProducer = `${typeof PACKAGE_NAME}@${string}/${CalcMapperModule}`;
 
 /** rule: a deterministic rule produced it; human: a person decided it; estimate: a labelled estimate. */
 export type ProvenanceMethod = "rule" | "human" | "estimate";
@@ -69,7 +72,7 @@ export const RULES = {
   },
 } as const;
 
-export const producerOf = (module: CalcMapperModule): Producer => `${PACKAGE_NAME}@${PACKAGE_VERSION}/${module}`;
+export const producerOf = (module: CalcMapperModule): CalcMapperProducer => `${PACKAGE_NAME}@${PACKAGE_VERSION}/${module}`;
 
 /**
  * First-seen order, no repeats. Throws on anything that is not a lowercase hex sha256 - a missing

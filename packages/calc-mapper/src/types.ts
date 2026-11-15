@@ -22,7 +22,7 @@ import type { Provenance } from "./provenance.ts";
 import type { Quantity } from "./units.ts";
 
 export type { SerializedElementGraph };
-export type { CalcMapperModule, Producer, Provenance, ProvenanceMethod } from "./provenance.ts";
+export type { CalcMapperModule, CalcMapperProducer, Producer, Provenance, ProvenanceMethod } from "./provenance.ts";
 export type { Dim, Quantity, Unit } from "./units.ts";
 export type { BuildingPointFt, Framed, ModelPointM, SheetRect } from "./frames.ts";
 
