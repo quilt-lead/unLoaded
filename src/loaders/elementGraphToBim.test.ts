@@ -71,6 +71,56 @@ describe('elementGraphToBim on simple-frame', () => {
     expect(up.has('F1')).toBe(false);
   });
 
+  it('traces down a stacked column to its lower segment and footing', () => {
+    const stacked: ModelInput = {
+      meta: { version: 1, project: 'Stacked columns', units: 'm', source: { format: 'fixture', file: 'stacked-columns.json' } },
+      levels: [
+        { id: 'L0', name: 'Foundation', elevation: 0 },
+        { id: 'L1', name: 'Level 1', elevation: 3.5 },
+        { id: 'L2', name: 'Level 2', elevation: 7 },
+      ],
+      elements: [
+        {
+          id: 'F1',
+          kind: 'footing',
+          mark: 'F1',
+          levelId: 'L0',
+          params: {},
+          geometry: { bbox: { min: [-0.75, -0.75, -0.6], max: [0.75, 0.75, 0] } },
+          source: { format: 'fixture', nativeType: 'IfcFooting' },
+        },
+        {
+          id: 'C1-L1',
+          kind: 'column',
+          mark: 'C1',
+          levelId: 'L1',
+          params: {},
+          geometry: { bbox: { min: [-0.13, -0.13, 0], max: [0.13, 0.13, 3.5] } },
+          source: { format: 'fixture', nativeType: 'IfcColumn' },
+        },
+        {
+          id: 'C1-L2',
+          kind: 'column',
+          mark: 'C1',
+          levelId: 'L2',
+          params: {},
+          geometry: { bbox: { min: [-0.13, -0.13, 3.5], max: [0.13, 0.13, 7] } },
+          source: { format: 'fixture', nativeType: 'IfcColumn' },
+        },
+      ],
+      relations: [
+        { a: 'C1-L2', b: 'C1-L1', kind: 'supports', evidence: { rule: 'column-on-column support', source: 'explicit' } },
+        { a: 'C1-L1', b: 'F1', kind: 'supports', evidence: { rule: 'column bears on footing', source: 'explicit' } },
+      ],
+      warnings: [],
+    };
+    const topology = elementGraphToBim(buildGraph(stacked, { infer: false }).graph);
+    const trace = computeLoadPathTrace(topology.loadPath, ['C1-L2'], 'down', 16);
+
+    expect(topology.elementNodes.some((n) => n.kind === 'family' && n.id.startsWith('stack-'))).toBe(true);
+    expect(trace.chainNodeIds).toEqual(new Set(['C1-L2', 'C1-L1', 'F1']));
+  });
+
   it('exposes beam <-> connection <-> column connectivity', () => {
     expect(getConnectivityNeighbors('K1', topo.connectivity).sort()).toEqual(['B1', 'C1']);
   });

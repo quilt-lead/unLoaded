@@ -263,7 +263,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
         isDocked
           ? 'relative w-full bg-[#2d3139]/92 flex flex-col overflow-hidden border-b border-white/[0.08] last:border-b-0'
           : `fixed bg-[#2d3139]/92 backdrop-blur-2xl border border-white/[0.16] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden ${
-              isDragging ? 'ring-1 ring-indigo-400/50' : ''
+              isDragging ? 'ring-1 ring-calcmap/50' : ''
             }`
       }
     >
@@ -293,7 +293,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('left')}
               title="Dock Left"
               aria-label={`Dock ${title} left`}
-              className="text-zinc-500 hover:text-indigo-300 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
+              className="text-zinc-500 hover:text-calcmap w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
             >
               <ArrowLeftToLine className="w-3 h-3" />
             </button>
@@ -304,7 +304,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('right')}
               title="Dock Right"
               aria-label={`Dock ${title} right`}
-              className="text-zinc-500 hover:text-indigo-300 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
+              className="text-zinc-500 hover:text-calcmap w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
             >
               <ArrowRightToLine className="w-3 h-3" />
             </button>
@@ -315,7 +315,7 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               onClick={() => onChangeDockSide('float')}
               title="Undock (Floating Window)"
               aria-label={`Undock ${title}`}
-              className="text-indigo-300 hover:text-white w-6 h-6 rounded-lg flex items-center justify-center bg-indigo-500/15 hover:bg-indigo-500/25 transition"
+              className="text-calcmap hover:text-white w-6 h-6 rounded-lg flex items-center justify-center bg-calcmap/15 hover:bg-calcmap/25 transition"
             >
               <ExternalLink className="w-3 h-3" />
             </button>

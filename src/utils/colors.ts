@@ -1,68 +1,102 @@
 import type { BimNode, ColorMode, DiffStatus, HighlightTone, LinkReview, MappingStatus } from '../types/bim';
 
+/** Supplied node swatches plus equal OKLab steps, ordered to keep neighbouring categories distinct. */
+export const GRAPH_NODE_PALETTE = [
+  '#FF1493',
+  '#A3D900',
+  '#00AEEF',
+  '#FF8A00',
+  '#FF5E7E',
+  '#FFAE42',
+  '#67C8A4',
+  '#D6C52E',
+  '#43BCCB',
+  '#86D173',
+  '#FF7659',
+  '#FF4489',
+  '#BFD01F',
+  '#ECBA39',
+  '#FF9C2B',
+  '#FF803E',
+  '#FF6B6D',
+  '#FF328E',
+  '#FF5284',
+  '#FFA537',
+  '#FF931C',
+] as const;
+
+/** Element-graph kinds use the first six palette steps in a high-contrast order. */
+export const KIND_PALETTE: Record<string, string> = {
+  slab: GRAPH_NODE_PALETTE[0],
+  column: GRAPH_NODE_PALETTE[1],
+  beam: GRAPH_NODE_PALETTE[2],
+  brace: GRAPH_NODE_PALETTE[4],
+  connection: GRAPH_NODE_PALETTE[5],
+  fastener: GRAPH_NODE_PALETTE[6],
+  wall: GRAPH_NODE_PALETTE[7],
+  footing: GRAPH_NODE_PALETTE[10],
+  pile: GRAPH_NODE_PALETTE[11],
+  other: GRAPH_NODE_PALETTE[12],
+};
+
 export const IFC_ENTITY_PALETTE: Record<string, string> = {
-  IFCSLAB: '#0369a1',
-  IFCCOLUMN: '#15803d',
-  IFCBEAM: '#b45309',
-  IFCMEMBER: '#0f766e',
-  IFCWALL: '#be123c',
-  IFCWALLSTANDARDCASE: '#be123c',
-  IFCCURTAINWALL: '#0284c7',
-  IFCFOOTING: '#9a3412',
-  IFCPILE: '#334155',
-  IFCPLATE: '#0e7490',
-  IFCMECHANICALFASTENER: '#0e7490',
-  IFCDISCRETEACCESSORY: '#0e7490',
-  IFCROOF: '#1d4ed8',
-  IFCSTAIR: '#4338ca',
-  IFCSTAIRFLIGHT: '#4338ca',
-  IFCRAMP: '#4338ca',
-  IFCRAMPFLIGHT: '#4338ca',
-  IFCRAILING: '#475569',
-  IFCWINDOW: '#0891b2',
-  IFCDOOR: '#7e22ce',
-  IFCCOVERING: '#4f46e5',
-  IFCREINFORCINGBAR: '#9f1239',
-  IFCREINFORCINGMESH: '#9f1239',
-  IFCTENDON: '#a16207',
-  IFCTENDONANCHOR: '#a16207',
-  IFCBUILDINGELEMENTPROXY: '#3f3f46',
-  IFCSITE: '#1e3a8a',
-  IFCBUILDING: '#312e81',
-  IFCBUILDINGSTOREY: '#3730a3',
-  IFCSPACE: '#5b21b6',
-  IFCOPENINGELEMENT: '#52525b',
-  IFCDISTRIBUTIONELEMENT: '#115e59',
-  IFCFLOWSEGMENT: '#115e59',
-  IFCFLOWTERMINAL: '#115e59',
+  IFCSLAB: KIND_PALETTE.slab,
+  IFCCOLUMN: KIND_PALETTE.column,
+  IFCBEAM: KIND_PALETTE.beam,
+  IFCMEMBER: KIND_PALETTE.brace,
+  IFCWALL: KIND_PALETTE.wall,
+  IFCWALLSTANDARDCASE: KIND_PALETTE.wall,
+  IFCCURTAINWALL: GRAPH_NODE_PALETTE[13],
+  IFCFOOTING: KIND_PALETTE.footing,
+  IFCPILE: KIND_PALETTE.pile,
+  IFCPLATE: KIND_PALETTE.connection,
+  IFCMECHANICALFASTENER: KIND_PALETTE.fastener,
+  IFCDISCRETEACCESSORY: KIND_PALETTE.connection,
+  IFCROOF: GRAPH_NODE_PALETTE[14],
+  IFCSTAIR: GRAPH_NODE_PALETTE[15],
+  IFCSTAIRFLIGHT: GRAPH_NODE_PALETTE[15],
+  IFCRAMP: GRAPH_NODE_PALETTE[16],
+  IFCRAMPFLIGHT: GRAPH_NODE_PALETTE[16],
+  IFCRAILING: GRAPH_NODE_PALETTE[17],
+  IFCWINDOW: GRAPH_NODE_PALETTE[18],
+  IFCDOOR: GRAPH_NODE_PALETTE[19],
+  IFCCOVERING: GRAPH_NODE_PALETTE[20],
+  IFCREINFORCINGBAR: GRAPH_NODE_PALETTE[8],
+  IFCREINFORCINGMESH: GRAPH_NODE_PALETTE[8],
+  IFCTENDON: GRAPH_NODE_PALETTE[9],
+  IFCTENDONANCHOR: GRAPH_NODE_PALETTE[9],
+  IFCBUILDINGELEMENTPROXY: KIND_PALETTE.other,
+  IFCSITE: GRAPH_NODE_PALETTE[3],
+  IFCBUILDING: GRAPH_NODE_PALETTE[3],
+  IFCBUILDINGSTOREY: GRAPH_NODE_PALETTE[3],
+  IFCSPACE: GRAPH_NODE_PALETTE[3],
+  IFCOPENINGELEMENT: GRAPH_NODE_PALETTE[3],
+  IFCDISTRIBUTIONELEMENT: GRAPH_NODE_PALETTE[6],
+  IFCFLOWSEGMENT: GRAPH_NODE_PALETTE[6],
+  IFCFLOWTERMINAL: GRAPH_NODE_PALETTE[6],
 };
 
 export function hashStringToJewelColor(str: string): string {
-  const jewelSwatches = [
-    '#0369a1', '#15803d', '#b45309', '#be123c', '#6d28d9',
-    '#0f766e', '#1d4ed8', '#9a3412', '#4338ca', '#0e7490',
-    '#7e22ce', '#9f1239', '#334155', '#1e40af', '#065f46',
-  ];
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  return jewelSwatches[Math.abs(h) % jewelSwatches.length];
+  return GRAPH_NODE_PALETTE[Math.abs(h) % GRAPH_NODE_PALETTE.length];
 }
 
 export function getHeatmapColor(utilization?: number): string {
-  // unknown is not a measurement: one neutral 'no data' colour, never a guessed mid-scale value
+  // Unknown is not a measurement: use a distinct palette color, never a guessed mid-scale value.
   if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return NO_DATA_COLOR;
   const u = Math.max(0, Math.min(1, utilization));
   const stops = [
-    { t: 0.25, r: 6, g: 182, b: 212 },
-    { t: 0.55, r: 16, g: 185, b: 129 },
-    { t: 0.78, r: 245, g: 158, b: 11 },
-    { t: 0.93, r: 239, g: 68, b: 68 },
+    { t: 0.25, r: 0, g: 174, b: 239 },
+    { t: 0.55, r: 163, g: 217, b: 0 },
+    { t: 0.78, r: 255, g: 174, b: 66 },
+    { t: 0.93, r: 255, g: 94, b: 126 },
   ];
-  if (u <= stops[0].t) return '#06b6d4';
-  if (u >= stops[stops.length - 1].t) return '#ef4444';
+  if (u <= stops[0].t) return '#00AEEF';
+  if (u >= stops[stops.length - 1].t) return '#FF5E7E';
 
   for (let i = 0; i < stops.length - 1; i++) {
     const a = stops[i];
@@ -75,7 +109,7 @@ export function getHeatmapColor(utilization?: number): string {
       return `rgb(${r}, ${g}, ${bl})`;
     }
   }
-  return '#f59e0b';
+  return '#FFAE42';
 }
 
 function parseColorRgb(colorStr: string): { r: number; g: number; b: number } {
@@ -102,7 +136,7 @@ export function getContrastingTextStyle(bgColorStr: string): { fill: string; sha
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   };
   const lum = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
-  if (lum > 0.36) {
+  if (lum > 0.179) {
     return { fill: '#090d16', shadow: '0 1px 0 rgba(255, 255, 255, 0.45)' };
   }
   return { fill: '#ffffff', shadow: '0 1px 2px rgba(0, 0, 0, 0.78)' };
@@ -114,8 +148,8 @@ export const CALC_PALETTE = [
   '#2b8c8c', '#8f6ed5', '#d4a017', '#3d9970', '#c2185b', '#5f7d95',
 ];
 
-export const PROJECT_COLOR = '#312e81';
-export const NO_DATA_COLOR = '#52525b';
+export const PROJECT_COLOR = '#D8D3D8';
+export const NO_DATA_COLOR = '#FF1493';
 
 export const STATUS_COLORS: Record<MappingStatus, string> = {
   confirmed: '#059669',
@@ -151,10 +185,10 @@ export const TONE_COLORS: Record<HighlightTone, string> = {
 };
 
 export const DIFF_PALETTE: Record<DiffStatus, string> = {
-  added: '#10b981', // emerald: in B, not in A
-  removed: '#ef4444', // crimson: in A, not in B
-  modified: '#f59e0b', // amber: same GlobalId, different content
-  unchanged: '#475569', // muted slate
+  added: '#A3D900',
+  removed: '#FF5E7E',
+  modified: '#FF8A00',
+  unchanged: '#00AEEF',
 };
 
 /** How a link was made, in words (matcher tier -> label). */
@@ -192,25 +226,22 @@ export function linkStrokeStyle(review: LinkReview | undefined, confidence = 0):
   }
 }
 
-/** element-graph kind -> colour (prod's category palette) */
-export const KIND_PALETTE: Record<string, string> = {
-  slab: '#0369a1',
-  beam: '#b45309',
-  brace: '#0f766e',
-  connection: '#0e7490',
-  fastener: '#155e75',
-  column: '#15803d',
-  wall: '#be123c',
-  footing: '#9a3412',
-  pile: '#334155',
-  other: '#3f3f46',
-};
-
 /** Colour of an element / family / category by kind, else by IFC type. */
 export function typeColor(node: BimNode): string {
   if (node.elementKind && KIND_PALETTE[node.elementKind]) return KIND_PALETTE[node.elementKind];
   if (node.elementKind) return hashStringToJewelColor(node.elementKind);
   return ifcTypeColor(node.ifcType, node.parent || node.id);
+}
+
+function calcCategoryColor(node: BimNode): string {
+  const label = `${node.id} ${node.label}`.toLowerCase();
+  if (/beam|girder/.test(label)) return KIND_PALETTE.beam;
+  if (/column/.test(label)) return KIND_PALETTE.column;
+  if (/connection|fastener/.test(label)) return KIND_PALETTE.connection;
+  if (/slab|punch/.test(label)) return KIND_PALETTE.slab;
+  if (/wall|lateral/.test(label)) return KIND_PALETTE.wall;
+  if (/foundation|footing|geotech|pile/.test(label)) return KIND_PALETTE.footing;
+  return hashStringToJewelColor(node.id);
 }
 
 export function ifcTypeColor(ifcType: string | undefined, fallbackKey: string): string {
@@ -235,7 +266,7 @@ export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMod
     case 'calc':
       return node.color ?? hashStringToJewelColor(node.id);
     case 'calc-category':
-      return hashStringToJewelColor(node.id);
+      return calcCategoryColor(node);
     case 'mapped-element': {
       const l = node.link;
       if (!l) return NO_DATA_COLOR;

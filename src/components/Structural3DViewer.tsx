@@ -4,7 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Loader2 } from 'lucide-react';
 import type { BimNode, ColorMode, HighlightOverlay } from '../types/bim';
-import { DIFF_PALETTE, TONE_COLORS, getEffectiveNodeColor } from '../utils/colors';
+import { TONE_COLORS, getEffectiveNodeColor } from '../utils/colors';
 import { elementIdsUnder } from '../utils/graphEngine';
 import { IfcViewer, type MeshStyle } from './three/ifcViewer';
 
@@ -172,9 +172,8 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       }
       if (diffMode) {
         const st = node?.diffStatus ?? 'unchanged';
-        s.color = DIFF_PALETTE[st];
         s.opacity = st === 'unchanged' ? 0.11 : st === 'removed' ? 0.45 : node?.elementKind === 'slab' ? 0.42 : 1;
-        if (st !== 'unchanged') s.glow = DIFF_PALETTE[st];
+        if (st !== 'unchanged') s.glow = s.color;
       }
       if (isGhost && !diffMode) s.visible = false;
 
@@ -190,12 +189,11 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         }
       } else if (litIds.any) {
         if (litIds.primary.has(gid)) {
-          s.color = '#ffffff';
           s.opacity = 1;
-          s.glow = '#6366f1';
+          s.glow = s.color;
         } else if (litIds.ids.has(gid)) {
           s.opacity = Math.max(s.opacity, node?.elementKind === 'slab' ? 0.42 : 1);
-          s.glow = '#bef264';
+          s.glow = s.color;
         } else {
           s.opacity = Math.min(s.opacity, 0.06);
           s.glow = null;
@@ -229,7 +227,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   }, [resetTrigger]);
 
   return (
-    <div className="relative w-full h-full bg-[#282c34] overflow-hidden">
+    <div className="relative w-full h-full bg-[#2d3139] overflow-hidden">
       <div ref={host} style={{ touchAction: 'none' }} className="absolute inset-0 cursor-grab active:cursor-grabbing" aria-label="3D model view" role="img" />
       {!hasGeometry && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center pointer-events-none">

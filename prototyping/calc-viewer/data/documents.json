@@ -1,6 +1,6 @@
 {
  "meta": {
-  "builtAt": "2026-11-14T18:25:23",
+  "builtAt": "2026-11-14T20:48:03",
   "matcher": "0.2.0",
   "scope": [
    "S0.0.1",
@@ -296,7 +296,7 @@
    "id": "calcs",
    "kind": "calcs",
    "title": "Structural calculations (KPFF, 2021)",
-   "file": "../../OC-DPH_PKG21-0516_Bldg12_Calcs.pdf",
+   "file": "../../pdfs/OC-DPH_PKG21-0516_Bldg12_Calcs.pdf",
    "source": "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf",
    "pages": [
     {
@@ -1257,7 +1257,7 @@
    "id": "stair",
    "kind": "calcs",
    "title": "Stair & parapet calculations (KPFF, 2023)",
-   "file": "../../OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf",
+   "file": "../../pdfs/OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf",
    "source": "OC-DPH_PKG21-0516_Bldg12_StairCalcs.pdf",
    "pages": [
     {

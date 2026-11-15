@@ -59,8 +59,9 @@ One JSON file with the element graph and its calculation graph side by side:
   PDF is added, the engine maps it and the bundle's calcs step aside. The project's decision log is applied on
   top of the review state the bundle states.
 - `source.kind: "demo"` (the Harborview A/B demo in `data/`) means invented calcs with no PDF: every record they
-  yield has provenance `method: "estimate"`, `rule: "bundle.demo"`, each link carries a demo caveat, the header
-  shows **DEMO DATA**, and the PDF pane shows the calc's stated metadata instead of a page.
+  yield has provenance `method: "estimate"`, `rule: "bundle.demo"`, each link carries a demo caveat, the calc
+  root is "Demo calcs", and the PDF pane says "DEMO DATA • NO PDF", marks each calc DEMO and shows its stated
+  metadata instead of a page.
 - **Project → Export model + calc graph** writes the model on screen and its calc graph (not rejected links;
   review state, evidence and provenance kept) as `*.bundle.json`. The PDFs are named by sha256, not included.
 

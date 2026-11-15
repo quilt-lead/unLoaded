@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeLayer } from './escapeStack';
 import {
   ArrowLeftRight,
@@ -11,7 +12,6 @@ import {
   FolderPlus,
   FileJson,
   FileText,
-  Flame,
   GitCompareArrows,
   Loader2,
   Minimize2,
@@ -19,21 +19,14 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import type { ColorMode, DatabaseDiffSummary, ProjectSource, WorkspaceView } from '../types/bim';
+import type { ProjectSource, WorkspaceView } from '../types/bim';
 
 interface HeaderBarProps {
-  projectName: string;
-  subtitle: string;
   activeView: WorkspaceView;
   onChangeView: (view: WorkspaceView) => void;
   calcCount: number;
-  colorMode: ColorMode;
-  onChangeColorMode: (m: ColorMode) => void;
-  hasUtilization: boolean;
   /** the project store persists (IndexedDB) rather than living in memory for this tab only */
   persistent: boolean;
-  /** the open view's calcs are demo data (a model bundle's invented calcs, no PDF) */
-  hasDemoData: boolean;
   source: ProjectSource | null;
   busy: boolean;
   projects: { id: string; name: string }[];
@@ -51,8 +44,6 @@ interface HeaderBarProps {
   onUploadCalcs: (files: File[]) => void;
   /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
   onOpenFile: (file: File) => void;
-  /** the diff laid over the view; null while it loads (or when not in diff mode) */
-  diffSummary: DatabaseDiffSummary | null;
   /** diff mode is set (A, B), whether or not its diff has loaded: Swap and Exit are offered whenever it is */
   diffRevs: { a: number; b: number } | null;
   compareOpen: boolean;
@@ -63,36 +54,85 @@ interface HeaderBarProps {
 }
 
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+  `relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
     active
-      ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+      ? 'text-white border border-transparent'
       : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
   }`;
 
 const chromeBtn =
   'bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.1] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] disabled:opacity-40 disabled:cursor-not-allowed';
 
-const COLOR_MODES: { id: ColorMode; label: string; title: string }[] = [
-  { id: 'type', label: 'Type', title: 'Colour elements by IFC type' },
-  { id: 'review', label: 'Review', title: 'Colour elements by mapping status: mapped / needs review / no calc found' },
-  { id: 'confidence', label: 'Confidence', title: 'Colour elements by the confidence of their strongest calc link' },
-];
+const WORKSPACE_VIEW_ORDER: WorkspaceView[] = ['element-graph', 'calculation-graph', '3d', 'docs'];
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const viewNavRef = useRef<HTMLElement | null>(null);
+  const viewButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const modelInput = useRef<HTMLInputElement | null>(null);
   const calcInput = useRef<HTMLInputElement | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+  const activeViewIndex = WORKSPACE_VIEW_ORDER.indexOf(p.activeView);
+
+  useIsomorphicLayoutEffect(() => {
+    const nav = viewNavRef.current;
+    const button = viewButtonRefs.current[activeViewIndex];
+    if (!nav || !button) return;
+
+    const updateIndicator = () => {
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      setIndicatorStyle({
+        left: buttonRect.left - navRect.left - nav.clientLeft,
+        width: buttonRect.width,
+      });
+    };
+
+    updateIndicator();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateIndicator);
+      return () => window.removeEventListener('resize', updateIndicator);
+    }
+
+    const observer = new ResizeObserver(updateIndicator);
+    observer.observe(nav);
+    viewButtonRefs.current.forEach((viewButton) => viewButton && observer.observe(viewButton));
+    return () => observer.disconnect();
+  }, [activeViewIndex]);
 
   useEscapeLayer(menuOpen, () => setMenuOpen(false));
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+      const target = e.target as Node;
+      if (!menuRef.current?.contains(target) && !menuButtonRef.current?.contains(target)) setMenuOpen(false);
     };
     window.addEventListener('pointerdown', onDown);
     return () => window.removeEventListener('pointerdown', onDown);
+  }, [menuOpen]);
+  useIsomorphicLayoutEffect(() => {
+    if (!menuOpen) return;
+    const updatePosition = () => {
+      const button = menuButtonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const width = Math.min(320, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+      const top = Math.min(rect.bottom + 8, Math.max(8, window.innerHeight - 160));
+      setMenuPosition({ left, top, width, maxHeight: Math.max(80, window.innerHeight - top - 8) });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
   }, [menuOpen]);
 
   const pick = (ref: React.RefObject<HTMLInputElement>) => {
@@ -139,112 +179,61 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
           alt="CalcMap"
           width={1888}
           height={580}
-          className="w-28 max-h-9 h-auto object-contain flex-shrink-0"
+          draggable={false}
+          className="w-28 max-h-9 h-auto object-contain flex-shrink-0 select-none"
         />
-        <div className="min-w-0">
-          <h1 className="font-medium text-xs text-zinc-300 tracking-tight flex items-center gap-2 truncate">
-            <span className="truncate">{p.projectName}</span>
-            {p.hasDemoData && (
-              <span
-                title="Loaded from legacy demo JSON: its documents are invented, not calcs"
-                className="mono text-[10px] font-semibold bg-amber-500/15 text-amber-200 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0"
-              >
-                DEMO DATA
-              </span>
-            )}
-            {p.diffSummary ? (
-              <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
-                DIFF MODE
-              </span>
-            ) : p.source === 'file' ? (
-              <span
-                title="Opened from an export JSON file: read-only"
-                className="mono text-[10px] font-medium bg-white/[0.06] text-zinc-300 px-2 py-0.5 rounded border border-white/[0.16] tracking-wider flex-shrink-0"
-              >
-                EXPORT · READ-ONLY
-              </span>
-            ) : null}
-          </h1>
-          {(p.diffSummary || p.subtitle) && (
-            <p className="mono text-[10px] text-zinc-500 tracking-wide mt-0.5 truncate">
-              {p.diffSummary ? `A: ${p.diffSummary.baseName}  ↔  B: ${p.diffSummary.compareName}` : p.subtitle}
-            </p>
-          )}
-        </div>
       </div>
 
-      <nav aria-label="Primary Workspace Views" className="flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0">
-        <button type="button" onClick={() => p.onChangeView('element-graph')} aria-pressed={p.activeView === 'element-graph'} className={viewBtn(p.activeView === 'element-graph')}>
+      <nav
+        ref={viewNavRef}
+        aria-label="Primary Workspace Views"
+        className="relative flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0"
+      >
+        <span
+          aria-hidden="true"
+          className="workspace-view-indicator absolute top-1 bottom-1 z-0 rounded-lg bg-white/[0.10] border border-white/[0.22] pointer-events-none transition-[transform,width] duration-300"
+          style={{ width: indicatorStyle.width, transform: `translateX(${indicatorStyle.left}px)` }}
+        />
+        <button ref={(button) => { viewButtonRefs.current[0] = button; }} type="button" onClick={() => p.onChangeView('element-graph')} aria-pressed={p.activeView === 'element-graph'} className={viewBtn(p.activeView === 'element-graph')}>
           <CircleDot className="w-3.5 h-3.5 text-emerald-400" />
           <span>Element Graph</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('calculation-graph')} aria-pressed={p.activeView === 'calculation-graph'} className={viewBtn(p.activeView === 'calculation-graph')}>
+        <button ref={(button) => { viewButtonRefs.current[1] = button; }} type="button" onClick={() => p.onChangeView('calculation-graph')} aria-pressed={p.activeView === 'calculation-graph'} className={viewBtn(p.activeView === 'calculation-graph')}>
           <Calculator className="w-3.5 h-3.5 text-amber-400" />
           <span>Calculation Graph</span>
           <span className="mono text-[10px] px-1.5 rounded bg-white/[0.06] text-zinc-400">{p.calcCount}</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('3d')} aria-pressed={p.activeView === '3d'} className={viewBtn(p.activeView === '3d')}>
+        <button ref={(button) => { viewButtonRefs.current[2] = button; }} type="button" onClick={() => p.onChangeView('3d')} aria-pressed={p.activeView === '3d'} className={viewBtn(p.activeView === '3d')}>
           <Box className="w-3.5 h-3.5 text-cyan-400" />
           <span>3D Model</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('docs')} aria-pressed={p.activeView === 'docs'} className={viewBtn(p.activeView === 'docs')}>
+        <button ref={(button) => { viewButtonRefs.current[3] = button; }} type="button" onClick={() => p.onChangeView('docs')} aria-pressed={p.activeView === 'docs'} className={viewBtn(p.activeView === 'docs')}>
           <FileText className="w-3.5 h-3.5 text-rose-400" />
           <span>PDF Calcs</span>
         </button>
       </nav>
 
       <div className="flex items-center space-x-2 flex-shrink-0">
-        {!p.diffSummary && (
-          <div className="flex items-center bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.14]" role="group" aria-label="Colour elements by">
-            {COLOR_MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                title={m.title}
-                aria-pressed={p.colorMode === m.id}
-                onClick={() => p.onChangeColorMode(m.id)}
-                className={`mono text-[10px] px-2 py-1 rounded-md transition ${
-                  p.colorMode === m.id ? 'bg-indigo-500/25 text-indigo-100 border border-indigo-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={!p.hasUtilization}
-              aria-label="Utilisation heatmap"
-              aria-pressed={p.colorMode === 'utilisation'}
-              onClick={() => p.onChangeColorMode(p.colorMode === 'utilisation' ? 'type' : 'utilisation')}
-              title={
-                p.hasUtilization
-                  ? 'Colour elements by demand / capacity utilisation'
-                  : 'No utilisation data: the loaded model and calcs carry no demand / capacity values yet'
-              }
-              className={`mono text-[10px] px-2 py-1 rounded-md transition flex items-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed ${
-                p.colorMode === 'utilisation' ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
-              }`}
-            >
-              <Flame className="w-3 h-3 text-amber-400" />
-              <span className="hidden 2xl:inline">Heatmap</span>
-            </button>
-          </div>
-        )}
-
-        <div className="relative" ref={menuRef}>
+        <div className="relative">
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className={`${chromeBtn} hover:border-indigo-400/40 max-w-[220px]`}
+            className={`${chromeBtn} hover:border-calcmap/40 max-w-[220px]`}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
           >
-            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-indigo-300 animate-spin" aria-hidden="true" /> : <Upload className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />}
+            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-calcmap animate-spin" aria-hidden="true" /> : <Upload className="w-3.5 h-3.5 text-calcmap" aria-hidden="true" />}
             <span>Project</span>
             <ChevronDown className="w-3 h-3 text-zinc-500" aria-hidden="true" />
           </button>
-          {menuOpen && (
-            <div role="menu" className="absolute right-0 top-full mt-2 w-80 max-h-[calc(100vh-80px)] overflow-y-auto bg-[#2d3139]/96 backdrop-blur-2xl border border-white/[0.14] rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)] z-50">
+          {menuOpen && menuPosition && createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              style={{ position: 'fixed', ...menuPosition, zIndex: 1000 }}
+              className="overflow-y-auto bg-[#2d3139]/96 backdrop-blur-2xl border border-white/[0.14] rounded-xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.85)]"
+            >
               {p.projects.length > 0 && (
                 <>
                   <p className="mono text-[9px] text-zinc-500 uppercase tracking-wider px-2.5 pt-1.5 pb-1">Projects in this browser</p>
@@ -260,7 +249,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                           p.onSwitchProject(pr.id);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs truncate transition ${
-                          pr.id === p.activeProjectId ? 'bg-indigo-500/20 text-white' : 'text-zinc-300 hover:bg-white/[0.06]'
+                          pr.id === p.activeProjectId ? 'bg-calcmap/15 text-white' : 'text-zinc-300 hover:bg-white/[0.06]'
                         }`}
                       >
                         {pr.name}
@@ -302,7 +291,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                   Storage is blocked in this browser: projects last until the tab closes. Save a project file to keep work.
                 </p>
               )}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
         {fileInput(modelInput, '.ifc,.json,application/json', 'Add model revision', (fs) => p.onUploadModel(fs[0]!))}
@@ -310,8 +300,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', (fs) => p.onOpenFile(fs[0]!))}
 
         {p.diffRevs && (
-          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
-            <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-300" />
+          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-calcmap/15 hover:bg-calcmap/25 text-calcmap px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-calcmap/35">
+            <ArrowLeftRight className="w-3.5 h-3.5 text-calcmap" />
             <span className="hidden xl:inline">Swap A↔B</span>
           </button>
         )}

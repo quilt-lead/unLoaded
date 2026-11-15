@@ -46,7 +46,8 @@ IndexedDB mapping runs.
   - provenance `method: "estimate"`, `rule: "bundle.demo"`
   - a caveat on every link
   - tier `stated`
-  - the header DEMO DATA badge, a DEMO chip, and a "no PDF" note in the PDF pane
+  - the "Demo calcs" calc root, a DEMO chip, "DEMO DATA • NO PDF" and a "no PDF" note in the PDF pane
+  - (the header DEMO DATA badge went with prod's header redesign, bd02afd; `view.hasDemoData` is still computed if a header badge comes back)
 
   D19 left whether Noah's files stay to Noah. The user converted and replaced them in this session; tell Noah.
 - **B7. The app no longer opens legacy `{ nodes, links }` JSON.** The user chose this. The parser refuses it with a

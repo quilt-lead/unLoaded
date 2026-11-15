@@ -1004,10 +1004,10 @@ export const App: React.FC = () => {
       title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
       indicatorClassName={
         diffMode || impact
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
+          ? 'bg-amber-400'
           : selectedNodeId
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] motion-safe:animate-pulse'
-          : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
+          ? 'bg-amber-400'
+          : 'bg-cyan-400'
       }
       dockSide={viewer3dDock}
       defaultPos={defaultV3dPos}
@@ -1021,7 +1021,7 @@ export const App: React.FC = () => {
             type="button"
             onClick={() => setFit3dTrigger((c) => c + 1)}
             title="Zoom to selection"
-            className="mono text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition mr-0.5"
+            className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
             FIT
           </button>
@@ -1037,7 +1037,7 @@ export const App: React.FC = () => {
         </>
       }
     >
-      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#282c34]">
+      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
         {viewer3d}
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
           <span className="truncate text-zinc-200">{status3d}</span>
@@ -1058,7 +1058,7 @@ export const App: React.FC = () => {
     <DockableHudPanel
       id="inspectorPanel"
       title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
-      indicatorClassName={inspectorNode ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] motion-safe:animate-pulse' : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] motion-safe:animate-pulse'}
+      indicatorClassName="bg-calcmap"
       dockSide={inspectorDock}
       defaultPos={defaultInspPos}
       zIndex={topHudZ.insp}
@@ -1113,10 +1113,10 @@ export const App: React.FC = () => {
   const emptyState = (
     <div className="absolute inset-0 flex items-center justify-center p-6 z-10">
       <div className="bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-7 py-6 text-center max-w-md w-full shadow-[0_24px_60px_rgba(0,0,0,0.85)]">
-        <div className="w-11 h-11 mx-auto rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 border border-indigo-400/30 text-indigo-300 flex items-center justify-center mb-3">
+        <div className="w-11 h-11 mx-auto rounded-xl bg-calcmap/15 border border-calcmap/30 text-calcmap flex items-center justify-center mb-3">
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Network className="w-5 h-5" />}
         </div>
-        <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+        <p className="mono text-[10px] text-calcmap uppercase tracking-widest mb-1">
           {loading ? 'Opening project' : calcOnly ? 'Calc package added' : 'No model in this project yet'}
         </p>
         <h2 className="text-sm font-semibold text-white">Map a structural model onto its calculations</h2>
@@ -1129,9 +1129,9 @@ export const App: React.FC = () => {
           type="button"
           disabled={Boolean(busyText)}
           onClick={handleLoadSample}
-          className="mt-4 w-full bg-indigo-500/25 hover:bg-indigo-500/35 text-white border border-indigo-400/50 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 shadow-[0_0_24px_rgba(99,102,241,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="mt-4 w-full bg-calcmap/20 hover:bg-calcmap/30 text-white border border-calcmap/40 rounded-xl py-2.5 text-sm font-semibold transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-indigo-200" />}
+          {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-calcmap" />}
           {busyText || 'Load sample'}
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
@@ -1142,7 +1142,7 @@ export const App: React.FC = () => {
           ].map((b) => (
             <label
               key={b.label}
-              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-indigo-400/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
+              className="bg-white/[0.04] hover:bg-white/[0.08] focus-within:ring-2 focus-within:ring-calcmap/60 text-zinc-200 border border-white/[0.14] rounded-lg py-2 text-[11px] font-medium transition flex flex-col items-center gap-1 cursor-pointer"
             >
               {b.icon}
               {b.label}
@@ -1178,23 +1178,13 @@ export const App: React.FC = () => {
     </div>
   );
 
-  const subtitle = view
-    ? `${view.modelName ?? 'no model'} ⇄ ${view.calcPackageName ?? 'no calc package'}${view.engine ? ` · ${view.engine}` : ''}`
-    : '';
-
   return (
     <div className="h-full bg-[#24272d] text-zinc-100 flex flex-col overflow-hidden select-none">
       <HeaderBar
-        projectName={hasProject && view ? view.projectName : 'No Model Loaded'}
-        subtitle={subtitle}
         activeView={activeView}
         onChangeView={changeView}
         calcCount={view?.calcs.length ?? 0}
-        colorMode={colorMode}
-        onChangeColorMode={setColorMode}
-        hasUtilization={Boolean(view?.hasUtilization)}
         persistent={storeInfo.data?.persistent ?? true}
-        hasDemoData={Boolean(view?.hasDemoData)}
         source={view?.source ?? null}
         busy={Boolean(busyText)}
         projects={(projectsQ.data ?? []).map((x) => ({ id: x.id, name: x.name }))}
@@ -1208,7 +1198,6 @@ export const App: React.FC = () => {
         onUploadModel={(f) => handleUpload('model', f)}
         onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
-        diffSummary={diffSummary}
         diffRevs={diffRevs}
         compareOpen={compareOpen}
         onToggleCompare={() => setCompareOpen((v) => !v)}
@@ -1270,13 +1259,13 @@ export const App: React.FC = () => {
       />
 
       {hoverEdge === 'left' && (
-        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Left</span>
         </div>
       )}
       {hoverEdge === 'right' && (
-        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Right</span>
         </div>
@@ -1289,7 +1278,7 @@ export const App: React.FC = () => {
               {showViewer3d && viewer3dDock === 'left' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'left' && renderInspectorPanel()}
             </div>
-            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
+            <div onPointerDown={startDockColumnResize('left')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
           </>
         )}
 
@@ -1355,9 +1344,9 @@ export const App: React.FC = () => {
           )}
 
           {hasProject && activeView === '3d' && (
-            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#282c34]">
+            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#2d3139]">
               <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] px-3 py-1.5 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                <span className="w-2 h-2 rounded-full bg-calcmap" />
                 <span className="mono text-[11px] text-zinc-200 font-medium">{view?.modelName ?? 'Model'}</span>
                 <span className="text-zinc-700">|</span>
                 <span className="mono text-[10px] text-zinc-400">{status3d}</span>
@@ -1365,7 +1354,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFit3dTrigger((c) => c + 1)}
-                  className="mono text-[10px] px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition flex items-center gap-1"
+                  className="mono text-[10px] px-2 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition flex items-center gap-1"
                 >
                   <Crosshair className="w-3 h-3" />
                   Zoom Fit
@@ -1423,7 +1412,7 @@ export const App: React.FC = () => {
 
         {rightDockedHasItems && (
           <>
-            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25" />
+            <div onPointerDown={startDockColumnResize('right')} className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25" />
             <div style={{ width: rightDockWidth }} className="bg-[#262a31]/95 backdrop-blur-2xl border-l border-white/[0.09] flex flex-col flex-shrink-0 overflow-hidden z-25">
               {showViewer3d && viewer3dDock === 'right' && renderViewer3dPanel()}
               {showInspector && inspectorDock === 'right' && renderInspectorPanel()}
@@ -1444,11 +1433,11 @@ export const App: React.FC = () => {
         aria-atomic="true"
       >
         {busyText || viewBusy ? (
-          <Loader2 className="w-4 h-4 text-indigo-300 animate-spin flex-shrink-0" aria-hidden="true" />
+          <Loader2 className="w-4 h-4 text-calcmap animate-spin flex-shrink-0" aria-hidden="true" />
         ) : toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
-          <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-calcmap flex-shrink-0" />
         )}
         <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
       </div>
