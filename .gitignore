@@ -7,6 +7,17 @@ dist/
 *.tsbuildinfo
 .vite/
 coverage/
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# environment
+.env
+.env.local
+.env.*.local
+
 # web-ifc wasm, copied from node_modules by scripts/copy-assets.mjs on install / dev / build
 public/wasm/
 # sample files copied by scripts/copy-assets.mjs
