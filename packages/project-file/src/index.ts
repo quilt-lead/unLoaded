@@ -2,8 +2,7 @@
  * The whole-project file (`*.calcgraph.json`, format "unloaded.calc-graph-project", version 1).
  *
  * This module is the only declaration of the format. The app writes it (`src/data/projectStore.ts`
- * `exportProject`) and reads it (`importProject`, via `src/loaders/parsers.ts`); the MCP server reads
- * it (`packages/mcp-server/src/project.ts`) and its tooling writes it (`makeProjectFile`). All four go
+ * `exportProject`) and reads it (`importProject`, via `src/loaders/parsers.ts`). Both go
  * through the type, `parseProjectFile` and the base64 codec here, so a writer and a reader cannot drift.
  *
  * One JSON document: every revision's original file base64-encoded (`blob`), each model revision's
@@ -51,7 +50,7 @@ export interface ProjectFileRevision extends ProjectFileRevisionFields {
 /**
  * One decision as the file stores it: the app's decision record without its store id / projectId.
  * The log is kept in order (oldest first). Readers give it ids that keep that order (the app's
- * auto-increment, the MCP server's 1..n): "latest decision per pair wins" depends only on the order.
+ * auto-increment): "latest decision per pair wins" depends only on the order.
  */
 export interface ProjectFileDecision {
   globalId: string;
@@ -191,7 +190,7 @@ export function parseProjectFile(data: unknown): ProjectFile {
  *      word boxes, calcs with unique keys, regions, title boxes, provenance), and
  *   4. every document hash names THIS PDF.
  * Otherwise `reason` says why, and the reader re-extracts from the PDF. The one rule for the app
- * (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/project.ts).
+ * (src/engine/projectService.ts).
  */
 export function storedExtractionFor(extraction: unknown, pdfSha256: string): { pkg: CalcPackage; reason: null } | { pkg: null; reason: string } {
   const no = (reason: string) => ({ pkg: null, reason });
