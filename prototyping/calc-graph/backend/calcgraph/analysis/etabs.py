@@ -58,13 +58,20 @@ import json
 import os
 from zoneinfo import ZoneInfo
 
+from .. import store_root
 from . import e2k
-from .base import (DATA_DIR, AnalysisAdapter, AnalysisObject, apply_change, layout_from_design, load_design,
+from .base import (AnalysisAdapter, AnalysisObject, apply_change, layout_from_design, load_design,
                    validate_change)
 
 METHOD = "calc-graph PyNite re-run (mock ETABS - ETABS did not run)"
 SOURCE = "calc-graph design.json mapped to ETABS-style objects (ETABS did not run)"
-JOBS_DIR = os.path.join(DATA_DIR, "etabs_jobs")
+
+
+def jobs_dir() -> str:
+    """<store>/etabs_jobs: mock / bridge ETABS jobs are runtime state (store_root.py), never source data."""
+    return store_root.store_path("etabs_jobs")
+
+
 TOL = 1e-4
 
 MATERIALS = {
@@ -766,7 +773,7 @@ class EtabsAdapter(AnalysisAdapter):
 
     # ---- mock round trip
     def send_change(self, design: dict | None, change: dict) -> dict:
-        """MOCK send: writes <JOBS_DIR>/<job_id>/{change.json, model.e2k, job.json} and returns
+        """MOCK send: writes <jobs_dir()>/<job_id>/{change.json, model.e2k, job.json} and returns
         the job record. model.e2k = the changed geometry with sizes carried (what would be sent to
         ETABS for analysis); nothing is sent anywhere."""
         exp = load_design(design) if design is not None else self.design
@@ -775,7 +782,7 @@ class EtabsAdapter(AnalysisAdapter):
         stamp = _dt.datetime.now(ZoneInfo("America/New_York"))
         h = hashlib.sha1(json.dumps(change, sort_keys=True).encode()).hexdigest()[:8]
         job_id = f"etabs-{stamp:%Y%m%d-%H%M%S}-{h}"
-        jdir = os.path.join(JOBS_DIR, job_id)
+        jdir = os.path.join(jobs_dir(), job_id)
         os.makedirs(jdir, exist_ok=True)
         base_objs = self._build() if exp is self.design else build_objects(exp)[0]
         new_objs, sizes, _ = self._objects_for(exp, change, False)
@@ -808,7 +815,7 @@ class EtabsAdapter(AnalysisAdapter):
         PyNite frames inside, ~25 s) and returns results in ETABS result shapes; cached in
         <job dir>/results.json. Every row carries {"method": METHOD}."""
         job_id = job if isinstance(job, str) else job["job_id"]
-        jdir = os.path.join(JOBS_DIR, job_id)
+        jdir = os.path.join(jobs_dir(), job_id)
         rpath = os.path.join(jdir, "results.json")
         if os.path.exists(rpath) and not force:
             with open(rpath) as fh:

@@ -4,7 +4,9 @@
 
 Writes design.json (elements, types, relations, calc records, verification of the AISC
 table), model.ifc, and - when their writers are present - calc_package.pdf, drawings.pdf,
-specs.pdf, registry_truth.json and platforms.json. --check generates twice into temp dirs and
+specs.pdf and registry_truth.json (platforms.json is scripts/build_platforms.py output, under data/eval/synthetic_v2/).
+This generator and synth/v2/scenarios.py are the ONLY writers of data/synthetic_v2 (calcgraph/store_root.py:
+allow_source_writes; everything derived goes under store_root.derived_path). --check generates twice into temp dirs and
 compares sha256 of every file (byte-stable).
 """
 from __future__ import annotations
@@ -67,7 +69,14 @@ def build(layout: model.Layout | None = None, keep: dict | None = None) -> tuple
 def generate(out: str = OUT) -> dict:
     """Every artefact is written into a staging directory inside `out` and then moved into place
     with os.replace (atomic on one filesystem), so a reader of `out` never sees a half-written
-    file - other sessions read drawings.pdf / model.ifc / calc_package.pdf while this runs."""
+    file - other sessions read drawings.pdf / model.ifc / calc_package.pdf while this runs.
+    The generator is the one writer of the source data dir (calcgraph.store_root.allow_source_writes)."""
+    from calcgraph.store_root import allow_source_writes
+    with allow_source_writes():
+        return _generate(out)
+
+
+def _generate(out: str) -> dict:
     os.makedirs(out, exist_ok=True)
     t = time.time()
     stage = tempfile.mkdtemp(prefix=".generate-", dir=out)

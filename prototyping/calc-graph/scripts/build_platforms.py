@@ -1,5 +1,6 @@
 """Build the synthetic construction-platform state (Procore, ACC Build, Forma) from design.json,
-write data/synthetic_v2/platforms.json (gitignored), print counts, and run one example
+write platforms.json under the derived-outputs root (calcgraph.store_root.derived_for: data/eval/synthetic_v2/,
+gitignored; never into the source dir), print counts, and run one example
 change-order estimate.
 
   uv run python scripts/build_platforms.py [--design data/synthetic_v2/design.json] [--quiet]
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from calcgraph.platforms import construction_status, estimate, get_adapters, get_state, load_design  # noqa: E402
 from calcgraph.platforms.synthetic import shape_props  # noqa: E402
+from calcgraph.store_root import SYNTH_V2_DIR, derived_for  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -56,8 +58,8 @@ def example_impact(design: dict) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--design", default=os.path.join(ROOT, "data", "synthetic_v2", "design.json"))
-    ap.add_argument("--out", default=os.path.join(ROOT, "data", "synthetic_v2", "platforms.json"))
+    ap.add_argument("--design", default=os.path.join(SYNTH_V2_DIR, "design.json"))
+    ap.add_argument("--out", default=derived_for(SYNTH_V2_DIR, "platforms.json"))
     ap.add_argument("--quiet", action="store_true", help="print the estimate summary only")
     a = ap.parse_args()
     design = load_design(a.design)

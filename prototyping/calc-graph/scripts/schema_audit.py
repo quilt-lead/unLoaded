@@ -9,7 +9,8 @@ both the /export view and the full state view, and the revision store's own stor
 (store/<project>: the head snapshots of every project, both paths, as served by
 GET /api/store/projects/{pid}/bundle - read from a copy, which migrates / backfills itself).
 
-Writes (gitignored - derived from the inputs, may include drawing text):
+Writes (gitignored - derived from the inputs, may include drawing text; under the derived-outputs root,
+calcgraph.store_root.derived_path, CALCGRAPH_DERIVED overrides data/eval):
     data/eval/schema/<source>.bundle.json   validated bundles
     data/eval/schema/report.json            the tally per source
 Also checks (and exits non-zero if broken) the frame/unit contract: a value in the wrong
@@ -30,8 +31,9 @@ sys.path.insert(0, os.path.join(ROOT, "backend"))
 from calcgraph.schema import frames, units  # noqa: E402
 from calcgraph.schema.adapters import calc_records, connections, drawing_set, ifc_model, ifc_store  # noqa: E402
 from calcgraph.schema.models import Bundle  # noqa: E402
+from calcgraph.store_root import derived_path  # noqa: E402
 
-OUT = os.path.join(ROOT, "data", "eval", "schema")
+OUT = derived_path("schema")
 
 
 def contract_checks() -> list[str]:

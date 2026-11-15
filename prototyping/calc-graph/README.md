@@ -30,7 +30,11 @@ The Dana Point permit set and the synthetic v1 building were retired on 2026-11-
 `pre-v2-cleanup` has them). For frontend work: `uv run calc-graph serve` plus `cd frontend && npm run dev`
 (http://127.0.0.1:5173, proxies `/api`). Ingest from the shell:
 `uv run calc-graph ingest model.ifc calcs.pdf`. Store location: `data/store/` (override with
-`CALCGRAPH_STORE`). Tests for CI live in `backend/tests/` (`uv run --extra dev pytest backend/tests`).
+`CALCGRAPH_STORE`). `data/synthetic_v2/` is SOURCE data, written only by the generator (`synth/v2`);
+evaluation results and other derived outputs (move_eval, registry_eval / registry_ingested, platforms.json,
+the ETABS .e2k export, the scorecard) go under `data/eval/` (override with `CALCGRAPH_DERIVED`), ETABS jobs
+under the store - all resolved in `backend/calcgraph/store_root.py`, whose audit hook refuses any other
+write into the source dir (and `evaluate_all.py` fails `source_data_unchanged` if one gets through). Tests for CI live in `backend/tests/` (`uv run --extra dev pytest backend/tests`).
 
 ## Evaluate, guard, CI
 

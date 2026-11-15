@@ -1,4 +1,4 @@
-"""Compare a REAL ETABS run of data/synthetic_v2/model.e2k with calc-graph's PyNite frame analysis.
+"""Compare a REAL ETABS run of the .e2k scripts/build_etabs.py writes (data/eval/synthetic_v2/model.e2k) with calc-graph's PyNite frame analysis.
 
     uv run python scripts/compare_etabs_pynite.py --etabs DIR [--out report.md] [--json rows.json]
     uv run python scripts/compare_etabs_pynite.py --bridge http://127.0.0.1:8765 --save DIR ...

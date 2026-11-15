@@ -73,6 +73,12 @@ DESIGN_SCENARIOS = [
 
 
 def run_design_scenario(ds) -> dict:
+    from calcgraph.store_root import allow_source_writes
+    with allow_source_writes():   # the generator owns data/synthetic_v2 (store_root.py)
+        return _run_design_scenario(ds)
+
+
+def _run_design_scenario(ds) -> dict:
     """Fresh design of a design scenario's layout; writes its export and its ETABS e2k, returns a
     summary for the answer key (lateral system, SFRS sizes, design drift ratios)."""
     import sys
@@ -241,6 +247,12 @@ def difficulty(key: dict, sc) -> tuple[str, list[str]]:
 
 
 def run_one(sc) -> dict:
+    from calcgraph.store_root import allow_source_writes
+    with allow_source_writes():   # runs in a worker process: its own licence
+        return _run_one(sc)
+
+
+def _run_one(sc) -> dict:
     t = time.time()
     base = json.load(open(os.path.join(OUT, "design.json")))
     L = layout_for(sc)
@@ -305,6 +317,12 @@ def run_one(sc) -> dict:
 
 
 def main() -> None:
+    from calcgraph.store_root import allow_source_writes
+    with allow_source_writes():   # the generator owns data/synthetic_v2 (store_root.py)
+        _main()
+
+
+def _main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--only", default="")

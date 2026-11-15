@@ -1,6 +1,9 @@
 """Score the move-a-column impact engine against the ground-truth answer key.
 
-    uv run python scripts/evaluate_move.py [--out data/synthetic_v2/move_eval.json]
+    uv run python scripts/evaluate_move.py [--out data/eval/synthetic_v2/move_eval.json]
+
+Reads the source data (data/synthetic_v2, read only); writes its result under the derived-outputs root
+(calcgraph.store_root.derived_for: data/eval/synthetic_v2/, CALCGRAPH_DERIVED overrides).
 
 For every scenario in data/synthetic_v2/answer_key.json (built by re-running the full
 design, `uv run python -m synth.v2.scenarios`), run backend/calcgraph/move_impact.impact on
@@ -25,6 +28,7 @@ sys.path.insert(0, os.path.join(ROOT, "backend"))
 sys.path.insert(0, ROOT)
 
 from calcgraph import move_impact  # noqa: E402
+from calcgraph.store_root import SYNTH_V2_DIR, derived_for  # noqa: E402
 
 BANDS = move_impact.BANDS
 
@@ -36,27 +40,28 @@ def pr(pred: set, truth: set) -> tuple[float, float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default=os.path.join(ROOT, "data", "synthetic_v2", "move_eval.json"))
+    ap.add_argument("--out", default=None, help="default <derived>/synthetic_v2/move_eval.json "
+                                                 "(move_eval_ingested.json with --source ingested)")
     ap.add_argument("--json-out", default=None, help="evaluate_all contract: {metrics, gated}")
     ap.add_argument("--source", choices=["design", "ingested"], default="design",
                     help="design = generator registry; ingested = registry rebuilt from the documents + IFC")
     a = ap.parse_args()
-    base = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "design.json")))
+    base = json.load(open(os.path.join(SYNTH_V2_DIR, "design.json")))
     to_truth = None
     if a.source == "ingested":
         from calcgraph import registry_engine
-        ing = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "registry_ingested.json")))
-        eng = registry_engine.to_engine(ing, os.path.join(ROOT, "data", "synthetic_v2", "model.ifc"))
+        ing = json.load(open(derived_for(SYNTH_V2_DIR, "registry_ingested.json")))   # scripts/build_registry.py
+        eng = registry_engine.to_engine(ing, os.path.join(SYNTH_V2_DIR, "model.ifc"))
         # map an ingested record (REC:<sheet>#n) to the truth record id by (calc, subject element) -
         # used ONLY for scoring, never by the engine
         idx = {(r["calc"], e): r["id"] for r in base["records"] for e in r["elements"]}
         to_truth = {r["id"]: idx.get((r["calc"], r["elements"][0])) for r in eng["records"] if r["elements"]}
         base_for_engine = eng
-        if a.out.endswith("move_eval.json"):
-            a.out = a.out.replace("move_eval.json", "move_eval_ingested.json")
     else:
         base_for_engine = base
-    key = json.load(open(os.path.join(ROOT, "data", "synthetic_v2", "answer_key.json")))
+    if a.out is None:
+        a.out = derived_for(SYNTH_V2_DIR, "move_eval_ingested.json" if a.source == "ingested" else "move_eval.json")
+    key = json.load(open(os.path.join(SYNTH_V2_DIR, "answer_key.json")))
     rows, errs, conf = [], [], {}
     tp_t = fp_t = fn_t = tp_s = fp_s = fn_s = 0
     for k in key["scenarios"]:
@@ -105,6 +110,7 @@ def main() -> None:
                      "over_flag_agreement": round(sum(1 for e in errs if (e["est"] > 1) == (e["truth"] > 1)) / max(1, len(errs)), 3)},
         "health": {"exact": agree, "within_one": within, "confusion_truth_x_engine": conf},
     }
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     json.dump({"summary": summary, "rows": rows, "uc_errors": errs}, open(a.out, "w"), indent=1)
     if a.json_out:
         m = {"stale_topological_precision": summary["stale_topological"]["precision"],

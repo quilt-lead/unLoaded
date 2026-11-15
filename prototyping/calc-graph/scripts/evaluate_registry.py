@@ -1,9 +1,10 @@
 """Score the element registry REBUILT from the documents against the generator's registry TRUTH.
 
-    uv run python scripts/evaluate_registry.py [--dir data/synthetic_v2] [--json-out PATH] [--rebuild]
+    uv run python scripts/evaluate_registry.py [--dir data/synthetic_v2] [--out-dir PATH] [--json-out PATH] [--rebuild]
 
-Inputs: data/synthetic_v2/registry_truth.json (synth.v2.generate) and registry_ingested.json
-(scripts/build_registry.py; --rebuild runs it first, as does a missing file).
+Inputs: <dir>/registry_truth.json (synth.v2.generate, source data, read only) and
+<out-dir>/registry_ingested.json (scripts/build_registry.py; --rebuild runs it first, as does a missing or
+stale file). <out-dir> defaults to calcgraph.store_root.derived_for(<dir>) (data/eval/synthetic_v2/).
 
 Node alignment: same id; else (elements) same IFC GlobalId; else (calc records, whose ids are
 document-local REC:<sheet>#<n>) the ingested record whose calcs occurrence is on the same page with
@@ -16,7 +17,7 @@ Metrics
   Truth occurrences on pages with no text layer stay in the denominator (counted separately).
 - relations, per kind: precision / recall of (src, dst) after alignment.
 - node recall per node type (truth kind:type) + overall node precision.
-Writes data/synthetic_v2/registry_eval.json; --json-out writes the evaluate_all.py contract
+Writes <out-dir>/registry_eval.json; --json-out writes the evaluate_all.py contract
 {"metrics": {...}, "gated": [...]} (every P/R except etabs, which the documents do not carry).
 """
 from __future__ import annotations
@@ -29,6 +30,9 @@ import sys
 from collections import Counter, defaultdict
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(ROOT, "backend"))
+
+from calcgraph.store_root import SYNTH_V2_DIR, derived_for  # noqa: E402
 DOCS = ("ifc", "drawings", "specs", "calcs", "etabs")
 RELS = ("frames-into", "bears-on", "connected-by", "instance-of", "specified-by", "designed-by", "detailed-by", "member-of", "feeds")
 
@@ -191,15 +195,18 @@ def _f(v):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dir", default=os.path.join(ROOT, "data", "synthetic_v2"))
+    ap.add_argument("--dir", default=SYNTH_V2_DIR)
+    ap.add_argument("--out-dir", default=None, help="derived outputs (default store_root.derived_for(--dir))")
     ap.add_argument("--json-out", default=None)
     ap.add_argument("--rebuild", action="store_true")
     a = ap.parse_args()
-    tp, ip = os.path.join(a.dir, "registry_truth.json"), os.path.join(a.dir, "registry_ingested.json")
+    out_dir = a.out_dir or derived_for(a.dir)
+    os.makedirs(out_dir, exist_ok=True)
+    tp, ip = os.path.join(a.dir, "registry_truth.json"), os.path.join(out_dir, "registry_ingested.json")
     if not os.path.exists(tp):
         raise SystemExit(f"{tp} missing - run `uv run python -m synth.v2.generate`")
     if a.rebuild or not os.path.exists(ip) or os.path.getmtime(ip) < os.path.getmtime(tp):
-        p = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "build_registry.py"), "--dir", a.dir],
+        p = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "build_registry.py"), "--dir", a.dir, "--out", ip],
                            capture_output=True, text=True, cwd=ROOT)
         if p.returncode:
             raise SystemExit(f"build_registry failed: {p.stderr[-1500:]}")
@@ -207,7 +214,7 @@ def main() -> None:
     res = score(truth, ing)
     m, gated = metrics(res)
     res["metrics"] = m
-    with open(os.path.join(a.dir, "registry_eval.json"), "w") as fh:
+    with open(os.path.join(out_dir, "registry_eval.json"), "w") as fh:
         json.dump(res, fh, indent=1, sort_keys=True)
     print(f"{'occurrences':14s} {'truth':>6s} {'ingest':>6s} {'match':>6s}  {'P':>5s}  {'R':>5s}")
     for doc, v in res["occurrences"].items():

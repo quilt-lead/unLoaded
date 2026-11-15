@@ -4,7 +4,8 @@ and run one MOCK send/pull round trip.
     uv run python scripts/build_etabs.py [--change '{"moved": {"2B": [5, 0]}}'] [--no-job]
 
 Reads data/synthetic_v2/design.json (read only; `uv run python -m synth.v2.generate` makes it),
-writes data/synthetic_v2/model.e2k and data/synthetic_v2/etabs_jobs/<job id>/ (gitignored).
+writes model.e2k under the derived-outputs root (calcgraph.store_root.derived_for: data/eval/synthetic_v2/)
+and the mock job under <store>/etabs_jobs/<job id>/ (store_root.store_path), never into the source dir.
 ETABS does not run anywhere in this script: the "results" are calc-graph's own design re-run
 (synth.v2.design.run, PyNite inside, ~30 s) in ETABS OAPI result shapes.
 """
@@ -21,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from calcgraph.analysis import get_adapter  # noqa: E402
 from calcgraph.analysis.base import DATA_DIR, load_design  # noqa: E402
+from calcgraph.store_root import derived_for, store_dir  # noqa: E402
 
 
 def main() -> None:
@@ -38,7 +40,8 @@ def main() -> None:
     ex = next(o for o in occ if o["object_type"] == "Frame")
     print("  e.g.", json.dumps(ex))
 
-    path = os.path.join(DATA_DIR, "model.e2k")
+    path = derived_for(DATA_DIR, "model.e2k")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     info = etabs.export_model(path + ".tmp")   # written beside, then moved: readers never see half a file
     os.replace(path + ".tmp", path)
     print(f"\nwrote {path}: {info['lines']} lines, {info['points']} plan points, {info['line_labels']} line labels, "
@@ -66,7 +69,7 @@ def main() -> None:
     t = time.time()
     job = etabs.send_change(None, change)
     print(f"\nmock send_change {json.dumps(change)} -> job {job['job_id']} ({job['status']}), diff {json.dumps(job['diff_summary'])}")
-    print("  files:", ", ".join(os.path.relpath(p, DATA_DIR) for p in job["files"].values()))
+    print("  files:", ", ".join(os.path.relpath(p, store_dir()) for p in job["files"].values()))
     res = etabs.pull_results(job)
     s = res["summary"]
     print(f"mock pull_results ({time.time() - t:.0f} s): {res['method']}")

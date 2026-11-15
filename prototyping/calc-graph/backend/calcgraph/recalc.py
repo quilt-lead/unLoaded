@@ -25,10 +25,8 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from .store_root import is_default_store, store_path
+from .store_root import store_path
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-V2 = os.path.join(ROOT, "data", "synthetic_v2")
 METHOD = ("calc-graph re-run - synth v2 design code (gravity statics, PyNite frame analysis, "
           "AISC 360/341, ACI 318 checks), minimum-change re-design")
 ORDER = {"area_load": 0, "criteria": 0, "beam_design": 1, "smf_beam": 5, "column_design": 2, "footing": 3, "pier": 3,
@@ -217,34 +215,12 @@ def _write_pages(out: dict, base: dict, exp: dict, d_new: dict, recs: list[str],
         pages[rid_] = {**(pkg_pages.get(rid_) or {}), **({"rerun_sheet": sheet_pages[rid_]} if rid_ in sheet_pages else {})}
 
 
-LEGACY_REVISIONS = os.path.join(V2, "revisions")   # where calc revisions lived before store_root.py
-
-
 def revisions_root() -> str:
     """<store>/calc_revisions (store_root.py: CALCGRAPH_STORE) - every calc revision read and write
-    goes through here, so a run against a copied store never writes the real one.
-
-    One-time move: calc revisions used to be written under data/synthetic_v2/revisions regardless of
-    CALCGRAPH_STORE. When the default store has none yet and that legacy folder exists, it is moved
-    here whole (same filesystem: a rename) and the absolute file paths inside each revision.json are
-    re-pointed; revision ids are unchanged, so every link to a revision keeps resolving."""
-    root = store_path("calc_revisions")
-    if not os.path.isdir(root) and is_default_store() and os.path.isdir(LEGACY_REVISIONS):
-        os.makedirs(os.path.dirname(root), exist_ok=True)
-        os.rename(LEGACY_REVISIONS, root)
-        for name in os.listdir(root):
-            p = os.path.join(root, name, "revision.json")
-            if not os.path.exists(p):
-                continue
-            txt = open(p).read()
-            if LEGACY_REVISIONS in txt:
-                st = os.stat(p)
-                tmp = p + ".tmp"
-                with open(tmp, "w") as fh:
-                    fh.write(txt.replace(json.dumps(LEGACY_REVISIONS)[1:-1], json.dumps(root)[1:-1]))
-                os.replace(tmp, p)
-                os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns))   # the write time is part of the record
-    return root
+    goes through here, so a run against a copied store never writes the real one. (The one-time move
+    from the pre-store_root data/synthetic_v2/revisions folder ran on 2026-11-14 and was deleted: the
+    source data dir is generator-only, store_root.install_source_write_guard.)"""
+    return store_path("calc_revisions")
 
 
 def revision_dir(rev_id: str) -> str:

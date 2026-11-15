@@ -14,7 +14,7 @@ records; the seeder's dry run / refusals / idempotence / typed write bodies; OAu
 storage, and that no secret or token reaches logs or output. H: on a daily sweep of approval dates (today to
 +6 weeks, three moves) every decrease in forecast slip is explained by a completed driving activity (as_of.
 explain_slip_drop), stage work is cumulative, and no element's schedule work vanishes or starts before approval.
-I: every runtime writer (revision store, inbox state, calc revisions, heat cache, AI cache / fixtures) takes its
+I: every runtime writer (revision store, inbox state, calc revisions, heat cache, AI cache / fixtures, ETABS jobs) takes its
 paths from store_root.py (CALCGRAPH_STORE): no backend module builds a data/store, data/cache or revisions path
 itself, and with CALCGRAPH_STORE set every writer resolves inside it.
 What it cannot prove: that the REAL Procore sandbox / ACC trial / Forma answer like the recordings - that
@@ -556,7 +556,6 @@ def h_slip_sweep():
 # ------------------------------------------------------------------ I. one store root for every writer
 STORE_ROOT_EXEMPT = {
     "store_root.py": "THE resolver: the only place CALCGRAPH_STORE and data/store are named",
-    "recalc.py:LEGACY_REVISIONS": "names the pre-store_root calc revision folder only to move it into the store once",
 }
 
 
@@ -572,7 +571,7 @@ def _store_path_violations(path: str, rel: str) -> list[str]:
             first = node.body[0]
             if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
                 docs.add(id(first.value))
-    legacy = set()   # nodes under an exempt assignment (recalc.LEGACY_REVISIONS)
+    legacy = set()   # nodes under an exempt assignment (STORE_ROOT_EXEMPT "module:NAME" entries)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and f"{rel}:{t.id}" in STORE_ROOT_EXEMPT for t in node.targets):
             legacy |= {id(n) for n in ast.walk(node)}
@@ -611,6 +610,7 @@ def i_store_root():
     ok("I1 no backend module builds a data/store, data/cache or revisions path, or reads CALCGRAPH_STORE, itself",
        not bad, f"{len(bad)} found: {bad[:6]}" if bad else "store_root.py is the only resolver")
     from calcgraph import heat_cache, inbox, recalc, revstore
+    from calcgraph.analysis import etabs as etabs_mock
     from calcgraph.ai import cache as ai_cache
     from calcgraph.ai.providers import replay
     tmp_store = os.path.join(TMP, "store-root")
@@ -619,6 +619,7 @@ def i_store_root():
     try:
         paths = {"revision store": revstore.store_dir(), "inbox state": inbox._state_path(),
                  "calc revisions": recalc.revision_dir("calcrev-x"), "heat cache": heat_cache._path("k"),
+                 "etabs jobs": etabs_mock.jobs_dir(),
                  "ai cache": str(ai_cache.default_cache_root()) if not os.environ.get("CALCGRAPH_AI_CACHE") else tmp_store,
                  "ai fixtures": str(replay.default_fixture_root()) if not os.environ.get("CALCGRAPH_AI_FIXTURES") else tmp_store}
     finally:

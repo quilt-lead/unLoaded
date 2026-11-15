@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from . import move_impact, recalc
 from .move_model import Move  # noqa: F401 - re-exported: move_api.Move is the name callers use
+from .store_root import derived_for
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 V2 = os.path.join(ROOT, "data", "synthetic_v2")
@@ -186,22 +187,25 @@ def record(rid: str):
     return {**r, "fed_by": r["inputs"], "feeds": [x["id"] for x in d["records"] if rid in x["inputs"]]}
 
 
+# truth = source data (the generator); ingested / eval = derived outputs (scripts/evaluate_registry.py,
+# store_root.derived_for), never written into the source dir
+REGISTRY_FILES = {"truth": lambda: os.path.join(V2, "registry_truth.json"),
+                  "ingested": lambda: derived_for(V2, "registry_ingested.json"),
+                  "eval": lambda: derived_for(V2, "registry_eval.json")}
+
+
 @router.get("/registry")
 def registry():
     """Registry truth (generator) and, when built, the registry rebuilt from the documents."""
-    out = {}
-    for k, f in (("truth", "registry_truth.json"), ("ingested", "registry_ingested.json"), ("eval", "registry_eval.json")):
-        p = os.path.join(V2, f)
-        out[k] = os.path.exists(p)
-    return out
+    return {k: os.path.exists(f()) for k, f in REGISTRY_FILES.items()}
 
 
 @router.get("/registry/{which}")
 def registry_file(which: str):
-    f = {"truth": "registry_truth.json", "ingested": "registry_ingested.json", "eval": "registry_eval.json"}.get(which)
-    if not f or not os.path.exists(os.path.join(V2, f)):
+    f = REGISTRY_FILES.get(which)
+    if not f or not os.path.exists(f()):
         raise HTTPException(404, f"registry {which} not built")
-    return FileResponse(os.path.join(V2, f), media_type="application/json", headers={"Cache-Control": "no-store"})
+    return FileResponse(f(), media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
 # ------------------------------------------------------------------ move / impact / health
@@ -752,7 +756,7 @@ def scenarios():
 
 @router.get("/eval")
 def evaluation():
-    p = os.path.join(V2, "move_eval.json")
+    p = derived_for(V2, "move_eval.json")   # scripts/evaluate_move.py (derived output, not source data)
     if not os.path.exists(p):
         raise HTTPException(404, "run: uv run python scripts/evaluate_move.py")
     return json.load(open(p))["summary"]

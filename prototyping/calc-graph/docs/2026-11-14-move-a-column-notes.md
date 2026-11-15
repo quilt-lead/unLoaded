@@ -9,7 +9,7 @@ UI is pending the React migration (addendum 4); everything is exposed through `/
 uv run python -m synth.v2.generate            # design + IFC + drawings + specs + calc package (+ registry truth) -> data/synthetic_v2/
 uv run python -m synth.v2.generate --check    # byte-stable check (regenerates twice)
 uv run python -m synth.v2.scenarios --jobs 5  # 25 move scenarios re-designed end to end -> answer_key.json
-uv run python scripts/evaluate_move.py        # impact engine vs answer key -> move_eval.json
+uv run python scripts/evaluate_move.py        # impact engine vs answer key -> data/eval/synthetic_v2/move_eval.json
 uv run python scripts/evaluate_all.py --synthetic-only
 uv run calc-graph serve                       # API on http://127.0.0.1:8000
 ```

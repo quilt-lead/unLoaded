@@ -7,7 +7,8 @@
 Stages (a stage whose inputs are missing is SKIPPED, never failed). Everything runs on the synthetic v2
 (Harbor View) building:
   v2_design        synth v2 ground truth self-consistency (AISC table verified, no infeasible members,
-                   no clashes, every member has a design record); generates data/synthetic_v2 if absent
+                   no clashes, every member has a design record); data/synthetic_v2 is generated before any
+                   stage runs when absent (or --regen-v2)
   v2_ifc           v2 model.ifc through the production ifc_ingest + loadpath vs design.json: element P/R,
                    profile + storey accuracy, load-path P/R (frames-into + bears-on), directed and not
   v2_ifc_mapping   the IFC path (pipeline: ifc_ingest + segment over calcpkg_ingest + matcher) on v2 model.ifc +
@@ -40,6 +41,12 @@ set only). Their baseline entries were removed with them; tag pre-v2-cleanup has
 Optional evaluator contract (evaluate_v2_docs.py / evaluate_move.py / evaluate_registry.py): accept `--json-out PATH` and
 write {"metrics": {name: number}, "gated": [names that are higher-is-better]}; exit 0.
 
+Source data is read only: data/synthetic_v2 is the generator's alone (calcgraph/store_root.py). Every
+evaluator writes its outputs under the derived-outputs root (store_root.derived_path, data/eval by default;
+the scorecard is data/eval/scorecard.json). The pseudo-stage source_data fingerprints data/synthetic_v2
+after generation and again after every stage; any file added, removed or rewritten fails its check
+source_data_unchanged (exit 1), whichever code path - Python or C - wrote it.
+
 Gating: a metric is compared with the baseline when it is listed as gated; a drop larger than
 --tolerance (default 0.005 absolute) is a regression; a pass/fail check that passed in the baseline
 and fails now is a regression. Metrics of skipped stages are not compared. The baseline file
@@ -59,6 +66,8 @@ from zoneinfo import ZoneInfo
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 PY = sys.executable
+sys.path.insert(0, os.path.join(ROOT, "backend"))
+from calcgraph.store_root import SYNTH_V2_DIR, derived_path, fingerprint_diff, source_fingerprint  # noqa: E402
 BASELINE = os.path.join(ROOT, "eval", "baseline.json")
 SETS = os.path.join(ROOT, "data", "sets")
 
@@ -76,18 +85,24 @@ def prf(tp: int, fp: int, fn: int) -> tuple[float | None, float | None]:
 
 
 # ----------------------------------------------------------------------------- stages
-V2 = os.path.join(ROOT, "data", "synthetic_v2")
+V2 = SYNTH_V2_DIR
 V2_SET = "synthetic-v2"
 V2_PHYSICAL = ("beam", "girder", "column", "pier", "footing", "grade_beam", "brace", "deck", "connection")
 
 
+def _ensure_v2(a) -> str | None:
+    """Generate the source data when absent (or --regen-v2) BEFORE any stage runs, so the source_data
+    fingerprint brackets every stage. Returns the generator's error, or None."""
+    if os.path.exists(os.path.join(V2, "design.json")) and not a.regen_v2:
+        return None
+    g = run([PY, "-m", "synth.v2.generate", "--out", V2])
+    return f"synth.v2.generate exit {g.returncode}: {g.stderr[-600:]}" if g.returncode else None
+
+
 def _v2_design(a) -> dict:
-    p = os.path.join(V2, "design.json")
-    if not os.path.exists(p) or a.regen_v2:
-        g = run([PY, "-m", "synth.v2.generate", "--out", V2])
-        if g.returncode:
-            raise RuntimeError(f"synth.v2.generate exit {g.returncode}: {g.stderr[-600:]}")
-    return json.load(open(p))
+    if a.v2_error:
+        raise RuntimeError(a.v2_error)
+    return json.load(open(os.path.join(V2, "design.json")))
 
 
 def st_v2_design(a) -> dict:
@@ -333,10 +348,12 @@ def main() -> None:
     ap.add_argument("--update-baseline", action="store_true")
     ap.add_argument("--tolerance", type=float, default=0.005)
     ap.add_argument("--baseline", default=BASELINE)
-    ap.add_argument("--json-out", default=os.path.join(ROOT, "data", "eval", "scorecard.json"))
+    ap.add_argument("--json-out", default=derived_path("scorecard.json"))
     a = ap.parse_args()
     only = set(filter(None, a.only.split(",")))
     res: dict[str, dict] = {}
+    a.v2_error = _ensure_v2(a)
+    fp_before = source_fingerprint(V2)
     for name, fn in STAGES:
         if only and name not in only:
             continue
@@ -346,6 +363,13 @@ def main() -> None:
             res[name] = {"status": "skipped", "reason": str(s)}
         except Exception as e:  # a crashed stage is a failure, never a pass
             res[name] = {"status": "error", "reason": f"{type(e).__name__}: {e}"}
+        changed = fingerprint_diff(fp_before, source_fingerprint(V2))
+        if changed and "source_data" not in res:   # name the first stage that wrote the source dir
+            res["source_data"] = {"status": "ok", "checks": {"source_data_unchanged": False},
+                                  "notes": [f"stage {name} wrote data/synthetic_v2 (generator-only, store_root.py): "
+                                            + ", ".join(changed[:8])]}
+    res.setdefault("source_data", {"status": "ok", "checks": {"source_data_unchanged": True},
+                                   "notes": [f"{len(fp_before)} files under data/synthetic_v2 unchanged by every stage"]})
 
     base = json.load(open(a.baseline)) if os.path.exists(a.baseline) else {"stages": {}}
     regressions, improvements = [], []

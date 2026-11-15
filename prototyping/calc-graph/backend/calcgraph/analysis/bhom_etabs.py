@@ -297,7 +297,7 @@ class BhomEtabsAdapter(AnalysisAdapter):
 
     def pull_results(self, job: dict | str, force: bool = False) -> dict:
         jid = job if isinstance(job, str) else job["job_id"]
-        with open(os.path.join(mock_etabs.JOBS_DIR, jid, "job.json")) as fh:
+        with open(os.path.join(mock_etabs.jobs_dir(), jid, "job.json")) as fh:
             job = json.load(fh)
         src = job.get("source")
         if src in (ResultSource.csi_oapi.value, ResultSource.etabs_via_bhom.value):
@@ -305,7 +305,7 @@ class BhomEtabsAdapter(AnalysisAdapter):
             if st.get("up"):
                 try:
                     res = self._pull_csi(job) if src == ResultSource.csi_oapi.value else self._pull_bhom(job)
-                    with open(os.path.join(mock_etabs.JOBS_DIR, jid, f"results_{src}.json"), "w") as fh:
+                    with open(os.path.join(mock_etabs.jobs_dir(), jid, f"results_{src}.json"), "w") as fh:
                         json.dump(res, fh, indent=1, sort_keys=True, default=str)
                     return res
                 except BridgeError as e:
