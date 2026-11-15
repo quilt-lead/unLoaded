@@ -1,0 +1,2250 @@
+{
+ "about": "pyright errors still allowed (scripts/check_types.py). It only ever shrinks: CI fails on an error not in it, on an entry that no longer occurs, and on any count above an earlier committed version.",
+ "pyright": "pyright==1.1.400",
+ "errors": [
+  {
+   "file": "backend/calcgraph/ai/providers/anthropic_provider.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"anthropic\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/base.py",
+   "rule": "reportFunctionMemberAccess",
+   "message": "Cannot assign to attribute \"_source_contract\" for class \"function\"\n\u00a0\u00a0Attribute \"_source_contract\" is unknown",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal[False]\" cannot be assigned to parameter \"up\" of type \"str\" in function \"update\"\n\u00a0\u00a0\"Literal[False]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bool\" cannot be assigned to parameter \"up\" of type \"str\" in function \"update\"\n\u00a0\u00a0\"bool\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown] | str\" cannot be assigned to parameter \"job\" of type \"dict[Unknown, Unknown]\" in function \"_pull_bhom\"\n\u00a0\u00a0Type \"dict[Unknown, Unknown] | str\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"str\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown] | str\" cannot be assigned to parameter \"job\" of type \"dict[Unknown, Unknown]\" in function \"_pull_csi\"\n\u00a0\u00a0Type \"dict[Unknown, Unknown] | str\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"str\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown] | str\" cannot be assigned to parameter \"job\" of type \"dict[Unknown, Unknown]\" in function \"_pull_fallback\"\n\u00a0\u00a0Type \"dict[Unknown, Unknown] | str\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"str\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown]\" cannot be assigned to parameter \"health\" of type \"str\" in function \"update\"\n\u00a0\u00a0\"dict[Unknown, Unknown]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"schema_version\" of type \"Literal['calcgraph-structural/1.0']\" in function \"__init__\"\n\u00a0\u00a0\"list[Unknown]\" is not assignable to \"Literal['calcgraph-structural/1.0']\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"get\" for class \"str\"\n\u00a0\u00a0Attribute \"get\" is unknown",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/bhom_etabs.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/e2k.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]\" cannot be assigned to parameter \"key\" of type \"(_T@sorted) -> SupportsRichComparison\" in function \"sorted\"\n\u00a0\u00a0No overloaded function matches type \"(str) -> SupportsRichComparison\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/e2k.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"s\" of type \"str\" in function \"_q\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/e2k.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"sorted\" match the provided arguments",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"setdefault\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"tuple[str, str | None]\" cannot be assigned to parameter \"key\" of type \"tuple[str, str]\" in function \"setdefault\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "\"None\" is not iterable\n\u00a0\u00a0\"__iter__\" method not defined",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "Expected mapping for dictionary unpack operator",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"-\" not supported for types \"str | Unknown\" and \"str | Unknown\"\n\u00a0\u00a0Operator \"-\" not supported for types \"str\" and \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"-\" not supported for types \"str | Unknown\" and \"str | Unknown\"\n\u00a0\u00a0Operator \"-\" not supported for types \"str\" and \"str\" when expected type is \"SupportsAbs[Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/analysis/etabs.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"/\" not supported for types \"str | Unknown\" and \"Literal[2]\"\n\u00a0\u00a0Operator \"/\" not supported for types \"str\" and \"Literal[2]\" when expected type is \"str | Unknown\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/as_of.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"j\" of type \"dict[Unknown, Unknown]\" in function \"step_change\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/as_of.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal[False]\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal[False]\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | Literal[False]\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0Type \"Unknown | Literal[False]\" is not assignable to type \"dict[Unknown, dict[str, dict[str, Unknown]]]\"\n\u00a0\u00a0\u00a0\u00a0\"Literal[False]\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[str, Unknown | str | list[list[Unknown]] | list[Unknown] | None]\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0\"dict[str, Unknown | str | list[list[Unknown]] | list[Unknown] | None]\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"\n\u00a0\u00a0\u00a0\u00a0Type parameter \"_VT@dict\" is invariant, but \"Unknown | str | list[list[Unknown]] | list[Unknown] | None\" is not the same as \"dict[str, dict[str, Unknown]]\"\n\u00a0\u00a0\u00a0\u00a0Consider switching from \"dict\" to \"Mapping\" which is covariant in the value type",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0\"list[Unknown]\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[dict[Unknown, Unknown]]\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0\"list[dict[Unknown, Unknown]]\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, dict[str, dict[str, Unknown]]]\" in function \"__setitem__\"\n\u00a0\u00a0\"str\" is not assignable to \"dict[Unknown, dict[str, dict[str, Unknown]]]\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "\"None\" is not iterable\n\u00a0\u00a0\"__iter__\" method not defined",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"group\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"calc_meta\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/calc_records.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"geometry_info\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calcpkg_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"open\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@enumerate]\" in function \"__new__\"\n\u00a0\u00a0\"Document\" is incompatible with protocol \"Iterable[_T@enumerate]\"\n\u00a0\u00a0\u00a0\u00a0\"__iter__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/calcpkg_ingest.py",
+   "rule": "reportReturnType",
+   "message": "Type \"tuple[Literal[''], None, list[dict[str, Unknown]]]\" is not assignable to return type \"tuple[str, list[Unknown], list[dict[Unknown, Unknown]]]\"\n\u00a0\u00a0\"None\" is not assignable to \"list[Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/connections.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"open\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@enumerate]\" in function \"__new__\"\n\u00a0\u00a0\"Document\" is incompatible with protocol \"Iterable[_T@enumerate]\"\n\u00a0\u00a0\u00a0\u00a0\"__iter__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/connections.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"group\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/connections.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/drawing_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"open\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@enumerate]\" in function \"__new__\"\n\u00a0\u00a0\"Document\" is incompatible with protocol \"Iterable[_T@enumerate]\"\n\u00a0\u00a0\u00a0\u00a0\"__iter__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/drawing_ingest.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"None\" cannot be assigned to parameter \"userdefinedtype\" of type \"str\" in function \"add_derived_unit\"\n\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"object\" cannot be assigned to parameter \"material\" of type \"entity_instance | None\" in function \"add_profile\"\n\u00a0\u00a0Type \"object\" is not assignable to type \"entity_instance | None\"\n\u00a0\u00a0\u00a0\u00a0\"object\" is not assignable to \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"object\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"object\" cannot be assigned to parameter \"material\" of type \"entity_instance | None\" in function \"assign_material\"\n\u00a0\u00a0Type \"object\" is not assignable to type \"entity_instance | None\"\n\u00a0\u00a0\u00a0\u00a0\"object\" is not assignable to \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"object\" is not assignable to \"None\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"object\" cannot be assigned to parameter \"profile\" of type \"entity_instance\" in function \"add_profile_representation\"\n\u00a0\u00a0\"object\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"all_attributes\" for class \"declaration\"\n\u00a0\u00a0Attribute \"all_attributes\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_common.py",
+   "rule": "reportUnhashable",
+   "message": "Dictionary key must be hashable\n\u00a0\u00a0Type \"entity_instance\" is not hashable",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/ifc_diff.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['(present)']\" cannot be assigned to parameter \"value\" of type \"None\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['(present)']\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_diff.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[str]\" cannot be assigned to parameter \"relationships\" of type \"list[RELATIONSHIP_TYPE] | None\" in function \"__init__\"\n\u00a0\u00a0Type \"list[str]\" is not assignable to type \"list[RELATIONSHIP_TYPE] | None\"\n\u00a0\u00a0\u00a0\u00a0\"list[str]\" is not assignable to \"list[RELATIONSHIP_TYPE]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"str\" is not the same as \"RELATIONSHIP_TYPE\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant\n\u00a0\u00a0\u00a0\u00a0\"list[str]\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_diff.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"set[entity_instance]\" cannot be assigned to parameter \"iterable\" of type \"Iterable[SupportsRichComparisonT@sorted]\" in function \"sorted\"\n\u00a0\u00a0\"set[entity_instance]\" is not assignable to \"Iterable[SupportsRichComparisonT@sorted]\"\n\u00a0\u00a0\u00a0\u00a0Type parameter \"_T_co@Iterable\" is covariant, but \"entity_instance\" is not a subtype of \"SupportsRichComparisonT@sorted\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type \"entity_instance\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type \"entity_instance\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"entity_instance\" is incompatible with protocol \"SupportsDunderLT[Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"entity_instance\" is incompatible with protocol \"SupportsDunderGT[Any]\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/ifc_diff.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"__setitem__\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_psets\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_ingest.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"geometry\" for class \"element\"\n\u00a0\u00a0Attribute \"geometry\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_ingest.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"guid\" for class \"shape_tuple\"\n\u00a0\u00a0Attribute \"guid\" is unknown",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/ifc_ingest.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"Name\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_structural.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "\"group\" is not a known attribute of module \"ifcopenshell.api\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/ifc_structural.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "\"structural\" is not a known attribute of module \"ifcopenshell.api\"",
+   "count": 16
+  },
+  {
+   "file": "backend/calcgraph/inbox.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/inbox.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/inbox.py",
+   "rule": "reportInvalidTypeForm",
+   "message": "Type arguments for \"Literal\" must be None, a literal value (int, bool, str, or bytes), or an enum value",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/inbox.py",
+   "rule": "reportInvalidTypeForm",
+   "message": "Variable not allowed in type expression",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/loadpath.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float64\" cannot be assigned to parameter \"arg1\" of type \"SupportsRichComparisonT@min\" in function \"min\"\n\u00a0\u00a0Type \"float64\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0Type \"float64\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"float64\" is incompatible with protocol \"SupportsDunderLT[Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__lt__\" is an incompatible type\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0No overloaded function matches type \"(other: _T_contra@SupportsDunderLT, /) -> bool\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"float64\" is incompatible with protocol \"SupportsDunderGT[Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__gt__\" is an incompatible type\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0No overloaded function matches type \"(other: _T_contra@SupportsDunderGT, /) -> bool\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/loadpath.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float64\" cannot be assigned to parameter \"arg2\" of type \"SupportsRichComparisonT@min\" in function \"min\"\n\u00a0\u00a0Type \"float64\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0Type \"float64\" is not assignable to type \"SupportsRichComparison\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"float64\" is incompatible with protocol \"SupportsDunderLT[Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__lt__\" is an incompatible type\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0No overloaded function matches type \"(other: _T_contra@SupportsDunderLT, /) -> bool\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"float64\" is incompatible with protocol \"SupportsDunderGT[Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__gt__\" is an incompatible type\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0No overloaded function matches type \"(other: _T_contra@SupportsDunderGT, /) -> bool\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_api.py",
+   "rule": "reportMissingImports",
+   "message": "Import \".access\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_api.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Graph[Unknown]\" cannot be assigned to parameter \"G\" of type \"DiGraph[_Node@lexicographical_topological_sort]\" in function \"__call__\"\n\u00a0\u00a0\"Graph[Unknown]\" is not assignable to \"DiGraph[_Node@lexicographical_topological_sort]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\" cannot be assigned to parameter \"key\" of type \"(_T@max) -> SupportsRichComparison\" in function \"max\"\n\u00a0\u00a0No overloaded function matches type \"(Unknown) -> SupportsRichComparison\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"phi_vn\" of type \"float\" in function \"update\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"float\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"float\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"rv\" of type \"dict[Unknown, Unknown]\" in function \"_vec\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"_Node@lexicographical_topological_sort\" cannot be assigned to parameter \"mid\" of type \"str\" in function \"member_loads\"\n\u00a0\u00a0\"Hashable*\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown]\" cannot be assigned to parameter \"ratios\" of type \"float\" in function \"update\"\n\u00a0\u00a0\"dict[Unknown, Unknown]\" is not assignable to \"float\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | None\" cannot be assigned to parameter \"phi_mn\" of type \"float\" in function \"update\"\n\u00a0\u00a0Type \"float | None\" is not assignable to type \"float\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"float\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T(1)@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"max\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"rsplit\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/move_impact.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"rg\" is possibly unbound",
+   "count": 6
+  },
+  {
+   "file": "backend/calcgraph/pdf_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"open\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@enumerate]\" in function \"__new__\"\n\u00a0\u00a0\"Document\" is incompatible with protocol \"Iterable[_T@enumerate]\"\n\u00a0\u00a0\u00a0\u00a0\"__iter__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/pdf_ingest.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"get\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/__init__.py",
+   "rule": "reportCallIssue",
+   "message": "Expected 0 positional arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/_spec.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/_spec.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/change_order.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"plan\" is possibly unbound",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/platforms/live/__init__.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"deep_link\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/live/__init__.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"describe\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/live/oauth.py",
+   "rule": "reportIncompatibleMethodOverride",
+   "message": "Method \"log_message\" overrides class \"BaseHTTPRequestHandler\" in an incompatible manner\n\u00a0\u00a0Parameter 2 mismatch: base parameter \"format\" is keyword parameter, override parameter is position-only",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/live/transport.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"r\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"id\" of type \"str\" in function \"deep_link\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 9
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"activity\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"budget_line\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"change_event\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"change_order\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"cost_code\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"rfi\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"sheet\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int\" cannot be assigned to parameter \"pid\" of type \"str\" in function \"submittal\"\n\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | Unknown | None\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"str | Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/procore.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/status.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"get\" for class \"list[Unknown]\"\n\u00a0\u00a0Attribute \"get\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/status.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"items\" for class \"list[Unknown]\"\n\u00a0\u00a0Attribute \"items\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/synthetic.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"tuple[str, Literal['FS'], Literal[5]]\" cannot be assigned to parameter \"object\" of type \"str\" in function \"append\"\n\u00a0\u00a0\"tuple[str, Literal['FS'], Literal[5]]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/synthetic.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"_contract_day\" for class \"ConstructionState*\"\n\u00a0\u00a0Attribute \"_contract_day\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/platforms/synthetic.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot assign to attribute \"_contract_day\" for class \"ConstructionState\"\n\u00a0\u00a0Attribute \"_contract_day\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/profiles/__init__.py",
+   "rule": "reportOptionalOperand",
+   "message": "Operator \"*\" not supported for \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"rev_id\" of type \"str\" in function \"revision_dir\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/recalc.py",
+   "rule": "reportReturnType",
+   "message": "Type \"dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float\" is not assignable to return type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0Type \"dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal[1]\" cannot be assigned to parameter \"key\" of type \"str\" in function \"__getitem__\"\n\u00a0\u00a0\"Literal[1]\" is not assignable to \"str\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]\" cannot be assigned to parameter \"key\" of type \"(_T@max) -> SupportsRichComparison\" in function \"max\"\n\u00a0\u00a0No overloaded function matches type \"(str) -> SupportsRichComparison\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bool\" cannot be assigned to parameter \"left\" of type \"str\" in function \"handcalc\"\n\u00a0\u00a0\"bool\" is not assignable to \"str\"",
+   "count": 28
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bool\" cannot be assigned to parameter \"override\" of type \"str\" in function \"handcalc\"\n\u00a0\u00a0\"bool\" is not assignable to \"str\"",
+   "count": 28
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bool\" cannot be assigned to parameter \"right\" of type \"str\" in function \"handcalc\"\n\u00a0\u00a0\"bool\" is not assignable to \"str\"",
+   "count": 28
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[tuple[Literal['A_{g}'], Literal['A'], PlainUnit] | tuple[Literal['r_{x}'], Literal['rx'], Unit] | tuple[Literal['r_{y}'], Literal['ry'], Unit] | tuple[Literal['Z_{y}'], Literal['Zy'], PlainUnit] | tuple[Literal['S_{y}'], Literal['Sy'], PlainUnit]]\" cannot be assigned to parameter \"keys\" of type \"list[tuple[str, str, str]]\" in function \"_section_inputs\"\n\u00a0\u00a0\"PlainUnit\" is not assignable to \"str\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"\n\u00a0\u00a0\"PlainUnit\" is not assignable to \"str\"\n\u00a0\u00a0\"PlainUnit\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[tuple[Literal['A_{g}'], Literal['A'], PlainUnit] | tuple[Literal['r_{x}'], Literal['rx'], Unit] | tuple[Literal['r_{y}'], Literal['ry'], Unit]]\" cannot be assigned to parameter \"keys\" of type \"list[tuple[str, str, str]]\" in function \"_section_inputs\"\n\u00a0\u00a0\"PlainUnit\" is not assignable to \"str\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[tuple[Literal['d'], Literal['d'], Unit] | tuple[Literal['t_{w}'], Literal['tw'], Unit] | tuple[Literal['I_{x}'], Literal['Ix'], PlainUnit]]\" cannot be assigned to parameter \"keys\" of type \"list[tuple[str, str, str]]\" in function \"_section_inputs\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"\n\u00a0\u00a0\"Unit\" is not assignable to \"str\"\n\u00a0\u00a0\"PlainUnit\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"open\" cannot be assigned to parameter \"iterable\" of type \"Iterable[_T@enumerate]\" in function \"__new__\"\n\u00a0\u00a0\"Document\" is incompatible with protocol \"Iterable[_T@enumerate]\"\n\u00a0\u00a0\u00a0\u00a0\"__iter__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"tuple[str, list[str]]\" cannot be assigned to parameter \"object\" of type \"tuple[str, str]\" in function \"append\"\n\u00a0\u00a0\"list[str]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"max\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "\"object\" is not iterable\n\u00a0\u00a0\"__iter__\" method not defined",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages.py",
+   "rule": "reportPrivateImportUsage",
+   "message": "\"set_option\" is not exported from module \"handcalcs\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/recalc_pages_layout.py",
+   "rule": "reportReturnType",
+   "message": "Type \"tuple[bytes | None, dict[str, dict[Unknown, Unknown]]]\" is not assignable to return type \"tuple[bytes, dict[Unknown, Unknown]]\"\n\u00a0\u00a0Type \"bytes | None\" is not assignable to type \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"bytes\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_engine.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToInt\" in function \"__new__\"\n\u00a0\u00a0Type \"float | None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0Type \"None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__int__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsIndex\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_engine.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | None\" cannot be assigned to parameter \"x\" of type \"ConvertibleToInt\" in function \"__new__\"\n\u00a0\u00a0Type \"float | None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0Type \"None\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__int__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"SupportsIndex\"\n  ...",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['exact', 'inferred'] | None\" cannot be assigned to parameter \"confidence\" of type \"str\" in function \"rel\"\n\u00a0\u00a0Type \"Literal['exact', 'inferred'] | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"confidence\" of type \"str\" in function \"rel\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"prof\" of type \"str\" in function \"_etype\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str\" cannot be assigned to parameter \"value\" of type \"dict[Unknown, Unknown]\" in function \"__setitem__\"\n\u00a0\u00a0\"str\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"group\" is not a known attribute of \"None\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"groups\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/registry_ingest.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int | None\" cannot be assigned to parameter \"rid\" of type \"int\" in function \"calcs\"\n\u00a0\u00a0Type \"int | None\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"int\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int | None\" cannot be assigned to parameter \"rid\" of type \"int\" in function \"elements\"\n\u00a0\u00a0Type \"int | None\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"int\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"file\" of type \"FileDescriptorOrPath\" in function \"open\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"FileDescriptorOrPath\"\n\u00a0\u00a0\u00a0\u00a0Type \"None\" is not assignable to type \"FileDescriptorOrPath\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"int\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"PathLike[str]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__fspath__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"None\" is incompatible with protocol \"PathLike[bytes]\"\n  ...",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"id\" for class \"object\"\n\u00a0\u00a0Attribute \"id\" is unknown",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"model_copy\" for class \"object\"\n\u00a0\u00a0Attribute \"model_copy\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"provenance\" for class \"object\"\n\u00a0\u00a0Attribute \"provenance\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"open\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/revstore.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"doc\" of type \"str\" in function \"pdf_ev\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/_common.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"unit\" of type \"str\" in function \"canonical\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"case_id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"str\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"fx\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"fy\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"fz\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"str\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"kind\" of type \"Literal['bar-force']\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Literal['bar-force']\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"Literal['bar-force']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"kind\" of type \"Literal['global-reactions']\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Literal['global-reactions']\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"Literal['global-reactions']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"kind\" of type \"Literal['node-displacement']\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Literal['node-displacement']\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"Literal['node-displacement']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"kind\" of type \"Literal['node-reaction']\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Literal['node-reaction']\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"Literal['node-reaction']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"mode_number\" of type \"int\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"int\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"mx\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"my\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"mz\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"name\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"str\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"object_id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"str\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"provenance\" of type \"Provenance\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Provenance\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"Provenance\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"refs\" of type \"list[ExternalRef]\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"list[ExternalRef]\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"list[ExternalRef]\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"request_id\" of type \"str | None\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Quantity\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"None\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"source\" of type \"ResultSource\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"ResultSource\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"ResultSource\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"time_step\" of type \"float\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"float\"\n\u00a0\u00a0\u00a0\u00a0\"Quantity\" is not assignable to \"float\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"ux\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"uy\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"uz\" of type \"Quantity\" in function \"__init__\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity\" cannot be assigned to parameter \"catalogue\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0\"Quantity\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float\" cannot be assigned to parameter \"value\" of type \"str\" in function \"__setitem__\"\n\u00a0\u00a0\"float\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"schema_version\" of type \"Literal['calcgraph-structural/1.0']\" in function \"__init__\"\n\u00a0\u00a0\"list[Unknown]\" is not assignable to \"Literal['calcgraph-structural/1.0']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[Unknown]\" cannot be assigned to parameter \"value\" of type \"str\" in function \"__setitem__\"\n\u00a0\u00a0\"list[Unknown]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[dict[Unknown, Unknown]]\" cannot be assigned to parameter \"value\" of type \"str\" in function \"__setitem__\"\n\u00a0\u00a0\"list[dict[Unknown, Unknown]]\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[str]\" cannot be assigned to parameter \"value\" of type \"str\" in function \"__setitem__\"\n\u00a0\u00a0\"list[str]\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"case_id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['steel-utilisation']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"Literal['steel-utilisation']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['steel-utilisation']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['storey-drift']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"Literal['storey-drift']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['storey-drift']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"limit\" of type \"Quantity | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"mode_number\" of type \"int\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"int\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"name\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"object_id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"provenance\" of type \"Provenance\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"Provenance\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"Provenance\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"refs\" of type \"list[ExternalRef]\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"list[ExternalRef]\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"list[ExternalRef]\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"request_id\" of type \"str | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"source\" of type \"ResultSource\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"ResultSource\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"ResultSource\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | int | float | list[ExternalRef] | Provenance\" cannot be assigned to parameter \"time_step\" of type \"float\" in function \"__init__\"\n\u00a0\u00a0Type \"str | int | float | list[ExternalRef] | Provenance\" is not assignable to type \"float\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"float\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"axis\" of type \"AxisSystem\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"AxisSystem\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"AxisSystem\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"axis\" of type \"AxisSystem\" in function \"vec\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"AxisSystem\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"AxisSystem\"",
+   "count": 3
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"case_id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"end_position\" of type \"Quantity | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"force_end\" of type \"QVector | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"QVector | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"QVector | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"QVector\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"id\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['bar-distributed']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Literal['bar-distributed']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['bar-distributed']\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['bar-point']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Literal['bar-point']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['bar-point']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['gravity']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Literal['gravity']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['gravity']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"kind\" of type \"Literal['point']\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Literal['point']\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Literal['point']\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"moment_end\" of type \"QVector | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"QVector | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"QVector | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"QVector\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"name\" of type \"str\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"str\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"projected\" of type \"bool\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"bool\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"provenance\" of type \"Provenance\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Provenance\"\n\u00a0\u00a0\u00a0\u00a0\"bool\" is not assignable to \"Provenance\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"refs\" of type \"list[ExternalRef]\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"list[ExternalRef]\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"list[ExternalRef]\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"relative_positions\" of type \"bool\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/bhom_json.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | list[ExternalRef] | bool | Provenance\" cannot be assigned to parameter \"start_position\" of type \"Quantity | None\" in function \"__init__\"\n\u00a0\u00a0Type \"str | list[ExternalRef] | bool | Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"Provenance\" is not assignable to type \"Quantity | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"Provenance\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/ifc_model.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_psets\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/ifc_store.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['human']\" cannot be assigned to parameter \"method\" of type \"Method\" in function \"__init__\"\n\u00a0\u00a0\"Literal['human']\" is not assignable to \"Method\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/ifc_store.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"engine\" of type \"str\" in function \"_link_fact\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/ifc_store.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"_SingleDoc\" cannot be assigned to parameter \"reg\" of type \"DocRegistry\" in function \"evidence_list\"\n\u00a0\u00a0\"_SingleDoc\" is not assignable to \"DocRegistry\"",
+   "count": 5
+  },
+  {
+   "file": "backend/calcgraph/schema/adapters/ifc_store.py",
+   "rule": "reportRedeclaration",
+   "message": "Function declaration \"make\" is obscured by a declaration of the same name",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/schema/units.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"complex | float | int | Decimal | Fraction\" cannot be assigned to parameter \"x\" of type \"ConvertibleToInt\" in function \"__new__\"\n\u00a0\u00a0Type \"complex | float | int | Decimal | Fraction\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0Type \"complex\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"SupportsInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__int__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"SupportsIndex\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/schema/units.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"complex | float | int | Decimal | Fraction\" cannot be assigned to parameter \"x\" of type \"ConvertibleToInt\" in function \"__new__\"\n\u00a0\u00a0Type \"complex | float | int | Decimal | Fraction\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0Type \"complex\" is not assignable to type \"ConvertibleToInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"SupportsInt\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__int__\" is not present\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"complex\" is incompatible with protocol \"SupportsIndex\"\n  ...",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/set_graph.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"group\" is not a known attribute of \"None\"",
+   "count": 4
+  },
+  {
+   "file": "backend/calcgraph/set_pipeline.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Any | None\" cannot be assigned to parameter \"meta\" of type \"dict[Unknown, Unknown]\" in function \"build\"\n\u00a0\u00a0Type \"Any | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/set_pipeline.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"get\" is not a known attribute of \"None\"",
+   "count": 2
+  },
+  {
+   "file": "backend/calcgraph/set_pipeline.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 7
+  },
+  {
+   "file": "backend/calcgraph/spec_ingest.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 6
+  },
+  {
+   "file": "backend/calcgraph/store.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"model_dump\" for class \"object\"\n\u00a0\u00a0Attribute \"model_dump\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/store.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 1
+  },
+  {
+   "file": "backend/calcgraph/store.py",
+   "rule": "reportReturnType",
+   "message": "Type \"int | None\" is not assignable to return type \"int\"\n\u00a0\u00a0Type \"int | None\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"int\"",
+   "count": 6
+  },
+  {
+   "file": "backend/tests/test_ingest_units.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"group\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_ingest_units.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['deterministic']\" cannot be assigned to parameter \"method\" of type \"Method\" in function \"__init__\"\n\u00a0\u00a0\"Literal['deterministic']\" is not assignable to \"Method\"",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"ModuleSpec | None\" cannot be assigned to parameter \"spec\" of type \"ModuleSpec\" in function \"module_from_spec\"\n\u00a0\u00a0Type \"ModuleSpec | None\" is not assignable to type \"ModuleSpec\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"ModuleSpec\"",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"to\" for class \"StrictBool\"\n\u00a0\u00a0Attribute \"to\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"to\" for class \"StrictStr\"\n\u00a0\u00a0Attribute \"to\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"to\" for class \"Unitless\"\n\u00a0\u00a0Attribute \"to\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"to\" for class \"list[StrictStr]\"\n\u00a0\u00a0Attribute \"to\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"exec_module\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"loader\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "backend/tests/test_schema.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"to\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/build_etabs.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"roundtrip\" for class \"AnalysisAdapter\"\n\u00a0\u00a0Attribute \"roundtrip\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_ai_step.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"chosen_candidate_id\" for class \"AIOutput\"\n\u00a0\u00a0Attribute \"chosen_candidate_id\" is unknown",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Quantity | None\" cannot be assigned to parameter \"other\" of type \"Quantity\" in function \"close_to\"\n\u00a0\u00a0Type \"Quantity | None\" is not assignable to type \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"Quantity\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[AnalysisObject] | bool\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"check\"\n\u00a0\u00a0Type \"list[AnalysisObject] | bool\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"list[AnalysisObject]\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportIncompatibleMethodOverride",
+   "message": "Method \"log_message\" overrides class \"BaseHTTPRequestHandler\" in an incompatible manner\n\u00a0\u00a0Parameter 2 mismatch: base parameter \"format\" is keyword parameter, override parameter is position-only",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"close_to\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"end\" is not a known attribute of \"None\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"start\" is not a known attribute of \"None\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"unit\" is not a known attribute of \"None\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_bhom_etabs.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"value\" is not a known attribute of \"None\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_ifc_parity.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_container\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_ifc_parity.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_psets\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_ifc_parity.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"geometry\" for class \"element\"\n\u00a0\u00a0Attribute \"geometry\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_ifc_parity.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"guid\" for class \"shape_tuple\"\n\u00a0\u00a0Attribute \"guid\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_llm_imports.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"splitlines\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal[':']\" cannot be assigned to parameter \"prefix\" of type \"ReadableBuffer | tuple[ReadableBuffer, ...]\" in function \"startswith\"\n\u00a0\u00a0Type \"Literal[':']\" is not assignable to type \"ReadableBuffer | tuple[ReadableBuffer, ...]\"\n\u00a0\u00a0\u00a0\u00a0\"Literal[':']\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\"Literal[':']\" is not assignable to \"tuple[ReadableBuffer, ...]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['\\t']\" cannot be assigned to parameter \"sep\" of type \"ReadableBuffer | None\" in function \"split\"\n\u00a0\u00a0Type \"Literal['\\t']\" is not assignable to type \"ReadableBuffer | None\"\n\u00a0\u00a0\u00a0\u00a0\"Literal['\\t']\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\"Literal['\\t']\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['\\u0000']\" cannot be assigned to parameter \"sep\" of type \"ReadableBuffer | None\" in function \"split\"\n\u00a0\u00a0Type \"Literal['\\u0000']\" is not assignable to type \"ReadableBuffer | None\"\n\u00a0\u00a0\u00a0\u00a0\"Literal['\\u0000']\" is incompatible with protocol \"Buffer\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__buffer__\" is not present\n\u00a0\u00a0\u00a0\u00a0\"Literal['\\u0000']\" is not assignable to \"None\"",
+   "count": 3
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | str\" cannot be assigned to parameter \"args\" of type \"str\" in function \"git\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"bytes\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | str\" cannot be assigned to parameter \"data\" of type \"bytes\" in function \"blob_sha\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\"str\" is not assignable to \"bytes\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | str\" cannot be assigned to parameter \"data\" of type \"bytes\" in function \"check_blob\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\"str\" is not assignable to \"bytes\"",
+   "count": 3
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | str\" cannot be assigned to parameter \"path\" of type \"str\" in function \"check_blob\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"bytes\" is not assignable to \"str\"",
+   "count": 3
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | str\" cannot be assigned to parameter \"sha\" of type \"str | None\" in function \"check_blob\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0Type \"bytes\" is not assignable to type \"str | None\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"bytes\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"bytes\" is not assignable to \"None\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[bytes] | list[str]\" cannot be assigned to parameter \"revs\" of type \"list[str]\" in function \"scan_commits\"\n\u00a0\u00a0Type \"list[bytes] | list[str]\" is not assignable to type \"list[str]\"\n\u00a0\u00a0\u00a0\u00a0\"list[bytes]\" is not assignable to \"list[str]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"bytes\" is not the same as \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_no_copyrighted.py",
+   "rule": "reportReturnType",
+   "message": "Type \"bytes | str\" is not assignable to return type \"str\"\n\u00a0\u00a0Type \"bytes | str\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"bytes\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Any | Unknown | dict[Unknown, Unknown]\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"Any | Unknown | dict[Unknown, Unknown]\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"dict[Unknown, Unknown]\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Unknown | None\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"Unknown | None\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"bool\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bool | Unknown | None\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"bool | Unknown | None\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, Unknown] | bool | None\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"dict[Unknown, Unknown] | bool | None\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"dict[Unknown, Unknown]\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[NoFloat]\" cannot be assigned to parameter \"adapters\" of type \"list[PlatformAdapter] | None\" in function \"construction_status\"\n\u00a0\u00a0Type \"list[NoFloat]\" is not assignable to type \"list[PlatformAdapter] | None\"\n\u00a0\u00a0\u00a0\u00a0\"list[NoFloat]\" is not assignable to \"list[PlatformAdapter]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"NoFloat\" is not the same as \"PlatformAdapter\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant\n\u00a0\u00a0\u00a0\u00a0\"list[NoFloat]\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[NoFloat]\" cannot be assigned to parameter \"adapters\" of type \"list[PlatformAdapter]\" in function \"estimate\"\n\u00a0\u00a0\"list[NoFloat]\" is not assignable to \"list[PlatformAdapter]\"\n\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"NoFloat\" is not the same as \"PlatformAdapter\"\n\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[NormalizedRecord] | bool\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"list[NormalizedRecord] | bool\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"list[NormalizedRecord]\" is not assignable to \"bool\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[SourcedAdapter]\" cannot be assigned to parameter \"adapters\" of type \"list[PlatformAdapter] | None\" in function \"construction_status\"\n\u00a0\u00a0Type \"list[SourcedAdapter]\" is not assignable to type \"list[PlatformAdapter] | None\"\n\u00a0\u00a0\u00a0\u00a0\"list[SourcedAdapter]\" is not assignable to \"list[PlatformAdapter]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"SourcedAdapter\" is not the same as \"PlatformAdapter\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant\n\u00a0\u00a0\u00a0\u00a0\"list[SourcedAdapter]\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[SourcedAdapter]\" cannot be assigned to parameter \"adapters\" of type \"list[PlatformAdapter]\" in function \"estimate\"\n\u00a0\u00a0\"list[SourcedAdapter]\" is not assignable to \"list[PlatformAdapter]\"\n\u00a0\u00a0\u00a0\u00a0Type parameter \"_T@list\" is invariant, but \"SourcedAdapter\" is not the same as \"PlatformAdapter\"\n\u00a0\u00a0\u00a0\u00a0Consider switching from \"list\" to \"Sequence\" which is covariant",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[Unknown] | bool\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"list[Unknown] | bool\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"list[Unknown]\" is not assignable to \"bool\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[dict[Unknown, Unknown]] | Unknown\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"list[dict[Unknown, Unknown]] | Unknown\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"list[dict[Unknown, Unknown]]\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"list[str] | Literal[False]\" cannot be assigned to parameter \"cond\" of type \"bool\" in function \"ok\"\n\u00a0\u00a0Type \"list[str] | Literal[False]\" is not assignable to type \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"list[str]\" is not assignable to \"bool\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"lineno\" for class \"AST\"\n\u00a0\u00a0Attribute \"lineno\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_platform_contracts.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"parse_errors\" is not a known attribute of \"None\"",
+   "count": 4
+  },
+  {
+   "file": "scripts/check_store_parity.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"bytes | memoryview[int]\" cannot be assigned to parameter \"s\" of type \"str | bytes | bytearray\" in function \"loads\"\n\u00a0\u00a0Type \"bytes | memoryview[int]\" is not assignable to type \"str | bytes | bytearray\"\n\u00a0\u00a0\u00a0\u00a0Type \"memoryview[int]\" is not assignable to type \"str | bytes | bytearray\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"memoryview[int]\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"memoryview[int]\" is not assignable to \"bytes\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Set disableBytesTypePromotions to false to enable type promotion behavior for \"bytearray\" and \"memoryview\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"memoryview[int]\" is not assignable to \"bytearray\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/check_store_parity.py",
+   "rule": "reportIndexIssue",
+   "message": "\"__getitem__\" method not defined on type \"object\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/compare_etabs_pynite.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "\"None\" is not iterable\n\u00a0\u00a0\"__iter__\" method not defined",
+   "count": 1
+  },
+  {
+   "file": "scripts/compare_etabs_pynite.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"splitlines\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/compare_revision_diffs.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int | None\" cannot be assigned to parameter \"pid\" of type \"int\" in function \"ingest_model\"\n\u00a0\u00a0Type \"int | None\" is not assignable to type \"int\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"int\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['content']\" cannot be assigned to parameter \"key\" of type \"slice[Any, Any, Any]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['content']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['content']\" cannot be assigned to parameter \"s\" of type \"slice[Any, Any, Any]\" in function \"__getitem__\"\n\u00a0\u00a0\"Literal['content']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['operationId']\" cannot be assigned to parameter \"key\" of type \"slice[Any, Any, Any]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['operationId']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['parameters']\" cannot be assigned to parameter \"key\" of type \"slice[Any, Any, Any]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['parameters']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['requestBody']\" cannot be assigned to parameter \"s\" of type \"slice[Any, Any, Any]\" in function \"__getitem__\"\n\u00a0\u00a0\"Literal['requestBody']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['responses']\" cannot be assigned to parameter \"key\" of type \"slice[Any, Any, Any]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['responses']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['responses']\" cannot be assigned to parameter \"s\" of type \"slice[Any, Any, Any]\" in function \"__getitem__\"\n\u00a0\u00a0\"Literal['responses']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['tags']\" cannot be assigned to parameter \"key\" of type \"slice[Any, Any, Any]\" in function \"__setitem__\"\n\u00a0\u00a0\"Literal['tags']\" is not assignable to \"slice[Any, Any, Any]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"get\" for class \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown]\"\n\u00a0\u00a0Attribute \"get\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"items\" for class \"list[dict[Unknown, Unknown] | list[Unknown] | Unknown]\"\n\u00a0\u00a0Attribute \"items\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportCallIssue",
+   "message": "Expected 1 positional argument",
+   "count": 1
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"__getitem__\" match the provided arguments",
+   "count": 4
+  },
+  {
+   "file": "scripts/gen_platform_clients.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"__setitem__\" match the provided arguments",
+   "count": 5
+  },
+  {
+   "file": "scripts/gen_platform_models.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown\" cannot be assigned to parameter \"s\" of type \"dict[Unknown, Unknown]\" in function \"_flatten\"\n\u00a0\u00a0Type \"dict[Unknown, dict[Unknown, Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown] | list[dict[Unknown, Unknown] | list[Unknown] | Unknown] | Unknown\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"list[dict[Unknown, Unknown] | list[Unknown] | Unknown]\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/schema_audit.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['ai']\" cannot be assigned to parameter \"method\" of type \"Method\" in function \"__init__\"\n\u00a0\u00a0\"Literal['ai']\" is not assignable to \"Method\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/schema_audit.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Literal['deterministic']\" cannot be assigned to parameter \"method\" of type \"Method\" in function \"__init__\"\n\u00a0\u00a0\"Literal['deterministic']\" is not assignable to \"Method\"",
+   "count": 2
+  },
+  {
+   "file": "scripts/schema_audit.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[str, float]\" cannot be assigned to parameter \"attrs\" of type \"dict[str, Value]\" in function \"__init__\"\n\u00a0\u00a0Type \"float\" is not assignable to type \"Value\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"Quantity\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"Unitless\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"bool\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"str\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"list[StrictStr]\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/schema_audit.py",
+   "rule": "reportCallIssue",
+   "message": "Argument missing for parameter \"provenance\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/schema_audit.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"+\" not supported for types \"Quantity\" and \"float\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/seed_platform_sandbox.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"split\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_psets\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"geometry\" for class \"element\"\n\u00a0\u00a0Attribute \"geometry\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"guid\" for class \"shape_tuple\"\n\u00a0\u00a0Attribute \"guid\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api\" could not be resolved",
+   "count": 2
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.client\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.credentials\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.enums\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.inputs.file_import_inputs\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.inputs.model_inputs\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.inputs.project_inputs\" could not be resolved",
+   "count": 2
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.api.inputs.version_inputs\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.bundle.receive\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.objects.base\" could not be resolved",
+   "count": 3
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.objects.data_objects\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.objects.geometry\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.objects.models.collections.collection\" could not be resolved",
+   "count": 1
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportMissingImports",
+   "message": "Import \"specklepy.transports.server\" could not be resolved",
+   "count": 2
+  },
+  {
+   "file": "scripts/speckle_roundtrip.py",
+   "rule": "reportOptionalOperand",
+   "message": "Operator \"<=\" not supported for \"None\"",
+   "count": 1
+  },
+  {
+   "file": "scripts/validate_ifc.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"sqlite_entity | entity_instance\" cannot be assigned to parameter \"element\" of type \"entity_instance\" in function \"get_psets\"\n\u00a0\u00a0Type \"sqlite_entity | entity_instance\" is not assignable to type \"entity_instance\"\n\u00a0\u00a0\u00a0\u00a0\"sqlite_entity\" is not assignable to \"entity_instance\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"dict[str, str]\" cannot be assigned to parameter \"rc\" of type \"dict[RcKeyType, Any] | None\"\n\u00a0\u00a0Type \"dict[str, str]\" is not assignable to type \"dict[RcKeyType, Any] | None\"\n\u00a0\u00a0\u00a0\u00a0\"dict[str, str]\" is not assignable to \"dict[RcKeyType, Any]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0Type parameter \"_KT@dict\" is invariant, but \"str\" is not the same as \"RcKeyType\"\n\u00a0\u00a0\u00a0\u00a0\"dict[str, str]\" is not assignable to \"None\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "\"BICUBIC\" is not a known attribute of module \"PIL.Image\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"get_renderer\" for class \"FigureCanvasBase\"\n\u00a0\u00a0Attribute \"get_renderer\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"y1\" is not a known attribute of \"None\"",
+   "count": 3
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportOptionalOperand",
+   "message": "Operator \"+\" not supported for \"None\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/calc_pdf_v2.py",
+   "rule": "reportPrivateImportUsage",
+   "message": "\"Line2D\" is not exported from module \"matplotlib.pyplot\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"None\" cannot be assigned to parameter \"beam_size\" of type \"str\" in function \"design_scbf\"\n\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"cand\" is possibly unbound",
+   "count": 3
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"eq\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"h1\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"mu_seis\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"pn\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/design.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"r\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/drawings_v2.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float\" cannot be assigned to parameter \"fontsize\" of type \"int\" in function \"text_length\"\n\u00a0\u00a0\"float\" is not assignable to \"int\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/drawings_v2.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"_rels\" for class \"DrawingSet\"\n\u00a0\u00a0Attribute \"_rels\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/drawings_v2.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot access attribute \"_rels\" for class \"DrawingSet*\"\n\u00a0\u00a0Attribute \"_rels\" is unknown",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/drawings_v2.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot assign to attribute \"_rels\" for class \"DrawingSet\"\n\u00a0\u00a0Attribute \"_rels\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/generate.py",
+   "rule": "reportReturnType",
+   "message": "Type \"tuple[dict[Unknown, Unknown], dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float]\" is not assignable to return type \"tuple[dict[Unknown, Unknown], dict[Unknown, Unknown]]\"\n\u00a0\u00a0Type \"dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Overload[(key: str, default: None = None, /) -> (Unknown | None), (key: str, default: Unknown, /) -> Unknown, (key: str, default: _T@get, /) -> (Unknown | _T@get)]\" cannot be assigned to parameter \"key\" of type \"(_T@max) -> SupportsRichComparison\" in function \"max\"\n\u00a0\u00a0No overloaded function matches type \"(str) -> SupportsRichComparison\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"Overload[(key: str, default: None = None, /) -> (float | None), (key: str, default: float, /) -> float, (key: str, default: _T@get, /) -> (float | _T@get)]\" cannot be assigned to parameter \"key\" of type \"(_T@max) -> SupportsRichComparison\" in function \"max\"\n\u00a0\u00a0No overloaded function matches type \"(str) -> SupportsRichComparison\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"max\" match the provided arguments",
+   "count": 3
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "Expected mapping for dictionary unpack operator",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"/\" not supported for types \"Unknown | Unbound\" and \"Unknown | Unbound\"\n\u00a0\u00a0Operator \"/\" not supported for types \"Unbound\" and \"Unbound\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"/\" not supported for types \"float | Unbound\" and \"float | Unbound\"\n\u00a0\u00a0Operator \"/\" not supported for types \"Unbound\" and \"Unbound\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 4
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"d\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"h\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"h_in\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"mu\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"n_tie\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"phimn_max\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"phivc_1\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"phivc_p\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"phivn\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"ratios\" is possibly unbound",
+   "count": 5
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"vu\" is possibly unbound",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"vu_1\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"vu_p\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/gravity.py",
+   "rule": "reportReturnType",
+   "message": "Type \"dict[Unknown, Unknown] | None\" is not assignable to return type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0Type \"dict[Unknown, Unknown] | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T(1)@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 6
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T(2)@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T(3)@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float | tuple[float, str]\" cannot be assigned to parameter \"x\" of type \"SupportsAbs[_T@abs]\" in function \"abs\"\n\u00a0\u00a0Type \"float | tuple[float, str]\" is not assignable to type \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\"tuple[float, str]\" is incompatible with protocol \"SupportsAbs[float]\"\n\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\"__abs__\" is not present",
+   "count": 8
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportAttributeAccessIssue",
+   "message": "Cannot assign to attribute \"shear_area\" for class \"Section\"\n\u00a0\u00a0Attribute \"shear_area\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportFunctionMemberAccess",
+   "message": "Cannot assign to attribute \"_euler_bernoulli\" for class \"function\"\n\u00a0\u00a0Attribute \"_euler_bernoulli\" is unknown",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "\"None\" is not iterable\n\u00a0\u00a0\"__iter__\" method not defined",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportGeneralTypeIssues",
+   "message": "Expected mapping for dictionary unpack operator",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"-\" not supported for type \"float | tuple[float, str]\" when expected type is \"float\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportOperatorIssue",
+   "message": "Operator \"/\" not supported for types \"float | tuple[float, str]\" and \"float\"\n\u00a0\u00a0Operator \"/\" not supported for types \"tuple[float, str]\" and \"float\" when expected type is \"float | Unknown\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 8
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"girders\" is possibly unbound",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportPossiblyUnboundVariable",
+   "message": "\"m\" is possibly unbound",
+   "count": 3
+  },
+  {
+   "file": "synth/v2/lateral.py",
+   "rule": "reportReturnType",
+   "message": "Type \"dict[str, Unknown] | None\" is not assignable to return type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0Type \"dict[str, Unknown] | None\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"int | str | Unknown\" cannot be assigned to parameter \"key\" of type \"str\" in function \"get\"\n\u00a0\u00a0Type \"int | str | Unknown\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"int\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/records.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"str | None\" cannot be assigned to parameter \"lc\" of type \"str\" in function \"rec\"\n\u00a0\u00a0Type \"str | None\" is not assignable to type \"str\"\n\u00a0\u00a0\u00a0\u00a0\"None\" is not assignable to \"str\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/records.py",
+   "rule": "reportCallIssue",
+   "message": "No overloads for \"get\" match the provided arguments",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/scenarios.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"get\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/scenarios.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 3
+  },
+  {
+   "file": "synth/v2/scenarios.py",
+   "rule": "reportReturnType",
+   "message": "Type \"dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float\" is not assignable to return type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0Type \"dict[str, dict[str, Unknown] | list[dict[str, Unknown] | list[Unknown] | float] | float] | list[dict[str, dict[str, Unknown] | list[Unknown] | float] | list[Unknown] | float] | float\" is not assignable to type \"dict[Unknown, Unknown]\"\n\u00a0\u00a0\u00a0\u00a0\"float\" is not assignable to \"dict[Unknown, Unknown]\"",
+   "count": 2
+  },
+  {
+   "file": "synth/v2/specs_v2.py",
+   "rule": "reportArgumentType",
+   "message": "Argument of type \"float\" cannot be assigned to parameter \"fontsize\" of type \"int\" in function \"text_length\"\n\u00a0\u00a0\"float\" is not assignable to \"int\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/specs_v2.py",
+   "rule": "reportOptionalMemberAccess",
+   "message": "\"insert_text\" is not a known attribute of \"None\"",
+   "count": 1
+  },
+  {
+   "file": "synth/v2/specs_v2.py",
+   "rule": "reportOptionalSubscript",
+   "message": "Object of type \"None\" is not subscriptable",
+   "count": 2
+  }
+ ]
+}

@@ -46,19 +46,16 @@ jobs:
           uv run python scripts/check_llm_imports.py
           uv run python scripts/check_ai_step.py
       - name: Type check (pyright ratchet + dict-for-model canary)
-        # baseline = pyright on the merge-base (PR base / the pushed range's previous tip); a NEW error fails,
-        # and scripts/typecheck_canary.py must still be reported (scripts/check_types.py)
-        run: |
-          base=""
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="origin/${{ github.base_ref }}"
-          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
-            base="${{ github.event.before }}"
-          fi
-          uv run python scripts/check_types.py ${base:+--base "$base"}
+        # baseline = the committed eval/pyright_baseline.json, which only ever shrinks: an error not in it, an
+        # entry that no longer occurs, or a count above any earlier committed version (needs fetch-depth 0)
+        # fails, and scripts/typecheck_canary.py must still be reported (scripts/check_types.py). Not the
+        # previous pushed tip: a red push's errors would have become the next push's baseline.
+        run: uv run python scripts/check_types.py
       - name: Backend tests
         run: uv run --extra dev pytest backend/tests -q
       - name: Evaluate (synthetic only, regression vs eval/baseline.json)
+        # data/synthetic_v2 is gitignored: evaluate_all runs every store_root.SOURCE_PRODUCERS producer
+        # (synth.v2.generate, synth.v2.scenarios) before any stage reads it
         run: uv run python scripts/evaluate_all.py --synthetic-only
       - name: Scorecard artifact
         if: always()
@@ -68,6 +65,7 @@ jobs:
           path: |
             prototyping/calc-graph/data/eval/scorecard.json
             prototyping/calc-graph/data/eval/pyright_current.json
+            prototyping/calc-graph/data/eval/pyright_baseline_tightened.json
           if-no-files-found: ignore
 
   frontend:

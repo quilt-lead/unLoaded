@@ -66,9 +66,11 @@ write into the source dir (and `evaluate_all.py` fails `source_data_unchanged` i
   copyright guard, AI-step ratchets, type check, backend pytest, `evaluate_all --synthetic-only`, frontend
   build; actions pinned to SHAs).
 - **Type check**: `scripts/check_types.py` runs pyright (`pyrightconfig.json`, standard mode, version pinned in
-  the script) as a ratchet - the merge-base's errors are the baseline (or `eval/pyright_baseline.json`,
-  `--write-baseline`), a new (file, rule, message) fails - and requires `scripts/typecheck_canary.py`'s
-  dict-where-a-Move-is-required calls to stay errors. CI only (type checkers are blocked on the dev Mac).
+  the script) as a ratchet against the committed `eval/pyright_baseline.json`, which only ever shrinks: a new
+  (file, rule, message) fails, an allowed error that no longer occurs fails (commit the shrunk baseline CI
+  uploads, or `--tighten-from` the downloaded `pyright_current.json`), and a count above any earlier committed
+  version fails - and requires `scripts/typecheck_canary.py`'s dict-where-a-Move-is-required calls to stay
+  errors. CI only (type checkers are blocked on the dev Mac).
 
 ## Layout
 

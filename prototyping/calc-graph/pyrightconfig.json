@@ -1,7 +1,7 @@
 {
   // Type check for calc-graph. CI runs it through scripts/check_types.py (pyright version pinned there).
-  // A ratchet, not a clean slate: errors already present on the base commit are the baseline and a NEW
-  // error fails CI. scripts/typecheck_canary.py proves on every run that passing a dict where a pydantic
+  // A ratchet, not a clean slate: the committed eval/pyright_baseline.json lists the errors still allowed,
+  // a NEW error fails CI, and the baseline only ever shrinks (an entry that no longer occurs fails too). scripts/typecheck_canary.py proves on every run that passing a dict where a pydantic
   // model is required (a410607: inbox -> impact_timeline, AttributeError at runtime) is reported.
   "include": ["backend/calcgraph", "backend/tests", "scripts", "synth"],
   "exclude": [
