@@ -5,7 +5,7 @@ import { basename } from "node:path";
 import { parseIfc } from "@unloaded/ifc-parser";
 import { buildGraph } from "@unloaded/element-graph";
 
-const file = process.argv[2] ?? "packages/ifc-parser/test/fixtures/Building-Structural-IFC4.ifc";
+const file = process.argv[2] ?? "data/Building-Structural-IFC4.ifc";
 const input = await parseIfc(new Uint8Array(readFileSync(file)), { fileName: basename(file) });
 const { graph, warnings } = buildGraph(input);
 console.log(`file: ${file}`);

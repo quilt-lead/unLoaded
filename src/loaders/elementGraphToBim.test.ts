@@ -13,7 +13,7 @@ import {
 } from '../utils/graphEngine';
 
 const root = new URL('../../', import.meta.url);
-const simpleFrame = JSON.parse(readFileSync(new URL('fixtures/simple-frame.json', root), 'utf8')) as ModelInput;
+const simpleFrame = JSON.parse(readFileSync(new URL('data/simple-frame.json', root), 'utf8')) as ModelInput;
 
 describe('elementGraphToBim on simple-frame', () => {
   const { graph: eg } = buildGraph(simpleFrame);
@@ -66,7 +66,7 @@ describe('elementGraphToBim on simple-frame', () => {
 
 describe('elementGraphToBim on the IFC sample (end to end)', async () => {
   const bytes = new Uint8Array(
-    readFileSync(new URL('packages/ifc-parser/test/fixtures/Building-Structural-IFC4.ifc', root))
+    readFileSync(new URL('data/Building-Structural-IFC4.ifc', root))
   );
   const input = await parseIfc(bytes, { fileName: 'Building-Structural-IFC4.ifc' });
   const { graph: eg } = buildGraph(input);

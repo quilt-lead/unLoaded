@@ -2,7 +2,7 @@
 
 ## Decoupled Data Layer (`data/bim-database.json`)
 
-The viewer loads structural BIM graph data from `data/bim-database.json` on startup or via the **Upload DB** file picker.
+The viewer starts empty and loads a structural BIM graph via the **Import IFC / DB** file picker. `data/bim-database.json` is a sample in this format (all IFC and JSON data lives in `data/`).
 
 ### JSON Schema
 
