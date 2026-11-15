@@ -26,7 +26,7 @@ tooling (not committed: the repo's copyright guard blocks PDFs):
 cd tools/calcgraph-reference && uv run python -m synth.generate && cd ../.. && npm run assets
 ```
 
-The **Harborview A/B demo** (two legacy JSON revisions in `sample-data/`, with invented documents shown
+The **Harborview A/B demo** (two legacy JSON revisions in `data/`, with invented documents shown
 labelled as demo data) needs nothing extra.
 
 ## Pipeline

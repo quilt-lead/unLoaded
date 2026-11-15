@@ -8,8 +8,8 @@ const root = new URL('../../', import.meta.url);
 const read = (f: string) => JSON.parse(readFileSync(new URL(f, root), 'utf8')) as unknown;
 
 describe("Noah's legacy demo JSON through the element graph and the one diff", () => {
-  const a = read('sample-data/harborview-tower-rev1-base.json');
-  const b = read('sample-data/harborview-tower-rev2-compare.json');
+  const a = read('data/harborview-tower-rev1-base.json');
+  const b = read('data/harborview-tower-rev2-compare.json');
 
   it('is recognised as legacy BIM JSON', () => {
     expect(isLegacyBimJson(a)).toBe(true);

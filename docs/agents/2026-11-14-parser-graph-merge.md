@@ -68,7 +68,7 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
 ## Update: prod merged back in (c69ef3d, "added diff compare to the ui")
 
 - Prod now starts with an empty workspace (no auto-load of `public/data/bim-database.json`; the sample lives in
-  `sample-data/`) and adds Diff Mode. *(Since superseded: `computeDatabaseDiff` and the A/B file slots are gone; A and
+  `sample-data/`, since consolidated into `data/`) and adds Diff Mode. *(Since superseded: `computeDatabaseDiff` and the A/B file slots are gone; A and
   B are two model revisions of a project and the one diff is `diffGraphs` in `packages/calc-mapper`.)*
 - Diffing two IFC imports works well because element ids are IFC GlobalIds (stable across re-exports).
   Importing the same file as A and B gives +0 / ~0 / -0.

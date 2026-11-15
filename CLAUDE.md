@@ -30,6 +30,8 @@ Full description: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). In short:
 - Models (`.ifc`, serialized element graph, ModelInput, legacy BIM JSON via `src/loaders/legacyBimJson.ts`) become an
   `ElementGraph` (`packages/ifc-parser`, `packages/element-graph`); `src/loaders/elementGraphToBim.ts` is the only
   ElementGraph → view adapter.
+- All IFC and JSON sample models and test fixtures live in `data/` (see `data/README.md`); `scripts/copy-assets.mjs`
+  copies the ones **Load sample** needs into `public/samples/`.
 - Calc package PDFs go through `packages/calc-mapper` in a Web Worker (`src/engine/`); `src/data/loadProject.ts` is the
   only engine → view adapter. `src/data/mergeProject.ts` joins the two by GlobalId.
 - Projects live in IndexedDB (`src/data/projectStore.ts`: revisions, element graphs, extractions, mapping runs, the

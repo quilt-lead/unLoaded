@@ -1,7 +1,7 @@
 /**
  * Legacy / hand-authored BIM graph JSON ({ projectName, nodes, links }) -> element graph.
  *
- * This is the format of Noah's demo files (sample-data/*.json, data/harborview-*.json). They used to
+ * This is the format of Noah's demo files (data/bim-database.json, data/harborview-*.json). They used to
  * be loaded straight into the old view model; now they go through the same path as every model:
  * legacy JSON -> ModelInput -> buildGraph (connectivity + load path inferred from the boxes) ->
  * ElementGraph -> src/loaders/elementGraphToBim.ts, so two of them can be compared with the one diff

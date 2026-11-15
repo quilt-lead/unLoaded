@@ -4,7 +4,7 @@
  *   node packages/ifc-parser/scripts/dump.ts [file.ifc]      (Node >= 22.18 / 23.6 type stripping)
  *   npx tsx packages/ifc-parser/scripts/dump.ts [file.ifc]
  *
- * Defaults to the buildingSMART sample in test/fixtures. The same summary is
+ * Defaults to the buildingSMART sample in data/. The same summary is
  * printed by the vitest suite (test/sample.test.ts).
  */
 import type { ModelInput } from "@unloaded/element-graph/input";
@@ -34,7 +34,7 @@ if (isMain) {
   const { readFile } = await import("node:fs/promises");
   const { fileURLToPath } = await import("node:url");
   const { parseIfc } = await import("../src/index.ts");
-  const file = process.argv[2] ?? fileURLToPath(new URL("../test/fixtures/Building-Structural-IFC4.ifc", import.meta.url));
+  const file = process.argv[2] ?? fileURLToPath(new URL("../../../data/Building-Structural-IFC4.ifc", import.meta.url));
   const data = new Uint8Array(await readFile(file));
   const model = await parseIfc(data, { fileName: file.split(/[\\/]/).pop() });
   console.log(summariseModel(model));
