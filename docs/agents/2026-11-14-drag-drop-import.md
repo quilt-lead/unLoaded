@@ -24,14 +24,12 @@ the header buttons.
 - **Extension filtering happens on drop, not on dragover.** Browsers don't expose file names during
   dragover, so the overlay can't reject a bad file early. Unsupported files get an error toast. The list
   comes from `ACCEPTED_EXTENSIONS`, so new parsers in `BIM_PARSERS` are picked up automatically.
-- **One file per drop.** If several are dropped, the first supported one is imported and the rest
-  are logged to the console.
+- **One file per drop, by user decision.** If several are dropped, the first supported one is imported
+  and the rest are logged to the console. Two files → A + B in one drop was offered and declined. Don't
+  add it unless asked.
 
 ## Open / next steps
 
-- **Two files → A + B in one drop** would suit the diff workflow. It needs `handleUploadFile` to read
-  `baseSnapshot` from a ref (or to return the snapshot), because two calls in the same tick see a stale
-  `baseSnapshot` closure, so the second file would also load as A.
 - There's no DOM test environment (no jsdom/testing-library), so the hook has no unit tests. Verify
   manually: drag a `.ifc` from `data/` onto an empty app, then a second one onto the "Compare" target,
   then a `.txt` (expect an error toast).
