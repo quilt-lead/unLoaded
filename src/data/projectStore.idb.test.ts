@@ -79,7 +79,9 @@ describe('IdbBackend.run', () => {
         await new Promise((r) => setTimeout(r, 10));
         await t.put('projects', proj('b'));
       }),
-    ).rejects.toMatchObject({ name: 'TransactionInactiveError' });
+    // the second write must fail, never half-apply: a still-open-but-inactive transaction throws
+    // TransactionInactiveError, an already-committed one InvalidStateError (both per the IndexedDB spec)
+    ).rejects.toSatisfy((e: unknown) => e instanceof DOMException && ['TransactionInactiveError', 'InvalidStateError'].includes(e.name));
   });
 
   it('the public API runs on it: projects and the decision log (autoIncrement, projectId index)', async () => {
