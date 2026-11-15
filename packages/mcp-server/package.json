@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Local, read-only MCP server (stdio) over one *.calcgraph.json project file: the engineer's own AI asks about elements, calcs, links, evidence, impact and revisions. Runs @unloaded/calc-mapper in-process; nothing is hosted.",
+  "description": "Local MCP server (stdio) over one structural project: IFC model(s) (or a *.calcgraph.json project file) mapped to calc-package PDFs by @unloaded/calc-mapper, with @unloaded/element-graph connectivity and @unloaded/move-impact what-ifs. The engineer's own AI queries elements, calcs, links, evidence, findings, typical groups, load path, impact and revision diffs, and records review decisions to an append-only decisions file.",
   "bin": {
     "unloaded-mcp-server": "./bin/unloaded-mcp-server.mjs"
   },
@@ -15,13 +15,16 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "node bin/unloaded-mcp-server.mjs --model ../../tools/calcgraph-reference/data/synthetic/model_rev1.ifc --calcs ../../tools/calcgraph-reference/data/synthetic/calc_package.pdf --check",
+    "parity": "node scripts/mcp-parity.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
     "@napi-rs/canvas": "0.1.100",
     "@unloaded/calc-mapper": "0.1.0",
     "@unloaded/element-graph": "0.1.0",
+    "@unloaded/ifc-parser": "0.1.0",
     "@unloaded/move-impact": "0.1.0",
     "@unloaded/project-file": "0.1.0",
     "pdfjs-dist": "4.10.38",

@@ -1,57 +1,59 @@
 /**
- * unloaded-mcp-server <project.calcgraph.json>
- *
- * Serves one project file over MCP on stdio to the AI client that launched it (Claude Desktop,
- * Claude Code, Cursor...). Local only: the server opens no port and makes no network request; it
- * reads the file and answers on stdin/stdout. stdout is the protocol channel, so every log line
- * (including pdf.js's own console output) goes to stderr.
- *
- *   --check   load the file, run the engine on the head revisions, print a summary to stderr, exit
+ * unloaded-mcp-server: serve one project over MCP stdio to the AI client that launched it (Claude
+ * Desktop, Claude Code, Cursor...). Local only: no port, no network. stdout is the protocol channel,
+ * so every log line goes to stderr (bin/unloaded-mcp-server.mjs routes console output before this
+ * module loads). See inputs.ts for the arguments.
  */
-import { resolve } from "node:path";
-import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ProjectSource } from "./project.ts";
+import { checkReport } from "./check.ts";
+import { InputError, USAGE, parseCli } from "./inputs.ts";
+import { loadProject } from "./project.ts";
 import { SERVER_NAME, SERVER_VERSION, createServer } from "./server.ts";
-import { projectSummary } from "./tools.ts";
+import { routeConsoleToStderr, suppressedPdfjsWarnings, suppressedWebIfcMessages } from "./stdio.ts";
 
-// stdout carries JSON-RPC only: route console output (ours and libraries') to stderr
-for (const k of ["log", "info", "warn", "debug"] as const) console[k] = (...a: unknown[]) => console.error(...a);
+// idempotent when the bin shim already did it; covers `node src/cli.ts`
+routeConsoleToStderr({ verbose: process.argv.includes("--verbose") });
 
-const USAGE = `usage: unloaded-mcp-server <project.calcgraph.json> [--check]
+const log = (s: string) => process.stderr.write(s.endsWith("\n") ? s : s + "\n");
 
-Serves a calc-graph project file (saved from the app with "Save project") to your AI client over
-MCP stdio. Read-only, local: nothing leaves this machine except what your AI client sends.`;
-
-const { values, positionals } = parseArgs({
-  allowPositionals: true,
-  options: { check: { type: "boolean" }, help: { type: "boolean", short: "h" }, version: { type: "boolean", short: "v" } },
-});
-if (values.help) {
-  console.error(USAGE);
-  process.exit(0);
-}
-if (values.version) {
-  console.error(`${SERVER_NAME} ${SERVER_VERSION}`);
-  process.exit(0);
-}
-const file = positionals[0] ?? process.env.UNLOADED_PROJECT_FILE;
-if (!file || positionals.length > 1) {
-  console.error(USAGE);
+let opts: ReturnType<typeof parseCli>;
+try {
+  opts = parseCli(process.argv.slice(2));
+} catch (e) {
+  log(`${SERVER_NAME}: ${(e as Error).message}`);
   process.exit(2);
 }
+if (opts.help) {
+  log(USAGE);
+  process.exit(0);
+}
+if (opts.version) {
+  log(`${SERVER_NAME} ${SERVER_VERSION}`);
+  process.exit(0);
+}
 
-const source = new ProjectSource(resolve(file));
+let project: Awaited<ReturnType<typeof loadProject>>;
 try {
-  const p = await source.get();
-  if (values.check) {
-    const s = await projectSummary(p);
-    console.error(JSON.stringify({ project: s.project, counts: s.counts, source: s.source }, null, 2));
-    process.exit(0);
-  }
-  console.error(`${SERVER_NAME} ${SERVER_VERSION}: serving ${p.file.project.name} (${file}, sha256 ${p.sha256.slice(0, 12)}...) on stdio`);
+  project = await loadProject(opts.inputs!);
 } catch (e) {
-  console.error(`${SERVER_NAME}: cannot read ${file}: ${(e as Error).message}`);
+  const err = e as Error;
+  log(`${SERVER_NAME}: cannot load the project: ${err.message}`);
+  if (!(e instanceof InputError) && process.env.UNLOADED_DEBUG) log(err.stack ?? "");
   process.exit(1);
 }
-await createServer(source).connect(new StdioServerTransport());
+
+if (opts.check) {
+  log(checkReport(project, { serverName: SERVER_NAME, version: SERVER_VERSION, suppressedWebIfc: suppressedWebIfcMessages(), suppressedPdfjs: suppressedPdfjsWarnings() }));
+  process.exit(0);
+}
+
+const c = project.counts;
+log(
+  `${SERVER_NAME} ${SERVER_VERSION}: serving ${project.projectFile ? `${project.projectFile.name}: ` : ""}${project.current.name}` +
+    `${project.models.length > 1 ? ` (+${project.models.length - 1} older revision(s))` : ""} + ${project.pdfs.map((p) => p.name).join(", ")} ` +
+    `(${project.elements.length} elements, ${project.calcs.length} calcs; confirmed ${c.confirmed}, review ${c.review}, unmapped ${c.unmapped}); ` +
+    (project.decisions ? `decisions -> ${project.decisions.path} as "${project.actor}"` : "read-only (no --decisions)") +
+    " on stdio",
+);
+for (const w of project.warnings) log(`warning: ${w}`);
+await createServer(project).connect(new StdioServerTransport());
