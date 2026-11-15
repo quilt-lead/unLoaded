@@ -679,6 +679,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const lit = isNodeHighlighted(s) && isNodeHighlighted(t);
                 const dimmed = (hasSelection || isFilterActive) && !lit;
                 if (link.relation === 'calc-dependency') {
+                  // dependency wires are only drawn for the selected calc(s); always-on they bury the graph
+                  if (!selectedNodeIds.has(link.source) && !selectedNodeIds.has(link.target)) return null;
                   return (
                     <path
                       key={`cd-${idx}`}

@@ -18,6 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-calc-graph-drag.md](2026-11-15-calc-graph-drag.md) | done | Calculation Graph nodes are draggable like the Element Graph; drags stored as offsets so mapped-element satellites follow their calc |
 | [2026-11-15-pdf-view-layout.md](2026-11-15-pdf-view-layout.md) | done | PDF Calcs view: hides the global filter bar, adds a narrow fixed-width calc list that can be hidden, puts the calc header and caption on one toolbar row, makes the deps/linked-elements footer collapsible |
 | [2026-11-15-default-panel-docking.md](2026-11-15-default-panel-docking.md) | done | Inspector defaults to the left dock and 3D model to the right dock; navbar shadow no longer overlaps filters |
 | [2026-11-15-theme-aware-favicon.md](2026-11-15-theme-aware-favicon.md) | done | Adds light/dark SVG favicons selected by the operating system color preference |

@@ -181,6 +181,9 @@ export const App: React.FC = () => {
   // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
   const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
+  // Calc graph drags are stored as cumulative offsets, not absolute positions: the mapped-element
+  // satellites are laid out around their anchor calc, so an offset on the anchor carries its fan with it.
+  const [calcMoved, setCalcMoved] = useState<Map<string, { dx: number; dy: number }>>(new Map());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [selectedCalcNodeId, setSelectedCalcNodeId] = useState<string | null>(null);
@@ -249,6 +252,7 @@ export const App: React.FC = () => {
         setDocFilterBySelected(false);
         setGroups([]);
         setMoved(new Map());
+        setCalcMoved(new Map());
         handleClearSelection();
         setImpactReq(null);
         setPdfTarget(null);
@@ -336,10 +340,17 @@ export const App: React.FC = () => {
   }, [view, moved]);
   const elementById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
 
-  const calcGraph = useMemo(
-    () => withMappingSatellites(view?.calcNodes ?? [], view?.calcLinks ?? [], calcAnchorKey, elementNodes),
-    [view, calcAnchorKey, elementNodes],
-  );
+  const calcGraph = useMemo(() => {
+    const offset = (n: BimNode): BimNode => {
+      const m = calcMoved.get(n.id);
+      return m ? { ...n, x: n.x + m.dx, y: n.y + m.dy } : n;
+    };
+    const calcNodes = view?.calcNodes ?? [];
+    const g = withMappingSatellites(calcMoved.size ? calcNodes.map(offset) : calcNodes, view?.calcLinks ?? [], calcAnchorKey, elementNodes);
+    if (!calcMoved.size) return g;
+    // satellites are placed from the (already offset) anchor; apply their own drag offsets on top
+    return { ...g, nodes: g.nodes.map((n) => (n.kind === 'mapped-element' ? offset(n) : n)) };
+  }, [view, calcAnchorKey, elementNodes, calcMoved]);
 
   const hasProject = Boolean(view && (view.elementNodes.length > 1 || view.calcs.length > 0));
 
@@ -551,6 +562,17 @@ export const App: React.FC = () => {
     },
     [elementById],
   );
+
+  const handleMoveCalcNodes = useCallback((movedIds: Set<string>, dx: number, dy: number) => {
+    setCalcMoved((prev) => {
+      const next = new Map(prev);
+      movedIds.forEach((id) => {
+        const m = next.get(id);
+        next.set(id, { dx: (m?.dx ?? 0) + dx, dy: (m?.dy ?? 0) + dy });
+      });
+      return next;
+    });
+  }, []);
 
   const handleGroupSelection = useCallback(() => {
     const ids = Array.from(selectedNodeIds).filter((id) => elementById.has(id));
@@ -1396,7 +1418,7 @@ export const App: React.FC = () => {
               onSelectNode={(id) => handleSelectCalcNode(id)}
               onSelectNodes={handleSelectCalcNodes}
               onClearSelection={handleClearSelection}
-              onMoveNodes={() => {}}
+              onMoveNodes={handleMoveCalcNodes}
               onGroupSelection={() => {}}
             />
           )}
