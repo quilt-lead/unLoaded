@@ -103,6 +103,36 @@ export function inches(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** An inch value as printed: 6", 6-1/4", 6 1/4", 6.25", 1/2". */
+const INCH_VALUE = /(?<![\d.\/'-])(\d+(?:\.\d+)?(?:(?:\s+|-)\d+\/\d+)?|\d+\/\d+)\s*"/g;
+
+/**
+ * Slab thickness from a deck note. In order: a value marked TOTAL / OVERALL, or followed by SLAB,
+ * is the thickness; else a deck depth ("3" ... DECK") plus the concrete above it ("3-1/4" LW
+ * CONCRETE", "... TOPPING") is their sum; else a bare deck with no concrete mentioned is its depth.
+ * Anything else (composite deck without a concrete thickness) is undefined - a rib depth is never
+ * taken as the slab thickness.
+ */
+export function deckThickness(text: string): { thicknessIn: number; rule: string } | undefined {
+  const t = text.toUpperCase();
+  const vals: Array<{ v: number; ctx: string }> = [];
+  const ms = [...t.matchAll(INCH_VALUE)];
+  ms.forEach((m, i) => {
+    const v = inches(m[1]!);
+    if (v === undefined || !(v > 0)) return;
+    const from = m.index! + m[0].length;
+    const to = Math.min(i + 1 < ms.length ? ms[i + 1]!.index! : t.length, ...[",", ";", "(", ")", ". "].map((c) => (t.indexOf(c, from) < 0 ? t.length : t.indexOf(c, from))));
+    vals.push({ v, ctx: t.slice(from, to) });
+  });
+  const total = vals.find((x) => /^\s*(?:TOTAL|OVERALL)\b|^\s*(?:[A-Z.]+\s+){0,3}SLAB\b/.test(x.ctx));
+  if (total) return { thicknessIn: total.v, rule: "value marked TOTAL / SLAB in the deck note" };
+  const deck = vals.find((x) => /\bDECK\b/.test(x.ctx));
+  const conc = vals.find((x) => x !== deck && /\b(?:CONC|CONCRETE|TOPPING|FILL)\b/.test(x.ctx));
+  if (deck && conc) return { thicknessIn: deck.v + conc.v, rule: "deck depth + concrete above the deck (deck note)" };
+  if (deck && !/\b(?:CONC|CONCRETE|COMPOSITE|TOPPING|FILL)\b/.test(t)) return { thicknessIn: deck.v, rule: "bare deck: deck depth (no concrete in the note)" };
+  return undefined;
+}
+
 /** A drawing scale "3/16" = 1'-0"" -> points per foot. */
 export function scalePtPerFt(s: string): number | undefined {
   const m = /(\d+(?:-\d+\/\d+|\/\d+)?)\s*"\s*=\s*1\s*'\s*-?\s*0\s*"/.exec(s);
@@ -157,13 +187,20 @@ export function memberTag(text: string, sfrsPrefix = "*"): MemberTag | undefined
  * Nominal section depth / width (m) from a designation alone, no section table: W18X40 -> 18 in
  * deep; HSS6X4X1/4 -> 6 x 4 in. Flange widths of rolled shapes are not in the designation, so the
  * width is a rough fraction of the depth. Used only for the bbox and recorded as nominal.
+ *
+ * HSS by the AISC designation's dimension count: three (Ht x B x t, any of "3-1/2", "3.5", "1/4")
+ * is rectangular / square; two (OD x t, e.g. HSS5.563X0.375) is round.
  */
 export function nominalSection(profile: string): { depth: number; width: number } | undefined {
-  let m = /^HSS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)(?:X|$)/.exec(profile);
-  if (m) return { depth: Number(m[1]) * 0.0254, width: Number(m[2]) * 0.0254 };
-  m = /^HSS(\d+(?:\.\d+)?)X[\d./-]+$/.exec(profile);
-  if (m) return { depth: Number(m[1]) * 0.0254, width: Number(m[1]) * 0.0254 };
-  m = /^(?:W|M|S|HP|C|MC|WT|MT|ST)(\d+(?:\.\d+)?)X/.exec(profile);
+  const hss = /^HSS(.+)$/.exec(profile);
+  if (hss) {
+    const dims = hss[1]!.split("X").map((d) => (/^[\d./-]+$/.test(d) ? inches(d) : undefined));
+    if (dims.some((d) => d === undefined || !(d > 0))) return undefined;
+    if (dims.length === 3) return { depth: dims[0]! * 0.0254, width: dims[1]! * 0.0254 };
+    if (dims.length === 2) return { depth: dims[0]! * 0.0254, width: dims[0]! * 0.0254 };
+    return undefined;
+  }
+  let m = /^(?:W|M|S|HP|C|MC|WT|MT|ST)(\d+(?:\.\d+)?)X/.exec(profile);
   if (m) {
     const d = Number(m[1]) * 0.0254;
     return { depth: d, width: Math.max(0.1, d * 0.45) };

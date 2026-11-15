@@ -67,10 +67,17 @@ geometric ratio and says what it was scaled by; nothing calc-dependent is presen
 2. **Topological impact**: what frames into the moved column follows it; what frames into a moved
    member slides to its new line (re-spans) or re-frames onto the collinear member when the support no
    longer spans past it; every beam downstream of a changed one; connections at both ends of every
-   re-solved member; columns and their base plate / pier / footing when their load moves > 0.1 %;
+   re-solved member; columns and their base plate / pier / footing when their load moves > 0.1 %.
+   A column's load change is its own members' reaction changes plus everything carried down from the
+   column(s) it supports (an upper storey's column bears on the one below it, a column on its pier),
+   accumulated once, top-down; the footing takes the change of the column(s) bearing on it - the whole
+   stack;
    grade beams tied to the moved footing and footing clashes; with facts, every member of a lateral
    frame the column belongs to and braces under a chevron beam whose gravity changes. Removal: the
    collinear pair with the shortest combined span becomes one transfer member, the rest re-frame onto it.
+   Each far support's change is the transfer member's reaction minus the reaction of the half that
+   framed into it before, both from the same local statics on the same loads (line load + self weight),
+   never a computed reaction minus a stated one.
 3. **Screened impact**: the same local simple-span statics before and after (`statics.ts`; exact for a
    pinned beam, no FE solver) on the stated line loads / reactions, or, without beam facts, a unit
    area load on each beam's tributary width. Kept when the governing quantity - moment (beams),
@@ -81,8 +88,10 @@ geometric ratio and says what it was scaled by; nothing calc-dependent is presen
    and / phiMn ratio at the new unbraced length when a shape table is supplied; shear x shear ratio;
    deflection computed from the stated loads and Ix when supplied, else scaled; allowable x span
    ratio); columns x axial ratio (stated Pu + reaction deltas factored by the printed combination,
-   seismic combinations with SDS >= Cs R / Ie); footings by bearing at the model's size and the
-   stated allowable bearing, with the required width; connections x end-reaction ratio and the next
+   seismic combinations with SDS >= Cs R / Ie; a column without a calc row inherits the combination
+   of the column above); footings by bearing on the plan area (a stated `width` as stated, the
+   model's long side for a rectangular plan, else square - said in `scaledBy`) at the stated allowable
+   bearing, with the required width at the same aspect ratio; connections x end-reaction ratio and the next
    typical detail whose capacity covers it and whose bolt row fits the web; braced-frame girders by
    the F2.3 chevron check; chevron braces by the share of the beam's gravity change at the work point.
 5. **Health** (facts only): the hackathon's bands and rules on the estimates (design health only).

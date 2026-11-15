@@ -7,7 +7,7 @@ import type { Facts, MemberFact } from "./facts.ts";
 import { bracket, bubbleLabels, canonicalIntersection, intersection, nearestLine, type BuildingGrid, type SheetMap } from "./grid.ts";
 import type { DrawingProfile } from "./profile.ts";
 import {
-  center, feetInches, inches, levelName, LEVEL_IN_TEXT, memberTag, r2, roundRect, slug, union, type MemberTag,
+  center, deckThickness, feetInches, levelName, LEVEL_IN_TEXT, memberTag, r2, roundRect, slug, union, type MemberTag,
 } from "./text.ts";
 import type { Occurrence, OccurrenceHow, Phrase, Rect, Sheet, SheetGridLine } from "./types.ts";
 
@@ -196,7 +196,7 @@ export function readFoundationMarks(ctx: SheetCtx): void {
   }
 }
 
-/** Deck / slab note on a plan: "FLOOR DECK: 3" ... 6-1/4" TOTAL ..." -> one slab at the sheet's level. */
+/** Deck / slab note on a plan: "FLOOR DECK: 3" ... 6-1/4" TOTAL ..." -> one slab at the sheet's level (thickness: `deckThickness`). */
 export function readDeckNote(ctx: SheetCtx): void {
   const { sheet, phr, facts } = ctx;
   if (!sheet.level || sheet.kind !== "framing") return;
@@ -212,11 +212,9 @@ export function readDeckNote(ctx: SheetCtx): void {
     y = p.rect[3];
   }
   const text = body.map((p) => p.text).join(" ");
-  const total = /(\d+(?:-\d+\/\d+)?)\s*"\s*TOTAL/.exec(text);
-  const first = /(\d+(?:-\d+\/\d+)?)\s*"/.exec(text);
-  const thickness = inches((total ?? first)?.[1] ?? "");
+  const th = deckThickness(text);
   facts.slabs.push({
-    level: sheet.level, text, ...(thickness ? { thicknessIn: thickness } : {}),
+    level: sheet.level, text, ...(th ? { thicknessIn: th.thicknessIn, thicknessRule: th.rule } : {}),
     occ: occ(sheet, union(body.map((p) => p.rect)), "note", text),
   });
 }
@@ -288,8 +286,10 @@ export function readElevations(ctx: SheetCtx): void {
     const inter = (label: string) => (v.axis === "x" ? intersection(label, v.line) : intersection(v.line, label));
     const lineFt = grid[v.axis === "x" ? "y" : "x"].get(v.line)!;
     const plan = (u: number): [number, number] => (v.axis === "x" ? [u, lineFt] : [lineFt, u]);
-    // column segments for callout attribution (base end)
-    for (const b of bx) ctx.segs.push({ id: `column:${inter(b.label)}`, kind: "column-base", p: [b.x, lv[0]!.y], q: [b.x, lv[lv.length - 1]!.y], ends: ["base", "top"] });
+    // column bases for callout attribution: a point at the lowest level, as on a foundation plan. A
+    // "column-base" target is attributed as a base plate, so it must not reach up the column's height
+    // (a callout beside the column at an upper level is not at its base)
+    for (const b of bx) ctx.segs.push({ id: `column:${inter(b.label)}`, kind: "column-base", p: [b.x, lv[0]!.y], q: [b.x, lv[0]!.y], ends: ["base", "base"] });
     for (const p of phr) {
       const [cx, cy] = center(p.rect);
       if (cy >= v.y || cy <= v.top || cx < xMin || cx > xMax) continue;

@@ -13,7 +13,7 @@ import {
   readLevelStatements, readMarkSchedules, readPlanMembers, type Callout, type SheetCtx,
 } from "./read.ts";
 import { readSheet } from "./sheets.ts";
-import { phrases } from "./text.ts";
+import { phrases, r2 } from "./text.ts";
 import type { DrawingPage, Phrase, Sheet, SheetGridLine } from "./types.ts";
 
 export interface DrawingParseOptions {
@@ -70,10 +70,18 @@ export function parseDrawingPages(pages: DrawingPage[], opts: { files?: string[]
     .filter((p) => p.lines.some((l) => l.axis === "x") && p.lines.some((l) => l.axis === "y") && Number.isFinite(p.cal.k.x))
     .sort((a, b) => b.lines.length - a.lines.length || b.cal.pairs.filter((x) => x.ft).length - a.cal.pairs.filter((x) => x.ft).length)[0];
   const grid: BuildingGrid | undefined = ref ? buildingGrid(ref.sheet, ref.lines, ref.cal) : undefined;
+  if (grid && ref) {
+    for (const m of grid.measured) {
+      facts.warnings.push(m.writtenFt !== undefined
+        ? `${grid.reference}: grid ${m.a}-${m.b}: dimension ${r2(m.writtenFt)} ft disagrees with the scale (measured ${r2(m.ft)} ft); span measured, not stated`
+        : `${grid.reference}: grid ${m.a}-${m.b}: no dimension string; span measured (${r2(m.ft)} ft), not stated`);
+    }
+    if (ref.cal.ambiguous) facts.warnings.push(`${grid.reference}: dimension strings support different scales equally and no scale note decides; scale from the first`);
+  }
   const calibration = new Map<string, { source: string; ftPerPt: number; rmsResidualIn?: number }>();
   for (const p of plans) {
     calibration.set(`${p.sheet.file}|${p.sheet.page}`, {
-      source: p.cal.source, ftPerPt: Number.isFinite(p.cal.k.x) ? p.cal.k.x : grid?.k.x ?? NaN,
+      source: p.cal.scaleRule ? `${p.cal.source} (${p.cal.scaleRule})` : p.cal.source, ftPerPt: Number.isFinite(p.cal.k.x) ? p.cal.k.x : grid?.k.x ?? NaN,
       ...(p.cal.rmsResidualIn !== undefined ? { rmsResidualIn: p.cal.rmsResidualIn } : {}),
     });
     if (grid) {
@@ -87,7 +95,7 @@ export function parseDrawingPages(pages: DrawingPage[], opts: { files?: string[]
   const ctxs: Array<{ ctx: SheetCtx; callouts: Callout[] }> = [];
   for (const r of read) {
     const plan = plans.find((p) => p.sheet === r.sheet);
-    const ctx: SheetCtx = { sheet: r.sheet, phr: r.phr, pf, grid: grid ?? { x: new Map(), y: new Map(), reference: "", k: { x: NaN, y: NaN } }, facts, segs: [] };
+    const ctx: SheetCtx = { sheet: r.sheet, phr: r.phr, pf, grid: grid ?? { x: new Map(), y: new Map(), reference: "", k: { x: NaN, y: NaN }, measured: [] }, facts, segs: [] };
     readLevelStatements(ctx);
     readDetailPanels(ctx);
     readMarkSchedules(ctx);

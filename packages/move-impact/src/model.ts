@@ -337,6 +337,35 @@ export function below(model: Model, id: string): string[] {
   return out;
 }
 
+/**
+ * One step down a column's load path: the next column(s) below `id` (an upper storey's column bears
+ * on the one below it; a column on its pier) and the elements met before reaching one (splice or base
+ * plate connection, footing). Never passes through a beam or brace, and never past a column: what is
+ * below that column belongs to its own step. Following `columns` repeatedly walks the whole stack.
+ */
+export function nextBelow(model: Model, id: string): { columns: string[]; between: string[] } {
+  const seen = new Set<string>([id]);
+  const columns: string[] = [];
+  const between: string[] = [];
+  const q = [id];
+  while (q.length) {
+    const x = q.shift()!;
+    for (const y of model.down.get(x) ?? []) {
+      if (seen.has(y)) continue;
+      seen.add(y);
+      const k = model.nodes.get(y)?.kind;
+      if (k === "beam" || k === "brace") continue;
+      if (k === "column") {
+        columns.push(y);
+        continue;
+      }
+      between.push(y);
+      q.push(y);
+    }
+  }
+  return { columns, between };
+}
+
 export function spanOf(m: { p1: P2; p2: P2 }): number {
   return dist(m.p1, m.p2);
 }

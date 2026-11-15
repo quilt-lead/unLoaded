@@ -75,6 +75,8 @@ export interface SlabFact {
   level: string;
   text: string;
   thicknessIn?: number;
+  /** How the thickness was read from the note (`deckThickness`). */
+  thicknessRule?: string;
   occ: Occurrence;
 }
 

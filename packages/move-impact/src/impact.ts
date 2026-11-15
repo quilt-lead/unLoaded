@@ -5,7 +5,7 @@
  * of the generator's design file replaced by geometry from the element graph or by values a calc
  * states (optional `CalcFact`s). See README "What changed from the hackathon engine".
  */
-import { buildModel, below, dist, lineIntersect, spanOf, type End, type Member, type Model, type P2 } from "./model.ts";
+import { buildModel, below, dist, lineIntersect, nextBelow, spanOf, type End, type Member, type Model, type P2 } from "./model.ts";
 import { fac, ru, solveSpan, type SpanResult, type Vec3 } from "./statics.ts";
 import { healthOf } from "./health.ts";
 import { normaliseFacts, utilOf, type WFact } from "./facts.ts";
@@ -500,11 +500,12 @@ export function impact(input: ImpactInput): ImpactResult {
     }
   }
 
-  // ---- columns, footings, piers, base plates: reaction deltas
-  const dcol = new Map<string, Vec3>();
+  // ---- columns, footings, piers, base plates: reaction deltas, accumulated down each column stack
+  // own: the reaction changes of the members framing into a column (re-solved and transfer members)
+  const ownD = new Map<string, Vec3>();
   const addD = (c: string, d: Vec3) => {
-    const v = dcol.get(c) ?? [0, 0, 0];
-    dcol.set(c, [v[0] + d[0], v[1] + d[1], v[2] + d[2]]);
+    const v = ownD.get(c) ?? [0, 0, 0];
+    ownD.set(c, [v[0] + d[0], v[1] + d[1], v[2] + d[2]]);
   };
   for (const mid of resolvedIds)
     for (const end of ["i", "j"] as End[]) {
@@ -554,68 +555,113 @@ export function impact(input: ImpactInput): ImpactResult {
           scaledBy: `transfer member moment ${fmt(r.mu, 1)} (local statics: both halves' stated loads + re-framed reactions) / ${name(heavier.id) ?? heavier.id}'s stated flexure capacity ${fmt(phiMn, 1)}`,
           source: hf.source, fact: hf.id,
         });
-      notes.push(`${tid}: required size not estimated - no section table in the model (the hackathon sized it from the AISC table)`);
+      notes.push(
+        input.sections
+          ? `${tid}: required size not estimated - the supplied section table covers only the model's profiles, not a shape catalogue to size from (the hackathon sized it from the full AISC table)`
+          : `${tid}: required size not estimated - no section table supplied (the hackathon sized it from the AISC table)`,
+      );
+      // each far support's change: the transfer member's reaction minus the reaction of the half that
+      // framed into it before, BOTH from the same local statics on the same loads (line load + self weight
+      // from wOf, carried members' reactions) - a stated reaction may not include the self weight the
+      // transfer solve adds, so mixing the two would leak that difference into the column and footing
       for (const [end, m, mEnd] of [["i", a, fa], ["j", b, fb]] as [End, Member, End][]) {
         const s = m.sup[mEnd];
-        const old = baseReaction(m.id, mEnd, m.roof) ?? (basis === "unit area load" ? (baseSolve(m.id)?.[mEnd === "i" ? "Ri" : "Rj"] ?? null) : null);
+        const old = baseSolve(m.id)?.[mEnd === "i" ? "Ri" : "Rj"] ?? null;
         if (!s || !old) continue;
         const nw = end === "i" ? r.Ri : r.Rj;
         addD(s, [nw[0] - old[0], nw[1] - old[1], nw[2] - old[2]]);
       }
     }
   }
-  // unit/stated column load before: every member reaction into the stack (for the ratio)
-  const colLoad0 = (c: string): number => {
-    let s = 0;
+  // the load path down each column: the next column(s) below (an upper storey on the one below it, a
+  // column on its pier) and what is between (splice / base plate, footing)
+  const nextMemo = new Map<string, ReturnType<typeof nextBelow>>();
+  const nextOf = (c: string) => nextMemo.get(c) ?? nextMemo.set(c, nextBelow(model, c)).get(c)!;
+  const gone = (c: string) => remove && stack.includes(c);
+  // every column a change reaches: those with a reaction change of their own, and every column below them
+  const reached = new Set<string>();
+  const cq = [...ownD.keys()].filter((c) => !gone(c));
+  while (cq.length) {
+    const c = cq.shift()!;
+    if (reached.has(c)) continue;
+    reached.add(c);
+    for (const d of nextOf(c).columns) if (!gone(d)) cq.push(d);
+  }
+  const above = new Map<string, string[]>();
+  for (const c of [...reached].sort())
+    for (const d of nextOf(c).columns) if (reached.has(d)) (above.get(d) ?? above.set(d, []).get(d)!).push(c);
+  // load before (for the ratio): the beam reactions into the column itself, as vectors [D, L, Lr]
+  const own0 = (c: string): Vec3 => {
+    const s: Vec3 = [0, 0, 0];
     for (const [m, e] of model.carried.get(c) ?? []) {
       if (model.members.get(m)?.kind !== "beam") continue;
       const rv = basis === "stated loads" ? baseReaction(m, e, model.members.get(m)!.roof) : baseReaction(m, e, false);
-      if (rv) s += fac(rv, "LC2");
+      if (rv) for (const k of [0, 1, 2] as const) s[k] += rv[k];
     }
     return s;
   };
-  for (const [c, dv] of dcol) {
-    if (remove && stack.includes(c)) continue;
+  const unitWord = basis === "stated loads" ? "kip" : "(unit load)";
+  // ONE accumulation, top-down: a column's change is its own members' reaction changes plus everything
+  // carried down from the column(s) it supports; its load before likewise (a stated Pu replaces the sum,
+  // since a column calc's Pu already includes the storeys above). Each column factors the accumulated
+  // change by its own governing combination (inherited from the column above when it has no calc row).
+  interface ColLoad { dv: Vec3; pu0: number; pu1: number; s0: number; combo: string | undefined; statedAbs: boolean }
+  const colLoad = new Map<string, ColLoad>();
+  for (const c of topoOrder([...reached], (x) => nextOf(x).columns.filter((d) => reached.has(d)))) {
+    const ups = above.get(c) ?? [];
+    const dv: Vec3 = [...(ownD.get(c) ?? [0, 0, 0])] as Vec3;
+    for (const u of ups) for (const k of [0, 1, 2] as const) dv[k] += colLoad.get(u)!.dv[k];
     const cf = factOf(c, ["column"]);
-    const [dpu, comboUsed] = gravityIncrement(dv, cf?.combination);
+    const combo = cf?.combination ?? (ups.length === 1 ? colLoad.get(ups[0]!)!.combo : undefined);
+    const [dpu, comboUsed] = gravityIncrement(dv, combo);
     const pu0Stated = cf?.axial?.value ?? cf?.demand?.value ?? null;
     const statedAbs = basis === "stated loads" && pu0Stated != null;
-    const pu0 = statedAbs ? pu0Stated! : colLoad0(c);
+    const o0 = own0(c);
+    const pu0 = statedAbs ? pu0Stated! : fac(o0, "LC2") + ups.reduce((t, u) => t + colLoad.get(u)!.pu0, 0);
+    const s0 = o0[0] + o0[1] + o0[2] + ups.reduce((t, u) => t + colLoad.get(u)!.s0, 0);
     const pu1 = pu0 + dpu;
+    colLoad.set(c, { dv, pu0, pu1, s0, combo, statedAbs });
     const r = ratio(pu0, pu1);
+    const carried = ups.length ? `; includes the change carried down from ${ups.map((u) => name(u) ?? u).join(", ")}` : "";
     addChange(c, {
       quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit,
       basis: statedAbs ? "stated loads" : lbasis,
     });
     if (Math.abs(dpu) / Math.max(Math.abs(pu0), 1e-6) > TOUCH || c === column)
-      mark(c, `axial changes by ${fmt(dpu, 1)} ${statedAbs ? "kip" : "(unit load)"} (reactions of re-spanned members)`, [column]);
+      mark(c, `axial changes by ${fmt(dpu, 1)} ${unitWord} (reactions of re-spanned members${ups.length ? ", carried down the column stack" : ""})`, [column]);
     if (cf && utilOf(cf) != null)
       est.set(c, {
         element: c, method: "estimate", utilisationBefore: utilOf(cf), utilisationAfter: round(utilOf(cf)! * r, 3), governs: "axial",
-        scaledBy: `stated utilisation x axial ratio ${fmt(r, 3)} (${statedAbs ? `stated Pu + reaction deltas factored ${comboUsed}, stated loads` : basis}); eccentric moments held`,
+        scaledBy: `stated utilisation x axial ratio ${fmt(r, 3)} (${statedAbs ? `stated Pu + reaction deltas factored ${comboUsed}, stated loads` : basis}${carried}); eccentric moments held`,
         source: cf.source, fact: cf.id,
       });
-    const chainBelow = below(model, c);
-    // the column's base plate and pier carry its axial load: same change (the footing gets its own below)
-    for (const x of chainBelow)
-      if (!model.footings.has(x))
-        addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit, basis: statedAbs ? "stated loads" : lbasis });
-    const fid = chainBelow.find((x) => model.footings.has(x));
-    if (!fid) continue;
+    // the splice / base plate between this column and what is below it carries this column's load
+    for (const x of nextOf(c).between)
+      if (!model.footings.has(x)) addChange(x, { quantity: "column_load", before: pu0, after: pu1, ratio: r, unit: statedAbs ? "kip" : loadUnit, basis: statedAbs ? "stated loads" : lbasis });
+  }
+  // footings, from the bottom of each stack: the column(s) bearing directly on the footing
+  const stackUp = (c: string, acc = new Set<string>()): Set<string> => {
+    if (acc.has(c)) return acc;
+    acc.add(c);
+    for (const u of above.get(c) ?? []) stackUp(u, acc);
+    return acc;
+  };
+  const onFooting = new Map<string, string[]>();
+  for (const c of [...reached].sort())
+    for (const x of nextOf(c).between) if (model.footings.has(x)) (onFooting.get(x) ?? onFooting.set(x, []).get(x)!).push(c);
+  for (const [fid, bottoms] of onFooting) {
     const ff = factOf(fid, ["footing"]);
+    const dv: Vec3 = [0, 0, 0];
+    let s0 = 0;
+    for (const c of bottoms) {
+      const cl = colLoad.get(c)!;
+      for (const k of [0, 1, 2] as const) dv[k] += cl.dv[k];
+      s0 += cl.s0;
+    }
     const ds = dv[0] + dv[1] + dv[2];
     const ps0Stated = ff?.serviceLoad?.value ?? null;
     const fAbs = basis === "stated loads" && ps0Stated != null;
-    let ps0: number;
-    if (fAbs) ps0 = ps0Stated!;
-    else {
-      let s = 0;
-      for (const [m, e] of model.carried.get(c) ?? []) {
-        const rv = model.members.get(m)?.kind === "beam" ? baseReaction(m, e, false) : null;
-        if (rv) s += rv[0] + rv[1] + rv[2];
-      }
-      ps0 = s;
-    }
+    const ps0 = fAbs ? ps0Stated! : s0;
     const ps1 = ps0 + ds;
     const fr = ratio(ps0, ps1);
     addChange(fid, { quantity: "footing_load", before: ps0, after: ps1, ratio: fr, unit: fAbs ? "kip" : loadUnit, basis: fAbs ? "stated loads" : lbasis });
@@ -625,11 +671,26 @@ export function impact(input: ImpactInput): ImpactResult {
       const u0 = utilOf(ff);
       let e: Omit<Estimate, "provenance"> | null = null;
       if (fAbs && qa) {
-        const B0 = Math.min(fp.bx, fp.by) / FT;
-        const breq = Math.max(4.0, Math.ceil(Math.sqrt(Math.max(ps1, 0) / qa.value) * 2) / 2);
+        // bearing on the plan area: a stated width is used as stated (the short side); the length is the
+        // model's long side for a rectangular plan, else the footing is square - each said in `scaledBy`
+        const Bm = Math.min(fp.bx, fp.by) / FT;
+        const Lm = Math.max(fp.bx, fp.by) / FT;
+        const rect = Lm / Bm > 1.05;
+        const B = ff.width?.value ?? Bm;
+        const L = rect ? Math.max(Lm, B) : B;
+        const area = B * L;
+        const aspect = L / B;
+        const breq = Math.max(4.0, Math.ceil(Math.sqrt(Math.max(ps1, 0) / (qa.value * aspect)) * 2) / 2);
+        const plan = ff.width
+          ? rect
+            ? `the stated width ${fmt(B, 2)} ft x the model's length ${fmt(L, 2)} ft`
+            : `the stated width ${fmt(B, 2)} ft, square (the model's plan is square)`
+          : rect
+            ? `the model's ${fmt(B, 2)} x ${fmt(L, 2)} ft plan`
+            : `the model's ${fmt(B, 2)} ft square plan`;
         e = {
-          element: fid, method: "estimate", utilisationBefore: u0, utilisationAfter: round(ps1 / (qa.value * B0 * B0), 3), governs: "bearing",
-          scaledBy: `bearing: stated service load ${fmt(ps0, 1)} + reaction deltas ${fmt(ds, 1)} kip over the model's ${fmt(B0, 2)} ft footing at the stated qa ${qa.value} ksf`,
+          element: fid, method: "estimate", utilisationBefore: u0, utilisationAfter: round(ps1 / (qa.value * area), 3), governs: "bearing",
+          scaledBy: `bearing: stated service load ${fmt(ps0, 1)} + reaction deltas ${fmt(ds, 1)} kip over ${plan} (${fmt(area, 2)} sq ft) at the stated qa ${qa.value} ksf; required width at the same aspect ratio`,
           source: ff.source, fact: ff.id, requiredWidth: q(breq, "ft"),
         };
       } else if (u0 != null)
@@ -640,9 +701,16 @@ export function impact(input: ImpactInput): ImpactResult {
         };
       if (e) est.set(fid, e);
     }
-    if (Math.abs(ps1 - ps0) / Math.max(Math.abs(ps0), 1e-6) > TOUCH || c === column) {
-      mark(fid, `column load changes by ${fmt(ds, 1)} ${fAbs ? "kip" : "(unit load)"} service`, [column, c]);
-      for (const x of chainBelow) if (x !== fid) mark(x, "column load changes", [column, c]);
+    const stackCols = new Set<string>();
+    for (const c of bottoms) stackUp(c, stackCols);
+    if (Math.abs(ps1 - ps0) / Math.max(Math.abs(ps0), 1e-6) > TOUCH || stackCols.has(column)) {
+      const top = [...stackCols].find((c) => !(above.get(c) ?? []).length) ?? bottoms[0]!;
+      mark(fid, `column load changes by ${fmt(ds, 1)} ${fAbs ? "kip" : unitWord} service`, [column, top]);
+      // what carries the change down to it: the columns below the top of the stack and every splice / base plate
+      for (const c of stackCols) {
+        if ((above.get(c) ?? []).length) mark(c, "column load changes", [column, top]);
+        for (const x of nextOf(c).between) if (x !== fid && !model.footings.has(x)) mark(x, "column load changes", [column, top]);
+      }
     }
   }
 
@@ -661,10 +729,13 @@ export function impact(input: ImpactInput): ImpactResult {
       const fy = f0.cy + dy;
       const req = est.get(movedFooting)?.requiredWidth;
       const breqM = req ? (req.unit === "ft" ? req.value * FT : req.value) : 0; // requiredWidth is in ft
-      const B = Math.max(breqM, Math.min(f0.bx, f0.by));
+      // the footing at its required size, keeping its plan's aspect ratio (requiredWidth is the short side)
+      const grow = Math.max(1, breqM / Math.min(f0.bx, f0.by));
+      const Bx = f0.bx * grow;
+      const By = f0.by * grow;
       for (const o of model.footings.values()) {
         if (o.id === movedFooting) continue;
-        if (Math.abs(o.cx - fx) < (o.bx + B) / 2 && Math.abs(o.cy - fy) < (o.by + B) / 2)
+        if (Math.abs(o.cx - fx) < (o.bx + Bx) / 2 && Math.abs(o.cy - fy) < (o.by + By) / 2)
           clashes.push({ a: movedFooting, b: o.id, kind: "footing-footing" });
       }
       for (const gb of model.gradeBeams.values()) {
@@ -672,7 +743,7 @@ export function impact(input: ImpactInput): ImpactResult {
         const w = gb.width / 2;
         const [x1, y1] = gb.p1;
         const [x2, y2] = gb.p2;
-        if (fx + B / 2 > Math.min(x1, x2) - w && fx - B / 2 < Math.max(x1, x2) + w && fy + B / 2 > Math.min(y1, y2) - w && fy - B / 2 < Math.max(y1, y2) + w)
+        if (fx + Bx / 2 > Math.min(x1, x2) - w && fx - Bx / 2 < Math.max(x1, x2) + w && fy + By / 2 > Math.min(y1, y2) - w && fy - By / 2 < Math.max(y1, y2) + w)
           clashes.push({ a: movedFooting, b: gb.id, kind: "footing-grade_beam" });
       }
       for (const c of clashes) mark(c.b, `clashes with the moved footing ${name(movedFooting) ?? movedFooting}`, [column, movedFooting]);

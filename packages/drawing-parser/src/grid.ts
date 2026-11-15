@@ -5,7 +5,9 @@
  * Building frame (feet): x grows to the right of the plan, y grows up the plan (plan north up is
  * assumed), origin at the left-most x-line and the bottom-most y-line of the reference plan (the
  * plan sheet with the most grid lines). A grid line's coordinate comes from the cumulative written
- * dimension strings of the reference plan, falling back to measured points x scale. On every sheet a
+ * dimension strings of the reference plan - each accepted only when it agrees with the calibrated
+ * scale (`agrees`), so an overall dimension or a neighbouring bay's string never stands in for a
+ * span - falling back to measured points x scale, recorded as measured. On every sheet a
  * page point maps piecewise-linearly between that sheet's own grid lines, so each sheet registers to
  * the same grid even if it was plotted at a slightly different scale or offset.
  */
@@ -47,28 +49,78 @@ export interface DimPair {
   b: string;
   /** Distance between the two lines on the page, pt. */
   dpt: number;
-  /** Written dimension, ft (undefined when no dimension string was found between them). */
+  /** Dimension string read between the two lines, ft, whether or not it was accepted. */
+  writtenFt?: number;
+  /**
+   * Accepted written dimension, ft: set only when `writtenFt` agrees with the calibrated scale
+   * (`agrees`). Undefined when no string was found or the string disagrees (an overall dimension,
+   * another bay's string): the span is then measured (pt x scale), not stated.
+   */
   ft?: number;
+}
+
+/**
+ * A written dimension is accepted for a span only within this of the calibrated scale x the measured
+ * distance: 3 % or 3 in, whichever is larger. A drawing's own plotting error is well under that; an
+ * overall dimension (several bays) or one bay's string on a two-bay pair is off by 50 % or more.
+ */
+export const DIM_TOL = { rel: 0.03, absFt: 0.25 } as const;
+
+/** Does a written dimension `ft` agree with `dpt` page points at `k` ft per pt? */
+export function agrees(ft: number, dpt: number, k: number): boolean {
+  return Number.isFinite(k) && Number.isFinite(ft) && Math.abs(k * dpt - ft) <= Math.max(DIM_TOL.absFt, DIM_TOL.rel * Math.abs(ft));
 }
 
 export interface Calibration {
   /** ft per pt, per axis. */
   k: { x: number; y: number };
   pairs: DimPair[];
-  /** How the scale was found: "dimension strings", "scale note", or "none". */
+  /** How the scale was found: "dimension strings", "scale note", "profile fallback scale", or "none". */
   source: string;
-  /** RMS of (scale x measured pt - written dimension), inches. */
+  /** Which scale note was used and why (source "scale note"). */
+  scaleRule?: string;
+  /** RMS of (scale x measured pt - written dimension) over the accepted dimensions, inches. */
   rmsResidualIn?: number;
+  /** Two or more dimension strings support different scales equally and no scale note decides. */
+  ambiguous?: boolean;
+}
+
+/**
+ * The scale note that governs the plan: one in, or directly under, a title naming a PLAN; else the
+ * smallest scale on the sheet (a detail drawn on a plan sheet is at a larger scale than the plan, so
+ * the first note in reading order may be a detail's). Undefined when the sheet has no scale note.
+ */
+export function planScaleNote(phr: Phrase[]): { ptPerFt: number; rule: string } | undefined {
+  const notes = phr.map((p) => ({ p, v: scalePtPerFt(p.text) })).filter((n): n is { p: Phrase; v: number } => n.v !== undefined);
+  if (!notes.length) return undefined;
+  const PLAN = /\bPLAN\b/;
+  const underPlanTitle = (p: Phrase) => PLAN.test(p.text) || phr.some((q) => q !== p && q.rot === p.rot && PLAN.test(q.text) &&
+    q.rect[3] <= p.rect[1] + 1 && p.rect[1] - q.rect[3] < 2.5 * Math.max(p.size, q.size) && q.rect[0] < p.rect[2] && p.rect[0] < q.rect[2]);
+  const titled = notes.find((n) => underPlanTitle(n.p));
+  if (titled) return { ptPerFt: titled.v, rule: "scale note in / under the plan title" };
+  const v = Math.min(...notes.map((n) => n.v));
+  return {
+    ptPerFt: v,
+    rule: notes.length > 1 && notes.some((n) => n.v !== v)
+      ? "smallest of the sheet's scale notes (no plan title names one; details are drawn at larger scales than the plan)"
+      : "the sheet's scale note",
+  };
 }
 
 /**
  * Scale from the dimension strings written between adjacent grid lines (a feet-inch phrase whose
  * centre lies between the two lines, reading along them, outside the grid on the bubble side), else
- * from a "SCALE: 3/16" = 1'-0"" note, else none.
+ * from the plan's "SCALE: 3/16" = 1'-0"" note (`planScaleNote`), else the profile's fallback, else none.
+ *
+ * The scale is the one the most strings agree with (both axes pooled; a tie goes to the scale note),
+ * then refit per axis as the median of the strings that agree. A string is kept as the span's stated
+ * dimension (`pair.ft`) only if it agrees with that scale (`agrees`); the others keep `writtenFt` only.
  */
 export function calibrate(phr: Phrase[], lines: SheetGridLine[], sheet: Sheet, pf: DrawingProfile): Calibration {
   const dims = phr.filter((p) => p.rect[2] < sheet.cutoff && /^[+-]?\d+\s*'\s*-?\s*\d+(?:[\s-]+\d+\/\d+)?\s*"$/.test(p.text));
   const pairs: DimPair[] = [];
+  // every string read between a pair's lines, nearest its middle first
+  const candidates = new Map<DimPair, number[]>();
   for (const axis of ["x", "y"] as const) {
     const gl = lines.filter((l) => l.axis === axis).sort((a, b) => a.pos - b.pos);
     const other = lines.filter((l) => l.axis !== axis);
@@ -85,29 +137,57 @@ export function calibrate(phr: Phrase[], lines: SheetGridLine[], sheet: Sheet, p
         const readsAlong = axis === "x" ? p.rot === 0 : p.rot === 90 || p.rot === 270;
         return readsAlong && along > a.pos && along < b.pos && across < otherMin;
       });
-      const best = cand.sort((p, q) => Math.abs(alongOf(p, axis) - mid) - Math.abs(alongOf(q, axis) - mid) ||
-        acrossOf(q, axis) - acrossOf(p, axis))[0];
+      const fts = cand
+        .sort((p, q) => Math.abs(alongOf(p, axis) - mid) - Math.abs(alongOf(q, axis) - mid) || acrossOf(q, axis) - acrossOf(p, axis))
+        .map((p) => feetInches(p.text)[0])
+        .filter((ft): ft is number => ft !== undefined && ft > 0);
       const pair: DimPair = { axis, a: a.label, b: b.label, dpt: b.pos - a.pos };
-      const ft = best ? feetInches(best.text)[0] : undefined;
-      if (ft !== undefined && ft > 0) pair.ft = ft;
+      if (fts.length) pair.writtenFt = fts[0]!;
+      candidates.set(pair, fts);
       pairs.push(pair);
     }
   }
-  const fit = (axis: "x" | "y"): number | undefined => {
-    const ps = pairs.filter((p) => p.axis === axis && p.ft !== undefined);
-    if (!ps.length) return undefined;
-    // median of the per-pair ratios: robust against an overall dimension picked for one bay
-    const ks = ps.map((p) => p.ft! / p.dpt).sort((a, b) => a - b);
-    return ks[Math.floor(ks.length / 2)]!;
-  };
-  const kx = fit("x"), ky = fit("y");
-  if (kx !== undefined || ky !== undefined) {
-    const k = { x: kx ?? ky!, y: ky ?? kx! };
+  const note = planScaleNote(phr);
+  const written = pairs.filter((p) => p.writtenFt !== undefined);
+  if (written.length) {
+    // consensus: the ratio the most strings agree with, pooled over both axes; a tie goes to the scale note
+    const support = (r: number) => written.filter((p) => agrees(p.writtenFt!, p.dpt, r)).length;
+    let best: { r: number; s: number } | undefined;
+    let ambiguous = false;
+    for (const p of written) {
+      const r = p.writtenFt! / p.dpt;
+      const s = support(r);
+      if (!best || s > best.s) {
+        best = { r, s };
+        ambiguous = false;
+      } else if (s === best.s && !agrees(best.r * p.dpt, p.dpt, r)) {
+        if (note && Math.abs(r * note.ptPerFt - 1) < Math.abs(best.r * note.ptPerFt - 1)) best = { r, s };
+        else if (!note) ambiguous = true;
+      }
+    }
+    const k0 = best!.r;
+    const agreeing = written.filter((p) => agrees(p.writtenFt!, p.dpt, k0));
+    const fit = (axis: "x" | "y"): number | undefined => {
+      const ks = agreeing.filter((p) => p.axis === axis).map((p) => p.writtenFt! / p.dpt).sort((a, b) => a - b);
+      return ks.length ? ks[Math.floor(ks.length / 2)]! : undefined;
+    };
+    const kx = fit("x"), ky = fit("y");
+    const k = { x: kx ?? ky ?? k0, y: ky ?? kx ?? k0 };
+    // only a string that agrees with the scale states the span (the nearest-to-middle one that does);
+    // a pair with none is measured
+    for (const p of written) {
+      const ok = candidates.get(p)!.find((ft) => agrees(ft, p.dpt, k[p.axis]));
+      if (ok !== undefined) p.ft = p.writtenFt = ok;
+    }
     const res = pairs.filter((p) => p.ft !== undefined).map((p) => (k[p.axis] * p.dpt - p.ft!) * 12);
-    return { k, pairs, source: "dimension strings", rmsResidualIn: r2(Math.sqrt(res.reduce((s, r) => s + r * r, 0) / res.length)) };
+    return {
+      k, pairs, source: "dimension strings",
+      ...(res.length ? { rmsResidualIn: r2(Math.sqrt(res.reduce((s, r) => s + r * r, 0) / res.length)) } : {}),
+      ...(ambiguous ? { ambiguous } : {}),
+    };
   }
-  const note = phr.map((p) => scalePtPerFt(p.text)).find((v) => v !== undefined) ?? pf.fallbackPtPerFt;
-  if (note) return { k: { x: 1 / note, y: 1 / note }, pairs, source: "scale note" };
+  if (note) return { k: { x: 1 / note.ptPerFt, y: 1 / note.ptPerFt }, pairs, source: "scale note", scaleRule: note.rule };
+  if (pf.fallbackPtPerFt) return { k: { x: 1 / pf.fallbackPtPerFt, y: 1 / pf.fallbackPtPerFt }, pairs, source: "profile fallback scale" };
   return { k: { x: NaN, y: NaN }, pairs, source: "none" };
 }
 
@@ -121,10 +201,15 @@ export interface BuildingGrid {
   /** Sheet the coordinates were taken from. */
   reference: string;
   k: { x: number; y: number };
+  /**
+   * Spans placed by measured distance x scale, not by a stated dimension: no string was read
+   * between the two lines, or the string read (`writtenFt`) disagrees with the scale.
+   */
+  measured: Array<{ axis: "x" | "y"; a: string; b: string; ft: number; writtenFt?: number }>;
 }
 
 export function buildingGrid(sheet: Sheet, lines: SheetGridLine[], cal: Calibration): BuildingGrid {
-  const out: BuildingGrid = { x: new Map(), y: new Map(), reference: sheet.number, k: cal.k };
+  const out: BuildingGrid = { x: new Map(), y: new Map(), reference: sheet.number, k: cal.k, measured: [] };
   for (const axis of ["x", "y"] as const) {
     // y: bottom of the page first (north up)
     const gl = lines.filter((l) => l.axis === axis).sort((a, b) => (axis === "x" ? a.pos - b.pos : b.pos - a.pos));
@@ -133,7 +218,14 @@ export function buildingGrid(sheet: Sheet, lines: SheetGridLine[], cal: Calibrat
       if (i > 0) {
         const prev = gl[i - 1]!;
         const pair = cal.pairs.find((p) => p.axis === axis && ((p.a === prev.label && p.b === l.label) || (p.a === l.label && p.b === prev.label)));
-        pos += pair?.ft ?? Math.abs(l.pos - prev.pos) * cal.k[axis];
+        const dpt = Math.abs(l.pos - prev.pos);
+        // the same acceptance test as calibrate(), whoever built the Calibration
+        const stated = pair?.ft !== undefined && agrees(pair.ft, dpt, cal.k[axis]) ? pair.ft : undefined;
+        const measured = dpt * cal.k[axis];
+        if (stated === undefined) {
+          out.measured.push({ axis, a: prev.label, b: l.label, ft: r2(measured * 1000) / 1000, ...(pair?.writtenFt !== undefined ? { writtenFt: pair.writtenFt } : {}) });
+        }
+        pos += stated ?? measured;
       }
       out[axis].set(l.label, r2(pos * 1000) / 1000);
     });
