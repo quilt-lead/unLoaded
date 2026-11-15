@@ -248,6 +248,11 @@ export const V2_HELP = {
     short:
       "A lateral-system move whose frame members must re-size, drift already at the limit, no rolled shape works, or (with construction status) steel already erected.",
   },
+  "legend.lateral-frame": {
+    title: "Braced / moment frame",
+    short:
+      "The lateral system over the faded gravity framing: chevron braces solid, braced-frame and moment-frame beams lighter. Columns keep their how-hard-to-move colour.",
+  },
   "legend.move-uc": {
     title: "Estimated UC",
     short:

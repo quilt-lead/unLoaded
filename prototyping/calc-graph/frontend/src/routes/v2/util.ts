@@ -46,6 +46,17 @@ export const UC_COLOR = {
   moved: "#2f6fed",
   faded: "#d5dae0",
 };
+
+/** the lateral system drawn over the faded gravity framing, so the braced and moment frames read in 3D */
+export const LATERAL_COLOR = "#3f7fbf";
+const FRAME_ROLES = ["scbf_brace", "scbf_beam", "smf_beam"];
+/** braces (and frame beams, lighter) in the lateral colour; undefined for any other element */
+export function lateralStyle(e: { type: string; roles?: unknown }, dim = 1): { color: string; opacity: number } | undefined {
+  const roles = Array.isArray(e.roles) ? (e.roles as string[]) : [];
+  if (e.type === "brace" || roles.includes("scbf_brace")) return { color: LATERAL_COLOR, opacity: 0.95 * dim };
+  if (roles.some((r) => FRAME_ROLES.includes(r))) return { color: LATERAL_COLOR, opacity: 0.5 * dim };
+  return undefined;
+}
 export const ucColor = (uc: number | null | undefined) =>
   uc == null
     ? UC_COLOR.stale

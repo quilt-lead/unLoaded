@@ -29,6 +29,9 @@ export class Viewer {
     this.camera.position.set(30, 25, 35);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
+    // until the user orbits / zooms, the view stays fitted: a panel that settles its size after the model
+    // loads (layout, a tab shown, a dock opening) re-fits instead of keeping a camera framed for the old size
+    this.controls.addEventListener("start", () => (this.autoFit = false));
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f99, 1.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.6);
     sun.position.set(40, 80, 30);
@@ -48,6 +51,7 @@ export class Viewer {
   }
 
   private ro: ResizeObserver;
+  private autoFit = false;
   private raf = 0;
   private disposed = false;
 
@@ -69,6 +73,7 @@ export class Viewer {
     this.renderer.setSize(r.width, r.height); // updateStyle: CSS size = panel, buffer = panel x devicePixelRatio
     this.camera.aspect = r.width / Math.max(1, r.height);
     this.camera.updateProjectionMatrix();
+    if (this.autoFit) this.fit();
   }
 
   clear() {
@@ -171,14 +176,25 @@ export class Viewer {
     if (box.isEmpty()) return;
     const c = box.getCenter(new THREE.Vector3()),
       sz = box.getSize(new THREE.Vector3()).length();
+    // the nearest distance along the view direction at which every corner of the model's box is inside BOTH
+    // fields of view (vertical, and horizontal = from the panel's aspect), plus a 6 % margin. A fixed multiple
+    // of the size ignored the aspect and cropped a tall / narrow panel
+    const dir = new THREE.Vector3(0.75, 0.55, 0.9).normalize();
+    const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize();
+    const up = new THREE.Vector3().crossVectors(dir, right);
+    const tv = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2) / 1.06;
+    const th = tv * this.camera.aspect;
+    let dist = 0;
+    for (const x of [box.min.x, box.max.x])
+      for (const y of [box.min.y, box.max.y])
+        for (const z of [box.min.z, box.max.z]) {
+          const q = new THREE.Vector3(x, y, z).sub(c);
+          const along = q.dot(dir);   // towards the camera
+          dist = Math.max(dist, along + Math.abs(q.dot(right)) / th, along + Math.abs(q.dot(up)) / tv);
+        }
     this.controls.target.copy(c);
-    this.camera.position
-      .copy(c)
-      .add(
-        new THREE.Vector3(0.75, 0.55, 0.9)
-          .normalize()
-          .multiplyScalar(sz * 0.95),
-      );
+    this.camera.position.copy(c).add(dir.multiplyScalar(dist));
+    this.autoFit = true;
     this.camera.near = sz / 1000;
     this.camera.far = sz * 20;
     this.camera.updateProjectionMatrix();
@@ -195,6 +211,7 @@ export class Viewer {
   focus(gid: string) {
     const ms = this.meshes.get(gid);
     if (!ms) return;
+    this.autoFit = false;
     const b = new THREE.Box3();
     ms.forEach((m) => b.expandByObject(m));
     if (b.isEmpty()) return;
