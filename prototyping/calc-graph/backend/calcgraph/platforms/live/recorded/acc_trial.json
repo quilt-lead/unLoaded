@@ -48,10 +48,10 @@
       "customIdentifier": "001",
       "id": "9912ad11-9400-59ab-a367-18121b6b88c1",
       "officialResponse": "Ties may be relocated as proposed; keep (2) #4 ties within top 5 in. See SK-S-01.",
-      "question": "Pier P-3B top ties conflict with the anchor rod template at BP-3B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-3B,P-3B,COL-3B]",
+      "question": "Pier P-1B top ties conflict with the anchor rod template at BP-1B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-1B,P-1B,COL-1B]",
       "reference": "CG:RFI-001",
       "status": "closed",
-      "title": "Anchor rod projection at base plate BP-3B vs pier P-3B ties",
+      "title": "Anchor rod projection at base plate BP-1B vs pier P-1B ties",
       "workflowType": "US"
      },
      {
@@ -70,10 +70,10 @@
       "customIdentifier": "003",
       "id": "54002130-9180-5ac7-afb8-d600f89a3cfa",
       "officialResponse": "Notch deck and provide pour stop closure per detail 7/S-402; gusset geometry unchanged.",
-      "question": "Gusset plate BG-3 at the top of BR-L2-3-AB-N projects 2 in. above top of steel into the deck flute at G-L3-3-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-3-AB-N-j,BR-L2-3-AB-N,G-L3-3-AB]",
+      "question": "Gusset plate BG-3 at the top of BR-L2-1-AB-N projects 2 in. above top of steel into the deck flute at G-L3-1-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-1-AB-N-j,BR-L2-1-AB-N,G-L3-1-AB]",
       "reference": "CG:RFI-003",
       "status": "answered",
-      "title": "SCBF gusset BG-3 at BR-L2-3-AB-N: gusset vs deck rib at Level 3",
+      "title": "SCBF gusset BG-3 at BR-L2-1-AB-N: gusset vs deck rib at Level 3",
       "workflowType": "US"
      },
      {
@@ -114,10 +114,10 @@
       "customIdentifier": "007",
       "id": "8d85a283-1b04-5745-a775-ad19b2caf7a8",
       "officialResponse": null,
-      "question": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-3-BC-i,CX-G-L2-3-BC-j,G-L2-3-BC]",
+      "question": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-1-BC-i,CX-G-L2-1-BC-j,G-L2-1-BC]",
       "reference": "CG:RFI-007",
       "status": "draft",
-      "title": "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+      "title": "Drag connection DC-1 at collector G-L2-1-BC: bolt count",
       "workflowType": "US"
      },
      {
@@ -186,7 +186,7 @@
     "pagination": {
      "limit": 50,
      "offset": 0,
-     "totalResults": 17
+     "totalResults": 18
     },
     "results": [
      {
@@ -269,23 +269,36 @@
      },
      {
       "customIdentifier": "05 12 00-004",
-      "description": "target status: approved\n[calc-graph SUB-SCBF-3]",
+      "description": "target status: approved\n[calc-graph SUB-SCBF-1]",
       "dueDate": "2026-09-25",
-      "id": "4893967e-d2f5-5c72-a5fb-582ab63c35e8",
+      "id": "a5a453a2-ac9b-597d-a968-d25023eea378",
       "identifier": 4,
       "revision": 1,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
       "stateId": "mgr-2",
       "statusId": 3,
-      "title": "Special concentrically braced frame line 3 - brace gusset connections"
+      "title": "Special concentrically braced frame line 1 - brace gusset connections"
      },
      {
       "customIdentifier": "05 12 00-005",
+      "description": "target status: approved\n[calc-graph SUB-SCBF-5]",
+      "dueDate": "2026-09-11",
+      "id": "bd494a7a-4781-5597-a929-39e819925354",
+      "identifier": 5,
+      "revision": 0,
+      "specIdentifier": "051200",
+      "specTitle": "Structural Steel Framing",
+      "stateId": "mgr-2",
+      "statusId": 3,
+      "title": "Special concentrically braced frame line 5 - brace gusset connections"
+     },
+     {
+      "customIdentifier": "05 12 00-006",
       "description": "target status: erected\n[calc-graph SUB-ST-L2-S1]",
       "dueDate": "2026-09-17",
       "id": "99518df6-1ed7-5b53-a216-904acb1205b4",
-      "identifier": 5,
+      "identifier": 6,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
@@ -294,11 +307,11 @@
       "title": "Structural steel shop drawings - Level 2 framing, Seq 1 (grid 1-3)"
      },
      {
-      "customIdentifier": "05 12 00-006",
+      "customIdentifier": "05 12 00-007",
       "description": "target status: erected\n[calc-graph SUB-ST-L2-S2]",
       "dueDate": "2026-09-30",
       "id": "71dda4e9-e1ba-547c-a439-3daeba9d2d6a",
-      "identifier": 6,
+      "identifier": 7,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
@@ -307,11 +320,11 @@
       "title": "Structural steel shop drawings - Level 2 framing, Seq 2 (grid 3-5)"
      },
      {
-      "customIdentifier": "05 12 00-007",
+      "customIdentifier": "05 12 00-008",
       "description": "target status: delivered\n[calc-graph SUB-ST-L3-S1]",
       "dueDate": "2026-10-13",
       "id": "3b04ef49-36e8-5637-a3a9-08250d133a65",
-      "identifier": 7,
+      "identifier": 8,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
@@ -320,11 +333,11 @@
       "title": "Structural steel shop drawings - Level 3 framing, Seq 1 (grid 1-3)"
      },
      {
-      "customIdentifier": "05 12 00-008",
+      "customIdentifier": "05 12 00-009",
       "description": "target status: fabricated\n[calc-graph SUB-ST-L3-S2]",
       "dueDate": "2026-10-26",
       "id": "fd0e4055-de37-5876-ae1d-2b6e6ac34bad",
-      "identifier": 8,
+      "identifier": 9,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
@@ -333,11 +346,11 @@
       "title": "Structural steel shop drawings - Level 3 framing, Seq 2 (grid 3-5)"
      },
      {
-      "customIdentifier": "05 12 00-009",
+      "customIdentifier": "05 12 00-010",
       "description": "target status: approved\n[calc-graph SUB-ST-RF-S1]",
       "dueDate": "2026-11-06",
       "id": "afe0b976-1584-5038-a960-8ece645759a2",
-      "identifier": 9,
+      "identifier": 10,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",
@@ -346,11 +359,11 @@
       "title": "Structural steel shop drawings - Roof framing, Seq 1 (grid 1-3)"
      },
      {
-      "customIdentifier": "05 12 00-010",
+      "customIdentifier": "05 12 00-011",
       "description": "target status: submitted\n[calc-graph SUB-ST-RF-S2]",
       "dueDate": "2026-11-19",
       "id": "34783aba-6a59-5497-a03e-dd1fc2046f62",
-      "identifier": 10,
+      "identifier": 11,
       "revision": 0,
       "specIdentifier": "051200",
       "specTitle": "Structural Steel Framing",

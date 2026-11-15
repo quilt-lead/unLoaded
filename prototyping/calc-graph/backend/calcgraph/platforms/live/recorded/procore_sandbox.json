@@ -215,10 +215,10 @@
     {
      "created_at": "2026-08-31T15:00:00Z",
      "current_revision": true,
-     "description": "target status: approved\n[calc-graph SUB-SCBF-3]",
+     "description": "target status: approved\n[calc-graph SUB-SCBF-1]",
      "due_date": "2026-09-25",
      "formatted_number": "05 12 00-004",
-     "id": 63371192,
+     "id": 60687286,
      "number": "004",
      "private": false,
      "revision": "1",
@@ -233,7 +233,36 @@
       "name": "Approved",
       "status": "Closed"
      },
-     "title": "Special concentrically braced frame line 3 - brace gusset connections",
+     "title": "Special concentrically braced frame line 1 - brace gusset connections",
+     "type": {
+      "id": 501,
+      "name": "Shop Drawing",
+      "translated_name": "Shop Drawing"
+     },
+     "updated_at": "2026-11-13T15:00:00Z"
+    },
+    {
+     "created_at": "2026-08-31T15:00:00Z",
+     "current_revision": true,
+     "description": "target status: approved\n[calc-graph SUB-SCBF-5]",
+     "due_date": "2026-09-11",
+     "formatted_number": "05 12 00-005",
+     "id": 64722064,
+     "number": "005",
+     "private": false,
+     "revision": "0",
+     "specification_section": {
+      "description": "Structural Steel Framing",
+      "id": 12225,
+      "label": "05 12 00 - Structural Steel Framing",
+      "number": "05 12 00"
+     },
+     "status": {
+      "id": 183102,
+      "name": "Approved",
+      "status": "Closed"
+     },
+     "title": "Special concentrically braced frame line 5 - brace gusset connections",
      "type": {
       "id": 501,
       "name": "Shop Drawing",
@@ -246,9 +275,9 @@
      "current_revision": true,
      "description": "target status: erected\n[calc-graph SUB-ST-L2-S1]",
      "due_date": "2026-09-17",
-     "formatted_number": "05 12 00-005",
+     "formatted_number": "05 12 00-006",
      "id": 63572778,
-     "number": "005",
+     "number": "006",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -275,9 +304,9 @@
      "current_revision": true,
      "description": "target status: erected\n[calc-graph SUB-ST-L2-S2]",
      "due_date": "2026-09-30",
-     "formatted_number": "05 12 00-006",
+     "formatted_number": "05 12 00-007",
      "id": 69600086,
-     "number": "006",
+     "number": "007",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -304,9 +333,9 @@
      "current_revision": true,
      "description": "target status: delivered\n[calc-graph SUB-ST-L3-S1]",
      "due_date": "2026-10-13",
-     "formatted_number": "05 12 00-007",
+     "formatted_number": "05 12 00-008",
      "id": 64305850,
-     "number": "007",
+     "number": "008",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -333,9 +362,9 @@
      "current_revision": true,
      "description": "target status: fabricated\n[calc-graph SUB-ST-L3-S2]",
      "due_date": "2026-10-26",
-     "formatted_number": "05 12 00-008",
+     "formatted_number": "05 12 00-009",
      "id": 68857383,
-     "number": "008",
+     "number": "009",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -362,9 +391,9 @@
      "current_revision": true,
      "description": "target status: approved\n[calc-graph SUB-ST-RF-S1]",
      "due_date": "2026-11-06",
-     "formatted_number": "05 12 00-009",
+     "formatted_number": "05 12 00-010",
      "id": 62668817,
-     "number": "009",
+     "number": "010",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -391,9 +420,9 @@
      "current_revision": true,
      "description": "target status: submitted\n[calc-graph SUB-ST-RF-S2]",
      "due_date": "2026-11-19",
-     "formatted_number": "05 12 00-010",
+     "formatted_number": "05 12 00-011",
      "id": 63461478,
-     "number": "010",
+     "number": "011",
      "private": false,
      "revision": "0",
      "specification_section": {
@@ -526,7 +555,7 @@
      "private": false,
      "questions": [
       {
-       "body": "Pier P-3B top ties conflict with the anchor rod template at BP-3B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-3B,P-3B,COL-3B]",
+       "body": "Pier P-1B top ties conflict with the anchor rod template at BP-1B (SCBF column). Confirm tie spacing may open to 6 in. within 8 in. of the pier top.\n\n[calc-graph RFI-001 el=BP-1B,P-1B,COL-1B]",
        "id": 97293
       }
      ],
@@ -537,7 +566,7 @@
       "name": "Marisol Okafor"
      },
      "status": "closed",
-     "subject": "Anchor rod projection at base plate BP-3B vs pier P-3B ties",
+     "subject": "Anchor rod projection at base plate BP-1B vs pier P-1B ties",
      "updated_at": "2026-11-13T15:00:00Z"
     },
     {
@@ -580,7 +609,7 @@
      "private": false,
      "questions": [
       {
-       "body": "Gusset plate BG-3 at the top of BR-L2-3-AB-N projects 2 in. above top of steel into the deck flute at G-L3-3-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-3-AB-N-j,BR-L2-3-AB-N,G-L3-3-AB]",
+       "body": "Gusset plate BG-3 at the top of BR-L2-1-AB-N projects 2 in. above top of steel into the deck flute at G-L3-1-AB. Confirm deck closure / notch acceptable.\n\n[calc-graph RFI-003 el=CX-BR-L2-1-AB-N-j,BR-L2-1-AB-N,G-L3-1-AB]",
        "id": 83322
       }
      ],
@@ -591,7 +620,7 @@
       "name": "Marisol Okafor"
      },
      "status": "open",
-     "subject": "SCBF gusset BG-3 at BR-L2-3-AB-N: gusset vs deck rib at Level 3",
+     "subject": "SCBF gusset BG-3 at BR-L2-1-AB-N: gusset vs deck rib at Level 3",
      "updated_at": "2026-11-13T15:00:00Z"
     },
     {
@@ -688,7 +717,7 @@
      "private": false,
      "questions": [
       {
-       "body": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-3-BC-i,CX-G-L2-3-BC-j,G-L2-3-BC]",
+       "body": "DC-1 schedule calls (6) bolts; collector force table implies (8). Confirm.\n\n[calc-graph RFI-007 el=CX-G-L2-1-BC-i,CX-G-L2-1-BC-j,G-L2-1-BC]",
        "id": 74768
       }
      ],
@@ -699,7 +728,7 @@
       "name": "Marisol Okafor"
      },
      "status": "draft",
-     "subject": "Drag connection DC-1 at collector G-L2-3-BC: bolt count",
+     "subject": "Drag connection DC-1 at collector G-L2-1-BC: bolt count",
      "updated_at": "2026-11-13T15:00:00Z"
     },
     {
