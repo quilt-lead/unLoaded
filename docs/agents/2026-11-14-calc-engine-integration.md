@@ -301,6 +301,23 @@ before the port is committed would mean a second PDF extractor, so it waits. The
 server also build on calc-mapper's types and wait. The follow-up branch merges this branch forward when the
 port lands.
 
+### D22. Move-a-column impact on uploaded data (`packages/move-impact`), and the AISC table stays out
+**Built ~8:45 PM ET (D18 item 2).** Input is any element graph plus optional calc facts. Everything the hackathon
+read from the generator's `design.json` now comes from graph geometry (spans and supports match the generator for
+189/189 members) or from calc facts. Without facts it gives topological + screened impact only, comparing ratios on
+a unit area load; utilisation estimates, health bands and stale calc rows appear only where a calc states values,
+each labelled `method: "estimate"` with its basis. Left out (no honest source on uploaded data): next heavier size,
+transfer-member sizing on removal, and the construction-status band adjustment (it came from mock platform data).
+Four screening rules were added beyond the hackathon, each with an engineering reason in the code.
+**Measured** on the v2 answer key (25 scenarios), scripts on data: topological P/R 0.540/0.992, screened
+**0.867/0.923** (hackathon now 0.81/0.913), band 25/25, UC within 0.05 0.998, flag 0.999. The hackathon's own baseline
+was re-measured on today's generated building mid-session (the numbers in the original brief were from an older
+build); ours was copied from its current baseline unchanged. Calc facts come from the generator's calc-sheet data
+as printed (a stand-in for matcher output until calc-mapper extracts row values).
+**AISC shapes table: not committed.** It is AISC data without an open licence and this repo is public. It is
+gitignored (`tools/calcgraph-reference/synth/v2/data/aisc_*.csv`), so CI skips the `move_answer_key` gate until
+Issy decides. **That is mitigation, not a fix:** the gate only runs locally until then.
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
@@ -318,6 +335,7 @@ port lands.
 3. D19: should demo JSON with invented calc documents stay in the repo? (Noah)
 4. The public `origin/extraction` data (D13): needs removing from history (rh-6 / Noah).
 5. `prod` has no branch protection; requiring a review needs a repo admin.
+6. D22: can the AISC shapes subset be committed (licence)? If not, the move gate needs an openly licensed shape source to run in CI.
 
 ## How to review this branch
 
