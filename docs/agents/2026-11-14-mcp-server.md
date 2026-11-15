@@ -43,6 +43,18 @@ calc-mapper hackathon design); its project-file input, findings / groups / compa
   15 each kept 15 of 30 (measured against HEAD 8352c0f); with it, 30 of 30. In-process, load / refresh / append share
   one queue (a refresh asked for during an append resolves after it). The snapshot after a write comes from the bytes
   written (fstat of the temp before rename), never a stat after the rename.
+- **Concurrency (round 2, replaces the stale/break rules above):** `withFileLock` in decisions.ts. The holder
+  heartbeats (futimes on its own fd, 1 s). Stale = same hostname + dead pid, OR the lock's observation key (dev, ino,
+  mtime, size, content, read from one fd) unchanged for 5 s on the WAITER's monotonic clock; wait 15 s. No clock of
+  another machine is compared. Every unlink of the lock (break AND release) runs under `<lock>.guard` (O_EXCL, held
+  for one re-read + one unlink) and only if the lock still matches (key for a break, token for a release); the old
+  move-aside + link-back is gone (no hard links needed). Every loop turn that does not acquire goes through one
+  deadline + backoff point: an unreadable / unremovable lock fails with the lock path, never a busy loop (it used to
+  wedge the in-process queue). Guard staleness is by observation only (3 s); residual = crash inside the guard plus
+  concurrent breakers. `DecisionsFile.log` keeps its identity while the bytes are unchanged, so
+  `Project.computedLog !== fileLog` means "really changed"; `recordDecisions` validates under the lock with
+  `Project.effectiveOver` (effectiveDecisions only, no buildState) and recomputes after release: once, or twice when
+  someone else had appended (the extra one gives an honest `link_before`). A decisions file without W_OK is refused.
 - **Write tools do NOT pre-refresh** (server.ts `run(..., { write: true })`): the append re-reads under the lock, so
   `reloaded_external_changes` is true exactly when someone else appended since this server last read. It used to be
   always false over MCP because the wrapper refreshed first.

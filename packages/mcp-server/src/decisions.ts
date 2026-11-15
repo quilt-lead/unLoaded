@@ -12,9 +12,33 @@
  * append takes an exclusive cross-process lock, `<real file>.lock` (created with O_EXCL; it holds the
  * writer's pid, host, a token and the time). Under the lock the append re-reads the file, validates
  * against what is really there, writes the whole array to a temp file next to the real file, fsyncs
- * it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. A lock
- * whose owner is gone (same host, pid not running) or older than LOCK_STALE_MS is broken; a live one
- * is waited for up to LOCK_WAIT_MS, then the append fails with a message naming the lock file.
+ * it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. The holder
+ * heartbeats (refreshes the lock's mtime every LOCK_HEARTBEAT_MS). A lock is stale when its writer is
+ * on this host (same `os.hostname()`) and its pid is not running, or when a waiter has seen nothing
+ * about it change for LOCK_STALE_MS on its own monotonic clock (no two machines' clocks are ever
+ * compared). A live lock is waited for up to LOCK_WAIT_MS, then the append fails with a message naming
+ * the lock file; so does a lock file that cannot be read or removed. Every unlink of the lock (a break
+ * or a release) happens under a second O_EXCL file, `<lock>.guard`, held for one re-read and one
+ * unlink: the lock removed is exactly the one judged stale (or one's own, by token), never one another
+ * writer took meanwhile. No hard links are needed.
+ *
+ * File-system assumptions, stated honestly:
+ * - Local file systems (APFS, ext4, NTFS...): O_EXCL create, rename over a file and fsync behave as
+ *   POSIX says; the guarantees above hold.
+ * - Network file systems (NFS, SMB, synced folders): O_EXCL is atomic on NFSv3+ and SMB, but not on
+ *   NFSv2 or on folder-sync tools (Dropbox, OneDrive), which can lose an append. Staleness never compares
+ *   clocks, so skew is harmless; a writer on another host is only ever judged stale by observation.
+ *   Two servers on different hosts with the same hostname are taken to be one host.
+ * - Residual (not prevented): a holder that stops for longer than LOCK_STALE_MS (process suspended,
+ *   event loop blocked; an append does no heavy synchronous work under the lock) can lose its lock and
+ *   write alongside the next holder. A process that crashes while holding `<lock>.guard` leaves it; it is
+ *   removed after GUARD_STALE_MS unchanged, and if two processes remove a left guard at the same moment
+ *   both can believe they hold it (needs a crash inside the guard plus concurrent breakers).
+ * - A crash can leave `<lock>`, `<lock>.guard` or a `.<name>.<pid>.<hex>.tmp` file. They are harmless:
+ *   the lock and guard are broken as above; a temp file is never read and can be deleted.
+ * - A write replaces the file (temp + rename): its mode is kept, but its owner can change (to the
+ *   writer's user), a hard link to it stops seeing new entries, and ACLs / extended attributes are not
+ *   carried over. A file this process may not write (e.g. chmod 444) is refused, never replaced.
  *
  * Within one process every read (load, refresh) and every append goes through one queue, so a slow
  * read can never land after an append and roll the in-memory log back.
@@ -29,7 +53,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
-import { link, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { access, constants, open, readFile, rename, stat, unlink, type FileHandle } from "node:fs/promises";
 import { hostname } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { DECISION_ACTIONS, decisionFrom, type Decision, type DecisionAction, type DecisionFields } from "./engine.ts";
@@ -97,16 +121,26 @@ interface Snapshot {
 }
 
 /** How long an append waits for another writer's lock before giving up. */
-export const LOCK_WAIT_MS = 10_000;
-/** A lock older than this is taken to be left behind by a crashed writer (an append holds it for milliseconds). */
-export const LOCK_STALE_MS = 30_000;
+export const LOCK_WAIT_MS = 15_000;
+/**
+ * A lock that nothing has changed (content, mtime, identity) for this long, as watched by a waiter on its
+ * own monotonic clock, was left by a writer that crashed or hung: a live holder heartbeats every
+ * LOCK_HEARTBEAT_MS. Must be below LOCK_WAIT_MS, and several heartbeats long.
+ */
+export const LOCK_STALE_MS = 5_000;
+/** How often a holder refreshes its lock's mtime. */
+export const LOCK_HEARTBEAT_MS = 1_000;
+/** `<lock>.guard` is held for one read and one unlink; one unchanged for this long was left by a crash. */
+const GUARD_STALE_MS = 3_000;
+/** How long a break or a release waits for `<lock>.guard` (longer than GUARD_STALE_MS, so a left guard is removed). */
+const GUARD_WAIT_MS = 4_000;
 
 type DiskRead =
   | { state: "missing" }
   | { state: "ok"; log: DecisionFields[]; snap: Snapshot }
   | { state: "bad"; reason: string; snap: Snapshot };
 
-interface LockInfo {
+export interface LockInfo {
   pid: number;
   host: string;
   token: string;
@@ -156,11 +190,13 @@ export class DecisionsFile {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly lockWaitMs: number;
   private readonly lockStaleMs: number;
+  private readonly lockHeartbeatMs: number;
 
-  constructor(path: string, opts: { lockWaitMs?: number; lockStaleMs?: number } = {}) {
+  constructor(path: string, opts: { lockWaitMs?: number; lockStaleMs?: number; lockHeartbeatMs?: number } = {}) {
     this.path = path;
     this.lockWaitMs = opts.lockWaitMs ?? LOCK_WAIT_MS;
     this.lockStaleMs = opts.lockStaleMs ?? LOCK_STALE_MS;
+    this.lockHeartbeatMs = opts.lockHeartbeatMs ?? LOCK_HEARTBEAT_MS;
   }
 
   get name(): string {
@@ -242,13 +278,17 @@ export class DecisionsFile {
     }
   }
 
+  /**
+   * Take a read. `log` stays the SAME array when the bytes are the ones it was read from, so a new
+   * `log` object means the log really changed (Project recomputes on exactly that).
+   */
   private apply(r: DiskRead): void {
     if (r.state === "missing") {
-      this.log = [];
+      if (this.snap !== null || this.problem !== null) this.log = [];
       this.snap = null;
       this.problem = null;
     } else if (r.state === "ok") {
-      this.log = r.log;
+      if (this.problem !== null || this.snap?.sha256 !== r.snap.sha256) this.log = r.log;
       this.snap = r.snap;
       this.problem = null;
     } else {
@@ -288,6 +328,17 @@ export class DecisionsFile {
         const reloaded = (r.state === "missing" ? null : r.snap.sha256) !== seen;
         this.apply(r);
         if (this.problem) throw new DecisionsFileError(`nothing was written: ${this.problem}`);
+        // a write replaces the file (temp + rename), which needs only the directory writable: honour the file's own mode
+        if (r.state === "ok") {
+          try {
+            await access(this.realPath, constants.W_OK);
+          } catch {
+            throw new DecisionsFileError(
+              `nothing was written: ${this.realPath} is not writable by this server (its permissions forbid it). ` +
+                `The server does not override them: make the file writable (e.g. chmod u+w) to record decisions.`,
+            );
+          }
+        }
         const add = build(this.log);
         if (!add.length) return { appended: [], reloaded };
         const next: DecisionFields[] = [...this.log, ...add];
@@ -334,54 +385,40 @@ export class DecisionsFile {
     return { size: body.length, mtimeMs, sha256: sha256(body) };
   }
 
-  /** Run `fn` holding `<real file>.lock` (O_EXCL), breaking a stale lock, waiting up to LOCK_WAIT_MS for a live one. */
-  private async withLock<T>(fn: () => Promise<T>): Promise<T> {
-    const lock = this.lockPath;
-    const info: LockInfo = { pid: process.pid, host: hostname(), token: randomBytes(8).toString("hex"), at: new Date().toISOString() };
-    const deadline = Date.now() + this.lockWaitMs;
-    let delay = 5;
-    for (;;) {
-      try {
-        const fh = await open(lock, "wx");
-        try {
-          await fh.writeFile(JSON.stringify(info));
-        } finally {
-          await fh.close();
-        }
-        break;
-      } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
-          throw new DecisionsFileError(`could not create the lock file ${lock}: ${(e as Error).message}`);
-        }
-      }
-      const held = await readLock(lock);
-      if (!held) continue; // released meanwhile
-      if (isStale(held, this.lockStaleMs)) {
-        await breakLock(lock, held.raw);
-        continue;
-      }
-      if (Date.now() >= deadline) {
-        const who = held.info ? `pid ${held.info.pid} on ${held.info.host}, since ${held.info.at}` : "an unknown writer";
-        throw new DecisionsFileError(
-          `nothing was written: ${this.name} is locked by another writer (${who}) for more than ${this.lockWaitMs / 1000} s. ` +
-            `If no other unLoaded server or tool is writing it, delete ${lock} and try again.`,
-        );
-      }
-      await sleep(delay);
-      delay = Math.min(delay * 2, 100);
-    }
-    try {
-      return await fn();
-    } finally {
-      const held = await readLock(lock);
-      if (held?.info?.token === info.token) await unlink(lock).catch(() => {});
-    }
+  /**
+   * Run `fn` holding `<real file>.lock` (see `withFileLock`). Reads and appends of this process are
+   * already serialised by `serial`, so this only ever waits for ANOTHER process.
+   */
+  private withLock<T>(fn: () => Promise<T>): Promise<T> {
+    return withFileLock(this.lockPath, { waitMs: this.lockWaitMs, staleMs: this.lockStaleMs, heartbeatMs: this.lockHeartbeatMs, what: this.name }, fn);
   }
 }
 
-async function readLock(lock: string): Promise<{ raw: string; info: LockInfo | null; mtimeMs: number } | null> {
+/** One look at a lock file: everything about it that a live holder changes (identity, heartbeat, content). */
+export interface LockObservation {
+  /** dev:ino:mtime:size:content - two observations with the same key saw the same, untouched lock. */
+  key: string;
+  raw: string;
+  info: LockInfo | null;
+}
+
+/**
+ * Read a lock file. Content and stat come from ONE open file descriptor, so they describe the same
+ * file. null when there is no lock file; throws (with the OS reason) when it exists but cannot be
+ * read (a directory, no permission).
+ */
+export async function observeLock(lock: string): Promise<LockObservation | null> {
+  let fh: FileHandle;
   try {
-    const [raw, st] = await Promise.all([readFile(lock, "utf8"), stat(lock)]);
+    fh = await open(lock, "r");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+  try {
+    const st = await fh.stat();
+    if (!st.isFile()) throw new Error("it is not a regular file");
+    const raw = await fh.readFile("utf8");
     let info: LockInfo | null = null;
     try {
       const o = JSON.parse(raw) as Partial<LockInfo>;
@@ -389,33 +426,176 @@ async function readLock(lock: string): Promise<{ raw: string; info: LockInfo | n
     } catch {
       // being written, or not ours
     }
-    return { raw, info, mtimeMs: st.mtimeMs };
-  } catch {
-    return null;
+    return { key: `${st.dev}:${st.ino}:${st.mtimeMs}:${st.size}:${raw}`, raw, info };
+  } finally {
+    await fh.close();
   }
-}
-
-function isStale(held: { info: LockInfo | null; mtimeMs: number }, staleMs: number): boolean {
-  if (held.info && held.info.host === hostname() && !pidAlive(held.info.pid)) return true;
-  return Date.now() - held.mtimeMs > staleMs;
 }
 
 /**
- * Remove a stale lock without removing a fresh one another process took meanwhile: move it aside
- * (atomic), and if what was moved is not the stale lock we judged, put it back (link fails if a
- * third lock appeared, which then stands).
+ * Hold `<lock>.guard` (O_EXCL) while `fn` runs. Every unlink of a lock file (breaking a stale one,
+ * releasing one's own) happens under this guard, so between re-reading the lock and unlinking it no
+ * other process can unlink it, and therefore none can create a new one in its place: the lock that is
+ * unlinked is exactly the one that was re-read. The guard is held for one read and one unlink
+ * (milliseconds), so a guard whose state has not changed for GUARD_STALE_MS (on this process's
+ * monotonic clock) is taken to be left by a process that crashed inside it, and removed. Returns
+ * null when the guard could not be had within `waitMs`.
  */
-async function breakLock(lock: string, staleRaw: string): Promise<void> {
-  const aside = `${lock}.${process.pid}.${randomBytes(4).toString("hex")}.stale`;
-  try {
-    await rename(lock, aside);
-  } catch {
-    return; // already gone
+async function underGuard<T>(lock: string, waitMs: number, fn: () => Promise<T>): Promise<T | null> {
+  const guard = `${lock}.guard`;
+  const deadline = performance.now() + waitMs;
+  let seen: { key: string; since: number } | null = null;
+  for (;;) {
+    let fh: FileHandle | null = null;
+    try {
+      fh = await open(guard, "wx");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw new Error(`could not create ${guard}: ${(e as Error).message}`);
+    }
+    if (fh) {
+      try {
+        return await fn();
+      } finally {
+        await fh.close().catch(() => {});
+        await unlink(guard).catch(() => {});
+      }
+    }
+    try {
+      const st = await stat(guard);
+      const key = `${st.dev}:${st.ino}:${st.mtimeMs}`;
+      if (seen?.key !== key) seen = { key, since: performance.now() };
+      else if (performance.now() - seen.since >= GUARD_STALE_MS) {
+        await unlink(guard).catch(() => {}); // residual: see the module docstring
+        seen = null;
+        continue;
+      }
+    } catch {
+      seen = null; // released meanwhile
+    }
+    if (performance.now() >= deadline) return null;
+    await sleep(2);
   }
+}
+
+/**
+ * Remove `lock` only if it is still exactly what `expected` says (`removeLock(lock, (o) => o.key ===
+ * judged.key)` for a stale lock, `(o) => o.info?.token === mine` for one's own). The re-read and the
+ * unlink happen under `<lock>.guard`. "removed": it was unlinked; "changed": it is not the expected
+ * lock (left alone); "gone": there is no lock; "busy": the guard could not be had within `guardWaitMs`
+ * (nothing was done). Throws when the guard cannot be created or the unlink fails (the OS reason).
+ */
+export async function removeLock(
+  lock: string,
+  expected: (o: LockObservation) => boolean,
+  guardWaitMs = GUARD_WAIT_MS,
+): Promise<"removed" | "changed" | "gone" | "busy"> {
+  const r = await underGuard(lock, guardWaitMs, async () => {
+    const now = await observeLock(lock).catch(() => undefined);
+    if (now === null) return "gone" as const;
+    if (now === undefined || !expected(now)) return "changed" as const;
+    await unlink(lock);
+    return "removed" as const;
+  });
+  return r ?? "busy";
+}
+
+/**
+ * Run `fn` holding `lock`, created with O_EXCL and holding `{pid, host, token, at}`.
+ *
+ * - The holder keeps the lock alive: every `heartbeatMs` it sets the lock's mtime through its own
+ *   open descriptor (so it can only ever touch its own lock file, never one that replaced it).
+ * - A lock is stale when its writer is on this host (same hostname) and its pid is not running, or
+ *   when nothing about it (content, mtime, identity) has changed for `staleMs`, measured on THIS
+ *   process's monotonic clock while waiting (so no clock is compared with another machine's). A
+ *   stale lock is removed with `removeLock`, only if it is still the one judged stale.
+ * - Every turn of the loop that does not get the lock (held, unreadable, released meanwhile, just
+ *   broken, guard busy) goes through one deadline check and one backoff sleep, so the wait always
+ *   ends: after `waitMs` the call fails with a message naming the lock file and why.
+ * - Release removes the lock only if it still holds this holder's token. If that cannot be done (the
+ *   guard is busy) the lock is left; it stops heartbeating and so goes stale for everyone else.
+ *
+ * `staleMs` must be below `waitMs` for a waiter to ever break a lock by observation.
+ */
+export async function withFileLock<T>(
+  lock: string,
+  opts: { waitMs: number; staleMs: number; heartbeatMs: number; what?: string },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const what = opts.what ?? basename(lock);
+  const info: LockInfo = { pid: process.pid, host: hostname(), token: randomBytes(8).toString("hex"), at: new Date().toISOString() };
+  const deadline = performance.now() + opts.waitMs;
+  let delay = 5;
+  let seen: { key: string; since: number } | null = null;
+  let why = "";
+  let fh: FileHandle | null = null;
+  for (;;) {
+    try {
+      fh = await open(lock, "wx");
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw new DecisionsFileError(`nothing was written: could not create the lock file ${lock}: ${(e as Error).message}`);
+      }
+    }
+    if (fh) {
+      try {
+        await fh.writeFile(JSON.stringify(info));
+        break;
+      } catch (e) {
+        // our own lock, just created and never valid: removed only if it is still that file
+        const id = await fh.stat().then((st) => `${st.dev}:${st.ino}:`, () => null);
+        await fh.close().catch(() => {});
+        if (id) await removeLock(lock, (o) => o.key.startsWith(id)).catch(() => {});
+        throw new DecisionsFileError(`nothing was written: could not write the lock file ${lock}: ${(e as Error).message}`);
+      }
+    }
+    let held: LockObservation | null = null;
+    try {
+      held = await observeLock(lock);
+      why = "";
+    } catch (e) {
+      why = `the lock file ${lock} cannot be read (${(e as Error).message})`;
+    }
+    if (held) {
+      const now = performance.now();
+      if (seen?.key !== held.key) seen = { key: held.key, since: now };
+      const ownerGone = !!held.info && held.info.host === hostname() && !pidAlive(held.info.pid);
+      const who = held.info ? `pid ${held.info.pid} on ${held.info.host}, since ${held.info.at}` : "an unknown writer";
+      why = `${what} is locked by another writer (${who})`;
+      if (ownerGone || now - seen.since >= opts.staleMs) {
+        const judged = held.key;
+        try {
+          const r = await removeLock(lock, (o) => o.key === judged, Math.max(0, Math.min(GUARD_WAIT_MS, deadline - performance.now())));
+          if (r === "removed" || r === "gone") seen = null;
+          if (r === "busy") why = `${what} is locked by a writer that looks stale, but ${lock}.guard is held by another process`;
+        } catch (e) {
+          why = `the stale lock file ${lock} cannot be removed (${(e as Error).message})`;
+        }
+      }
+    }
+    // the one place a turn that did not get the lock ends: deadline, then backoff
+    if (performance.now() >= deadline) {
+      throw new DecisionsFileError(
+        `nothing was written: ${why || `${what} is locked by another writer`}; gave up after ${opts.waitMs / 1000} s. ` +
+          `If no other unLoaded server or tool is writing it, delete ${lock} and try again.`,
+      );
+    }
+    await sleep(delay);
+    delay = Math.min(delay * 2, 100);
+  }
+  if (!fh) throw new DecisionsFileError(`nothing was written: could not take the lock file ${lock}`); // the loop only breaks holding it
+  const held: FileHandle = fh;
+  let beat: Promise<unknown> = Promise.resolve();
+  const timer = setInterval(() => {
+    beat = beat.then(() => held.utimes(new Date(), new Date())).catch(() => {});
+  }, opts.heartbeatMs);
+  timer.unref?.();
   try {
-    if ((await readFile(aside, "utf8")) !== staleRaw) await link(aside, lock).catch(() => {});
+    return await fn();
   } finally {
-    await unlink(aside).catch(() => {});
+    clearInterval(timer);
+    await beat;
+    await held.close().catch(() => {});
+    await removeLock(lock, (o) => o.info?.token === info.token).catch(() => {});
   }
 }
 

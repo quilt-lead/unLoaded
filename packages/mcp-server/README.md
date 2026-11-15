@@ -277,11 +277,27 @@ calc-mapper's decision log: a JSON array of `Decision`s, oldest first. It is the
   Every append takes an exclusive lock, `<file>.lock` next to the real file (created with `O_EXCL`; it holds the
   writer's pid, host, a token and the time). Under the lock it re-reads the file, validates the batch against what is
   really there, numbers it after the last id in the file, writes the whole array to a temp file next to the real file,
-  fsyncs it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. A lock whose owner is
-  gone (same host, pid not running) or older than 30 s is broken; a live one is waited for up to 10 s, then the write
-  fails with a message naming the lock file. `reloaded_external_changes` is true when the file held decisions this
-  server had not seen; they are kept. Within one server, reads and appends go through one queue, so a read can never
-  land after an append and roll the answer back.
+  fsyncs it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. The holder refreshes
+  the lock's mtime every second while it holds it. A lock is broken when its writer is on this machine (same hostname)
+  and no longer running, or when nothing about it has changed for 5 s as watched by the waiting server on its own
+  clock (clocks of different machines are never compared). A live lock is waited for up to 15 s, then the write fails
+  with a message naming the lock file; so does a lock file that cannot be read or removed. Removing a lock (breaking a
+  stale one, or releasing one's own) happens under a second short-lived file, `<file>.lock.guard`, so a server only
+  ever removes the exact lock it judged stale, never one another writer has just taken. `reloaded_external_changes` is
+  true when the file held decisions this server had not seen; they are kept. Within one server, reads and appends go
+  through one queue, so a read can never land after an append and roll the answer back.
+- **What the file system has to provide.** On a local disk (APFS, ext4, NTFS) the above holds. On a network file
+  system, `O_EXCL` creation must be atomic: true on NFSv3 and later and on SMB, not on NFSv2, and not on folder-sync
+  tools (Dropbox, OneDrive, iCloud Drive), which can lose an append. Two machines with the same hostname are taken
+  to be one machine. No hard links are needed. Not prevented: a server that freezes for more than 5 s while holding
+  the lock (suspended process) can lose it to another writer; two servers removing a guard file left by a crash at the
+  same moment can both proceed. A crash can leave `<file>.lock`, `<file>.lock.guard` or a `.<file>.<pid>.<hex>.tmp`
+  file: all are harmless (the lock and guard are cleared automatically; the temp file is never read and can be
+  deleted).
+- **Writes replace the file** (temp file + rename). The file's mode is kept, but its owner can change (to the user
+  the server runs as), a hard link to it stops seeing new entries, and ACLs and extended attributes are not carried
+  over. A file the server may not write (for example `chmod 444`) is refused with a message and left untouched, even
+  though its directory would allow the rename.
 - **A symlinked `--decisions` path** is resolved once: the real file is read, locked and written, so the link stays a
   link. The file's mode is kept.
 - **A file that cannot be read** (not JSON, a bad entry, an empty or whitespace-only file) does not stop the server.
@@ -348,6 +364,8 @@ other file in `src/` imports an engine package, and checks `package.json` declar
 | `has NO text layer` warning / calcs marked scanned | The PDF pages are images. OCR them, then run again. |
 | `decisions_warning` / `the decisions file cannot be read: ...` | Fix what it names (`must be a JSON array`, `entry N: ...`, `is not valid JSON`, `is empty`), or point `--decisions` at a new file. Answers meanwhile use the last good log; writes are refused. |
 | `is locked by another writer` | Another server or tool is writing the decisions file. If none is, delete the `.lock` file it names. |
+| `cannot be read` / `cannot be removed` (lock file) | The `.lock` path is not a regular file or its directory is not writable. Fix or delete the path it names. |
+| `is not writable by this server` | The decisions file's permissions forbid writing it. Make it writable (`chmod u+w`) to record decisions. |
 | `name N calc key(s) that are not in this project` | Decisions recorded against PDFs that are not loaded, or loaded in another order / under another name. The warning names the likely cause; restore the `--calcs` order and names. |
 | `This server is read-only` from `record_decision` | Add `--decisions /abs/path/decisions.json` to the args and restart the server. |
 | `no automatic link ... use manual` | `confirm` and `reject` act on engine links only. Use `manual` to link by hand. |

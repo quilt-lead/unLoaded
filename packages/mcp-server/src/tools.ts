@@ -1066,14 +1066,16 @@ export async function recordDecisions(p: Project, a: { decisions: DecisionInput[
   if (!store) throw new ToolInputError(READ_ONLY_MESSAGE);
   if (!Array.isArray(a.decisions) || !a.decisions.length) throw new ToolInputError("decisions must be a non-empty array");
   if (a.decisions.length > 500) throw new ToolInputError("at most 500 decisions per call");
-  const before = new Map<string, { link: ReturnType<typeof brief>; status: string | undefined }>();
   const rawPairs = new Set(p.rawLinks.map((l) => pk(l.global_id, l.calc_key)));
+  const built: { on: readonly DecisionFields[] | null } = { on: null };
 
-  const { appended, reloaded } = await store.append((current) => {
+  // build runs under the cross-process lock: only cheap work here (no recompute: it would block the event
+  // loop, and with it the lock's heartbeat)
+  const appending = store.append((current) => {
+    built.on = current;
     const errors: string[] = [];
     // effective decision per pair as the log stands (project file + this file), updated as the batch is simulated
-    if (current !== p.computedLog) p.recompute();
-    const eff = new Map(p.effective);
+    const eff = new Map(p.effectiveOver(current));
     const at = new Date().toISOString();
     const log: DecisionFields[] = [...current];
     const out: Decision[] = [];
@@ -1119,13 +1121,21 @@ export async function recordDecisions(p: Project, a: { decisions: DecisionInput[
       else eff.set(key, rec);
     });
     if (errors.length) throw new ToolInputError(`nothing was written:\n- ${errors.join("\n- ")}`);
-    for (const d of out) {
-      const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);
-      before.set(pk(d.global_id, d.calc_key), { link: brief(l), status: p.status.get(d.global_id) });
-    }
     return out;
   });
-  p.recompute();
+  const { appended, reloaded } = await appending.catch((e: unknown) => {
+    if (p.computedLog !== store.log) p.recompute(); // the append re-read the file, then wrote nothing
+    throw e;
+  });
+  // the lock is released: "before" is the state the batch was built on (applied again only when someone
+  // else had appended since the last applied read), then the new log is applied once
+  if (built.on && p.computedLog !== built.on) p.recompute(built.on);
+  const before = new Map<string, { link: ReturnType<typeof brief>; status: string | undefined }>();
+  for (const d of appended) {
+    const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);
+    before.set(pk(d.global_id, d.calc_key), { link: brief(l), status: p.status.get(d.global_id) });
+  }
+  if (p.computedLog !== store.log) p.recompute();
   return {
     recorded: appended.map((d) => {
       const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);

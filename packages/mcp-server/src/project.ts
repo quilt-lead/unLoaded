@@ -218,7 +218,10 @@ export class Project {
   unappliedDecisions = 0;
   /** Warnings about the decision logs as they stand (recomputed with them). */
   decisionWarnings: string[] = [];
-  /** The decisions file log the derived state was computed from (identity), to tell when it is stale. */
+  /**
+   * The decisions file log the derived state was computed from (identity: DecisionsFile keeps the same
+   * array while the file is unchanged), to tell when it is stale.
+   */
   computedLog: readonly DecisionFields[] | null = null;
 
   constructor(init: {
@@ -278,26 +281,41 @@ export class Project {
    * file's, ids shifted past them so they come later (an id only orders decisions; the latest per
    * pair wins). The shifted ids live only here: `decisionRef` maps every entry back.
    */
-  private buildLog(): void {
+  private combinedLog(fileLog: readonly DecisionFields[], ref?: (e: DecisionFields, r: DecisionRef) => void): DecisionFields[] {
     const n = this.baseLog.length;
-    this.refs = new Map();
     const log: DecisionFields[] = [];
     for (const d of this.baseLog) {
       log.push(d);
-      this.refs.set(d, { origin: "project_file", id: d.id });
+      ref?.(d, { origin: "project_file", id: d.id });
     }
-    for (const d of this.fileLog) {
+    for (const d of fileLog) {
       const e = n ? { ...d, id: d.id + n } : d;
       log.push(e);
-      this.refs.set(e, { origin: "decisions_file", id: d.id });
+      ref?.(e, { origin: "decisions_file", id: d.id });
     }
-    this.log = log;
+    return log;
   }
 
-  /** Apply the decision log: per-PDF state, statuses, calc edges, findings. */
-  recompute(): void {
-    this.computedLog = this.fileLog;
-    this.buildLog();
+  private buildLog(fileLog: readonly DecisionFields[]): void {
+    this.refs = new Map();
+    this.log = this.combinedLog(fileLog, (e, r) => this.refs.set(e, r));
+  }
+
+  /**
+   * The effective decision per (global_id, calc_key) over the project file's log + `fileLog`, without
+   * applying anything (no buildState): cheap enough to run under the decisions file's lock.
+   */
+  effectiveOver(fileLog: readonly DecisionFields[]): Map<string, DecisionFields> {
+    return effectiveDecisions(this.combinedLog(fileLog));
+  }
+
+  /**
+   * Apply the decision log: per-PDF state, statuses, calc edges, findings. `fileLog` is the decisions
+   * file's log to apply (default: as last read).
+   */
+  recompute(fileLog: readonly DecisionFields[] = this.fileLog): void {
+    this.computedLog = fileLog;
+    this.buildLog(fileLog);
     const log = this.log;
     this.states = this.pdfs.map((pdf) => buildState(this.graph.graph, pdf.pkg, pdf.run, log));
     this.links = this.states.flatMap((s) => s.links);
@@ -387,8 +405,10 @@ export class Project {
 
   /** Pick up decisions written by someone else since the last read. */
   async refresh(): Promise<boolean> {
-    if (this.decisions && (await this.decisions.refresh())) {
-      this.recompute(); // also when the file turned malformed: the warnings change
+    // also when the file turned malformed (the warnings change), and whenever the log is not the one
+    // last applied (e.g. an append re-read the file but then wrote nothing)
+    if (this.decisions && ((await this.decisions.refresh()) || this.computedLog !== this.fileLog)) {
+      this.recompute();
       return true;
     }
     return false;
