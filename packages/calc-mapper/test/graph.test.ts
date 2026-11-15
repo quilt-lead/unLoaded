@@ -76,7 +76,8 @@ describe("decision log", () => {
     log = addDecision(log, { global_id: "X1", calc_key: "k", action: "undo" }, { at: "t5" });
     expect(log.map((d) => d.id)).toEqual([1, 2, 3, 4, 5]);
     expect([...effectiveDecisions(log).values()].map((d) => [d.global_id, d.action])).toEqual([["B1", "confirm"], ["C1", "manual"]]);
-    const auto = [{ global_id: "B1", calc_key: "k", conf: 0.62, tier: "size" as const, rule: "r", page: 1, token: "W", span: [0, 1] as [number, number], snippet: null, rects: [], status: "auto" as const }];
+    const auto = [{ global_id: "B1", calc_key: "k", conf: 0.62, tier: "size" as const, rule: "r", page: 1, token: "W", span: [0, 1] as [number, number], snippet: null, rects: [], status: "auto" as const,
+      role: "design" as const, band: "medium" as const, evidence: [], caveats: [] }];
     const out = applyDecisions(auto, log, new Set(["B1", "C1"]), new Set(["k"]));
     expect(out.map((l) => [l.global_id, l.status, l.tier, l.decided_at])).toEqual([["B1", "confirmed", "size", "t2"], ["C1", "manual", "manual", "t3"]]);
     expect(auto[0]!.status).toBe("auto"); // the run is not mutated
@@ -92,10 +93,14 @@ describe("export", () => {
     const g = graph();
     const ex = buildExport(g, pkg, mapCalcs(g, pkg), [], { model_revision: "rev1" });
     expect(Object.keys(ex).sort()).toEqual(["calc_edges", "calc_package", "calc_revision", "calcs", "connectivity", "elements",
-      "engine", "load_path", "model", "model_revision", "producers"]);
+      "engine", "findings", "group_links", "groups", "load_path", "model", "model_revision", "producers"]);
     expect(ex.calc_package).toBe("calcs.pdf");
     const b1 = ex.elements.find((e) => e.global_id === "B1")!;
-    expect(b1.calcs[0]).toMatchObject({ calc: "beam-design-ram-steel", tier: "exact", confidence: 0.97, matched_text: "2B1", review: "auto" });
+    // exact (0.97) + the line names B1's storey (+0.05) and size (+0.05), clamped to 1
+    expect(b1.calcs[0]).toMatchObject({ calc: "beam-design-ram-steel", tier: "exact", confidence: 1, matched_text: "2B1", review: "auto",
+      role: "design", band: "high" });
+    expect(b1.calcs[0]!.reasons.map((r) => r.kind)).toEqual(["tier", "storey-match", "size-match"]);
+    expect(ex.calcs[0]!.spans).toEqual([{ regions: [{ page: 1, rect: [0, 0, 612, 792], start: 0, end: pages[0]!.text.length }] }]);
     expect(b1.status).toBe("confirmed");
     expect(ex.calc_edges.map((e) => [e.src, e.dst, e.rules])).toEqual([["beam-design-ram-steel", "column-design", ["page reference (input from)"]]]);
     expect(ex.load_path).toEqual([{ src: "B1", dst: "K1", rule: "connection contact" }, { src: "K1", dst: "C1", rule: "connection contact" }]);

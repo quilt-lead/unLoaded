@@ -54,7 +54,9 @@ export function applyDecisions(links: readonly Link[], log: readonly Decision[],
       else {
         l = {
           global_id: d.global_id, calc_key: d.calc_key, conf: 1.0, tier: "manual", rule: "Linked by hand", page: null,
-          token: "", span: null, snippet: null, rects: [], status: "manual",
+          token: "", span: null, snippet: null, rects: [], status: "manual", role: "design", band: "high",
+          evidence: [{ kind: "human", weight: 1, note: `linked by hand${d.actor ? " by " + d.actor : ""}${d.note ? ": " + d.note : ""}`, page: null, rects: [] }],
+          caveats: [],
         };
         out.push(l);
         by.set(k, l);

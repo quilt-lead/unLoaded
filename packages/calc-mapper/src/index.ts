@@ -11,8 +11,12 @@
  */
 export * from "./types.ts";
 export { extractPdf, rectsForSpan, buildPage, SCANNED_MAX_CHARS, type PdfjsLike, type PdfWord } from "./pdf.ts";
-export { segment, segmentCalcs, titleOf, titleBox, catOfText, calcText, CAT_WORDS, TITLE_BOX_RULE } from "./segment.ts";
-export { runMapping, CONF, XREF_CAP, normMark, dashless, normProfile, profileFrom } from "./matcher.ts";
+export { segment, segmentCalcs, titleOf, titleBox, catOfText, calcText, calcRegions, pageParts, CAT_WORDS, TITLE_BOX_RULE, HEADING_RATIO, TITLE_HEIGHT_RATIO } from "./segment.ts";
+export {
+  runMapping, mapElements, typicalGroups, groupId, bandOf, CONF, XREF_CAP, WEIGHTS, BANDS, normMark, dashless, normProfile, profileFrom,
+  type MappingResult,
+} from "./matcher.ts";
+export { normaliseProfile } from "./profile.ts";
 export { inferCalcEdges } from "./calcdeps.ts";
 export { propagate } from "./impact.ts";
 export { diffGraphs, diffElements } from "./diff.ts";

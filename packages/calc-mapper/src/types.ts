@@ -51,6 +51,23 @@ export interface TitleBox {
 export type ElementCategory =
   | "Beam" | "Column" | "Slab" | "Wall" | "Footing" | "Pile" | "Brace" | "Connection" | "Other";
 
+/**
+ * A region of one page that belongs to a calc: the page's text range [start, end) and the box
+ * around it (PDF points; full page width). A region can start mid-page (a calc titled half way
+ * down a sheet) and end mid-page (the next calc starts below it).
+ */
+export interface CalcRegion {
+  page: number;
+  rect: Rect;
+  start: number;
+  end: number;
+}
+
+/** Consecutive regions that read on from one to the next (page bottom -> next page top). A gap starts a new span. */
+export interface CalcSpan {
+  regions: CalcRegion[];
+}
+
 export interface Calc {
   /** Stable key: slug of the title (scanned runs: scanned-<n>), de-duplicated with -2, -3 ... */
   key: string;
@@ -67,6 +84,8 @@ export interface Calc {
   title_box: TitleBox;
   /** Hash of title + text (what the store used to detect a changed calc between packages). */
   content_hash: string;
+  /** The calc as ordered spans of page regions (`pages` stays: the distinct pages, in order). */
+  spans: CalcSpan[];
 }
 
 /** A segmented calc package: its pages + calcs (`segmentCalcs(extractPdf(bytes).pages)`). */
@@ -132,9 +151,27 @@ export interface Snippet {
   after: string;
 }
 
+/** Does the calc size the element, or only take loads from / refer to it? */
+export type LinkRole = "design" | "loads";
+export type ConfidenceBand = "high" | "medium" | "low";
+
+/**
+ * One item of evidence behind a link. A link's confidence is the sum of its evidence weights,
+ * clamped to [0, 1]. The first item is always the matching tier (kind "tier"), so tier metrics
+ * still compute; negative weights are evidence against (a size or storey that contradicts the model).
+ */
+export interface LinkEvidence {
+  kind: "tier" | "storey-match" | "storey-conflict" | "size-match" | "size-mismatch" | "loads-context" | "group" | "human" | (string & {});
+  weight: number;
+  note: string;
+  page: number | null;
+  rects: Rect[];
+}
+
 export interface Link {
   global_id: string;
   calc_key: string;
+  /** Sum of `evidence` weights, clamped to [0, 1]. */
   conf: number;
   tier: Tier;
   rule: string;
@@ -146,6 +183,57 @@ export interface Link {
   status: LinkReview;
   decided_at?: string;
   decided_by?: string | null;
+  role: LinkRole;
+  band: ConfidenceBand;
+  evidence: LinkEvidence[];
+  /** Plain-language reasons to doubt the link (size / storey conflict, loads only, via a typical group ...). */
+  caveats: string[];
+  /** Set when the element is linked through its typical group (a size-only calc). */
+  via_group?: string;
+}
+
+/** Elements of one size on one storey, of one kind: what a size-only ("W12X19 typ.") calc links to. */
+export interface TypicalGroup {
+  /** `group:<cat>:<storey>:<profile>` */
+  id: string;
+  cat: ElementCategory;
+  storey: string;
+  profile: string;
+  /** Member GlobalIds, sorted. */
+  members: string[];
+  title: string;
+}
+
+/** A calc <-> typical group link (one per group, instead of a weak link fanned out to every member). */
+export interface GroupLink {
+  group: string;
+  calc_key: string;
+  conf: number;
+  band: ConfidenceBand;
+  tier: "size";
+  role: LinkRole;
+  rule: string;
+  page: number | null;
+  token: string;
+  span: [number, number] | null;
+  snippet: Snippet | null;
+  rects: Rect[];
+  evidence: LinkEvidence[];
+  caveats: string[];
+}
+
+/** Something the evidence says is wrong. Today: the calc designs a different size than the model has. */
+export interface Finding {
+  kind: "size-mismatch";
+  global_id: string;
+  calc_key: string;
+  model_size: string;
+  calc_size: string;
+  page: number;
+  span: [number, number];
+  rects: Rect[];
+  snippet: Snippet;
+  note: string;
 }
 
 export interface CalcEdgeEvidence {
@@ -170,6 +258,9 @@ export interface MappingRun {
   engine: typeof ENGINE_VERSION;
   links: Link[];
   calc_edges: CalcEdge[];
+  groups: TypicalGroup[];
+  group_links: GroupLink[];
+  findings: Finding[];
 }
 
 // ---------------------------------------------------------------- decisions (append-only log)
@@ -213,6 +304,12 @@ export interface ExportLink {
   matched_text: string;
   review: LinkReview;
   evidence: { page: number | null; span: [number, number] | null; rects: Rect[]; snippet: Snippet | null };
+  role: LinkRole;
+  band: ConfidenceBand;
+  /** The weighted evidence items (the `evidence` key above keeps the backend's location shape). */
+  reasons: LinkEvidence[];
+  caveats: string[];
+  via_group?: string;
 }
 
 export interface ExportElement {
@@ -234,6 +331,7 @@ export interface ExportCalc {
   scanned: boolean;
   front_matter: boolean;
   title_box: TitleBox | null;
+  spans: CalcSpan[];
 }
 
 export interface Export {
@@ -250,6 +348,9 @@ export interface Export {
   /** The graph's `connects` edges. */
   connectivity: ConnectivityEdge[];
   elements: ExportElement[];
+  groups: TypicalGroup[];
+  group_links: GroupLink[];
+  findings: Finding[];
 }
 
 /** Labels written into the export header (the backend's revision ids / file names). */
@@ -277,6 +378,10 @@ export interface ProjectState {
   links: Link[];
   calc_edges: CalcEdge[];
   counts: Record<ElementStatus, number>;
+  groups: TypicalGroup[];
+  group_links: GroupLink[];
+  /** Findings of links that are not rejected. */
+  findings: Finding[];
 }
 
 // ---------------------------------------------------------------- compare (/compare)

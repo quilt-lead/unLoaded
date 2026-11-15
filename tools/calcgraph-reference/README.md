@@ -6,7 +6,7 @@ here is served or bundled.
 
 | Path | What |
 |---|---|
-| `synth/` | Deterministic synthetic fixture generator. It writes `model_rev1.ifc`, `model_rev2.ifc` (column C8 removed), `calc_package.pdf` and `ground_truth.json` (IfcOpenShell + PyNite + PyMuPDF). `--check` proves it is byte-stable. |
+| `synth/` | Deterministic synthetic fixture generator. It writes `model_rev1.ifc`, `model_rev2.ifc` (column C8 removed), `calc_package.pdf`, `calc_supplement.pdf` and `ground_truth.json` (IfcOpenShell + PyNite + PyMuPDF). The supplement covers a calc starting mid-page, one continued after a gap, a typical-group calc, a loads-only reference and a planted size mismatch; its truth is in `ground_truth.json["supplement"]`. `--check` proves it is byte-stable. |
 | `scripts/build_graph.mjs` | IFC -> serialized element graph, using the packages the UI runs (`packages/ifc-parser` + `packages/element-graph`). |
 | `scripts/evaluate.py` | The scorer. It builds the graphs, runs `packages/calc-mapper/scripts/run-pipeline.ts`, and scores segmentation, mapping per tier, xref, load path, calc edges, the diff, carried decisions and impact against ground truth. |
 | `scripts/evaluate_all.py` | The scorecard plus the gate against `eval/baseline.json`. Gated metrics may not drop. Exact counts must match. |

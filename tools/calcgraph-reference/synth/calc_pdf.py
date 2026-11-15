@@ -392,3 +392,88 @@ def write(b: B.Building, res: Results, path: str, seed: int = 7) -> dict:
     assert pk.n == N_PAGES, pk.n
     pk.save(path)
     return {"pages": N_PAGES}
+
+
+# ---------------------------------------------------------------- supplement (feature checks)
+SUPPLEMENT_FILE = "calc_supplement.pdf"
+SUPPLEMENT_PAGES = 3
+WRONG_SIZE = "W27X94"  # not a section the model uses: the supplement's deliberate size mismatch
+
+
+def write_supplement(b: B.Building, path: str) -> dict:
+    """A short second calc package that exercises what the main package does not: a calc that starts
+    mid-page, a calc that continues after a gap (two spans), a size-only "typical" calc (a typical-group
+    link), a loads-only reference (role "loads"), and a calc that designs a member at a different size
+    than the model (a size-mismatch finding). Returns its ground truth keyed by element KEY (generate()
+    maps keys to GlobalIds)."""
+    beams3 = sorted((e for e in b.elements if e.ifc_class == "IfcBeam" and e.storey == "Level 3" and e.mark),
+                    key=lambda e: e.mark)
+    by_mark = {e.mark: e for e in beams3}
+    girder = by_mark["3G1"]
+    loads = [by_mark[f"3B{n}"] for n in range(1, 5)]
+    wrong = by_mark["3B5"]
+    sizes: dict[str, int] = {}
+    for e in beams3:
+        if e.mark.startswith("3B"):
+            sizes[e.object_type] = sizes.get(e.object_type, 0) + 1
+    typical = sorted(sizes.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
+    slab = next(e for e in b.elements if e.mark == "SL-2")
+    assert wrong.object_type != WRONG_SIZE
+
+    pk = Pkg()
+
+    def page(title: str):
+        pk.page = pk.doc.new_page(width=W_PT, height=H_PT)
+        pk.n += 1
+        pk.text(40, 34, f"JOB 2611 - SAMPLE OFFICE BUILDING     SUPPLEMENT S-{pk.n} OF {SUPPLEMENT_PAGES}     BY: EOR   "
+                        f"DATE: 2026-11-09", font="helv", size=7.5)
+        pk.page.draw_line((40, 40), (W_PT - 40, 40), color=(0.6, 0.6, 0.6), width=0.5)
+        pk.text(40, 66, title, font="hebo", size=12.5)
+
+    mid_y = 300.0
+    t1 = "LEVEL 3 BEAM VIBRATION CHECK - TYPICAL"
+    t2 = f"GIRDER {girder.mark} SPOT CHECK"
+    t3 = "PT SLAB TENDON PROFILE CHECK"
+    page(t1)
+    pk.lines(40, 92, [
+        "Walking vibration per AISC Design Guide 11",
+        f"Level 3 typical beams {typical}, no individual marks",
+        "fn = 6.1 Hz > 4.0 Hz   OK",
+        "ap/g = 0.38% < 0.50%   OK",
+    ], size=9)
+    pk.text(40, mid_y, t2, font="hebo", size=12.5)
+    pk.lines(40, mid_y + 26, [
+        f"Girder {girder.mark} {girder.object_type}: Mu = 182.4 k-ft < phiMn = 249.0 k-ft   OK",
+        f"Infill beam {wrong.mark} {WRONG_SIZE}: Mu = 61.2 k-ft < phiMn = 90.0 k-ft   OK",
+        f"Loads: reactions from beams {loads[0].mark} - {loads[-1].mark}",
+    ], size=9)
+    page(t3)
+    pk.lines(40, 92, [
+        "Slab SL2 (Level 2): tendon low point at mid-bay, cover 1.0 in   OK",
+        "Profile drape 5.5 in, balanced load 75% DL   OK",
+    ], size=9)
+    page(f"{t2} (cont.)")
+    pk.lines(40, 92, [
+        f"Deflection {girder.mark}: live load L/412 > L/360   OK",
+        "End connection: see shear tab calc in the main package.",
+    ], size=9)
+    assert pk.n == SUPPLEMENT_PAGES, pk.n
+    pk.save(path)
+
+    title_top = mid_y - 12.5  # baseline minus the title's font size: where the mid-page calc starts
+    return {
+        "file": SUPPLEMENT_FILE,
+        "calcs": [
+            {"id": "S1", "title": t1, "element_type": "Beam", "spans": [[{"page": 1, "start_y": 0.0}]]},
+            {"id": "S2", "title": t2, "element_type": "Beam",
+             "spans": [[{"page": 1, "start_y": title_top}], [{"page": 3, "start_y": 0.0}]]},
+            {"id": "S3", "title": t3, "element_type": "Slab", "spans": [[{"page": 2, "start_y": 0.0}]]},
+        ],
+        "roles": [{"key": girder.key, "calc": "S2", "role": "design"},
+                  {"key": wrong.key, "calc": "S2", "role": "design"},
+                  *({"key": e.key, "calc": "S2", "role": "loads"} for e in loads),
+                  {"key": slab.key, "calc": "S3", "role": "design"}],
+        "group_links": [{"cat": "Beam", "storey": "Level 3", "profile": typical, "calc": "S1"}],
+        "mismatches": [{"key": wrong.key, "calc": "S2", "model_size": wrong.object_type, "calc_size": WRONG_SIZE}],
+    }
+

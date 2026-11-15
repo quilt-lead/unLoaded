@@ -17,6 +17,10 @@ Reports:
   - load-path edges precision / recall (rev 1 and rev 2)
   - calc dependency edges precision / recall
   - revisions: rev1 -> rev2 element diff vs truth, and human decisions carried forward
+  - link roles (design vs loads) against design_calc / ref_calcs; design-role typical-group links
+    (correct when every member is designed by that calc); size-mismatch findings (none planted)
+  - the supplement package (calc_supplement.pdf): span boundaries (mid-page start, continuation after a
+    gap), roles, typical-group links, size-mismatch findings, against truth["supplement"]
 Writes data/eval/latest.json (+ the raw engine outputs in data/eval/engine/). Needs Node >= 22.18 and the
 repo's `npm ci`.
 """
@@ -64,7 +68,52 @@ def run_engine(graph: str, pdf: str, out: str, decisions: str | None = None, com
 def links_of(export: dict) -> list[dict]:
     """Every element -> calc link of an export, flattened."""
     return [{"global_id": el["global_id"], "calc_key": l["calc"], "conf": l["confidence"], "tier": l["tier"],
-             "status": l["review"]} for el in export["elements"] for l in el["calcs"]]
+             "status": l["review"], "role": l.get("role")} for el in export["elements"] for l in el["calcs"]]
+
+
+def norm_title(s: str) -> str:
+    return "".join(ch for ch in (s or "").upper() if ch.isalnum())
+
+
+def score_supplement(truth: dict, ex: dict) -> dict:
+    """The supplement package's feature truth: spans (mid-page start, continuation after a gap),
+    link roles, typical-group links, size-mismatch findings."""
+    key_of = {c["id"]: next((e["key"] for e in ex["calcs"] if norm_title(e["title"]) == norm_title(c["title"])), None)
+              for c in truth["calcs"]}
+    # spans: every truth region found at the same span position, page, and start (within 15 pt)
+    regions = matched = calcs_ok = 0
+    for c in truth["calcs"]:
+        pred = next((e for e in ex["calcs"] if e["key"] == key_of[c["id"]]), None)
+        pspans = pred["spans"] if pred else []
+        ok = len(pspans) == len(c["spans"])
+        for si, span in enumerate(c["spans"]):
+            for ri, reg in enumerate(span):
+                regions += 1
+                pr = pspans[si]["regions"][ri] if si < len(pspans) and ri < len(pspans[si]["regions"]) else None
+                hit = bool(pr and pr["page"] == reg["page"] and abs(pr["rect"][1] - reg["start_y"]) <= 15)
+                matched += hit
+                ok &= hit
+        calcs_ok += ok
+    # roles
+    roles = {(l["global_id"], l["calc_key"]): l["role"] for l in links_of(ex) if l["status"] != "rejected"}
+    rt = [(r["global_id"], key_of[r["calc"]], r["role"]) for r in truth["roles"]]
+    role_ok = sum(roles.get((g, k)) == want for g, k, want in rt)
+    # typical-group links (design role)
+    true_g = {(f"group:{g['cat']}:{g['storey']}:{g['profile']}", key_of[g["calc"]]) for g in truth["group_links"]}
+    pred_g = {(g["group"], g["calc_key"]) for g in ex["group_links"] if g["role"] == "design"}
+    gp = prf(len(pred_g & true_g), len(pred_g - true_g), len(true_g - pred_g))
+    # size-mismatch findings
+    true_m = {(m["global_id"], key_of[m["calc"]], m["model_size"], m["calc_size"]) for m in truth["mismatches"]}
+    pred_m = {(f["global_id"], f["calc_key"], f["model_size"], f["calc_size"]) for f in ex["findings"]}
+    mp = prf(len(pred_m & true_m), len(pred_m - true_m), len(true_m - pred_m))
+    return {
+        "calcs": len(ex["calcs"]), "truth_calcs": len(truth["calcs"]),
+        "span_regions": regions, "span_regions_matched": matched, "span_boundary_accuracy": matched / regions if regions else None,
+        "calcs_with_exact_spans": calcs_ok,
+        "roles_checked": len(rt), "roles_correct": role_ok, "role_accuracy": role_ok / len(rt) if rt else None,
+        "group_links": len(pred_g), "group_link_precision": gp["precision"], "group_link_recall": gp["recall"],
+        "findings": len(pred_m), "mismatch_precision": mp["precision"], "mismatch_recall": mp["recall"],
+    }
 
 
 def prf(tp: int, fp: int, fn: int) -> dict:
@@ -225,6 +274,31 @@ def main() -> None:
     report["impact_remove_C8"] = {"removed": len(im["removed"]), "hit": len(im["hit"]), "waves": im["waves"],
                                   "stale_calcs": sorted(p2t.get(k, k) for k in im["stale"])}
 
+    # ---------------- roles, typical groups, findings on the main package ----------------
+    ref_truth = {(g, c) for g, e in T.items() for c in e["ref_calcs"]}
+    rchecked = rcorrect = 0
+    for l in links_of(ex1):
+        if l["status"] == "rejected":
+            continue
+        k = (l["global_id"], p2t.get(l["calc_key"], l["calc_key"]))
+        want = "design" if k in design_truth else "loads" if k in ref_truth else None
+        if want:
+            rchecked += 1
+            rcorrect += l["role"] == want
+    members = {g["id"]: g["members"] for g in ex1["groups"]}
+    dgl = [g for g in ex1["group_links"] if g["role"] == "design"]
+    gl_ok = sum(all(T[m]["design_calc"] == p2t.get(g["calc_key"], g["calc_key"]) for m in members[g["group"]]) for g in dgl)
+    report["features_main"] = {
+        "roles_checked": rchecked, "roles_correct": rcorrect, "role_accuracy": rcorrect / rchecked if rchecked else None,
+        "group_links": len(dgl), "group_links_correct": gl_ok, "group_link_precision": gl_ok / len(dgl) if dgl else None,
+        "findings": len(ex1["findings"]),  # the main package has no planted mismatch: every finding is false
+    }
+    # ---------------- the supplement package (feature checks) ----------------
+    sup = truth.get("supplement")
+    if sup:
+        rs = run_engine(g1, os.path.join(a.data, sup["file"]), os.path.join(eng, "supplement.json"))
+        report["supplement"] = score_supplement(sup, rs["export"])
+
     os.makedirs(os.path.join(ROOT, "data", "eval"), exist_ok=True)
     with open(os.path.join(ROOT, "data", "eval", "latest.json"), "w") as fh:
         json.dump(report, fh, indent=1, default=str)
@@ -280,6 +354,17 @@ def _print(r: dict) -> None:
     im = r["impact_remove_C8"]
     print(f"\nIMPACT remove C8 (rev1): {im['removed']} removed, {im['hit']} elements hit over {im['waves']} waves, "
           f"stale calcs {im['stale_calcs']}")
+    fm = r["features_main"]
+    print(f"\nROLES (main)  {fm['roles_correct']}/{fm['roles_checked']} links with the right role (design vs loads), "
+          f"accuracy {pct(fm['role_accuracy'])}")
+    print(f"GROUP LINKS (main)  {fm['group_links_correct']}/{fm['group_links']} design-role group links correct "
+          f"(precision {pct(fm['group_link_precision'])});  findings {fm['findings']} (no mismatch planted)")
+    sp = r.get("supplement")
+    if sp:
+        print(f"\nSUPPLEMENT  calcs {sp['calcs']}/{sp['truth_calcs']}, span regions {sp['span_regions_matched']}/{sp['span_regions']} "
+              f"(accuracy {pct(sp['span_boundary_accuracy'])}), calcs with exact spans {sp['calcs_with_exact_spans']}")
+        print(f"  roles {sp['roles_correct']}/{sp['roles_checked']} ({pct(sp['role_accuracy'])});  group links P {pct(sp['group_link_precision'])} "
+              f"R {pct(sp['group_link_recall'])};  mismatch findings P {pct(sp['mismatch_precision'])} R {pct(sp['mismatch_recall'])}")
 
 
 if __name__ == "__main__":

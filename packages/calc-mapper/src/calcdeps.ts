@@ -11,6 +11,7 @@
  *    the mention ("carried to ST-1 design"), then this -> designer.
  */
 import { rectsForSpan } from "./pdf.ts";
+import { calcRegions } from "./segment.ts";
 import type { Calc, CalcEdge, CalcEdgeEvidence, CalcPage, Link } from "./types.ts";
 
 const PAGE = /\b(?:PAGES?|PP?\.)\s*(\d{1,4})(?:\s*(?:-|–|TO)\s*(\d{1,4}))?/g;
@@ -21,8 +22,11 @@ const lastCue = (s: string): string | undefined => [...s.matchAll(CUE)].pop()?.[
 const cmp = (p: string, q: string): number => (p < q ? -1 : p > q ? 1 : 0);
 
 export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]): CalcEdge[] {
+  // "page 7" points at the calc that holds page 7 (with a page shared by two calcs: the one that starts it)
   const pageOwner = new Map<number, Calc>();
-  for (const c of calcs) for (const n of c.pages) pageOwner.set(n, c);
+  for (const c of calcs) {
+    for (const r of calcRegions(c, pages)) if (!pageOwner.has(r.page) || r.start === 0) pageOwner.set(r.page, c);
+  }
   const pageByN = new Map(pages.map((p) => [p.n, p]));
   const edges = new Map<string, CalcEdge>();
   const add = (src: string, dst: string, rule: string, ev: CalcEdgeEvidence) => {
@@ -36,11 +40,13 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
 
   for (const c of calcs) {
     if (c.front || c.scanned) continue;
-    for (const pn of c.pages) {
+    for (const r of calcRegions(c, pages)) {
+      const pn = r.page;
       const pg = pageByN.get(pn);
       if (!pg) continue;
       const U = pg.text.toUpperCase();
       for (const m of U.matchAll(PAGE)) {
+        if (m.index < r.start || m.index + m[0].length > r.end) continue;
         const a = Number(m[1]);
         const b = Number(m[2] ?? a);
         const start = m.index, end = m.index + m[0].length;
@@ -64,11 +70,14 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
     }
   }
 
+  // the calc that designs each element: its strongest non-xref link, ranked by the TIER confidence
+  // (evidence item 1), as the reference engine ranked them
+  const tierConf = (l: Link): number => (l.evidence?.[0]?.kind === "tier" ? l.evidence[0].weight : l.conf);
   const designer = new Map<string, Link>();
   for (const l of links) {
     if (l.tier !== "xref" && l.status !== "rejected") {
       const cur = designer.get(l.global_id);
-      if (!cur || l.conf > cur.conf) designer.set(l.global_id, l);
+      if (!cur || tierConf(l) > tierConf(cur)) designer.set(l.global_id, l);
     }
   }
   for (const l of links) {

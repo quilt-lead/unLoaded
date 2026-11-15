@@ -13,6 +13,32 @@ export function page(n: number, text: string): CalcPage {
   return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25 };
 }
 
+/**
+ * A page with realistic word heights: lines starting with "# " are headings (12 pt tall), others body
+ * (8 pt). The "# " marker is not part of the text.
+ */
+export function styledPage(n: number, lines: string[]): CalcPage {
+  const words: CalcPage["words"] = [];
+  const out: string[] = [];
+  let pos = 0;
+  let y = 40;
+  for (const raw of lines) {
+    const heading = raw.startsWith("# ");
+    const line = heading ? raw.slice(2) : raw;
+    const h = heading ? 12 : 8;
+    y += h + 6;
+    let x = 40;
+    for (const w of line.split(" ")) {
+      words.push([x, y - h, x + w.length * 5, y, pos, pos + w.length]);
+      pos += w.length + 1;
+      x += w.length * 5 + 5;
+    }
+    out.push(line);
+  }
+  const text = out.join("\n");
+  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25 };
+}
+
 export function el(global_id: string, cat: ElementRow["cat"], mark: string, profile = "", storey = "Level 2"): ElementRow {
   return {
     global_id, express_id: null, ifc_type: "IfcBeam", cat, mark, name: mark, type_name: "", profile, storey, params: {},

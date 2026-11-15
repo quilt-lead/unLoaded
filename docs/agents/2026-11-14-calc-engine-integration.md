@@ -139,6 +139,24 @@ an input; later), and **all of `calc-viewer/data/`**.
 snippets with box positions, summaries, ~1.4 MB. **It is already pushed to the public repo on
 `origin/extraction`**; that is outside this branch and needs rh-6 / Noah to remove it from history.
 
+### D13a. Extraction ideas 1-5: how they were built (implemented ~8:30 PM ET)
+- **Link role** design vs loads: a cross-reference is always `loads`; otherwise `design` if any hit is on a line
+  without a load cue word. Element status counts design links only.
+- **Confidence as weighted evidence:** item 1 is always the existing tier at its existing weight (so tier metrics
+  are unchanged), plus storey equal +0.05 / different −0.15 and size equal +0.05 / different on a mark line −0.20;
+  clamped, banded (high ≥0.75, medium ≥0.5), with caveats. Hit selection still uses tier confidence alone, which is
+  why pages, spans and calc edges didn't move. (`ExportLink` calls the items `reasons`, since `evidence` was taken.)
+- **Typical groups** = same kind + storey + size; a size on a line naming no mark links once to the group, members
+  get `via_group` links.
+- **Size-mismatch findings** when a design line names the element's mark with a different size; one profile
+  normaliser (`profile.ts`, port of the parser's, parity-tested) because importing the parser pulls in web-ifc.
+- **Spans:** a page is cut at a mid-page heading ≥1.2× median line height and close to the page title's size (a
+  looser first rule wrongly split two main-package pages and was tightened); mapping reads only inside regions.
+- **Measured:** a 3-page `calc_supplement.pdf` (synthetic, with ground truth) plants a typ. calc, a mid-page span, a
+  loads-only line and a size mismatch. All existing baseline values unchanged; elements whose top link is correct
+  440 → 455 of 457; main-package role accuracy 767/768; supplement spans 4/4, roles 7/7, group links P/R 1.0/1.0,
+  mismatch P/R 1.0/1.0. 8 new gated rates + 7 exact counts added to the baseline.
+
 ### D14. The copyright guard stores only hashes of the protected terms
 **Why:** the hackathon guard listed the protected set's firm, project and architect names and job /
 permit numbers in plain text, in `copyright_guard.json` and the guard script. In a public repo that
