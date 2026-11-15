@@ -1,5 +1,5 @@
 /**
- * The pipeline over one (element graph, calc package) pair, producing the shapes the retired
+ * The pipeline over one (element graph, calc package or calc set) pair, producing the shapes the retired
  * backend served: a mapping run (auto links + calc edges), /state pieces, /export, /impact.
  * Port of the reference pipeline.remap / state / export / impact_of.
  *
@@ -15,6 +15,7 @@ import { propagate } from "./impact.ts";
 import { BANDS, mapElements } from "./matcher.ts";
 import { PACKAGE_NAME, PACKAGE_VERSION, inputList } from "./provenance.ts";
 import { packageSha256 } from "./segment.ts";
+import { isCalcSet, type CalcSet } from "./calcset.ts";
 import {
   ENGINE_VERSION, type CalcPackage, type DecisionFields, type ElementState, type ElementStatus, type Export, type ExportInfo,
   type Impact, type ImpactMode, type Link, type MappingRun, type ProjectState, type RunProducers, type SerializedElementGraph,
@@ -32,26 +33,53 @@ function pdfSha256(pkg: CalcPackage): string {
   return fromPages;
 }
 
+/** The calcs a run reads: one package as is, or a calc set (calcset.ts) as its combined package. */
+export type CalcInput = CalcPackage | CalcSet;
+
+/** The package the engine reads (a set: its combined package, calc refs + set page numbers). */
+export function packageOf(x: CalcInput): CalcPackage;
+export function packageOf(x: CalcInput | null): CalcPackage | null;
+export function packageOf(x: CalcInput | null): CalcPackage | null {
+  return x === null ? null : isCalcSet(x) ? x.combined : x;
+}
+
+/** sha256 of every PDF the calcs rest on, in document order. */
+function pdfShas(x: CalcInput): string[] {
+  if (!isCalcSet(x)) return [pdfSha256(x)];
+  for (const d of x.docs) {
+    if (!x.combined.pages.some((p) => p.doc_sha256 === d.sha256)) throw new Error(`calc set document ${d.doc_id} has no pages`);
+  }
+  return x.docs.map((d) => d.sha256);
+}
+
 /** Producer records of one (graph, calc package) run: who made each input, and each input document's sha256. */
-export async function runProducers(graph: SerializedElementGraph, pkg: CalcPackage): Promise<RunProducers> {
+export async function runProducers(graph: SerializedElementGraph, calcs: CalcInput): Promise<RunProducers> {
+  const shas = pdfShas(calcs);
+  const pkg = packageOf(calcs);
+  const set = isCalcSet(calcs) ? calcs : null;
   return {
     calc_mapper: { producer: `${PACKAGE_NAME}@${PACKAGE_VERSION}`, engine: ENGINE_VERSION },
     element_graph: {
       producer: `${graph.format}@${graph.version}`, format: graph.format, version: graph.version,
       source: graph.meta?.source ?? null, sha256: await sha256Json(graph),
     },
-    calc_package: { name: pkg.source_name, sha256: pdfSha256(pkg), pages: pkg.pages.length },
+    // one PDF: the package record as before (a set of one PDF too); several: only calc_set
+    ...(shas.length === 1 ? { calc_package: { name: set ? set.docs[0]!.name : pkg.source_name, sha256: shas[0]!, pages: pkg.pages.length } } : {}),
+    ...(set ? {
+      calc_set: set.docs.map((d) => ({ doc_id: d.doc_id, name: d.name, revision: d.revision, sha256: d.sha256, page_offset: d.page_offset, pages: d.pages })),
+    } : {}),
   };
 }
 
 /** Map a calc package onto a graph: the auto links and the calc dependency edges of that run, with its producer records. */
-export async function mapCalcs(graph: SerializedElementGraph, pkg: CalcPackage): Promise<MappingRun> {
-  const producers = await runProducers(graph, pkg);
+export async function mapCalcs(graph: SerializedElementGraph, calcs: CalcInput): Promise<MappingRun> {
+  const producers = await runProducers(graph, calcs);
+  const pkg = packageOf(calcs);
   const r = mapElements(graphElements(graph), pkg.calcs, pkg.pages, producers.element_graph.sha256);
   return {
     engine: ENGINE_VERSION, links: r.links, calc_edges: inferCalcEdges(pkg.calcs, pkg.pages, r.links), groups: r.groups,
     group_links: r.group_links, findings: r.findings, producers,
-    inputs: inputList([producers.element_graph.sha256, producers.calc_package.sha256]),
+    inputs: inputList([producers.element_graph.sha256, ...pdfShas(calcs)]),
   };
 }
 
@@ -68,8 +96,9 @@ export function statusOf(links: Link[]): ElementStatus {
 
 /** Elements with review status, load path, calcs (+ colours), links with decisions applied, calc edges, counts. */
 export function buildState(
-  graph: SerializedElementGraph, pkg: CalcPackage | null, run: MappingRun | null, decisions: readonly DecisionFields[] = [],
+  graph: SerializedElementGraph, calcInput: CalcInput | null, run: MappingRun | null, decisions: readonly DecisionFields[] = [],
 ): ProjectState {
+  const pkg = packageOf(calcInput);
   const rows = graphElements(graph);
   const calcs = (pkg?.calcs ?? []).map((c, i) => ({ ...c, color: PALETTE[i % PALETTE.length]! }));
   const pages = pkg?.pages ?? [];
@@ -98,10 +127,12 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
 
 /** The backend's /export: elements with their calc links + evidence, calcs, calc edges, load path, connectivity. */
 export function buildExport(
-  graph: SerializedElementGraph, pkg: CalcPackage | null, run: MappingRun | null, decisions: readonly DecisionFields[] = [],
+  graph: SerializedElementGraph, calcInput: CalcInput | null, run: MappingRun | null, decisions: readonly DecisionFields[] = [],
   info: ExportInfo = {},
 ): Export {
-  const s = buildState(graph, pkg, run, decisions);
+  const s = buildState(graph, calcInput, run, decisions);
+  const pkg = packageOf(calcInput);
+  const set = calcInput && isCalcSet(calcInput) ? calcInput : null;
   const cal = new Map(s.calcs.map((c) => [c.key, c]));
   const perEl = new Map<string, Link[]>();
   for (const l of s.links) (perEl.get(l.global_id) ?? perEl.set(l.global_id, []).get(l.global_id)!).push(l);
@@ -134,6 +165,9 @@ export function buildExport(
       })),
     })),
     groups: s.groups, group_links: s.group_links, findings: s.findings,
+    ...(set ? {
+      documents: set.docs.map((d) => ({ doc_id: d.doc_id, name: d.name, revision: d.revision, sha256: d.sha256, page_offset: d.page_offset, pages: d.pages })),
+    } : {}),
   };
 }
 
@@ -142,10 +176,10 @@ export function buildExport(
  * calcs go stale. Rests on the graph, and on the calc PDF when calcs are linked (a run is given).
  */
 export async function impactOf(
-  graph: SerializedElementGraph, pkg: CalcPackage | null, run: MappingRun | null, decisions: readonly DecisionFields[],
+  graph: SerializedElementGraph, calcInput: CalcInput | null, run: MappingRun | null, decisions: readonly DecisionFields[],
   gid: string, mode: ImpactMode,
 ): Promise<Impact> {
-  const s = buildState(graph, pkg, run, decisions);
-  const inputs = [await sha256Json(graph), ...(run && pkg ? [pdfSha256(pkg)] : [])];
+  const s = buildState(graph, calcInput, run, decisions);
+  const inputs = [await sha256Json(graph), ...(run && calcInput ? pdfShas(calcInput) : [])];
   return propagate(gid, mode, s.edges, s.links, s.calc_edges, new Map(s.elements.map((e) => [e.global_id, e])), inputs);
 }

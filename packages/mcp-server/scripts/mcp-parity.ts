@@ -159,7 +159,7 @@ const png = img.content.find((c) => c.type === "image")!;
 const bytes = Buffer.from(png.data!, "base64");
 check("get_page_image: PNG image content", [png.mimeType, bytes.subarray(1, 4).toString()], ["image/png", "PNG"]);
 check("get_page_image: crop width in pixels", bytes.readUInt32BE(16), img.json.pixels[0]);
-check("get_page_image: pdf sha256 is the run's", img.json.source.pdf_sha256, run.producers.calc_package.sha256);
+check("get_page_image: pdf sha256 is the run's", img.json.source.pdf_sha256, run.producers.calc_package?.sha256);
 const full = await call("get_page_image", { page: 1 });
 check("get_page_image: full page", full.json.area_pt, [0, 0, pkg.pages[0]!.width, pkg.pages[0]!.height]);
 if (values.out) writeFileSync(values.out.replace(/\.json$/, ".png"), bytes);

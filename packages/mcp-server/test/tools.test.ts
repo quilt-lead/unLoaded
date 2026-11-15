@@ -185,7 +185,7 @@ describe("calc package source", () => {
     const p = await loadProject(writeTemp(file));
     const v = await p.view();
     expect(v.calcs?.extraction).toBe("re-extracted");
-    expect(v.run?.producers.calc_package.sha256).toBe(await sha256(pdf));
+    expect(v.run?.producers.calc_package?.sha256).toBe(await sha256(pdf));
   });
 
   // through the shared rule (storedExtractionFor): a malformed extraction is re-extracted, with the reason
@@ -195,7 +195,7 @@ describe("calc package source", () => {
     c.extraction = { source_sha256: await sha256(pdf), calcs: [] };
     const v = await (await loadProject(writeTemp(file))).view();
     expect([v.calcs?.extraction, v.calcs?.extractionNote]).toEqual(["re-extracted", expect.stringMatching(/malformed \(pages/)]);
-    expect(v.run?.producers.calc_package.sha256).toBe(await sha256(pdf));
+    expect(v.run?.producers.calc_package?.sha256).toBe(await sha256(pdf));
   });
 
   it("revision arguments select other revisions; a project with no calcs still answers model questions", async () => {

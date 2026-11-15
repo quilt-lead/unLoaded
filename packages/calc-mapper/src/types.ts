@@ -324,8 +324,21 @@ export interface RunProducers {
     source: unknown;
     sha256: string;
   };
-  /** The calc package PDF: sha256 of its bytes. */
-  calc_package: { name: string | null; sha256: string; pages: number };
+  /** The calc package PDF: sha256 of its bytes. Present when the run rests on ONE PDF (a package, or a set of one document). */
+  calc_package?: { name: string | null; sha256: string; pages: number };
+  /** A calc-set run (calcset.ts): every document, in set order, with the offset that turns its page numbers into set pages. */
+  calc_set?: CalcSetDocRecord[];
+}
+
+/** One document of a calc set, as runs and exports record it (calcset.ts CalcSetDoc). */
+export interface CalcSetDocRecord {
+  doc_id: string;
+  name: string | null;
+  revision: string | number | null;
+  sha256: string;
+  /** Set page = document page + page_offset. */
+  page_offset: number;
+  pages: number;
 }
 
 /** One mapping run of a (graph, calc package) pair: the auto links (status "auto") + calc edges. */
@@ -337,7 +350,7 @@ export interface MappingRun {
   group_links: GroupLink[];
   findings: Finding[];
   producers: RunProducers;
-  /** The run's input documents: [element graph sha256, calc PDF sha256]. */
+  /** The run's input documents: [element graph sha256, calc PDF sha256 (a set: every document's, in set order)]. */
   inputs: string[];
 }
 
@@ -443,6 +456,11 @@ export interface Export {
   groups: TypicalGroup[];
   group_links: GroupLink[];
   findings: Finding[];
+  /**
+   * A calc-set export: the documents. Calc keys are then calc refs "<doc_id>#<key>" and every page
+   * number is a SET page (document page + the document's page_offset). Absent for a one-package export.
+   */
+  documents?: CalcSetDocRecord[];
 }
 
 /**
@@ -456,6 +474,7 @@ export interface ExportProducers {
   calc_mapper?: RunProducers["calc_mapper"];
   element_graph?: RunProducers["element_graph"];
   calc_package?: RunProducers["calc_package"];
+  calc_set?: RunProducers["calc_set"];
   /** The input documents every derived record rests on: [element graph sha256, calc PDF sha256]. */
   inputs?: string[];
   [key: string]: unknown;
