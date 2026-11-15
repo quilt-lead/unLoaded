@@ -32,6 +32,7 @@ import { DockableHudPanel } from './components/DockableHudPanel';
 
 export const App: React.FC = () => {
   const [activeView, setActiveView] = useState<WorkspaceView>('element-graph');
+  const [inspectorVisible, setInspectorVisible] = useState(true);
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [traceDirection, setTraceDirection] = useState<TraceDirection>('down');
   const [traceSteps, setTraceSteps] = useState<number>(16);
@@ -60,6 +61,15 @@ export const App: React.FC = () => {
 
   const [docFilterBySelected, setDocFilterBySelected] = useState(false);
   const [initialDocId, setInitialDocId] = useState<string | null>(null);
+  const [documentOpenRequest, setDocumentOpenRequest] = useState(0);
+
+  const handleChangeView = useCallback((view: WorkspaceView) => {
+    // Element and calculation categories/searches refer to different records.
+    if ((activeView === 'calculation-graph') !== (view === 'calculation-graph')) {
+      setFilters((prev) => ({ ...prev, search: '', type: 'ALL' }));
+    }
+    setActiveView(view);
+  }, [activeView]);
 
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
@@ -78,6 +88,7 @@ export const App: React.FC = () => {
   });
 
   const toastTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const showToast = useCallback((message: string, isError = false) => {
     setToast({ message, isError, visible: true });
     // One timer: a newer toast (e.g. import progress -> result) restarts the countdown.
@@ -136,6 +147,11 @@ export const App: React.FC = () => {
           warnings.length > 0 ? ` • ${warnings.length} warning${warnings.length === 1 ? '' : 's'} (see console)` : '';
 
         setGroups([]);
+        setFilters({ search: '', type: 'ALL', level: 'ALL' });
+        setDiffFilter('ALL');
+        setDocFilterBySelected(false);
+        setInitialDocId(null);
+        setDocumentOpenRequest((value) => value + 1);
         setSelectedNodeId(null);
         setSelectedNodeIds(new Set());
         setSelectedCalcNodeId(null);
@@ -186,6 +202,8 @@ export const App: React.FC = () => {
     setDiffFilter('ALL');
     setSelectedNodeId(null);
     setSelectedNodeIds(new Set());
+    setSelectedCalcNodeId(null);
+    setSelectedCalcNodeIds(new Set());
     showToast('Exited Diff Mode — showing Base DB (A)');
   }, [showToast]);
 
@@ -216,7 +234,7 @@ export const App: React.FC = () => {
       .map(([fl]) => fl);
   }, [elementNodes]);
 
-  const isDiffFilterActive = Boolean(diffSummary && diffFilter !== 'ALL');
+  const isDiffFilterActive = Boolean(activeView !== 'calculation-graph' && diffSummary && diffFilter !== 'ALL');
   const isFilterActive = Boolean(
     filters.search.trim() || filters.type !== 'ALL' || filters.level !== 'ALL' || isDiffFilterActive
   );
@@ -250,7 +268,7 @@ export const App: React.FC = () => {
     () =>
       getAllDocumentsFlattened(
         elementNodes,
-        activeView !== 'calculation-graph' && isFilterActive ? matchingNodeIds : new Set(),
+        activeView !== 'calculation-graph' && isFilterActive ? matchingNodeIds : null,
         heatmapMode
       ),
     [elementNodes, activeView, isFilterActive, matchingNodeIds, heatmapMode]
@@ -291,6 +309,9 @@ export const App: React.FC = () => {
         setSelectedNodeIds(new Set(mappedEls));
         setSelectedNodeId(mappedEls[0]);
         setFit3dTrigger((c) => c + 1);
+      } else {
+        setSelectedNodeId(null);
+        setSelectedNodeIds(new Set());
       }
     },
     [docToElementIds]
@@ -405,7 +426,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
+      const target = e.target;
+      if (e.defaultPrevented || (target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest('input, textarea, select')))) return;
+      if (activeView === 'element-graph' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
       } else if (e.key === 'Escape') {
@@ -415,7 +439,7 @@ export const App: React.FC = () => {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleGroupSelection, handleClearSelection]);
+  }, [activeView, handleGroupSelection, handleClearSelection]);
 
   const handleResetAll = useCallback(() => {
     setFilters({ search: '', type: 'ALL', level: 'ALL' });
@@ -423,6 +447,12 @@ export const App: React.FC = () => {
     handleClearSelection();
     setViewer3dDock('float');
     setInspectorDock('float');
+    setInspectorVisible(true);
+    setDocFilterBySelected(false);
+    setInitialDocId(null);
+    setDocumentOpenRequest((value) => value + 1);
+    setLeftDockWidth(340);
+    setRightDockWidth(340);
     setResetTrigger((c) => c + 1);
     showToast('View, filters & panels reset');
   }, [handleClearSelection, showToast]);
@@ -433,10 +463,14 @@ export const App: React.FC = () => {
         handleSelectElementNode(nodeId, { skipZoomFit: true });
       }
       setDocFilterBySelected(true);
+      // An explicit document link must not be hidden by workspace filters.
+      setFilters({ search: '', type: 'ALL', level: 'ALL' });
+      setDiffFilter('ALL');
       setInitialDocId(docId || null);
-      setActiveView('docs');
+      setDocumentOpenRequest((value) => value + 1);
+      handleChangeView('docs');
     },
-    [selectedNodeId, handleSelectElementNode]
+    [selectedNodeId, handleSelectElementNode, handleChangeView]
   );
 
   const defaultV3dPos = useMemo(
@@ -460,7 +494,7 @@ export const App: React.FC = () => {
   );
 
   const showViewer3d = activeView === 'element-graph' || activeView === 'calculation-graph';
-  const showInspector = activeView === 'element-graph' || activeView === 'calculation-graph' || activeView === '3d';
+  const showInspector = inspectorVisible && activeView !== 'docs';
 
   const leftDockedHasItems =
     (showViewer3d && viewer3dDock === 'left') || (showInspector && inspectorDock === 'left');
@@ -574,8 +608,11 @@ export const App: React.FC = () => {
       onFocus={() => setTopHudZ((z) => ({ v3d: z.v3d, insp: Math.max(z.v3d, z.insp) + 1 }))}
       onChangeDockSide={setInspectorDock}
       onDragHoverEdge={setHoverEdge}
-      onCloseAction={handleClearSelection}
-      closeTitle="Clear Selection"
+      onCloseAction={() => {
+        setInspectorVisible(false);
+        document.getElementById('inspectorToggle')?.focus();
+      }}
+      closeTitle="Close Inspector"
     >
       <div className="p-4 pb-8 space-y-3 flex-1 overflow-y-auto text-xs">
         <PropertyInspector
@@ -598,7 +635,7 @@ export const App: React.FC = () => {
               setSelectedCalcNodeId(calcId);
               setSelectedCalcNodeIds(new Set([calcId]));
             }
-            setActiveView('calculation-graph');
+            handleChangeView('calculation-graph');
           }}
         />
       </div>
@@ -611,7 +648,9 @@ export const App: React.FC = () => {
       <HeaderBar
         projectName={projectName}
         activeView={activeView}
-        onChangeView={setActiveView}
+        onChangeView={handleChangeView}
+        inspectorVisible={showInspector}
+        onToggleInspector={() => setInspectorVisible((visible) => !visible)}
         calcCount={calcNodes.filter(isInstanceNode).length}
         docCount={allDocs.length}
         heatmapMode={heatmapMode}
@@ -638,7 +677,7 @@ export const App: React.FC = () => {
         traceSteps={traceSteps}
         onChangeTraceSteps={setTraceSteps}
         heatmapMode={heatmapMode}
-        diffSummary={diffSummary}
+        diffSummary={activeView === 'calculation-graph' ? null : diffSummary}
         diffFilter={diffFilter}
         onChangeDiffFilter={setDiffFilter}
         matchedCount={matchingNodeIds.size}
@@ -759,6 +798,7 @@ export const App: React.FC = () => {
 
           {activeView === 'docs' && (
             <DocumentBrowser
+              key={documentOpenRequest}
               allDocs={allDocs}
               nodes={elementNodes}
               links={hierarchyLinks}
@@ -774,7 +814,7 @@ export const App: React.FC = () => {
                 } else {
                   handleSelectElementNode(nodeId);
                 }
-                setActiveView(view);
+                handleChangeView(view);
               }}
             />
           )}
@@ -801,6 +841,9 @@ export const App: React.FC = () => {
       {showInspector && inspectorDock === 'float' && renderInspectorPanel()}
 
       <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
         className={`fixed bottom-5 left-5 bg-[#2d3139]/92 backdrop-blur-xl text-zinc-100 px-4 py-3 rounded-xl border border-white/[0.12] shadow-[0_12px_32px_rgba(0,0,0,0.9)] flex items-center space-x-3 transition-all duration-300 z-50 ${
           toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
         }`}
@@ -810,7 +853,7 @@ export const App: React.FC = () => {
         ) : (
           <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
         )}
-        <div className="text-xs font-medium">{toast.message}</div>
+        <div className="text-xs font-medium">{toast.visible ? toast.message : ''}</div>
       </div>
     </div>
   );

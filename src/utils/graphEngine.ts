@@ -35,63 +35,17 @@ export function getDisplayType(node: BimNode): string {
 }
 
 export function getNodeDocuments(node?: BimNode | null): BimDocument[] {
-  if (!node) return [];
-  if (Array.isArray(node.documents) && node.documents.length > 0) {
-    return node.documents.map((d) => ({
-      ...d,
-      revisions: d.revisions || [
-        {
-          rev: d.rev || 'Rev B',
-          date: d.date || '2026-10-21',
-          pages: d.pages || 4,
-          pageRef: d.pageRef || 'pp. 1–4',
-          summary: d.summary || 'Issued for structural design coordination.',
-        },
-        {
-          rev: 'Rev A',
-          date: '2026-09-12',
-          pages: Math.max(2, (d.pages || 4) - 1),
-          pageRef: 'pp. 1–3',
-          summary: 'Initial sizing & preliminary member check submittal.',
-        },
-      ],
-    }));
-  }
-  return [
-    {
-      id: `doc-${node.id}`,
-      title: `${node.label} Structural Calculation Sheet`,
-      type: 'Calculation (PDF)',
-      code: 'IFC 4.3 / ACI 318 / AISC 360',
-      rev: 'Rev A',
-      pages: 4,
-      pageRef: 'pp. 1–4',
-      date: '2026-10-15',
-      summary: node.desc || 'Mapped structural engineering calculation.',
-      revisions: [
-        {
-          rev: 'Rev A',
-          date: '2026-10-15',
-          pages: 4,
-          pageRef: 'pp. 1–4',
-          summary: node.desc || 'Initial structural sizing calculation.',
-        },
-      ],
-    },
-  ];
+  return Array.isArray(node?.documents) ? node.documents : [];
 }
 
 export function getAllDocumentsFlattened(
   nodes: BimNode[],
-  matchingNodeIds: Set<string>,
+  matchingNodeIds: Set<string> | null,
   heatmapMode: boolean
 ): FlattenedDocument[] {
   const byDocId = new Map<string, FlattenedDocument>();
 
   nodes.forEach((node) => {
-    if (matchingNodeIds.size > 0 && isInstanceNode(node) && !matchingNodeIds.has(node.id)) {
-      return;
-    }
     const docs = getNodeDocuments(node);
     docs.forEach((doc) => {
       const existing = byDocId.get(doc.id);
@@ -112,7 +66,11 @@ export function getAllDocumentsFlattened(
     });
   });
 
-  return Array.from(byDocId.values());
+  // Filter documents after collecting mappings so a shared package still lists all
+  // of its elements. An empty match set means zero results; null means unfiltered.
+  return Array.from(byDocId.values()).filter(
+    (doc) => matchingNodeIds === null || doc.mappedElementIds.some((id) => matchingNodeIds.has(id))
+  );
 }
 
 export function getStructuralGravityRank(node?: BimNode | null): number {

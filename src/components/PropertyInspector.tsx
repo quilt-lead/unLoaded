@@ -63,7 +63,9 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   }
 
   const displayType = getDisplayType(node);
-  const utilPct = typeof node.utilization === 'number' ? Math.round(node.utilization * 100) : null;
+  const utilPct = typeof node.utilization === 'number' && Number.isFinite(node.utilization)
+    ? Math.round(node.utilization * 100)
+    : null;
   const utilColor = utilPct !== null ? getHeatmapColor(node.utilization) : '#6366f1';
 
   const connectedLinks = links.filter((l) => l.source === node.id || l.target === node.id);
@@ -136,8 +138,6 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
     });
   });
 
-  const defaultBayText = `30'-0" × 30'-0"`;
-
   return (
     <div className="space-y-3">
       {(() => {
@@ -150,6 +150,9 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 {renamingGroupId === g.id ? (
                   <input
                     type="text"
+                    aria-label="Group name"
+                    name="groupName"
+                    autoComplete="off"
                     autoFocus
                     value={renameDraft}
                     onChange={(e) => setRenameDraft(e.target.value)}
@@ -159,12 +162,17 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        if (renameDraft.trim() && onRenameGroup) onRenameGroup(g.id, renameDraft.trim());
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        e.stopPropagation();
                         setRenamingGroupId(null);
                       }
-                      if (e.key === 'Escape') setRenamingGroupId(null);
                     }}
-                    className="flex-1 px-2 py-0.5 rounded bg-black/50 text-white mono text-[10px] border border-emerald-400 focus:outline-none"
+                    className="min-w-0 flex-1 px-2 py-0.5 rounded bg-black/50 text-white mono text-[10px] border border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-300"
                   />
                 ) : (
                   <button
@@ -222,7 +230,8 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </div>
           <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
             {multiList.map((mn) => (
-              <span
+              <button
+                type="button"
                 key={mn.id}
                 onClick={() => onSelectNode(mn.id)}
                 title="Click to focus solo"
@@ -233,7 +242,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 }`}
               >
                 {mn.label}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -294,7 +303,13 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-zinc-400 italic">No property changes between DB A and DB B.</p>
+            <p className="text-[11px] text-zinc-400 italic">
+              {node.diffStatus === 'added'
+                ? 'This element exists only in DB B.'
+                : node.diffStatus === 'removed'
+                  ? 'This element exists only in DB A.'
+                  : 'No property changes between DB A and DB B.'}
+            </p>
           )}
         </div>
       )}
@@ -302,29 +317,31 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       {isInstanceNode(node) && (
         <div className="grid grid-cols-2 gap-2 bg-white/[0.02] p-2.5 rounded-xl border border-white/[0.07]">
           {node.sectionSize && (
-            <>
-              <div>
-                <span className="mono text-[9px] text-zinc-500 uppercase block">Section / Profile</span>
-                <span className="mono text-[11px] font-semibold text-cyan-300">{node.sectionSize}</span>
-              </div>
-              <div>
-                <span className="mono text-[9px] text-zinc-500 uppercase block">Grid Bay & F2F</span>
-                <span className="mono text-[11px] font-semibold text-zinc-200">
-                  {node.baySpacing || defaultBayText} • 12'-0"
-                </span>
-              </div>
-            </>
+            <div>
+              <span className="mono text-[9px] text-zinc-500 uppercase block">Section / Profile</span>
+              <span className="mono text-[11px] font-semibold text-cyan-300">{node.sectionSize}</span>
+            </div>
+          )}
+          {node.baySpacing && (
+            <div>
+              <span className="mono text-[9px] text-zinc-500 uppercase block">Grid Bay</span>
+              <span className="mono text-[11px] font-semibold text-zinc-200">{node.baySpacing}</span>
+            </div>
           )}
           <div>
             <span className="mono text-[9px] text-zinc-500 uppercase block">Rated Strength</span>
             <span className="mono text-[11px] font-semibold text-zinc-100">
-              {node.strengthLabel || `${node.ratedStrength ?? 65} MPa`}
+              {node.strengthLabel || (typeof node.ratedStrength === 'number' && Number.isFinite(node.ratedStrength)
+                ? `${node.ratedStrength.toLocaleString()} MPa`
+                : '—')}
             </span>
           </div>
           <div>
             <span className="mono text-[9px] text-zinc-500 uppercase block">Axial / Gravity Load</span>
             <span className="mono text-[11px] font-semibold text-amber-300">
-              {(node.axialLoadKn || 0).toLocaleString()} kN
+              {typeof node.axialLoadKn === 'number' && Number.isFinite(node.axialLoadKn)
+                ? `${node.axialLoadKn.toLocaleString()} kN`
+                : '—'}
             </span>
           </div>
           {utilPct !== null && (
@@ -336,7 +353,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-white/[0.07] overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${utilPct}%`, backgroundColor: utilColor }} />
+                <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, utilPct))}%`, backgroundColor: utilColor }} />
               </div>
             </div>
           )}
@@ -368,30 +385,34 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </div>
         </div>
         <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+          {allAffectedDocs.length === 0 && (
+            <p className="text-xs text-zinc-500 italic">No PDF calculations mapped to this selection.</p>
+          )}
           {allAffectedDocs.map((doc) => (
-            <div
+            <button
+              type="button"
               key={`${doc.ownerId}-${doc.id}`}
               onClick={() => onOpenDocument(doc.ownerId, doc.id, true)}
-              className={`flex items-center justify-between gap-2 ${
+              className={`w-full text-left flex items-center justify-between gap-2 ${
                 doc.isPrimary
                   ? 'bg-rose-500/[0.11] border-rose-400/35'
                   : 'bg-rose-500/[0.04] border-rose-400/20'
               } hover:bg-rose-500/[0.16] p-2 rounded-lg cursor-pointer transition border`}
             >
-              <div className="flex items-center space-x-2 min-w-0">
+              <span className="flex items-center space-x-2 min-w-0">
                 <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-zinc-100 truncate">{doc.title}</p>
-                  <p className="mono text-[9px] text-zinc-400 truncate">
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium text-zinc-100 truncate">{doc.title}</span>
+                  <span className="block mono text-[9px] text-zinc-400 truncate">
                     <span style={{ color: doc.ownerColor }} className="font-semibold">
                       {doc.ownerLabel}
                     </span>{' '}
-                    • {doc.rev} ({doc.pageRef || 'pp. 1–4'})
-                  </p>
-                </div>
-              </div>
+                    • {doc.rev}{doc.pageRef ? ` (${doc.pageRef})` : ''}
+                  </span>
+                </span>
+              </span>
               <ArrowUpRight className="w-3 h-3 text-zinc-400 flex-shrink-0" />
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -405,22 +426,23 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </p>
           <div className="space-y-1 max-h-28 overflow-y-auto">
             {connectivityNeighbors.map((nb) => (
-              <div
+              <button
+                type="button"
                 key={nb.id}
                 onClick={() => onSelectNode(nb.id)}
-                className="flex items-center justify-between bg-cyan-500/[0.06] hover:bg-cyan-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-cyan-500/20"
+                className="w-full text-left flex items-center justify-between bg-cyan-500/[0.06] hover:bg-cyan-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-cyan-500/20"
               >
-                <div className="flex items-center space-x-2 min-w-0">
+                <span className="flex items-center space-x-2 min-w-0">
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: getEffectiveNodeColor(nb, heatmapMode) }}
                   />
                   <span className="text-[11px] font-medium text-zinc-100 truncate">{nb.label}</span>
-                </div>
+                </span>
                 <span className="mono text-[9px] text-cyan-300 flex-shrink-0 ml-2">
                   Connected • {nb.floor || 'ALL'}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -433,24 +455,31 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           </p>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {loadPathNodes.map((lp) => {
-              const isAbove = (lp.floorNum || 0) > (node.floorNum || 0);
+              const relativeFloor = typeof lp.floorNum !== 'number' || typeof node.floorNum !== 'number'
+                ? 'Connected'
+                : lp.floorNum > node.floorNum
+                  ? 'Above ↑'
+                  : lp.floorNum < node.floorNum ? 'Below ↓' : 'Same Level';
               return (
-                <div
+                <button
+                  type="button"
                   key={lp.id}
                   onClick={() => onSelectNode(lp.id)}
-                  className="flex items-center justify-between bg-amber-500/[0.06] hover:bg-amber-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-amber-500/20"
+                  className="w-full text-left flex items-center justify-between bg-amber-500/[0.06] hover:bg-amber-500/[0.14] px-2 py-1.5 rounded-lg cursor-pointer transition border border-amber-500/20"
                 >
-                  <div className="flex items-center space-x-2 min-w-0">
+                  <span className="flex items-center space-x-2 min-w-0">
                     <span
                       className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: getEffectiveNodeColor(lp, heatmapMode) }}
                     />
                     <span className="text-[11px] font-medium text-zinc-100 truncate">{lp.label}</span>
-                  </div>
-                  <span className="mono text-[9px] text-amber-300 flex-shrink-0 ml-2">
-                    {isAbove ? 'Above ↓' : 'Down ↓'} {(lp.axialLoadKn || 0).toLocaleString()}kN
                   </span>
-                </div>
+                  <span className="mono text-[9px] text-amber-300 flex-shrink-0 ml-2">
+                    {relativeFloor} • {typeof lp.axialLoadKn === 'number' && Number.isFinite(lp.axialLoadKn)
+                      ? `${lp.axialLoadKn.toLocaleString()} kN`
+                      : '—'}
+                  </span>
+                </button>
               );
             })}
           </div>
@@ -464,22 +493,23 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         <div className="space-y-1 max-h-24 overflow-y-auto">
           {hierarchyNodes.length > 0 ? (
             hierarchyNodes.slice(0, 25).map((cn) => (
-              <div
+              <button
+                type="button"
                 key={cn.id}
                 onClick={() => onSelectNode(cn.id)}
-                className="flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.07] px-2 py-1.5 rounded-lg cursor-pointer transition border border-white/[0.06]"
+                className="w-full text-left flex items-center justify-between bg-white/[0.03] hover:bg-white/[0.07] px-2 py-1.5 rounded-lg cursor-pointer transition border border-white/[0.06]"
               >
-                <div className="flex items-center space-x-2 min-w-0">
+                <span className="flex items-center space-x-2 min-w-0">
                   <span
                     className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: getEffectiveNodeColor(cn, heatmapMode) }}
                   />
                   <span className="text-[11px] font-medium text-zinc-200 truncate">{cn.label}</span>
-                </div>
+                </span>
                 <span className="mono text-[9px] text-indigo-400 flex-shrink-0">
                   {cn.floor && cn.floor !== 'ALL' ? cn.floor : getDisplayType(cn)}
                 </span>
-              </div>
+              </button>
             ))
           ) : (
             <p className="text-xs text-zinc-600 italic">No direct hierarchy connections.</p>

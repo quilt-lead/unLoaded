@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { BimNode } from '../types/bim';
 import { DIFF_PALETTE, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 import { isColumnStackNode, isElementTypeNode, isInstanceNode, isProjectNode } from '../utils/graphEngine';
+import { Structural3DControls } from './Structural3DControls';
 
 interface Structural3DViewerProps {
   nodes: BimNode[];
@@ -110,19 +111,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     renderer: THREE.WebGLRenderer | null;
     rootGroup: THREE.Group | null;
     meshMap: Map<string, THREE.Mesh>;
-    theta: number;
-    phi: number;
-    radius: number;
-    target: { x: number; y: number; z: number };
-    targetTheta: number;
-    targetPhi: number;
-    targetRadius: number;
-    targetLookAt: { x: number; y: number; z: number };
-    isDragging: boolean;
-    dragButton: number;
-    dragMoved: boolean;
-    navMode: 'orbit' | 'pan' | 'zoom';
-    prevMouse: { x: number; y: number };
+    controls: Structural3DControls | null;
     needsRender: boolean;
   }>({
     scene: null,
@@ -130,19 +119,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     renderer: null,
     rootGroup: null,
     meshMap: new Map(),
-    theta: DEFAULT_3D_CAM.theta,
-    phi: DEFAULT_3D_CAM.phi,
-    radius: DEFAULT_3D_CAM.radius,
-    target: { ...DEFAULT_3D_CAM.target },
-    targetTheta: DEFAULT_3D_CAM.theta,
-    targetPhi: DEFAULT_3D_CAM.phi,
-    targetRadius: DEFAULT_3D_CAM.radius,
-    targetLookAt: { ...DEFAULT_3D_CAM.target },
-    isDragging: false,
-    dragButton: 0,
-    dragMoved: false,
-    navMode: 'orbit',
-    prevMouse: { x: 0, y: 0 },
+    controls: null,
     needsRender: true,
   });
 
@@ -194,13 +171,23 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     st.renderer = renderer;
     st.rootGroup = rootGroup;
 
-    const updateCamPos = () => {
-      camera.position.x = st.target.x + st.radius * Math.sin(st.phi) * Math.sin(st.theta);
-      camera.position.y = st.target.y + st.radius * Math.cos(st.phi);
-      camera.position.z = st.target.z + st.radius * Math.sin(st.phi) * Math.cos(st.theta);
-      camera.lookAt(st.target.x, st.target.y, st.target.z);
-    };
-    updateCamPos();
+    const raycaster = new THREE.Raycaster();
+    const mouseNDC = new THREE.Vector2();
+    const controls = new Structural3DControls(camera, container, DEFAULT_3D_CAM,
+      () => { st.needsRender = true; },
+      (event) => {
+        const rect = container.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) return;
+        mouseNDC.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        mouseNDC.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouseNDC, camera);
+        const hits = raycaster.intersectObjects(Array.from(st.meshMap.values()), false);
+        if (hits.length > 0 && hits[0].object.userData.nodeId) {
+          onSelectRef.current(hits[0].object.userData.nodeId, { toggleMulti: event.shiftKey });
+        }
+      },
+    );
+    st.controls = controls;
 
     const resizeObserver = new ResizeObserver(() => {
       const w = container.clientWidth;
@@ -215,138 +202,21 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     resizeObserver.observe(container);
 
     let rafId = 0;
-    const renderLoop = () => {
-      const ease = 0.12;
-      const dTheta = st.targetTheta - st.theta;
-      const dPhi = st.targetPhi - st.phi;
-      const dRadius = st.targetRadius - st.radius;
-      const dTx = st.targetLookAt.x - st.target.x;
-      const dTy = st.targetLookAt.y - st.target.y;
-      const dTz = st.targetLookAt.z - st.target.z;
-
-      const moving =
-        Math.abs(dTheta) > 0.0002 ||
-        Math.abs(dPhi) > 0.0002 ||
-        Math.abs(dRadius) > 0.02 ||
-        Math.abs(dTx) > 0.01 ||
-        Math.abs(dTy) > 0.01 ||
-        Math.abs(dTz) > 0.01;
-
-      if (moving || st.needsRender) {
+    const renderLoop = (now: number) => {
+      controls.update(now);
+      if (st.needsRender) {
         st.needsRender = false;
-        if (moving) {
-          st.theta += dTheta * ease;
-          st.phi += dPhi * ease;
-          st.radius += dRadius * ease;
-          st.target.x += dTx * ease;
-          st.target.y += dTy * ease;
-          st.target.z += dTz * ease;
-          updateCamPos();
-        }
         renderer.render(scene, camera);
       }
       rafId = requestAnimationFrame(renderLoop);
     };
     rafId = requestAnimationFrame(renderLoop);
 
-    const raycaster = new THREE.Raycaster();
-    const mouseNDC = new THREE.Vector2();
-
-    const panByPixels = (dx: number, dy: number) => {
-      const heightPx = Math.max(container.clientHeight || 300, 1);
-      const fovRad = (camera.fov * Math.PI) / 180;
-      const unitsPerPixel = (2 * st.targetRadius * Math.tan(fovRad * 0.5)) / heightPx;
-      const forward = new THREE.Vector3();
-      camera.getWorldDirection(forward);
-      const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-      const camUp = new THREE.Vector3().crossVectors(right, forward).normalize();
-
-      st.targetLookAt.x += (-dx * right.x + dy * camUp.x) * unitsPerPixel;
-      st.targetLookAt.y += (-dx * right.y + dy * camUp.y) * unitsPerPixel;
-      st.targetLookAt.z += (-dx * right.z + dy * camUp.z) * unitsPerPixel;
-    };
-
-    const onPointerDown = (e: PointerEvent) => {
-      e.stopPropagation();
-      if (e.button === 1) e.preventDefault();
-      st.isDragging = true;
-      st.dragButton = e.button;
-      st.dragMoved = false;
-      st.prevMouse = { x: e.clientX, y: e.clientY };
-
-      if (e.button === 1 || (e.shiftKey && e.button === 2)) {
-        st.navMode = 'pan';
-      } else if (e.ctrlKey && e.button === 2) {
-        st.navMode = 'zoom';
-      } else {
-        st.navMode = 'orbit';
-      }
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (!st.isDragging) return;
-      const dx = e.clientX - st.prevMouse.x;
-      const dy = e.clientY - st.prevMouse.y;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) st.dragMoved = true;
-
-      if (st.navMode === 'pan') {
-        panByPixels(dx, dy);
-      } else if (st.navMode === 'zoom') {
-        st.targetRadius = Math.max(0.5, st.targetRadius * Math.exp(dy * 0.008));
-      } else {
-        st.targetTheta -= dx * 0.012;
-        st.targetPhi = Math.max(0.22, Math.min(Math.PI * 0.48, st.targetPhi - dy * 0.012));
-      }
-      st.prevMouse = { x: e.clientX, y: e.clientY };
-    };
-
-    const onPointerUp = (e: PointerEvent) => {
-      if (!st.isDragging) return;
-      const wasLeftClick = !st.dragMoved && st.dragButton === 0;
-      st.isDragging = false;
-
-      if (wasLeftClick) {
-        const rect = container.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-          mouseNDC.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          mouseNDC.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-          raycaster.setFromCamera(mouseNDC, camera);
-          const meshes = Array.from(st.meshMap.values());
-          const hits = raycaster.intersectObjects(meshes, false);
-          if (hits.length > 0 && hits[0].object.userData.nodeId) {
-            onSelectRef.current(hits[0].object.userData.nodeId, { toggleMulti: e.shiftKey });
-          }
-        }
-      }
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (e.shiftKey) {
-        panByPixels(-e.deltaX || -e.deltaY, 0);
-      } else {
-        const mult = e.deltaMode === 1 ? 16 : 1;
-        st.targetRadius = Math.max(0.5, st.targetRadius * Math.exp(e.deltaY * mult * 0.0014));
-      }
-    };
-
-    const onContext = (e: MouseEvent) => e.preventDefault();
-
-    container.addEventListener('contextmenu', onContext);
-    container.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    container.addEventListener('wheel', onWheel, { passive: false });
-
     return () => {
       cancelAnimationFrame(rafId);
       resizeObserver.disconnect();
-      container.removeEventListener('contextmenu', onContext);
-      container.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      container.removeEventListener('wheel', onWheel);
+      controls.dispose();
+      st.controls = null;
       renderer.dispose();
       if (renderer.domElement.parentElement === container) {
         container.removeChild(renderer.domElement);
@@ -569,13 +439,11 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
 
   const zoomFitToSelection = useCallback(() => {
     const st = stateRef.current;
-    if (!st.camera || st.meshMap.size === 0) return;
+    if (!st.camera || !st.controls || st.meshMap.size === 0) return;
+    const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (!selectedNodeId) {
-      st.targetTheta = DEFAULT_3D_CAM.theta;
-      st.targetPhi = DEFAULT_3D_CAM.phi;
-      st.targetRadius = DEFAULT_3D_CAM.radius;
-      st.targetLookAt = { ...DEFAULT_3D_CAM.target };
+      st.controls.moveTo(DEFAULT_3D_CAM, animate);
       return;
     }
 
@@ -628,8 +496,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     const fitWidthDist = fitHeightDist / Math.min(aspect, 1.2);
     const idealRadius = Math.max(45.0, Math.min(720.0, Math.max(fitHeightDist, fitWidthDist) * 1.18));
 
-    st.targetLookAt = { x: center.x, y: center.y, z: center.z };
-    st.targetRadius = idealRadius;
+    st.controls.moveTo({ target: { x: center.x, y: center.y, z: center.z }, radius: idealRadius }, animate);
   }, [selectedNodeId, nodes, activeLoadChainNodeIds]);
 
   useEffect(() => {
@@ -639,10 +506,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   useEffect(() => {
     if (resetTrigger > 0) {
       const st = stateRef.current;
-      st.targetTheta = DEFAULT_3D_CAM.theta;
-      st.targetPhi = DEFAULT_3D_CAM.phi;
-      st.targetRadius = DEFAULT_3D_CAM.radius;
-      st.targetLookAt = { ...DEFAULT_3D_CAM.target };
+      st.controls?.moveTo(DEFAULT_3D_CAM, !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     }
   }, [resetTrigger]);
 

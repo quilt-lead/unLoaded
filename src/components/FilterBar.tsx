@@ -46,6 +46,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           <Search className="w-3 h-3 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
+            aria-label="Search elements and calculations"
             value={filters.search}
             onChange={(e) => onChangeFilters({ ...filters, search: e.target.value })}
             placeholder="Search element, calc, level..."
@@ -56,6 +57,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <div className="flex items-center gap-1.5 bg-[#1e2127]/60 border border-white/[0.12] rounded-lg px-2 py-1">
           <span className="mono text-[9px] text-zinc-500 uppercase">Type</span>
           <select
+            aria-label="Element or calculation type"
             value={filters.type}
             onChange={(e) => onChangeFilters({ ...filters, type: e.target.value })}
             className="bg-transparent text-[11px] text-zinc-200 focus:outline-none cursor-pointer"
@@ -74,6 +76,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <div className="flex items-center gap-1.5 bg-[#1e2127]/60 border border-white/[0.12] rounded-lg px-2 py-1">
           <span className="mono text-[9px] text-zinc-500 uppercase">Level</span>
           <select
+            aria-label="Floor level"
             value={filters.level}
             onChange={(e) => onChangeFilters({ ...filters, level: e.target.value })}
             className="bg-transparent text-[11px] text-zinc-200 focus:outline-none cursor-pointer"
@@ -95,6 +98,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onChangeDiffFilter('ALL')}
+              aria-pressed={diffFilter === 'ALL'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
                 diffFilter === 'ALL'
                   ? 'bg-white/15 text-white font-semibold'
@@ -106,6 +110,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onChangeDiffFilter('CHANGED')}
+              aria-pressed={diffFilter === 'CHANGED'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md transition ${
                 diffFilter === 'CHANGED'
                   ? 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/40 font-semibold'
@@ -117,6 +122,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onChangeDiffFilter('added')}
+              aria-pressed={diffFilter === 'added'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                 diffFilter === 'added'
                   ? 'bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 font-semibold'
@@ -128,6 +134,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onChangeDiffFilter('modified')}
+              aria-pressed={diffFilter === 'modified'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                 diffFilter === 'modified'
                   ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40 font-semibold'
@@ -139,6 +146,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <button
               type="button"
               onClick={() => onChangeDiffFilter('removed')}
+              aria-pressed={diffFilter === 'removed'}
               className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                 diffFilter === 'removed'
                   ? 'bg-rose-500/25 text-rose-200 border border-rose-400/40 font-semibold'
@@ -155,6 +163,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeTraceDirection('down')}
+                aria-pressed={traceDirection === 'down'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'down'
                     ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
@@ -167,6 +176,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeTraceDirection('up')}
+                aria-pressed={traceDirection === 'up'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'up'
                     ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
@@ -179,6 +189,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <button
                 type="button"
                 onClick={() => onChangeTraceDirection('both')}
+                aria-pressed={traceDirection === 'both'}
                 className={`mono text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 transition ${
                   traceDirection === 'both'
                     ? 'bg-indigo-500/25 text-indigo-200 border border-indigo-400/40 font-medium'
@@ -236,6 +247,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               }}
             />
             <span className="mono text-[9px] text-rose-400">95%+</span>
+            <span className="mono text-[9px] text-zinc-300 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-zinc-500" /> No data
+            </span>
           </div>
         )}
         <span className="mono text-[10px] text-zinc-400 bg-white/[0.04] border border-white/[0.07] px-2.5 py-1 rounded-lg">

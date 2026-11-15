@@ -40,7 +40,8 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDocId, setSelectedDocId] = useState<string | null>(initialDocId);
-  const [selectedRev, setSelectedRev] = useState<string | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<{ docId: string; rev: string } | null>(null);
+  const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
 
   const selectedNode = useMemo(
     () => (selectedNodeId ? nodes.find((n) => n.id === selectedNodeId) || null : null),
@@ -72,12 +73,15 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           d.type.toLowerCase().includes(q) ||
           d.code.toLowerCase().includes(q) ||
           d.nodeLabel.toLowerCase().includes(q) ||
+          d.mappedElementIds.some((id) =>
+            id.toLowerCase().includes(q) || nodeMap.get(id)?.label.toLowerCase().includes(q)
+          ) ||
           (d.summary && d.summary.toLowerCase().includes(q))
       );
     }
 
     return { filteredDocs: list, affectedCount: affCount };
-  }, [allDocs, filterBySelectedElement, selectedNode, activeLoadChainNodeIds, links, searchQuery]);
+  }, [allDocs, filterBySelectedElement, selectedNode, activeLoadChainNodeIds, links, searchQuery, nodeMap]);
 
   const activeDoc = useMemo(() => {
     if (filteredDocs.length === 0) return null;
@@ -90,25 +94,29 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
     return filteredDocs[0];
   }, [filteredDocs, selectedDocId, initialDocId]);
 
-  const revisions = activeDoc?.revisions || [];
+  const currentRevision = activeDoc
+    ? {
+        rev: activeDoc.rev,
+        date: activeDoc.date,
+        pages: activeDoc.pages,
+        pageRef: activeDoc.pageRef,
+        summary: activeDoc.summary,
+      }
+    : null;
+  const history = activeDoc?.revisions || [];
+  const revisions = currentRevision && history.length > 0 && !history.some((r) => r.rev === currentRevision.rev)
+    ? [currentRevision, ...history]
+    : history;
+  const selectedRev = selectedRevision?.docId === activeDoc?.id ? selectedRevision?.rev : null;
   const activeRevision =
     revisions.find((r) => r.rev === selectedRev) ||
-    revisions[0] ||
-    (activeDoc
-      ? {
-          rev: activeDoc.rev,
-          date: activeDoc.date,
-          pages: activeDoc.pages,
-          pageRef: activeDoc.pageRef || 'pp. 1–4',
-          summary: activeDoc.summary,
-        }
-      : null);
+    revisions.find((r) => r.rev === activeDoc?.rev) ||
+    currentRevision;
 
   const mappedElements = useMemo(() => {
     if (!activeDoc) return [];
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     return activeDoc.mappedElementIds.map((id) => nodeMap.get(id)).filter((n): n is BimNode => Boolean(n));
-  }, [activeDoc, nodes]);
+  }, [activeDoc, nodeMap]);
 
   return (
     <section className="w-full h-full overflow-hidden flex flex-col bg-[#282c34]/95">
@@ -150,10 +158,12 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
-              type="text"
+              type="search"
+              aria-label="Search PDF calculations"
+              autoComplete="off"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search PDFs, codes, members..."
+              placeholder="Search PDFs, codes, members…"
               className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
             />
           </div>
@@ -167,26 +177,33 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
             <div className="text-center py-12 text-zinc-500">
               <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
               <p className="text-xs font-medium text-zinc-300">No matching PDF calculations found</p>
-              <p className="text-[11px] text-zinc-500 mt-1">Try clearing the search query or filters.</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                {nodes.length === 0
+                  ? 'Import a model with mapped PDF calculations to get started.'
+                  : nodes.some((node) => node.documents?.length)
+                  ? 'Try clearing the search query or filters.'
+                  : 'This model has no mapped PDF calculations.'}
+              </p>
             </div>
           ) : (
             filteredDocs.map((doc) => {
               const isActive = activeDoc?.id === doc.id;
               return (
-                <div
+                <button
                   key={doc.id}
+                  type="button"
+                  aria-pressed={isActive}
                   onClick={() => {
                     setSelectedDocId(doc.id);
-                    setSelectedRev(null);
+                    setSelectedRevision(null);
                   }}
-                  className={`p-3 rounded-xl cursor-pointer transition border ${
+                  className={`block w-full text-left p-3 rounded-xl cursor-pointer transition border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
                     isActive
                       ? 'bg-indigo-500/15 border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
                       : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
                   }`}
                 >
                   {(() => {
-                    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
                     const statuses = doc.mappedElementIds
                       .map((eid) => nodeMap.get(eid)?.diffStatus)
                       .filter((s): s is DiffStatus => Boolean(s) && s !== 'unchanged');
@@ -198,12 +215,12 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       ? 'removed'
                       : null;
                     return (
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="flex items-center gap-2 min-w-0">
                           <FileText className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
                           <span className="text-xs font-semibold text-zinc-100 truncate">{doc.title}</span>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        </span>
+                        <span className="flex items-center gap-1 flex-shrink-0">
                           {diffMode && topStatus && (
                             <span
                               className="mono text-[8.5px] font-bold px-1.5 py-0.5 rounded uppercase"
@@ -218,11 +235,11 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">
                             {doc.rev}
                           </span>
-                        </div>
-                      </div>
+                        </span>
+                      </span>
                     );
                   })()}
-                  <div className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400">
+                  <span className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: doc.nodeColor }} />
                       <span className="text-zinc-300">
@@ -234,8 +251,8 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                     <span>
                       {doc.type} • {doc.pages}p
                     </span>
-                  </div>
-                </div>
+                  </span>
+                </button>
               );
             })
           )}
@@ -256,7 +273,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                   </span>
                   <span className="mono text-xs text-zinc-200 font-medium">{activeDoc.id.toUpperCase()}.pdf</span>
                   <span className="mono text-[10px] text-zinc-500">
-                    ({activeRevision.pages} Pages • {activeRevision.pageRef || 'pp. 1–4'})
+                    ({activeRevision.pages} Pages{activeRevision.pageRef ? ` • ${activeRevision.pageRef}` : ''})
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -301,7 +318,8 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                         <button
                           key={r.rev}
                           type="button"
-                          onClick={() => setSelectedRev(r.rev)}
+                          onClick={() => setSelectedRevision({ docId: activeDoc.id, rev: r.rev })}
+                          aria-pressed={isCurr}
                           className={`mono text-[10px] px-2.5 py-0.5 rounded-md border transition ${
                             isCurr
                               ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'

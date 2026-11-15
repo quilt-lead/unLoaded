@@ -80,6 +80,6 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
   inspector worth porting).
 - Populate calc links (PDF ↔ element mapping) on `ElementNode.links`.
 - The 3D default camera is hard-coded for the 168 ft demo tower. Fit to the model bounds on load.
-- The Inspector shows "0 kN" when `axialLoadKn` is undefined. Show "—" instead.
+- Missing Inspector loads/strength and fabricated document mappings were corrected in [the UI review](2026-11-14-ui-review.md).
 - Oriented boxes for diagonal members (needs rotation support in `Structural3DViewer`).
 - Run IFC parsing in a Web Worker for large files.

@@ -86,7 +86,8 @@ export function hashStringToJewelColor(str: string): string {
 }
 
 export function getHeatmapColor(utilization?: number): string {
-  const u = Math.max(0, Math.min(1, typeof utilization === 'number' ? utilization : 0.5));
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return '#71717a';
+  const u = Math.max(0, Math.min(1, utilization));
   const stops = [
     { t: 0.25, r: 6, g: 182, b: 212 },
     { t: 0.55, r: 16, g: 185, b: 129 },
