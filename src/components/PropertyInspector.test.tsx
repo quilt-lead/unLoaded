@@ -2,76 +2,99 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PropertyInspector } from './PropertyInspector';
-import type { BimNode } from '../types/bim';
+import type { BimNode, LoadPathEdge } from '../types/bim';
 
+// Ported from prod's test onto the branch's view model (src/types/bim.ts): the fields prod's version
+// asserted on (ratedStrength, axialLoadKn, baySpacing, sectionSize, floorNum, documents) were removed
+// from the contract (D6) because nothing real supplies them; the behaviour under test is the same:
+// missing engineering data is never shown as a value, real values (zero, overload) are, load-path
+// neighbours are labelled by the graph's own direction, and diff-only elements say which revision.
 const beam: BimNode = {
-  id: 'beam-1', label: 'B101', type: 'IfcBeam', level: 2, r: 10, x: 0, y: 0,
+  id: 'beam-1', label: 'B101', kind: 'element', elementKind: 'beam', ifcType: 'IfcBeam', level: 2, r: 10, x: 0, y: 0,
 };
 
-function renderInspector(node: BimNode, relatedNodes: BimNode[] = []) {
+function renderInspector(node: BimNode, relatedNodes: BimNode[] = [], loadPath: LoadPathEdge[] = []) {
   return renderToStaticMarkup(
     <PropertyInspector
-      nodes={[node, ...relatedNodes]}
-      links={[]}
-      rawLinks={[]}
-      selectedNodeId={node.id}
+      node={node}
+      elementNodes={[node, ...relatedNodes]}
+      calcs={[]}
+      calcDependencies={[]}
+      loadPath={loadPath}
+      connectivity={[]}
+      calcToElementIds={new Map()}
+      typicalGroups={[]}
+      findings={[]}
+      producers={null}
+      counts={null}
+      groups={[]}
       selectedNodeIds={new Set([node.id])}
-      activeLoadChainNodeIds={new Set(relatedNodes.map((related) => related.id))}
-      heatmapMode={false}
+      activeLoadChainNodeIds={new Set()}
       diffMode
+      impact={null}
+      impactLoading={false}
+      canWrite
+      busy={false}
       onSelectNode={() => {}}
+      onSelectCalc={() => {}}
+      onSelectGroup={() => {}}
+      onRenameGroup={() => {}}
       onClearSelection={() => {}}
-      onOpenDocument={() => {}}
-      onSwitchToCalcGraph={() => {}}
+      onOpenTarget={() => {}}
+      onShowElementCalcs={() => {}}
+      onDecide={() => {}}
+      onImpact={() => {}}
+      onClearImpact={() => {}}
     />,
   );
 }
 
 describe('PropertyInspector data display', () => {
   it('does not turn missing engineering data into design values or mapped PDFs', () => {
-    const html = renderInspector({ ...beam, sectionSize: 'W310' });
+    const html = renderInspector({ ...beam, size: 'W310' });
 
     expect(html).toContain('W310');
-    expect(html.match(/>—</g)).toHaveLength(2);
-    expect(html).not.toContain('65 MPa');
-    expect(html).not.toContain('0 kN');
+    expect(html).toContain('>—<'); // no mark: shown as missing, not invented
+    expect(html).not.toContain('MPa');
+    expect(html).not.toContain('kN');
     expect(html).not.toContain('Grid Bay');
-    expect(html).not.toContain('F2F');
     expect(html).not.toContain('Demand / Capacity Utilization');
-    expect(html).toContain('No PDF calculations mapped to this selection.');
+    expect(html).toContain('No calc in the package names this element');
   });
 
-  it('preserves explicit zero values and bay spacing even without a section size', () => {
-    const html = renderInspector({ ...beam, ratedStrength: 0, axialLoadKn: 0, utilization: 0, baySpacing: '6 m × 6 m' });
+  it('preserves an explicit zero utilization', () => {
+    const html = renderInspector({ ...beam, utilization: 0 });
 
-    expect(html).toContain('0 MPa');
-    expect(html).toContain('0 kN');
-    expect(html).toContain('6 m × 6 m');
     expect(html).toContain('Demand / Capacity Utilization');
     expect(html).toContain('>0%</span>');
   });
 
   it('omits invalid numeric data and preserves reported overload percentages', () => {
-    const invalid = renderInspector({ ...beam, ratedStrength: NaN, axialLoadKn: Infinity, utilization: NaN });
+    const invalid = renderInspector({ ...beam, utilization: NaN });
     expect(invalid).not.toContain('NaN');
-    expect(invalid).not.toContain('Infinity');
     expect(invalid).not.toContain('Demand / Capacity Utilization');
+
+    const infinite = renderInspector({ ...beam, utilization: Infinity });
+    expect(infinite).not.toContain('Infinity');
+    expect(infinite).not.toContain('Demand / Capacity Utilization');
 
     const overload = renderInspector({ ...beam, utilization: 1.25 });
     expect(overload).toContain('>125%</span>');
     expect(overload).toContain('width:100%');
   });
 
-  it('does not label same-level or unknown-level load-path neighbors as below', () => {
-    const html = renderInspector({ ...beam, floorNum: 2 }, [
-      { ...beam, id: 'same-level', floorNum: 2 },
-      { ...beam, id: 'unknown-level' },
+  it('labels load-path neighbours by the graph edge direction, not by guessed levels', () => {
+    const above = { ...beam, id: 'slab-1', label: 'S1' };
+    const below = { ...beam, id: 'col-1', label: 'C1' };
+    const html = renderInspector(beam, [above, below], [
+      { source: 'slab-1', target: 'beam-1', rule: 'test' },
+      { source: 'beam-1', target: 'col-1', rule: 'test' },
     ]);
 
-    expect(html).toContain('Same Level • —');
-    expect(html).toContain('Connected • —');
+    expect(html).toContain('carries from');
+    expect(html).toContain('delivers to');
     expect(html).not.toContain('Below');
-    expect(html).not.toContain('0 kN');
+    expect(html).not.toContain('kN');
   });
 
   it.each([

@@ -1,0 +1,127 @@
+[
+ {
+  "key": "front-matter-contents",
+  "title": "Front matter / contents",
+  "cat": "",
+  "pages": [
+   1
+  ],
+  "front": true,
+  "scanned": false
+ },
+ {
+  "key": "design-criteria",
+  "title": "DESIGN CRITERIA",
+  "cat": "",
+  "pages": [
+   2
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "pt-slab-design-ram-concept",
+  "title": "PT SLAB DESIGN - RAM CONCEPT",
+  "cat": "Slab",
+  "pages": [
+   3,
+   4
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "floor-beam-girder-design-ram-structural-system",
+  "title": "FLOOR BEAM & GIRDER DESIGN - RAM STRUCTURAL SYSTEM",
+  "cat": "Beam",
+  "pages": [
+   5,
+   6,
+   7
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "roof-framing-typical",
+  "title": "ROOF FRAMING - TYPICAL",
+  "cat": "Beam",
+  "pages": [
+   8
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "scanned-1",
+  "title": "Scanned page(s) - no text layer",
+  "cat": "",
+  "pages": [
+   9
+  ],
+  "front": false,
+  "scanned": true
+ },
+ {
+  "key": "shear-tab-connection-st-1-mathcad",
+  "title": "SHEAR TAB CONNECTION ST-1 - MATHCAD",
+  "cat": "Connection",
+  "pages": [
+   10,
+   11
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "moment-connection-mf-1-mathcad",
+  "title": "MOMENT CONNECTION MF-1 - MATHCAD",
+  "cat": "Connection",
+  "pages": [
+   12
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "column-design-ram-structural-system",
+  "title": "COLUMN DESIGN - RAM STRUCTURAL SYSTEM",
+  "cat": "Column",
+  "pages": [
+   13,
+   14
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "column-base-plate-design-mathcad",
+  "title": "COLUMN BASE PLATE DESIGN - MATHCAD",
+  "cat": "Connection",
+  "pages": [
+   15
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "lateral-bracing-br1-excel",
+  "title": "LATERAL BRACING BR1 - EXCEL",
+  "cat": "Brace",
+  "pages": [
+   16
+  ],
+  "front": false,
+  "scanned": false
+ },
+ {
+  "key": "spread-footing-design-vba",
+  "title": "SPREAD FOOTING DESIGN - VBA",
+  "cat": "Footing",
+  "pages": [
+   17
+  ],
+  "front": false,
+  "scanned": false
+ }
+]

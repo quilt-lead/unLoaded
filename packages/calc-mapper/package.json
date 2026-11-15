@@ -1,0 +1,19 @@
+{
+  "name": "@unloaded/calc-mapper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Calc package PDF -> calcs, mapped onto a serialized element graph (marks, ranges, sizes, types), calc dependency graph, impact, revision diff, decision log. Runs in the browser and in Node.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@unloaded/element-graph": "0.1.0",
+    "pdfjs-dist": "4.10.38"
+  }
+}

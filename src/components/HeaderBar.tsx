@@ -1,30 +1,63 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  CircleDot,
-  Calculator,
+  ArrowLeftRight,
   Box,
+  Calculator,
+  ChevronDown,
+  CircleDot,
+  Database,
+  Download,
+  FolderPlus,
+  FileJson,
   FileText,
   Flame,
   Upload,
   GitCompareArrows,
-  ArrowLeftRight,
+  Loader2,
+  Minimize2,
+  Sparkles,
+  Upload,
   X,
 } from 'lucide-react';
-import { DatabaseDiffSummary, WorkspaceView } from '../types/bim';
+import type { ColorMode, DatabaseDiffSummary, ProjectSource, WorkspaceView } from '../types/bim';
 
 const WORKSPACE_VIEW_ORDER: WorkspaceView[] = ['element-graph', 'calculation-graph', '3d', 'docs'];
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 interface HeaderBarProps {
   projectName: string;
+  subtitle: string;
   activeView: WorkspaceView;
   onChangeView: (view: WorkspaceView) => void;
   calcCount: number;
-  docCount: number;
-  heatmapMode: boolean;
-  onToggleHeatmap: () => void;
-  onUploadFile: (file: File, slot: 'base' | 'compare') => void;
+  colorMode: ColorMode;
+  onChangeColorMode: (m: ColorMode) => void;
+  hasUtilization: boolean;
+  /** the project store persists (IndexedDB) rather than living in memory for this tab only */
+  persistent: boolean;
+  /** the open project carries legacy demo data (invented documents) */
+  hasDemoData: boolean;
+  source: ProjectSource | null;
+  busy: boolean;
+  projects: { id: string; name: string }[];
+  activeProjectId: string | null;
+  onSwitchProject: (id: string) => void;
+  onNewProject: () => void;
+  /** null when there is no project to save */
+  onSaveProject: (() => void) | null;
+  onLoadSample: () => void;
+  onLoadDemo: () => void;
+  onUploadModel: (file: File) => void;
+  /** One or more calc PDFs (one large package, one per calc, or new revisions): each is placed in a calc document. */
+  onUploadCalcs: (files: File[]) => void;
+  /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
+  onOpenFile: (file: File) => void;
+  /** the diff laid over the view; null while it loads (or when not in diff mode) */
   diffSummary: DatabaseDiffSummary | null;
+  /** diff mode is set (A, B), whether or not its diff has loaded: Swap and Exit are offered whenever it is */
+  diffRevs: { a: number; b: number } | null;
+  compareOpen: boolean;
+  onToggleCompare: () => void;
   onSwapDatabases: () => void;
   onClearDiff: () => void;
 }
@@ -74,7 +107,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   }, [activeViewIndex]);
 
   return (
-    <header className="apple-glass-chrome border-b border-white/[0.08] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_4px_12px_rgba(0,0,0,0.24)] z-30 flex-shrink-0">
+    <header className="apple-glass-chrome border-b border-white/[0.12] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_8px_32px_rgba(0,0,0,0.85)] z-30 flex-shrink-0">
       <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
         <img
           src="/unloaded-logo.svg"
@@ -137,9 +170,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         >
           <Calculator className="w-3.5 h-3.5 text-amber-400" />
           <span>Calculation Graph</span>
-          <span className="mono text-[10px] px-1.5 py-0.2 rounded bg-white/[0.06] text-zinc-400">
-            {calcCount}
-          </span>
+          <span className="mono text-[10px] px-1.5 rounded bg-white/[0.06] text-zinc-400">{p.calcCount}</span>
         </button>
 
         <button
@@ -170,9 +201,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         >
           <FileText className="w-3.5 h-3.5 text-rose-400" />
           <span>PDF Calcs</span>
-          <span className="mono text-[10px] px-1.5 py-0.2 rounded bg-white/[0.06] text-zinc-400">
-            {docCount}
-          </span>
         </button>
       </nav>
 

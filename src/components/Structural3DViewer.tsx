@@ -7,126 +7,52 @@ import { Structural3DControls } from './Structural3DControls';
 
 interface Structural3DViewerProps {
   nodes: BimNode[];
+  /** IFC file of the head model revision; null shows the empty state */
+  modelUrl: string | null;
+  /** diff elements the head model lacks, drawn from the revision that has them */
+  ghostSources: { url: string; gids: string[] }[];
   selectedNodeId: string | null;
   selectedNodeIds: Set<string>;
   activeLoadChainNodeIds: Set<string>;
   matchingNodeIds: Set<string>;
   isFilterActive: boolean;
-  heatmapMode: boolean;
-  diffMode?: boolean;
+  colorMode: ColorMode;
+  diffMode: boolean;
+  overlay: HighlightOverlay | null;
   fitTrigger: number;
   resetTrigger: number;
+  emptyText?: React.ReactNode;
   onSelectNode: (id: string, opts?: { toggleMulti?: boolean }) => void;
 }
 
-const DEFAULT_3D_CAM = {
-  theta: 0.76,
-  phi: 1.08,
-  radius: 335.0,
-  target: { x: 0.0, y: 78.0, z: 0.0 },
-};
-
-function getStructural3DSpec(node: BimNode, indexInCat: number) {
-  if (Array.isArray(node.pos3d) && Array.isArray(node.size3d)) {
-    return {
-      pos: node.pos3d,
-      size: node.size3d,
-      shape: node.shape3d || 'box',
-    };
-  }
-  const parent = `${node.parent || ''} ${node.ifcType || ''}`.toLowerCase();
-  const label = (node.label || '').toLowerCase();
-  const angle = indexInCat * 1.15;
-  const r = 14.0 + (indexInCat % 4) * 6.0;
-
-  if (parent.includes('slab') || parent.includes('roof') || parent.includes('covering') || label.includes('slab')) {
-    return { pos: [0, 12.0 + indexInCat * 12.0, 0] as [number, number, number], size: [48.0, 0.8, 48.0] as [number, number, number], shape: 'box' as const };
-  }
-  if (parent.includes('beam') || parent.includes('member') || label.includes('beam')) {
-    return {
-      pos: [Math.cos(angle) * r, 12.0 + (indexInCat % 6) * 12.0, Math.sin(angle) * r] as [number, number, number],
-      size: [18.0, 1.4, 1.0] as [number, number, number],
-      shape: 'box' as const,
-    };
-  }
-  if (parent.includes('conn') || parent.includes('fastener') || parent.includes('plate') || label.includes('conn')) {
-    return {
-      pos: [Math.cos(angle) * r, 12.0 + (indexInCat % 6) * 12.0, Math.sin(angle) * r] as [number, number, number],
-      size: [2.2, 1.2, 2.2] as [number, number, number],
-      shape: 'joint' as const,
-    };
-  }
-  if (parent.includes('pile') || label.includes('pile')) {
-    return {
-      pos: [Math.cos(angle) * r, -12.0, Math.sin(angle) * r] as [number, number, number],
-      size: [1.8, 22.0, 1.8] as [number, number, number],
-      shape: 'cylinder' as const,
-    };
-  }
-  if (parent.includes('mat') || parent.includes('pcap') || parent.includes('footing') || label.includes('cap') || label.includes('mat')) {
-    return {
-      pos: [Math.cos(angle) * r, -2.5, Math.sin(angle) * r] as [number, number, number],
-      size: [9.0, 4.5, 9.0] as [number, number, number],
-      shape: 'box' as const,
-    };
-  }
-  if (parent.includes('wall') || parent.includes('curtain') || label.includes('wall')) {
-    return {
-      pos: [Math.cos(angle) * r, 6.0 + (indexInCat % 6) * 12.0, Math.sin(angle) * r] as [number, number, number],
-      size: [16.0, 11.5, 1.2] as [number, number, number],
-      shape: 'box' as const,
-    };
-  }
-  if (parent.includes('window') || parent.includes('door') || parent.includes('opening')) {
-    return {
-      pos: [Math.cos(angle) * r, 5.0 + (indexInCat % 6) * 12.0, Math.sin(angle) * r] as [number, number, number],
-      size: [4.5, 7.5, 0.6] as [number, number, number],
-      shape: 'box' as const,
-    };
-  }
-  return {
-    pos: [Math.cos(angle) * r, 6.0 + (indexInCat % 6) * 12.0, Math.sin(angle) * r] as [number, number, number],
-    size: [2.2, 12.0, 2.2] as [number, number, number],
-    shape: 'box' as const,
-  };
-}
+const UNMAPPED_MESH = '#6b7280';
 
 export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   nodes,
+  modelUrl,
+  ghostSources,
   selectedNodeId,
   selectedNodeIds,
   activeLoadChainNodeIds,
   matchingNodeIds,
   isFilterActive,
-  heatmapMode,
-  diffMode = false,
+  colorMode,
+  diffMode,
+  overlay,
   fitTrigger,
   resetTrigger,
+  emptyText,
   onSelectNode,
 }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const stateRef = useRef<{
-    scene: THREE.Scene | null;
-    camera: THREE.PerspectiveCamera | null;
-    renderer: THREE.WebGLRenderer | null;
-    rootGroup: THREE.Group | null;
-    meshMap: Map<string, THREE.Mesh>;
-    controls: Structural3DControls | null;
-    needsRender: boolean;
-  }>({
-    scene: null,
-    camera: null,
-    renderer: null,
-    rootGroup: null,
-    meshMap: new Map(),
-    controls: null,
-    needsRender: true,
-  });
-
+  const host = useRef<HTMLDivElement | null>(null);
+  const viewer = useRef<IfcViewer | null>(null);
+  const [progress, setProgress] = useState<{ text: string; pct: number } | null>(null);
+  const [error, setError] = useState('');
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const [ghostVersion, setGhostVersion] = useState(0);
   const onSelectRef = useRef(onSelectNode);
   onSelectRef.current = onSelectNode;
 
-  // Initialize Three.js WebGL scene
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -186,45 +112,17 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
           onSelectRef.current(hits[0].object.userData.nodeId, { toggleMulti: event.shiftKey });
         }
       },
-    );
-    st.controls = controls;
-
-    const resizeObserver = new ResizeObserver(() => {
-      const w = container.clientWidth;
-      const h = container.clientHeight;
-      if (w > 0 && h > 0) {
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
-        st.needsRender = true;
-      }
     });
-    resizeObserver.observe(container);
-
-    let rafId = 0;
-    const renderLoop = (now: number) => {
-      controls.update(now);
-      if (st.needsRender) {
-        st.needsRender = false;
-        renderer.render(scene, camera);
-      }
-      rafId = requestAnimationFrame(renderLoop);
-    };
-    rafId = requestAnimationFrame(renderLoop);
-
+    viewer.current = v;
     return () => {
-      cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-      controls.dispose();
-      st.controls = null;
-      renderer.dispose();
-      if (renderer.domElement.parentElement === container) {
-        container.removeChild(renderer.domElement);
-      }
+      v.dispose();
+      viewer.current = null;
     };
   }, []);
 
-  // Build 3D structural meshes whenever nodes change
+  // load the head model. Every URL change starts from a clean slate (no progress, error or loaded
+  // model); a load that is superseded (new URL, null URL, unmount) is invalidated inside IfcViewer,
+  // paints nothing and resolves false, so only the current load may report back.
   useEffect(() => {
     const st = stateRef.current;
     const rootGroup = st.rootGroup;
@@ -364,25 +262,90 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       });
       return;
     }
+    let dead = false;
+    v.load(modelUrl, (text, pct) => !dead && setProgress(pct >= 100 ? null : { text, pct }))
+      .then((done) => {
+        if (!dead && done) setLoadedUrl(modelUrl);
+      })
+      .catch((e: unknown) => {
+        if (dead) return;
+        setProgress(null);
+        setError(e instanceof Error ? e.message : String(e));
+      });
+    return () => {
+      dead = true;
+    };
+  }, [modelUrl]);
 
-    const selectedSet = selectedNodeIds.size > 0 ? selectedNodeIds : new Set([selectedNodeId]);
-    const litIds = new Set<string>(activeLoadChainNodeIds);
+  // ghosts (diff elements from the other revision), once the head model of THIS modelUrl has loaded
+  // so they share its offset (on a swap, loadedUrl is still the previous model's until the new one
+  // finishes); the cleanup cancels a ghost load still streaming, so it never paints into a later scene
+  const ghostKey = JSON.stringify(ghostSources);
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || !modelUrl || loadedUrl !== modelUrl) return;
+    let dead = false;
+    v.loadGhosts(modelUrl, ghostSources)
+      .then((done) => !dead && done && setGhostVersion((n) => n + 1))
+      .catch(() => {
+        /* a missing ghost revision only loses the ghosts, never the model */
+      });
+    return () => {
+      dead = true;
+      v.cancelGhosts();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ghostKey, loadedUrl, modelUrl]);
 
-    selectedSet.forEach((sid) => {
-      const sNode = nodes.find((n) => n.id === sid);
-      if (!sNode) return;
-      if (isProjectNode(sNode)) {
-        st.meshMap.forEach((_, id) => litIds.add(id));
-      } else if (isElementTypeNode(sNode)) {
-        nodes.filter(isInstanceNode).forEach((inst) => {
-          if (inst.parent === sid || inst.categoryParent === sid) litIds.add(inst.id);
-        });
-      } else if (isColumnStackNode(sNode)) {
-        nodes.filter(isInstanceNode).forEach((inst) => {
-          if (inst.parent === sid) litIds.add(inst.id);
-        });
-      } else {
-        litIds.add(sid);
+  const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+
+  // element-graph boxes for every element the IFC (and its ghosts) did not mesh: the whole model
+  // when there is no IFC (ModelInput / legacy JSON), else only stragglers such as legacy diff ghosts
+  const [boxVersion, setBoxVersion] = useState(0);
+  const [boxCount, setBoxCount] = useState(0);
+  const boxKey = useMemo(
+    () =>
+      nodes
+        .filter((n) => n.kind === 'element' && n.bbox)
+        .map((n) => n.id)
+        .join('|'),
+    [nodes],
+  );
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    if (modelUrl && !loadedUrl) return; // wait for the IFC: it decides what still needs a box
+    v.clearBoxes();
+    const boxes = nodes
+      .filter((n) => n.kind === 'element' && n.bbox && !v.meshes.has(n.id))
+      .map((n) => ({ gid: n.id, min: n.bbox!.min, max: n.bbox!.max }));
+    v.setBoxes(boxes, !modelUrl);
+    setBoxCount(boxes.length);
+    setBoxVersion((x) => x + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxKey, modelUrl, loadedUrl, ghostVersion]);
+  const hasGeometry = Boolean(modelUrl) || boxCount > 0;
+
+  // the set an active selection lights up: selected elements, everything under a selected
+  // category / family / project, and the traced load path
+  const litIds = useMemo(() => {
+    const ids = new Set<string>(activeLoadChainNodeIds);
+    const sel = selectedNodeIds.size > 0 ? selectedNodeIds : selectedNodeId ? new Set([selectedNodeId]) : new Set<string>();
+    sel.forEach((id) => elementIdsUnder(id, nodes).forEach((e) => ids.add(e)));
+    return { ids, primary: sel, any: sel.size > 0 };
+  }, [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds]);
+
+  // restyle every mesh
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || (!loadedUrl && boxCount === 0)) return;
+    for (const gid of v.meshes.keys()) {
+      const node = nodeById.get(gid);
+      const isGhost = v.ghostIds.has(gid);
+      const s: MeshStyle = { color: UNMAPPED_MESH, opacity: 0.22, visible: true, glow: null };
+      if (node) {
+        s.color = getEffectiveNodeColor(node, colorMode, diffMode);
+        s.opacity = node.elementKind === 'slab' ? 0.32 : 1;
       }
     });
 
@@ -430,81 +393,82 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         wfMat.color.setHex(0x94a3b8);
         wfMat.opacity = 0.18;
       }
-    });
-  }, [nodes, selectedNodeId, selectedNodeIds, activeLoadChainNodeIds, matchingNodeIds, isFilterActive, heatmapMode, diffMode]);
+      if (isGhost && !diffMode) s.visible = false;
 
-  const zoomFitToSelection = useCallback(() => {
-    const st = stateRef.current;
-    if (!st.camera || !st.controls || st.meshMap.size === 0) return;
-    const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (overlay) {
+        const tone = overlay.tones.get(gid);
+        if (tone) {
+          s.color = TONE_COLORS[tone];
+          s.opacity = 1;
+          s.glow = tone === 'origin' ? '#6366f1' : TONE_COLORS[tone];
+        } else {
+          s.opacity = Math.min(s.opacity, 0.07);
+          s.glow = null;
+        }
+      } else if (litIds.any) {
+        if (litIds.primary.has(gid)) {
+          s.color = '#ffffff';
+          s.opacity = 1;
+          s.glow = '#6366f1';
+        } else if (litIds.ids.has(gid)) {
+          s.opacity = Math.max(s.opacity, node?.elementKind === 'slab' ? 0.42 : 1);
+          s.glow = '#bef264';
+        } else {
+          s.opacity = Math.min(s.opacity, 0.06);
+          s.glow = null;
+        }
+      } else if (isFilterActive && !matchingNodeIds.has(gid)) {
+        s.opacity = Math.min(s.opacity, 0.07);
+        s.glow = null;
+      }
+      v.style(gid, s);
+    }
+  }, [loadedUrl, ghostVersion, boxVersion, boxCount, nodeById, colorMode, diffMode, overlay, litIds, isFilterActive, matchingNodeIds]);
 
-    if (!selectedNodeId) {
-      st.controls.moveTo(DEFAULT_3D_CAM, animate);
+  // zoom to the selection (or the whole model)
+  const selRef = useRef({ selectedNodeId, litIds });
+  selRef.current = { selectedNodeId, litIds };
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v || fitTrigger === 0) return;
+    const { litIds: lit } = selRef.current;
+    if (!lit.any) {
+      v.fit(true);
       return;
     }
-
-    const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-    if (!selectedNode) return;
-
-    const targetMeshes: THREE.Mesh[] = [];
-    if (isProjectNode(selectedNode)) {
-      st.meshMap.forEach((m) => targetMeshes.push(m));
-    } else if (isElementTypeNode(selectedNode)) {
-      nodes.filter(isInstanceNode).forEach((inst) => {
-        if ((inst.parent === selectedNodeId || inst.categoryParent === selectedNodeId) && st.meshMap.has(inst.id)) {
-          targetMeshes.push(st.meshMap.get(inst.id)!);
-        }
-      });
-    } else if (isColumnStackNode(selectedNode)) {
-      nodes.filter(isInstanceNode).forEach((inst) => {
-        if (inst.parent === selectedNodeId && st.meshMap.has(inst.id)) {
-          targetMeshes.push(st.meshMap.get(inst.id)!);
-        }
-      });
-    } else {
-      if (st.meshMap.has(selectedNodeId)) targetMeshes.push(st.meshMap.get(selectedNodeId)!);
-      activeLoadChainNodeIds.forEach((cid) => {
-        if (cid !== selectedNodeId && st.meshMap.has(cid)) {
-          targetMeshes.push(st.meshMap.get(cid)!);
-        }
-      });
-    }
-
-    if (targetMeshes.length === 0) return;
-
-    const box = new THREE.Box3();
-    targetMeshes.forEach((m) => box.expandByObject(m));
-
-    const center = new THREE.Vector3();
-    const size = new THREE.Vector3();
-    box.getCenter(center);
-    box.getSize(size);
-
-    const primaryMesh = st.meshMap.get(selectedNodeId);
-    if (primaryMesh && isInstanceNode(selectedNode)) {
-      center.lerp(primaryMesh.position, 0.55);
-    }
-
-    const maxDim = Math.max(size.x, size.y, size.z, 24.0);
-    const fovRad = (st.camera.fov * Math.PI) / 180;
-    const aspect = st.camera.aspect || 1.25;
-    const fitHeightDist = (maxDim * 0.62) / Math.tan(fovRad / 2);
-    const fitWidthDist = fitHeightDist / Math.min(aspect, 1.2);
-    const idealRadius = Math.max(45.0, Math.min(720.0, Math.max(fitHeightDist, fitWidthDist) * 1.18));
-
-    st.controls.moveTo({ target: { x: center.x, y: center.y, z: center.z }, radius: idealRadius }, animate);
-  }, [selectedNodeId, nodes, activeLoadChainNodeIds]);
+    const targets = [...lit.primary].flatMap((id) => elementIdsUnder(id, nodes));
+    if (targets.length) v.focusMany(targets);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitTrigger]);
 
   useEffect(() => {
-    if (fitTrigger > 0) zoomFitToSelection();
-  }, [fitTrigger, zoomFitToSelection]);
-
-  useEffect(() => {
-    if (resetTrigger > 0) {
-      const st = stateRef.current;
-      st.controls?.moveTo(DEFAULT_3D_CAM, !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    }
+    if (resetTrigger > 0) viewer.current?.fit(true);
   }, [resetTrigger]);
 
-  return <div ref={containerRef} style={{ touchAction: 'none' }} className="w-full h-full cursor-grab active:cursor-grabbing" />;
+  return (
+    <div className="relative w-full h-full bg-[#282c34] overflow-hidden">
+      <div ref={host} style={{ touchAction: 'none' }} className="absolute inset-0 cursor-grab active:cursor-grabbing" aria-label="3D model view" role="img" />
+      {!hasGeometry && (
+        <div className="absolute inset-0 grid place-items-center p-6 text-center pointer-events-none">
+          <div className="flex flex-col items-center gap-2 max-w-xs">
+            <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-500 flex items-center justify-center">
+              <Box className="w-4 h-4" />
+            </div>
+            <p className="text-[11px] text-zinc-400 leading-relaxed">{emptyText ?? 'No model loaded.'}</p>
+          </div>
+        </div>
+      )}
+      {progress && (
+        <div role="status" className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 mono text-[10px] text-zinc-200 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] rounded-xl px-3 py-2 flex items-center gap-2 shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-300" />
+          {progress.text} <span className="text-zinc-500">{Math.round(progress.pct)}%</span>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="absolute left-3 right-3 top-3 text-[11px] text-rose-200 bg-rose-500/15 border border-rose-400/35 rounded-lg px-2.5 py-1.5">
+          Could not load the model geometry: {error}
+        </div>
+      )}
+    </div>
+  );
 };

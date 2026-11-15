@@ -1,0 +1,106 @@
+[
+ {
+  "src": "column-design-ram-structural-system",
+  "dst": "column-base-plate-design-mathcad",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)"
+  ]
+ },
+ {
+  "src": "column-design-ram-structural-system",
+  "dst": "moment-connection-mf-1-mathcad",
+  "rules": [
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "column-design-ram-structural-system",
+  "dst": "pt-slab-design-ram-concept",
+  "rules": [
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "column-design-ram-structural-system",
+  "dst": "spread-footing-design-vba",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)"
+  ]
+ },
+ {
+  "src": "floor-beam-girder-design-ram-structural-system",
+  "dst": "column-design-ram-structural-system",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)",
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "floor-beam-girder-design-ram-structural-system",
+  "dst": "moment-connection-mf-1-mathcad",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)",
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "floor-beam-girder-design-ram-structural-system",
+  "dst": "shear-tab-connection-st-1-mathcad",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)",
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "lateral-bracing-br1-excel",
+  "dst": "column-design-ram-structural-system",
+  "rules": [
+   "page reference (input from)",
+   "page reference (output to)",
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "moment-connection-mf-1-mathcad",
+  "dst": "column-design-ram-structural-system",
+  "rules": [
+   "page reference (input from)",
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "pt-slab-design-ram-concept",
+  "dst": "floor-beam-girder-design-ram-structural-system",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)"
+  ]
+ },
+ {
+  "src": "roof-framing-typical",
+  "dst": "column-design-ram-structural-system",
+  "rules": [
+   "page reference (output to)",
+   "page reference (input from)"
+  ]
+ },
+ {
+  "src": "roof-framing-typical",
+  "dst": "moment-connection-mf-1-mathcad",
+  "rules": [
+   "cross-reference (mentions an element the other calc designs)"
+  ]
+ },
+ {
+  "src": "roof-framing-typical",
+  "dst": "shear-tab-connection-st-1-mathcad",
+  "rules": [
+   "page reference (input from)"
+  ]
+ }
+]

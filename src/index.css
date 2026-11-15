@@ -83,6 +83,18 @@ input[type="range"].trace-steps-slider::-webkit-slider-thumb {
   cursor: pointer;
 }
 
+/* pdf.js text layer inside PdfPage: laid out at 1 px per PDF point and scaled with its page */
+.pdf-text-layer.textLayer {
+  --scale-factor: 1;
+  --total-scale-factor: 1;
+  --user-unit: 1;
+  position: absolute;
+  inset: 0;
+}
+.pdf-text-layer.textLayer ::selection {
+  background: rgba(99, 102, 241, 0.35);
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,

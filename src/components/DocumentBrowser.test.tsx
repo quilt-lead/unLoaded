@@ -1,60 +1,85 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { FlattenedDocument } from '../types/bim';
-import { DocumentBrowser } from './DocumentBrowser';
+import type { BimNode, CalcPackage } from '../types/bim';
+import { DocumentBrowser, calcMatchesQuery } from './DocumentBrowser';
 
-const document: FlattenedDocument = {
-  id: 'beam-package',
+// Ported from prod's test onto the branch's data contract. Prod's version rendered `FlattenedDocument`s
+// with per-document revision histories; on this branch documents are real calcs from a calc package
+// (CalcPackage, D6) and revisions are project-level model/calc revisions, so there is no per-document
+// revision picker to test. What carries over: page references come from the calc's real pages (never
+// an invented "pp. 1–4"), a search finds calcs by the elements linked to them, and the empty state
+// says why the list is empty.
+const calc: CalcPackage = {
+  key: 'beam-checks',
+  docId: null,
+  docName: null,
   title: 'Beam checks',
-  type: 'Calculation (PDF)',
-  code: 'B-01',
-  rev: 'Rev C',
-  pages: 8,
-  date: '2026-11-14',
-  summary: 'Current beam checks',
-  nodeId: 'B1',
-  nodeLabel: 'B1',
-  nodeColor: '#ffffff',
-  nodeDisplayType: 'IfcBeam',
-  mappedElementIds: ['B1'],
+  software: 'RAM',
+  elementType: 'beam',
+  pages: [5, 6, 7],
+  scanned: false,
+  frontMatter: false,
+  titleBox: null,
+  color: '#ffffff',
+  regions: [],
 };
 
-const renderDocument = (doc: FlattenedDocument) => renderToStaticMarkup(
-  <DocumentBrowser
-    allDocs={[doc]}
-    nodes={[]}
-    links={[]}
-    selectedNodeId={null}
-    activeLoadChainNodeIds={new Set()}
-    filterBySelectedElement={false}
-    onClearElementFilter={() => {}}
-    initialDocId={doc.id}
-    onLocateElement={() => {}}
-  />
-);
+const b12: BimNode = { id: 'GUID-B12', label: 'B12', kind: 'element', level: 2, r: 10, x: 0, y: 0 };
 
-describe('document revision preview', () => {
-  it('opens the declared current revision when history is oldest first', () => {
-    const markup = renderDocument({
-      ...document,
-      revisions: [
-        { rev: 'Rev A', date: '2026-10-01', pages: 3, summary: 'Original beam checks' },
-        { rev: document.rev, date: document.date, pages: document.pages, summary: document.summary },
-      ],
-    });
-    expect(markup).toContain('Issued 2026-11-14');
-    expect(markup).toContain('Calculation Scope &amp; Design Check (Rev C)');
-    expect(markup).not.toContain('Issued 2026-10-01');
+const render = (calcs: CalcPackage[], elementNodes: BimNode[] = [], calcToElementIds = new Map<string, string[]>()) =>
+  renderToStaticMarkup(
+    <DocumentBrowser
+      calcs={calcs}
+      calcPackageName="calcs.pdf"
+      pdfUrl={null}
+      elementNodes={elementNodes}
+      calcToElementIds={calcToElementIds}
+      calcDependencies={[]}
+      groups={[]}
+      findings={[]}
+      selectedElement={null}
+      filterBySelectedElement={false}
+      onClearElementFilter={() => {}}
+      target={null}
+      onChangeTarget={() => {}}
+      diffMode={false}
+      onLocateElement={() => {}}
+      onLocateCalc={() => {}}
+      onSelectElements={() => {}}
+    />,
+  );
+
+describe('calc package list', () => {
+  it("shows the calc's real page range, never an invented one", () => {
+    const markup = render([calc], [b12], new Map([[calc.key, [b12.id]]]));
+    expect(markup).toContain('pp. 5–7');
+    expect(markup).not.toContain('pp. 1–4');
+    expect(markup).toContain('1 linked');
   });
 
-  it('keeps the current revision selectable when only past revisions are in history', () => {
-    const markup = renderDocument({
-      ...document,
-      revisions: [{ rev: 'Rev A', date: '2026-10-01', pages: 3, summary: 'Original beam checks' }],
-    });
-    expect(markup).toContain('Rev C (2026-11-14)</button>');
-    expect(markup).toContain('Issued 2026-11-14');
-    expect(markup).not.toContain('pp. 1–4');
+  it('has a labelled search field', () => {
+    const markup = render([calc]);
+    expect(markup).toContain('type="search"');
+    expect(markup).toContain('aria-label="Search PDF calculations"');
+  });
+
+  it('says why the list is empty: no model, or a model without a calc package', () => {
+    expect(render([])).toContain('Import a model and upload a calc package PDF');
+    expect(render([], [b12])).toContain('This model has no calc package yet');
+  });
+});
+
+describe('calc search', () => {
+  it("matches a calc's own text", () => {
+    expect(calcMatchesQuery(calc, 'ram', [])).toBe(true);
+    expect(calcMatchesQuery(calc, '  ', [])).toBe(true);
+    expect(calcMatchesQuery(calc, 'column', [])).toBe(false);
+  });
+
+  it('matches a calc by the id or label of an element linked to it', () => {
+    expect(calcMatchesQuery(calc, 'b12', [b12])).toBe(true);
+    expect(calcMatchesQuery(calc, 'guid-b1', [b12])).toBe(true);
+    expect(calcMatchesQuery(calc, 'b13', [b12])).toBe(false);
   });
 });

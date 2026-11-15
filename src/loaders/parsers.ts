@@ -1,36 +1,42 @@
 /**
- * Pluggable model importers: file bytes -> BimGraphData for the UI.
+ * Pluggable model importers: file bytes -> ElementGraph (or a calc-graph export).
  *
  * Pipelines
- * - .ifc (STEP)                          -> @unloaded/ifc-parser -> ModelInput -> buildGraph -> ElementGraph -> adapter
- * - .json, dispatched on shape:
- *     serialized element graph           -> ElementGraph.deserialize -> adapter
- *     ModelInput                         -> buildGraph -> ElementGraph -> adapter
- *     legacy BIM graph ({ nodes, links }) -> normalizeImportedJsonGraph (no ElementGraph)
+ * - .ifc (STEP)                        -> @unloaded/ifc-parser -> ModelInput -> buildGraph -> ElementGraph
+ * - .json, dispatched on content:
+ *     serialized element graph         -> ElementGraph.deserialize
+ *     ModelInput                       -> buildGraph -> ElementGraph
+ *     legacy BIM graph ({ nodes, links }) -> legacyBimJson.ts -> ModelInput -> buildGraph -> ElementGraph
+ *     calc-graph export                -> returned as-is for src/data/loadProject.ts (read-only view)
+ *     calc-graph project file          -> validated (@unloaded/project-file parseProjectFile) for projectStore importProject
  *
- * New formats (Revit, Tekla, ETABS, ...) should emit a ModelInput and reuse the
- * element-graph pipeline, so connectivity inference and load paths come for free.
+ * A model's ElementGraph is stored with its revision in the local project store and goes through
+ * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter). The store refuses a
+ * serialized graph that calc-mapper's parseGraph (what reopens a saved project) rejects, so an
+ * imported model can always be saved and reopened (projectStore checkStorableRevision).
+ * New formats (Revit, Tekla, ETABS, ...) should emit a ModelInput and reuse the element-graph
+ * pipeline, so connectivity inference and load paths come for free.
  */
-import {
-  buildGraph,
-  ElementGraph,
-  ELEMENT_GRAPH_FORMAT,
-  type ModelInput,
-  type SerializedElementGraph,
-} from '@unloaded/element-graph';
+import { buildGraph, ElementGraph, ELEMENT_GRAPH_FORMAT, type ModelInput, type SerializedElementGraph } from '@unloaded/element-graph';
 import type { IfcParsePhase } from '@unloaded/ifc-parser';
-import type { BimGraphData, BimLink } from '../types/bim';
-import { elementGraphToBim } from './elementGraphToBim';
-import { normalizeImportedJsonGraph } from './legacyBimJson';
+import type { Export } from '@unloaded/calc-mapper/types';
+import { isCalcGraphExport, normaliseExport } from '../data/loadProject';
+import { isProjectFileFormat, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
+import { isLegacyBimJson, legacyToElementGraph } from './legacyBimJson';
 
-export interface ImportResult {
-  graph: BimGraphData;
-  rawLinks: BimLink[];
-  /** Domain graph, when the format goes through @unloaded/element-graph. */
-  elementGraph: ElementGraph | null;
-  /** Parser + graph-build warnings, prefixed with their origin. */
-  warnings: string[];
-}
+export type ImportResult =
+  | {
+      kind: 'model';
+      /** Domain graph: the single source of elements and topology. */
+      elementGraph: ElementGraph;
+      projectName: string;
+      /** 'ifc' when the bytes were an IFC (it can then be uploaded as a model revision). */
+      format: 'ifc' | 'element-graph' | 'model-input' | 'legacy-json';
+      /** Parser + graph-build warnings, prefixed with their origin. */
+      warnings: string[];
+    }
+  | { kind: 'export'; export: Export; warnings: string[] }
+  | { kind: 'project-file'; project: ProjectFile; warnings: string[] };
 
 export interface BimParserPlugin {
   id: string;
@@ -96,18 +102,17 @@ function decodeJson(bytes: Uint8Array, fileName: string): unknown {
 async function fromModelInput(
   input: ModelInput,
   fileName: string,
+  format: 'ifc' | 'model-input',
   onProgress: (m: string) => void
 ): Promise<ImportResult> {
   onProgress(`Inferring connectivity (${input.elements.length} elements)`);
   await nextFrame();
   const { graph: elementGraph, warnings } = buildGraph(input);
-  const { graph, rawLinks } = elementGraphToBim(elementGraph, {
-    projectName: input.meta.project || stripExt(fileName),
-  });
   return {
-    graph,
-    rawLinks,
+    kind: 'model',
     elementGraph,
+    projectName: input.meta.project || stripExt(fileName),
+    format,
     warnings: [...(input.warnings ?? []).map((w) => `parser: ${w}`), ...warnings.map((w) => `graph: ${w}`)],
   };
 }
@@ -132,12 +137,12 @@ export const BIM_PARSERS: BimParserPlugin[] = [
           }
         },
       });
-      return fromModelInput(input, fileName, onProgress);
+      return fromModelInput(input, fileName, 'ifc', onProgress);
     },
   },
   {
     id: 'json',
-    name: 'JSON (Element Graph / ModelInput / BIM graph)',
+    name: 'JSON (Element Graph / ModelInput / legacy BIM graph / calc-graph export / project file)',
     extensions: ['.json'],
     canParse: (fileName, head) => /\.json$/i.test(fileName) || looksLikeJson(head),
     parse: async (bytes, fileName, onProgress) => {
@@ -145,18 +150,25 @@ export const BIM_PARSERS: BimParserPlugin[] = [
       if (isSerializedGraph(data)) {
         onProgress('Loading element graph');
         await nextFrame();
-        const elementGraph = ElementGraph.deserialize(data);
-        const { graph, rawLinks } = elementGraphToBim(elementGraph, {
+        return {
+          kind: 'model',
+          elementGraph: ElementGraph.deserialize(data),
           projectName: data.meta?.project || stripExt(fileName),
-        });
-        return { graph, rawLinks, elementGraph, warnings: [] };
+          format: 'element-graph',
+          warnings: [],
+        };
       }
-      if (isModelInput(data)) return fromModelInput(data, fileName, onProgress);
-      if (typeof data === 'object' && data !== null && Array.isArray((data as { nodes?: unknown }).nodes)) {
-        const { graph, rawLinks } = normalizeImportedJsonGraph(data, fileName);
-        return { graph, rawLinks, elementGraph: null, warnings: [] };
+      if (isModelInput(data)) return fromModelInput(data, fileName, 'model-input', onProgress);
+      // a file that says it is a project file is validated in full; its error names the field at fault
+      if (isProjectFileFormat(data)) return { kind: 'project-file', project: parseProjectFile(data), warnings: [] };
+      if (isCalcGraphExport(data)) return { kind: 'export', export: normaliseExport(data), warnings: [] };
+      if (isLegacyBimJson(data)) {
+        onProgress('Converting legacy BIM JSON and inferring connectivity');
+        await nextFrame();
+        const { graph, projectName, warnings } = legacyToElementGraph(data, fileName);
+        return { kind: 'model', elementGraph: graph, projectName, format: 'legacy-json', warnings };
       }
-      throw new Error(`${fileName}: JSON is not an element graph, ModelInput or BIM graph ({ nodes, links })`);
+      throw new Error(`${fileName}: JSON is not an element graph, a ModelInput, a legacy BIM graph, a calc-graph export or a project file`);
     },
   },
 ];

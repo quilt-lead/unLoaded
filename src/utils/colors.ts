@@ -206,6 +206,11 @@ export function getContrastingTextStyle(bgColorStr: string): { fill: string; sha
   return { fill: '#ffffff', shadow: '0 1px 2px rgba(0, 0, 0, 0.78)' };
 }
 
+/** Calc colours (the backend's palette, so a calc keeps its colour across views). */
+export const CALC_PALETTE = [
+  '#4e79a7', '#f28e2b', '#59a14f', '#b07aa1', '#e15759', '#76b7b2', '#edc948', '#9c755f', '#ff9da7',
+  '#2b8c8c', '#8f6ed5', '#d4a017', '#3d9970', '#c2185b', '#5f7d95',
+];
 
 export const DIFF_PALETTE: Record<'added' | 'removed' | 'modified' | 'unchanged', string> = {
   added: '#A3D900',

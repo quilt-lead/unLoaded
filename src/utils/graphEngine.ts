@@ -1,127 +1,81 @@
-import {
-  BimDocument,
-  BimGraphData,
-  BimLink,
-  BimNode,
-  FlattenedDocument,
-  DatabaseDiffSummary,
-  DiffStatus,
-  NodeDiffFieldChange,
-  TraceDirection,
-} from '../types/bim';
-import { getEffectiveNodeColor } from './colors';
+// Pure helpers over the VIEW MODEL (src/types/bim.ts): node predicates, load-path tracing over the
+// element graph's directed load-path edges, the radial layout, and the calc graph's mapping satellites.
+// Nothing here infers structure: hierarchy, connectivity and load direction come from the element
+// graph (src/loaders/elementGraphToBim.ts), calcs and calc dependencies from the backend
+// (src/data/loadProject.ts).
+import type { BimLink, BimNode, CalcLink, ConnectivityEdge, LoadPathEdge, TraceDirection } from '../types/bim';
 
 export function isProjectNode(n?: BimNode | null): boolean {
-  return Boolean(n && (n.type === 'Project' || n.level === 0));
+  return Boolean(n && (n.kind === 'project' || n.kind === 'calc-root'));
 }
 
 export function isElementTypeNode(n?: BimNode | null): boolean {
-  return Boolean(n && (n.type === 'Category' || n.level === 1));
+  return Boolean(n && (n.kind === 'category' || n.kind === 'calc-category'));
 }
 
-export function isColumnStackNode(n?: BimNode | null): boolean {
-  return Boolean(n && (n.type === 'ColumnStack' || n.level === 1.5));
+export function isFamilyNode(n?: BimNode | null): boolean {
+  return Boolean(n && n.kind === 'family');
 }
 
+/** A leaf: an element, a calc, or an element drawn beside its calc. */
 export function isInstanceNode(n?: BimNode | null): boolean {
-  return Boolean(n && !isProjectNode(n) && !isElementTypeNode(n) && !isColumnStackNode(n));
+  return Boolean(n && (n.kind === 'element' || n.kind === 'calc' || n.kind === 'mapped-element'));
+}
+
+export function isElementNode(n?: BimNode | null): boolean {
+  return Boolean(n && n.kind === 'element');
 }
 
 export function getDisplayType(node: BimNode): string {
-  if (isProjectNode(node)) return 'Project';
-  if (isElementTypeNode(node)) return 'Element Type';
-  if (isColumnStackNode(node)) return 'Column Stack';
-  return node.type || 'Instance';
-}
-
-export function getNodeDocuments(node?: BimNode | null): BimDocument[] {
-  return Array.isArray(node?.documents) ? node.documents : [];
-}
-
-export function getAllDocumentsFlattened(
-  nodes: BimNode[],
-  matchingNodeIds: Set<string> | null,
-  heatmapMode: boolean
-): FlattenedDocument[] {
-  const byDocId = new Map<string, FlattenedDocument>();
-
-  nodes.forEach((node) => {
-    const docs = getNodeDocuments(node);
-    docs.forEach((doc) => {
-      const existing = byDocId.get(doc.id);
-      if (existing) {
-        if (!existing.mappedElementIds.includes(node.id)) {
-          existing.mappedElementIds.push(node.id);
-        }
-      } else {
-        byDocId.set(doc.id, {
-          ...doc,
-          nodeId: node.id,
-          nodeLabel: node.label,
-          nodeColor: getEffectiveNodeColor(node, heatmapMode),
-          nodeDisplayType: getDisplayType(node),
-          mappedElementIds: [node.id],
-        });
-      }
-    });
-  });
-
-  // Filter documents after collecting mappings so a shared package still lists all
-  // of its elements. An empty match set means zero results; null means unfiltered.
-  return Array.from(byDocId.values()).filter(
-    (doc) => matchingNodeIds === null || doc.mappedElementIds.some((id) => matchingNodeIds.has(id))
-  );
-}
-
-export function getStructuralGravityRank(node?: BimNode | null): number {
-  if (!node) return 99;
-  const id = (node.id || '').toLowerCase();
-  const label = (node.label || '').toLowerCase();
-  const parent = (node.parent || '').toLowerCase();
-  const desc = (node.desc || '').toLowerCase();
-
-  if (parent === 'cat-pile' || id.startsWith('pile-')) return 7;
-  if (parent === 'cat-mat' || parent === 'cat-pcap' || parent === 'cat-footing' || id.startsWith('mat-') || id.startsWith('pcap-')) return 6;
-  if (parent === 'cat-conn' || id.startsWith('conn-')) {
-    return label.includes('bp') || desc.includes('base plate') ? 5 : 3;
+  switch (node.kind) {
+    case 'project':
+      return 'Project';
+    case 'calc-root':
+      return 'Calc package';
+    case 'category':
+      return 'Element type';
+    case 'calc-category':
+      return 'Calc group';
+    case 'family':
+      return 'Mark family';
+    case 'calc':
+      return 'Calculation';
+    case 'mapped-element':
+      return 'Linked element';
+    default:
+      return node.elementKind ? node.elementKind.charAt(0).toUpperCase() + node.elementKind.slice(1) : node.ifcType ? node.ifcType.replace(/^Ifc/, '') : 'Element';
   }
-  if (parent === 'cat-col' || parent === 'cat-wall' || id.startsWith('col-') || id.startsWith('wall-')) return 4;
-  if (parent === 'cat-mframe' || id.startsWith('mf-') || id.startsWith('smf-')) return 3;
-  if (parent === 'cat-beam' || id.startsWith('beam-')) {
-    return node.beamRole === 'InfillBeam' || id.startsWith('beam-b-') ? 2 : 3;
-  }
-  if (parent === 'cat-slab' || id.startsWith('slab-')) return 1;
-  return 4;
 }
 
-export function orientLoadLink(sNode: BimNode, tNode: BimNode, rawLink: BimLink): BimLink {
-  const sFloor = typeof sNode.floorNum === 'number' ? sNode.floorNum : 0;
-  const tFloor = typeof tNode.floorNum === 'number' ? tNode.floorNum : 0;
-
-  if (sFloor !== tFloor) {
-    return sFloor > tFloor
-      ? { ...rawLink, source: sNode.id, target: tNode.id, isLoadPath: true }
-      : { ...rawLink, source: tNode.id, target: sNode.id, isLoadPath: true };
-  }
-
-  const sRank = getStructuralGravityRank(sNode);
-  const tRank = getStructuralGravityRank(tNode);
-  if (sRank > tRank) {
-    return { ...rawLink, source: tNode.id, target: sNode.id, isLoadPath: true };
-  }
-  return { ...rawLink, source: sNode.id, target: tNode.id, isLoadPath: true };
+/** Element ids a graph node stands for (itself, or every element under a category / family / project). */
+export function elementIdsUnder(nodeId: string, nodes: BimNode[]): string[] {
+  const node = nodes.find((n) => n.id === nodeId);
+  if (!node) return [];
+  if (node.kind === 'element') return [node.id];
+  if (node.kind === 'mapped-element') return node.elementId ? [node.elementId] : [];
+  if (node.kind === 'project') return nodes.filter(isElementNode).map((n) => n.id);
+  if (node.kind === 'category') return nodes.filter((n) => isElementNode(n) && n.categoryParent === node.id).map((n) => n.id);
+  if (node.kind === 'family') return nodes.filter((n) => isElementNode(n) && n.parent === node.id).map((n) => n.id);
+  return [];
 }
 
+export function loadPathKey(source: string, target: string): string {
+  return `${source}->${target}`;
+}
+
+/**
+ * Follow the element graph's directed load-path edges (`supports`: source delivers load to target) from the seeds:
+ * 'down' toward the foundations, 'up' toward what the seeds carry, or both.
+ */
 export function computeLoadPathTrace(
-  nodes: BimNode[],
-  rawLinks: BimLink[],
+  loadPath: LoadPathEdge[],
   seedIds: string[],
   traceDirection: TraceDirection,
-  traceSteps: number
+  traceSteps: number,
 ): { chainNodeIds: Set<string>; chainLinkKeys: Set<string> } {
   const chainNodeIds = new Set<string>();
   const chainLinkKeys = new Set<string>();
-  if (seedIds.length === 0) return { chainNodeIds, chainLinkKeys };
+  if (seedIds.length === 0 || loadPath.length === 0) return { chainNodeIds, chainLinkKeys };
 
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const instanceSeeds = seedIds.filter((id) => {
@@ -204,89 +158,39 @@ export function computeLoadPathTrace(
   });
 
   const maxSteps = traceSteps >= 16 ? Infinity : Math.max(1, traceSteps);
-
-  instanceSeeds.forEach((startNodeId) => {
-    chainNodeIds.add(startNodeId);
-
-    if (traceDirection === 'down' || traceDirection === 'both') {
-      const downQueue = [{ id: startNodeId, depth: 0 }];
-      const visitedDown = new Set([startNodeId]);
-      while (downQueue.length > 0) {
-        const { id: curr, depth } = downQueue.shift()!;
-        if (depth >= maxSteps) continue;
-        (downstreamAdj.get(curr) || []).forEach((nxt) => {
-          chainNodeIds.add(nxt);
-          chainLinkKeys.add(`${curr}->${nxt}`);
-          if (!visitedDown.has(nxt)) {
-            visitedDown.add(nxt);
-            downQueue.push({ id: nxt, depth: depth + 1 });
-          }
-        });
+  const walk = (start: string, adj: Map<string, string[]>, forward: boolean) => {
+    const queue = [{ id: start, depth: 0 }];
+    const visited = new Set([start]);
+    while (queue.length > 0) {
+      const { id, depth } = queue.shift()!;
+      if (depth >= maxSteps) continue;
+      for (const nxt of adj.get(id) ?? []) {
+        chainNodeIds.add(nxt);
+        chainLinkKeys.add(forward ? loadPathKey(id, nxt) : loadPathKey(nxt, id));
+        if (!visited.has(nxt)) {
+          visited.add(nxt);
+          queue.push({ id: nxt, depth: depth + 1 });
+        }
       }
     }
+  };
 
-    if (traceDirection === 'up' || traceDirection === 'both') {
-      const upQueue = [{ id: startNodeId, depth: 0 }];
-      const visitedUp = new Set([startNodeId]);
-      while (upQueue.length > 0) {
-        const { id: curr, depth } = upQueue.shift()!;
-        if (depth >= maxSteps) continue;
-        (upstreamAdj.get(curr) || []).forEach((prev) => {
-          chainNodeIds.add(prev);
-          chainLinkKeys.add(`${prev}->${curr}`);
-          if (!visitedUp.has(prev)) {
-            visitedUp.add(prev);
-            upQueue.push({ id: prev, depth: depth + 1 });
-          }
-        });
-      }
-    }
-  });
-
+  for (const s of seeds) {
+    chainNodeIds.add(s);
+    if (traceDirection === 'down' || traceDirection === 'both') walk(s, down, true);
+    if (traceDirection === 'up' || traceDirection === 'both') walk(s, up, false);
+  }
   return { chainNodeIds, chainLinkKeys };
 }
 
-export function buildHierarchyLinks(nodes: BimNode[], rawLinks: BimLink[]): BimLink[] {
-  const visibleNodeMap = new Map(nodes.map((n) => [n.id, n]));
-  const projectNode = nodes.find(isProjectNode);
-  const baseLinks: BimLink[] = [];
-  const seenLinkKeys = new Set<string>();
-
-  rawLinks.forEach((l) => {
-    const s = visibleNodeMap.get(l.source);
-    const t = visibleNodeMap.get(l.target);
-    if (!s || !t) return;
-
-    const isHierarchy =
-      (isProjectNode(s) && isElementTypeNode(t)) ||
-      (isElementTypeNode(s) && isProjectNode(t)) ||
-      (isElementTypeNode(s) && isColumnStackNode(t)) ||
-      (isColumnStackNode(s) && isElementTypeNode(t)) ||
-      (isColumnStackNode(s) && isInstanceNode(t)) ||
-      (isInstanceNode(s) && isColumnStackNode(t)) ||
-      (isElementTypeNode(s) && isInstanceNode(t)) ||
-      (isInstanceNode(s) && isElementTypeNode(t));
-
-    if (isHierarchy) {
-      const key = `${l.source}=>${l.target}`;
-      if (!seenLinkKeys.has(key)) {
-        seenLinkKeys.add(key);
-        baseLinks.push({ ...l, relation: 'hierarchy', isLoadPath: false });
-      }
-    }
-  });
-
-  if (projectNode) {
-    nodes.filter(isElementTypeNode).forEach((et) => {
-      const key = `${projectNode.id}=>${et.id}`;
-      if (!seenLinkKeys.has(key)) {
-        seenLinkKeys.add(key);
-        baseLinks.push({ source: projectNode.id, target: et.id, relation: 'hierarchy', isLoadPath: false });
-      }
-    });
+/** Elements physically connected to one element (element-graph `connects` / `part_of`). */
+export function getConnectivityNeighbors(nodeId: string, connectivity: ConnectivityEdge[]): string[] {
+  const out = new Set<string>();
+  for (const e of connectivity) {
+    if (e.source === nodeId) out.add(e.target);
+    else if (e.target === nodeId) out.add(e.source);
   }
-
-  return baseLinks;
+  return [...out];
 }
 
 // Get direct physical connectivity neighbors (e.g., Beam A101 <-> Connection <-> Column C2012)
@@ -436,17 +340,44 @@ export function buildCalculationGraph(
 
   const laidOutCalcNodes = computeRadialLayout(rawCalcNodes);
   return {
-    calcNodes: laidOutCalcNodes,
-    calcLinks: rawCalcLinks,
-    docToElementIds,
-    elementToCalcNodeIds,
+    carriesFrom: loadPath.filter((e) => e.target === nodeId),
+    deliversTo: loadPath.filter((e) => e.source === nodeId),
   };
 }
 
-export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
-  const centerX = 0;
-  const centerY = 0;
+// ------------------------------------------------------------------------------------------------
+// Radial layout: project at the centre, categories on a ring, then either mark-family clusters
+// (hub + concentric rings of members, any size) or, for categories without families, arcs of
+// leaves (the calc graph).
 
+const TYPE_RADIUS = 215;
+
+interface Cluster {
+  hub: BimNode;
+  members: BimNode[];
+  memberR: number;
+  rings: { radius: number; count: number }[];
+  R: number;
+}
+
+function buildCluster(hub: BimNode, members: BimNode[]): Cluster {
+  const memberR = members.length > 60 ? 4.6 : members.length > 16 ? 5.6 : 6.8;
+  const pitch = memberR * 2 * 1.42;
+  const rings: Cluster['rings'] = [];
+  let radius = hub.r + 9 + memberR;
+  let placed = 0;
+  while (placed < members.length) {
+    const cap = Math.max(6, Math.floor((2 * Math.PI * radius) / pitch));
+    const count = Math.min(cap, members.length - placed);
+    rings.push({ radius, count });
+    placed += count;
+    radius += pitch * 1.06;
+  }
+  const R = rings.length ? rings[rings.length - 1].radius + memberR : hub.r;
+  return { hub, members, memberR, rings, R };
+}
+
+export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
   const nodes: BimNode[] = rawNodes.map((n, idx) => {
     const fallbackAngle = (idx / Math.max(rawNodes.length, 1)) * Math.PI * 2;
     const isProj = isProjectNode(n);
@@ -460,115 +391,175 @@ export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
     };
   });
 
-  const projectNode = nodes.find(isProjectNode);
-  if (projectNode) {
-    projectNode.x = centerX;
-    projectNode.y = centerY;
+  const project = nodes.find(isProjectNode);
+  if (project) {
+    project.x = 0;
+    project.y = 0;
+  }
+  const cats = nodes.filter(isElementTypeNode);
+  if (cats.length === 0) return nodes;
+
+  const childrenOf = new Map<string, BimNode[]>();
+  for (const n of nodes) {
+    if (!n.parent) continue;
+    (childrenOf.get(n.parent) ?? childrenOf.set(n.parent, []).get(n.parent)!).push(n);
   }
 
-  const elementTypes = nodes.filter(isElementTypeNode);
-  if (elementTypes.length === 0) return nodes;
-
-  const typeRadius = 215;
-
-  const sectorWeights = elementTypes.map((elType) => {
-    const colStacks = nodes.filter((n) => isColumnStackNode(n) && n.parent === elType.id);
-    if (colStacks.length > 0) return 1.55;
-    const instCount = nodes.filter((n) => isInstanceNode(n) && n.parent === elType.id).length;
-    return instCount > 40 ? 1.15 : 0.88;
+  const plan = cats.map((cat) => {
+    const kids = childrenOf.get(cat.id) ?? [];
+    const clusters = kids.filter(isFamilyNode).map((f) => buildCluster(f, (childrenOf.get(f.id) ?? []).filter(isInstanceNode)));
+    const leaves = kids.filter(isInstanceNode);
+    const demand = clusters.reduce((acc, c) => acc + 2 * c.R + 22, 0) + leaves.length * 34;
+    return { cat, clusters, leaves, demand: Math.max(demand, 90) };
   });
-  const totalWeight = sectorWeights.reduce((acc, w) => acc + w, 0);
+  const total = plan.reduce((acc, p) => acc + p.demand, 0);
+  // every category gets at least enough arc for its own circle on the type ring, the rest by demand
+  const minArc = Math.min(0.32, (Math.PI * 2) / plan.length);
+  const spare = Math.PI * 2 - minArc * plan.length;
+  const arcOf = (p: (typeof plan)[number]) => minArc + (p.demand / total) * spare;
 
-  let cursorAngle = -Math.PI / 2 - (sectorWeights[0] / totalWeight) * Math.PI;
+  let cursor = -Math.PI / 2 - arcOf(plan[0]) / 2;
+  for (const p of plan) {
+    const arc = arcOf(p);
+    const angle = cursor + arc / 2;
+    cursor += arc;
+    p.cat.x = Math.cos(angle) * TYPE_RADIUS;
+    p.cat.y = Math.sin(angle) * TYPE_RADIUS;
 
-  elementTypes.forEach((elType, i) => {
-    const allocatedArc = (sectorWeights[i] / totalWeight) * Math.PI * 2;
-    const angle = cursorAngle + allocatedArc * 0.5;
-    cursorAngle += allocatedArc;
+    const usable = Math.max(arc * 0.88, 0.25);
+    let rowStart = TYPE_RADIUS + 110;
 
-    elType.x = centerX + Math.cos(angle) * typeRadius;
-    elType.y = centerY + Math.sin(angle) * typeRadius;
-
-    const colStacks = nodes
-      .filter((n) => isColumnStackNode(n) && n.parent === elType.id)
-      .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
-
-    if (colStacks.length > 0) {
-      const stackSector = allocatedArc * 0.86;
-      const stackCols = 6;
-      const segOrbitR = 40;
-      const rosetteOuterR = segOrbitR + 6.5 + 14;
-      const minArcPitch = rosetteOuterR * 2.15;
-
-      colStacks.forEach((stackNode, sIdx) => {
-        const row = Math.floor(sIdx / stackCols);
-        const col = sIdx % stackCols;
-        const countInRow = Math.min(stackCols, colStacks.length - row * stackCols);
-        const sAngleStep = stackSector / Math.max(countInRow, 1);
-        const sAngle = angle - stackSector / 2 + (col + 0.5) * sAngleStep;
-
-        const minRForArc = (minArcPitch * Math.max(countInRow, 1)) / Math.max(stackSector, 0.35);
-        const baseRowR = Math.max(typeRadius + 215, minRForArc);
-        const sDist = baseRowR + row * (rosetteOuterR * 2.25);
-
-        stackNode.x = centerX + Math.cos(sAngle) * sDist;
-        stackNode.y = centerY + Math.sin(sAngle) * sDist;
-        stackNode.r = stackNode.r || 15;
-
-        const segs = nodes
-          .filter((n) => isInstanceNode(n) && n.parent === stackNode.id)
-          .sort((a, b) => (a.floorNum || 0) - (b.floorNum || 0) || a.id.localeCompare(b.id));
-
-        const ring1Cap = Math.min(16, segs.length);
-        const ring2Cap = Math.max(0, segs.length - ring1Cap);
-
-        segs.forEach((seg, k) => {
-          const isOuter = k >= ring1Cap;
-          const idxInRing = isOuter ? k - ring1Cap : k;
-          const totalInRing = isOuter ? ring2Cap : ring1Cap;
-          const orbitR = isOuter ? 56 : segOrbitR;
-          const segAngle = (idxInRing / Math.max(totalInRing, 1)) * Math.PI * 2 - Math.PI / 2;
-
-          seg.x = stackNode.x + Math.cos(segAngle) * orbitR;
-          seg.y = stackNode.y + Math.sin(segAngle) * orbitR;
-          seg.r = 6.5;
-        });
-      });
-      return;
-    }
-
-    const instances = nodes
-      .filter((n) => isInstanceNode(n) && n.parent === elType.id)
-      .sort((a, b) => (a.floorNum || 0) - (b.floorNum || 0) || a.id.localeCompare(b.id));
-
-    const isHuge = instances.length > 400;
-    const sectorSpread = allocatedArc * 0.82;
-    const nodePadDiameter = isHuge ? 20 : instances.length > 80 ? 29 : 34;
-
-    let placed = 0;
-    let ringIdx = 0;
-    while (placed < instances.length) {
-      const instDist = typeRadius + 150 + ringIdx * (nodePadDiameter * 1.15);
-      const arcLen = instDist * sectorSpread;
-      const maxInThisRing = isHuge ? 30 : Math.max(1, Math.min(18, Math.floor(arcLen / nodePadDiameter)));
-      const countInThisRing = Math.min(maxInThisRing, instances.length - placed);
-      const instAngleStep = sectorSpread / Math.max(countInThisRing, 1);
-
-      for (let posInRing = 0; posInRing < countInThisRing; posInRing++) {
-        const inst = instances[placed + posInRing];
-        const instAngle = angle - sectorSpread / 2 + (posInRing + 0.5) * instAngleStep;
-        inst.x = centerX + Math.cos(instAngle) * instDist;
-        inst.y = centerY + Math.sin(instAngle) * instDist;
-        if (isHuge) inst.r = 5.5;
-        else if (instances.length > 80) inst.r = 9.5;
+    // family clusters, row by row outward
+    const queue = [...p.clusters];
+    while (queue.length) {
+      const row: Cluster[] = [];
+      let rMax = 0;
+      while (queue.length) {
+        const c = queue[0];
+        const nextMax = Math.max(rMax, c.R);
+        const d = rowStart + nextMax;
+        const width = [...row, c].reduce((acc, x) => acc + (2 * x.R + 16) / d, 0);
+        if (row.length && width > usable) break;
+        row.push(queue.shift()!);
+        rMax = nextMax;
       }
-
-      placed += countInThisRing;
-      ringIdx++;
+      let d = rowStart + rMax;
+      let width = row.reduce((acc, x) => acc + (2 * x.R + 16) / d, 0);
+      if (width > usable) {
+        d = row.reduce((acc, x) => acc + 2 * x.R + 16, 0) / usable;
+        width = usable;
+      }
+      let a = angle - width / 2;
+      for (const c of row) {
+        const w = (2 * c.R + 16) / d;
+        const ca = a + w / 2;
+        a += w;
+        c.hub.x = Math.cos(ca) * d;
+        c.hub.y = Math.sin(ca) * d;
+        let k = 0;
+        c.rings.forEach((ring, ri) => {
+          for (let i = 0; i < ring.count; i++) {
+            const m = c.members[k++];
+            const ma = (i / ring.count) * Math.PI * 2 - Math.PI / 2 + (ri % 2 ? Math.PI / ring.count : 0);
+            m.x = c.hub.x + Math.cos(ma) * ring.radius;
+            m.y = c.hub.y + Math.sin(ma) * ring.radius;
+            m.r = c.memberR;
+          }
+        });
+      }
+      rowStart = d + rMax + 26;
     }
-  });
 
+    // leaves straight under the category, in arcs
+    const leaves = p.leaves;
+    if (leaves.length) {
+      const pad = leaves.length > 80 ? 26 : 38;
+      const spread = Math.min(arc * 0.82, Math.PI * 1.2);
+      let placed = 0;
+      let ring = 0;
+      const base = p.clusters.length ? rowStart : TYPE_RADIUS + 150;
+      while (placed < leaves.length) {
+        const dist = base + ring * pad * 1.2;
+        const max = Math.max(1, Math.min(18, Math.floor((dist * spread) / pad)));
+        const count = Math.min(max, leaves.length - placed);
+        const step = spread / count;
+        for (let i = 0; i < count; i++) {
+          const la = angle - spread / 2 + (i + 0.5) * step;
+          leaves[placed + i].x = Math.cos(la) * dist;
+          leaves[placed + i].y = Math.sin(la) * dist;
+        }
+        placed += count;
+        ring++;
+      }
+    }
+  }
   return nodes;
+}
+
+/**
+ * The calc graph with the selected calc's linked elements drawn around it, each joined by a
+ * calc-mapping edge that carries the link's review state (so edge styling shows confirmed /
+ * proposed / rejected / linked by hand).
+ */
+export function withMappingSatellites(
+  calcNodes: BimNode[],
+  calcLinks: BimLink[],
+  anchorCalcKey: string | null,
+  elementNodes: BimNode[],
+): { nodes: BimNode[]; links: BimLink[] } {
+  if (!anchorCalcKey) return { nodes: calcNodes, links: calcLinks };
+  const anchor = calcNodes.find((n) => n.kind === 'calc' && n.calcKey === anchorCalcKey);
+  if (!anchor) return { nodes: calcNodes, links: calcLinks };
+
+  const linked = elementNodes
+    .filter(isElementNode)
+    .map((el) => ({ el, link: (el.calcLinks ?? []).find((l) => l.calcKey === anchorCalcKey) }))
+    .filter((x): x is { el: BimNode; link: CalcLink } => x.link !== undefined)
+    .sort((a, b) => b.link.confidence - a.link.confidence)
+    .slice(0, 120);
+  if (!linked.length) return { nodes: calcNodes, links: calcLinks };
+
+  const out = Math.hypot(anchor.x, anchor.y) || 1;
+  const ux = anchor.x / out;
+  const uy = anchor.y / out;
+  const satR = linked.length > 40 ? 4.2 : 5.5;
+  const pitch = satR * 2 * 1.5;
+  const sats: BimNode[] = [];
+  const links: BimLink[] = [];
+  let placed = 0;
+  let radius = anchor.r + 30;
+  while (placed < linked.length) {
+    // a fan opening away from the centre so the satellites do not cover the rest of the graph
+    const spread = Math.PI * 1.25;
+    const cap = Math.max(4, Math.floor((radius * spread) / pitch));
+    const count = Math.min(cap, linked.length - placed);
+    const base = Math.atan2(uy, ux);
+    for (let i = 0; i < count; i++) {
+      const { el, link } = linked[placed + i];
+      const a = base - spread / 2 + ((i + 0.5) / count) * spread;
+      const id = `map:${anchorCalcKey}:${el.id}`;
+      sats.push({
+        id,
+        label: el.label,
+        kind: 'mapped-element',
+        level: 3,
+        parent: anchor.id,
+        elementId: el.id,
+        ifcType: el.ifcType,
+        elementKind: el.elementKind,
+        storey: el.storey,
+        link,
+        r: satR,
+        x: anchor.x + Math.cos(a) * radius,
+        y: anchor.y + Math.sin(a) * radius,
+        desc: el.desc,
+      });
+      links.push({ source: anchor.id, target: id, relation: 'calc-mapping', review: link.review, confidence: link.confidence });
+    }
+    placed += count;
+    radius += pitch * 1.1;
+  }
+  return { nodes: [...calcNodes, ...sats], links: [...calcLinks, ...links] };
 }
 
 // Center-to-center radial spline: every wire starts at (s.x, s.y) and terminates at (t.x, t.y)

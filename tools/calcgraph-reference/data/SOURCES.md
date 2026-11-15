@@ -1,0 +1,43 @@
+# Data sources
+
+Every file in this tooling folder that came from outside, with where it came from and its licence.
+No customer file (OneDrive or elsewhere) is in this repo.
+
+## Downloaded
+
+Nothing. (The buildingSMART sample IFC this folder used to carry is a byte-identical duplicate of
+`packages/ifc-parser/test/fixtures/Building-Structural-IFC4.ifc`, which keeps its provenance in that
+folder's SOURCES.md.)
+
+### AISC shapes subset (NOT committed: gitignored, NOT an open licence - decision D22 pending)
+
+| File | Source | Licence | Fetched |
+|---|---|---|---|
+| `synth/v2/data/aisc_v16_subset.csv` | Subset (W8..W36 and square HSS 4..12; 300 shapes, sha256 `2c4090e1cb6987a7364634335c96e94f89177cf43a1b94c9c595a10ed1b6a54e`) of the AISC Shapes Database v16.0, obtained via `data/aisc-v16.csv` in https://github.com/cmccomb/structural-shapes | AISC data, (C) American Institute of Steel Construction - NOT MIT. The MIT licence in that repository covers only its author's code. Redistribution terms are AISC's, not an open licence. | copied byte-for-byte from the calc-graph hackathon prototype's `synth/v2/data/` (where it was committed by project decision), 2026-11-14 |
+
+The file is gitignored (`tools/calcgraph-reference/synth/v2/data/aisc_*.csv` in the repo's `.gitignore`)
+and is not in this repo: it is kept locally only, until the licence question (decision D22) is settled.
+The v2 generator designs with it, and the move-impact gate passes rows of it to `packages/move-impact`
+as the caller-supplied shape table (`scripts/move_fixture.py`), so that gate (`move_answer_key`) runs
+locally only - CI reports it as local-only. The TS package itself ships no shape data.
+
+## Generated (not downloaded)
+
+`tools/calcgraph-reference/data/synthetic/` is produced by `uv run python -m synth.generate` (run from `tools/calcgraph-reference/`;
+gitignored, byte-stable for a given seed). Everything in it - model, calc package, numbers,
+ground truth - is synthetic.
+
+`tools/calcgraph-reference/data/synthetic_v2/` is produced by `uv run python -m synth.v2.generate` and
+`uv run python -m synth.v2.scenarios` (the v2 building, its calc package and the move-a-column answer
+key) plus `scripts/move_fixture.py` / the move-impact CLI (gitignored). All synthetic.
+
+## Libraries (installed, not vendored)
+
+| Tool | Use | Licence |
+|---|---|---|
+| IfcOpenShell 0.9 | write the synthetic IFC | LGPL-3.0 |
+| PyMuPDF 2.1 | write the synthetic calc package (tooling only; not in the app) | AGPL-3.0 (commercial licence from Artifex otherwise) |
+| PyNite (PyNiteFEA 3.2) | member forces for the synthetic calcs | MIT |
+| matplotlib (mathtext) | Mathcad-style formula images, scanned hand-calc raster | matplotlib licence (PSF-style, BSD-compatible) |
+| NumPy, Pillow | geometry maths, image noise | BSD-3 / MIT-CMU (HPND) |
+| DejaVu Sans (bundled with matplotlib) | font of the rasterised hand calc | Bitstream Vera / DejaVu licence (free) |
