@@ -19,4 +19,4 @@ Read it before starting work. Write to it before handing off.
 | Note | Status | Summary |
 |---|---|---|
 | [2026-11-14-parser-graph-merge.md](2026-11-14-parser-graph-merge.md) | done | Merged the IFC parser and element-graph packages into the React UI via an adapter |
-| [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (Python backend: matcher, evidence, impact, revisions) and extraction ideas into main; decision log D1-D16 |
+| [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (Python backend: matcher, evidence, impact, revisions) and extraction ideas into main; decision log D1-D21 |
