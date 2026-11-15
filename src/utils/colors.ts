@@ -86,8 +86,8 @@ export function hashStringToJewelColor(str: string): string {
 }
 
 export function getHeatmapColor(utilization?: number): string {
-  // Unknown is not a measurement: use a distinct palette color, never a guessed mid-scale value.
-  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return NO_DATA_COLOR;
+  // Unknown is not a measurement: keep it neutral rather than implying a utilization level.
+  if (typeof utilization !== 'number' || !Number.isFinite(utilization)) return NO_UTILIZATION_COLOR;
   const u = Math.max(0, Math.min(1, utilization));
   const stops = [
     { t: 0.25, r: 0, g: 174, b: 239 },
@@ -150,11 +150,12 @@ export const CALC_PALETTE = [
 
 export const PROJECT_COLOR = '#D8D3D8';
 export const NO_DATA_COLOR = '#FF1493';
+export const NO_UTILIZATION_COLOR = '#71717a';
 
 export const STATUS_COLORS: Record<MappingStatus, string> = {
   confirmed: '#059669',
   review: '#d97706',
-  unmapped: '#e11d48',
+  unmapped: '#ef4444',
 };
 
 export const STATUS_LABELS: Record<MappingStatus, string> = {
@@ -279,7 +280,7 @@ export function getEffectiveNodeColor(node: BimNode | null | undefined, colorMod
       return typeColor(node);
     case 'element':
     default:
-      if (colorMode === 'review') return node.mappingStatus ? STATUS_COLORS[node.mappingStatus] : NO_DATA_COLOR;
+      if (colorMode === 'review') return STATUS_COLORS[node.mappingStatus ?? 'unmapped'];
       if (colorMode === 'confidence') return getConfidenceColor(topLiveConfidence(node));
       if (colorMode === 'utilisation') return getHeatmapColor(node.utilization);
       return typeColor(node);

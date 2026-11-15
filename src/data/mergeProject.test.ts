@@ -1,7 +1,7 @@
 // applyModelDiff lays the diff A -> B over revision B's view: ghosts are A-only elements, placed in a
 // family of their own kind.
 import { describe, expect, it } from 'vitest';
-import type { BimNode, ElementTopology, ModelDiff } from '../types/bim';
+import type { BimNode, CalcData, ElementTopology, ModelDiff } from '../types/bim';
 import { PROJECT_NODE_ID } from '../loaders/elementGraphToBim';
 import { applyModelDiff, mergeProject } from './mergeProject';
 
@@ -56,5 +56,41 @@ describe('applyModelDiff', () => {
     expect(by.get('B1')).toMatchObject({ diffStatus: 'unchanged' });
     expect(r.ghosts).toEqual([{ revisionId: 1, elementIds: ['BR3', 'B2'] }]);
     expect([r.summary.removedCount, r.summary.addedCount]).toEqual([2, 0]);
+  });
+});
+
+describe('mergeProject mapping status', () => {
+  it('marks elements unmapped when calc data loaded but extraction found no calcs', () => {
+    const topology: ElementTopology = {
+      projectName: 'P',
+      elementNodes: [node({ id: 'B1', kind: 'element' })],
+      hierarchyLinks: [],
+      loadPath: [],
+      connectivity: [],
+    };
+    const emptyCalcData: CalcData = {
+      projectName: 'P',
+      modelName: null,
+      modelRevisionId: null,
+      calcPackageName: 'empty.pdf',
+      calcRevisionId: 1,
+      engine: '',
+      calcs: [],
+      calcDependencies: [],
+      calcNodes: [],
+      calcLinks: [],
+      calcToElementIds: new Map(),
+      linksByElement: new Map(),
+      statusByElement: new Map(),
+      groups: [],
+      findings: [],
+      producers: null,
+      calcOrigin: 'pdf',
+    };
+
+    const view = mergeProject(topology, emptyCalcData, { source: 'project', projectId: 'p', modelFileUrl: null });
+
+    expect(view.elementNodes[0]).toMatchObject({ mappingStatus: 'unmapped' });
+    expect(view.counts.unmapped).toBe(1);
   });
 });

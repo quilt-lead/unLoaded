@@ -65,6 +65,15 @@ The engine scores 100% on rev 1 (`evaluate_harborview.py`):
   (calcset.ts rule 3) and would become a revision of the whole package. `calcs/harborview-calcs-rev1.pdf` is for the
   evaluator and for anyone who wants the one-large-PDF case.
 
+## The earlier preview (another session, merged from prod)
+
+`tools/calcgraph-reference/synth/harborview_preview.py` writes `data/harborview/harborview-demo-calcs-preview.pdf`:
+a cover and four calc sheets (A1 pile cap, L01 grid line 1 girders, C-01 stack, base plates). It has no demands or checks,
+and is tested by `packages/calc-mapper/test/harborview-preview.test.ts`. It was built from this note's planning version
+and is superseded by the full sample. It keeps the model's spaced marks and writes them without whitespace in the PDF
+(`CapA1`), where the full sample renames the marks (`PC-A1`). It moved into `data/harborview/` with the bundles at the
+merge; delete it and its test if nobody needs it.
+
 ## Gotchas
 
 - **No `&` in served file names.** Vite's static server does not decode `%26` (it answers index.html). File names use

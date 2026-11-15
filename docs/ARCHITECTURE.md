@@ -124,12 +124,17 @@ TanStack Query and hands components view data only.
   (`applyModelDiff`; elements only in the other revision become ghost nodes).
 
 Components (`src/components/*`) read `src/types/bim.ts` only. Utilisation stays empty until a real source
-exists, so the heatmap toggle is disabled with an explanation.
+exists, so the heatmap toggle is disabled with an explanation. Load-path tracing applies its depth
+setting in the selected direction; the default ALL setting lets upward traces follow connected
+supports through the full structure.
+PDF intake checks the header before starting extraction and identifies Git LFS pointer files with
+instructions to fetch their contents.
 
 ## 5. Views
 
 - **Element graph** (`RadialGraphCanvas`): the hierarchy, review-status rings, traced load path, impact and
-  diff colouring, namable groups.
+  diff colouring, namable groups, and directional box selection (left-to-right encloses; right-to-left crosses;
+  Shift adds). Escape cancels an active box selection and clears the shared selection in the graph and 3D views.
 - **Calculation graph**: calcs by the element type they design, calc → calc dependencies, and the selected
   calc's linked elements with edges styled by review state.
 - **3D** (`Structural3DViewer`, `three/ifcViewer.ts`): the head revision's real IFC meshes via web-ifc, keyed by

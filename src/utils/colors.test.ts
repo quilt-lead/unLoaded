@@ -4,7 +4,9 @@ import {
   GRAPH_NODE_PALETTE,
   KIND_PALETTE,
   NO_DATA_COLOR,
+  NO_UTILIZATION_COLOR,
   PROJECT_COLOR,
+  STATUS_COLORS,
   getContrastingTextStyle,
   getEffectiveNodeColor,
   getHeatmapColor,
@@ -51,18 +53,31 @@ describe('node colors', () => {
     expect(calcCategory('Shear Wall & Lateral calcs')).toBe(KIND_PALETTE.wall);
     expect(calcCategory('Foundation & Geotech calcs')).toBe(KIND_PALETTE.footing);
   });
+
+  it('shows explicitly and implicitly unmapped elements in red in review mode', () => {
+    const element: BimNode = { id: 'beam-1', label: 'B101', kind: 'element', elementKind: 'beam', level: 2, x: 0, y: 0, r: 8 };
+
+    expect(getEffectiveNodeColor({ ...element, mappingStatus: 'unmapped' }, 'review')).toBe(STATUS_COLORS.unmapped);
+    expect(getEffectiveNodeColor(element, 'review')).toBe(STATUS_COLORS.unmapped);
+  });
 });
 
 describe('utilization heatmap', () => {
   it.each([undefined, NaN, Infinity, -Infinity])('uses a distinct palette color for unknown utilization (%s)', (utilization) => {
-    expect(getHeatmapColor(utilization)).toBe(NO_DATA_COLOR);
+    expect(getHeatmapColor(utilization)).toBe(NO_UTILIZATION_COLOR);
     expect(getHeatmapColor(utilization)).not.toBe(PROJECT_COLOR);
+    expect(getHeatmapColor(utilization)).not.toBe(NO_DATA_COLOR);
   });
 
   it('keeps reported zero and overload values on the utilization scale', () => {
     expect(getHeatmapColor(0)).toBe('#00AEEF');
     expect(getHeatmapColor(1.25)).toBe('#FF5E7E');
     expect(getHeatmapColor(0.5)).not.toBe(getHeatmapColor(undefined));
+  });
+
+  it('uses the neutral no-data color for elements without measured utilization', () => {
+    const element: BimNode = { id: 'beam-1', label: 'B101', kind: 'element', level: 2, x: 0, y: 0, r: 8 };
+    expect(getEffectiveNodeColor(element, 'utilisation')).toBe(NO_UTILIZATION_COLOR);
   });
 
   it('keeps diff-state colors distinct from the project root', () => {
