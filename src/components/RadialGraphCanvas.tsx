@@ -11,7 +11,7 @@ import {
   loadPathKey,
 } from '../utils/graphEngine';
 import { selectNodesInBox } from '../utils/graphSelection';
-import { DIFF_PALETTE, TONE_COLORS, getContrastingTextStyle, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
+import { DIFF_PALETTE, TONE_COLORS, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -703,7 +703,6 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const isFamily = isFamilyNode(node);
                 const tone = overlay?.tones.get(node.id);
                 const fillHex = tone ? TONE_COLORS[tone] : getEffectiveNodeColor(node, colorMode, diffMode);
-                const textStyle = getContrastingTextStyle(fillHex);
                 const isRemovedDiff = diffMode && node.diffStatus === 'removed';
                 const ringColor =
                   diffMode && node.diffStatus && node.diffStatus !== 'unchanged'
@@ -750,7 +749,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       <text
                         textAnchor="middle"
                         y={node.r + 11}
-                        fill="#e4e4e7"
+                        fill="#ffffff"
                         fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                         fontWeight={500}
                         fontSize="9px"
@@ -763,12 +762,12 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       <text
                         textAnchor="middle"
                         dy="0.34em"
-                        fill={textStyle.fill}
+                        fill="#ffffff"
                         fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                         fontWeight={isProj || isCategory || isFamily ? 600 : 500}
                         fontSize={getFittedFontSize(node.label, node.r)}
                         pointerEvents="none"
-                        style={{ textShadow: textStyle.shadow }}
+                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.82)' }}
                       >
                         {node.label}
                       </text>

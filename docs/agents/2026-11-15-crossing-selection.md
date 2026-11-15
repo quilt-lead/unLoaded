@@ -13,6 +13,7 @@
 - Left-to-right selects nodes fully contained by the rectangle; right-to-left selects circles intersecting it. Shift-drag adds to the current selection. Middle/right drag remains pan, and canceling a selection gesture leaves the current selection intact.
 - A calculation-graph rectangle updates the selected calculation IDs and the union of their mapped elements, keeping the inspector and linked 3D selection consistent. The last selected calculation remains the primary inspector target.
 - The selection overlay uses the existing green/mint highlight palette. Noninteractive graph wires let the user start a rectangle on top of them.
+- All graph-node labels use white text with a dark shadow for legibility across node fill colors.
 
 ## Verification
 
