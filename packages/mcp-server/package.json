@@ -1,0 +1,30 @@
+{
+  "name": "@unloaded/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local, read-only MCP server (stdio) over one *.calcgraph.json project file: the engineer's own AI asks about elements, calcs, links, evidence, impact and revisions. Runs @unloaded/calc-mapper in-process; nothing is hosted.",
+  "bin": {
+    "unloaded-mcp-server": "./bin/unloaded-mcp-server.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@napi-rs/canvas": "0.1.100",
+    "@unloaded/calc-mapper": "0.1.0",
+    "@unloaded/element-graph": "0.1.0",
+    "@unloaded/move-impact": "0.1.0",
+    "@unloaded/project-file": "0.1.0",
+    "pdfjs-dist": "4.10.38",
+    "zod": "4.6.7"
+  }
+}

@@ -202,4 +202,4 @@ npx vitest run --root packages/ifc-parser        # or: npm test -w @unloaded/ifc
 node packages/ifc-parser/scripts/dump.ts [file.ifc]  # Node >= 22.18 (type stripping); summary of a file
 ```
 
-Fixtures and their provenance are listed in `test/fixtures/SOURCES.md`.
+Fixtures live in the repo-level `data/` folder; provenance is in `data/README.md`.

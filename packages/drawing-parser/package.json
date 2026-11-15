@@ -1,0 +1,20 @@
+{
+  "name": "@unloaded/drawing-parser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Structural drawing set (plan / elevation / schedule PDFs, no BIM model) -> ModelInput. Elements from tags, grids and schedules, drawing-derived geometry, every printed occurrence kept; emits only the relations the drawing states (detail callouts).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@unloaded/calc-mapper": "0.1.0",
+    "@unloaded/element-graph": "0.1.0",
+    "@unloaded/ifc-parser": "0.1.0",
+    "pdfjs-dist": "4.10.38"
+  }
+}

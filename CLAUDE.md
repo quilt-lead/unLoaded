@@ -13,26 +13,42 @@ UI quality is a core part of the mission, so the project vendors UI skills in [.
 - **react-best-practices** ([SKILL.md](.claude/skills/react-best-practices/SKILL.md)): load when writing or reviewing React code. This app is React + TypeScript on Vite, not Next.js, so skip the `server-*` rules and Next-specific advice.
 - **web-design-guidelines** ([SKILL.md](.claude/skills/web-design-guidelines/SKILL.md)): run as a review pass on finished UI code before calling UI work done.
 
+# Setup
+
+Before cloning, installing, running tests, or adding data files, read [setup.md](setup.md). PDFs are stored in Git LFS: a checkout without LFS has pointer stubs instead of PDFs, and the calc-parser tests fail.
+
 # Agent handoff notes
 
 Before starting work, read [docs/agents/](docs/agents/README.md): findings, decisions, gotchas and the files in flight from earlier sessions. Before handing off, add or update a note there, following its conventions.
 ## Architecture & Recent Changes Summary
 
-### 1. Dual-Graph & Multi-View Structural Workspace (`React + TypeScript + Tailwind + Three.js`)
-- **Element Graph (`src/App.tsx`, `src/components/RadialGraphCanvas.tsx`):** Radial topological visualization of structural BIM elements (`IfcBeam`, `IfcColumn`, `IfcSlab`, `IfcWall`, `IfcMember`, `IfcFastener`, `IfcFooting`, `IfcPile`) with center-to-center spline wiring, physical connectivity inspection (`getDirectConnectivityNeighbors`), and load-path tracing.
-- **Calculation Graph (`buildCalculationGraph` in `src/utils/graphEngine.ts`):** Synthesizes a parallel graph grouping engineering calculations by type (`Beam Sizing Calcs`, `Column Sizing Calcs`, `Connection & Fastener Calcs`, `Slab & Punching Shear Calcs`, `Shear Wall & Lateral Calcs`, `Foundation & Geotech Calcs`) and linking each PDF calculation package bidirectionally to its physical structural elements.
-- **3D Structural Model (`src/components/Structural3DViewer.tsx`):** Synchronized Three.js WebGL building viewer with demand/capacity utilization heatmaps, zoom-to-selection, and floating/dockable HUD panels (`src/components/DockableHudPanel.tsx`).
-- **PDF Calculation & Revision Browser (`src/components/DocumentBrowser.tsx`):** Supports 1:1 calculation PDFs, multi-element PDF packages, multi-version revision tabs (`Rev A`, `Rev B`, etc.), and one-click jumps back to mapped elements in the graphs and 3D model.
+Full description: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). In short:
 
-### 2. Decoupled Manual Data Ingestion (`src/loaders/parsers.ts`)
-- Removed auto-loaded demo JSON from `public/data/` so the workspace starts clean (`No Model Loaded`) until the user manually imports a file.
-- Async `BIM_PARSERS` registry: `.ifc` goes through `packages/ifc-parser` (web-ifc) → `packages/element-graph` → `src/loaders/elementGraphToBim.ts`; `.json` is dispatched on content (serialized element graph, ModelInput, or legacy BIM graph via `src/loaders/legacyBimJson.ts`). Reference sample datasets are stored outside the app bundle in `sample-data/`. Details: `docs/agents/2026-11-14-parser-graph-merge.md`.
+### 1. Frontend only, four views (`React + TypeScript + Tailwind + Three.js`)
+- No server. Element Graph and Calculation Graph (`src/components/RadialGraphCanvas.tsx`), 3D model with the
+  real IFC meshes via web-ifc (`src/components/Structural3DViewer.tsx`, `src/components/three/ifcViewer.ts`;
+  element-graph boxes when there is no IFC), PDF calcs with highlighted evidence (`src/components/DocumentBrowser.tsx`,
+  `src/components/pdf/`), and the inspector with review decisions and impact (`src/components/PropertyInspector.tsx`).
+
+### 2. Data: one element graph, one calc engine, one merge
+- Models (`.ifc`, serialized element graph, ModelInput, legacy BIM JSON via `src/loaders/legacyBimJson.ts`) become an
+  `ElementGraph` (`packages/ifc-parser`, `packages/element-graph`); `src/loaders/elementGraphToBim.ts` is the only
+  ElementGraph → view adapter.
+- All IFC and JSON sample models and test fixtures live in `data/` (see `data/README.md`); `scripts/copy-assets.mjs`
+  copies the ones **Load sample** needs into `public/samples/`.
+- Calc package PDFs go through `packages/calc-mapper` in a Web Worker (`src/engine/`); `src/data/loadProject.ts` is the
+  only engine → view adapter. `src/data/mergeProject.ts` joins the two by GlobalId.
+- Projects live in IndexedDB (`src/data/projectStore.ts`: revisions, element graphs, extractions, mapping runs, the
+  append-only decision log), with an in-memory fallback; a whole project saves to / opens from one file.
 
 ### 3. Namable Groups & Whole-Group Selection (`RadialGraphCanvas.tsx`, `PropertyInspector.tsx`)
 - Multi-selected nodes (`Shift + Click`) can be clustered into visual groups (`Ctrl+G` / `Cmd+G`).
 - Clicking either a group's dashed boundary hull or its header name pill selects all member elements simultaneously (with `Shift + Click` toggle support) and frames them in 3D.
 - Groups can be renamed inline directly on the canvas (double-click pill or click `✎`) or from the Property Inspector.
 
-### 4. Dual-Database Diff Comparison & Model Swap (`graphEngine.ts`, `HeaderBar.tsx`, `FilterBar.tsx`, `Structural3DViewer.tsx`, `PropertyInspector.tsx`, `DocumentBrowser.tsx`)
-- Users can load a **Base Database (DB A)** via **Import IFC / DB** and a **Compare Database (DB B)** via **Compare DB** to enter **DIFF MODE**, with a **Swap A↔B** button in the header to reverse comparison direction at any time.
-- `computeDatabaseDiff()` classifies elements into `+ Added` (emerald), `~ Modified` (amber — tracking section profile, material strength, axial load, utilization, floor level, and mapped PDF revision changes), `- Removed` (crimson), and `Unchanged` (slate), synchronized across the Element Graph, 3D Model (with translucent crimson ghosts for removed members), field-by-field `Before → After` Inspector cards, and PDF revision badges.
+### 4. Revision diff (`HeaderBar.tsx`, `FilterBar.tsx`, `RevisionPanel.tsx`, `Structural3DViewer.tsx`, `PropertyInspector.tsx`, `DocumentBrowser.tsx`)
+- Pick a base (A) and a compare (B) model revision to enter **DIFF MODE**; **Swap A↔B** reverses it.
+- The one diff is `diffGraphs` in `packages/calc-mapper` (key join on GlobalId + content hash, per-field before → after).
+  Elements are `+ Added` (emerald), `~ Modified` (amber), `- Removed` (crimson) or `Unchanged` (slate) across the
+  Element Graph, the 3D model (elements only in the other revision drawn as ghosts), the inspector's before → after
+  cards and the PDF list badges. Legacy demo JSON goes through the same diff.

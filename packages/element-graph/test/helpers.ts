@@ -7,7 +7,7 @@ export type FixtureInput = ModelInput & {
 };
 
 export function loadSimpleFrame(): FixtureInput {
-  const path = fileURLToPath(new URL("../../../fixtures/simple-frame.json", import.meta.url));
+  const path = fileURLToPath(new URL("../../../data/simple-frame.json", import.meta.url));
   return JSON.parse(readFileSync(path, "utf8")) as FixtureInput;
 }
 
