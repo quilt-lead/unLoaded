@@ -611,7 +611,6 @@ export const usePlatforms = () =>
     queryFn: ({ signal }) => get<PlatformInfo[]>("/api/v2/platforms", signal),
   });
 
-export const usePlatformRecords = (
 /** One platform record by its link (links.self of any record, mock:// or a live API URL). */
 export const usePlatformRecordByLink = (url: string | null) =>
   useQuery({
@@ -633,6 +632,7 @@ export function usePlatformsRefresh() {
   });
 }
 
+export const usePlatformRecords = (
   name: string | null,
   type: string | null,
   raw = false,

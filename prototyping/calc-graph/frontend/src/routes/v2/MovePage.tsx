@@ -656,11 +656,15 @@ const fmtColor = (uc: number | null | undefined) => (uc == null ? UC_COLOR.stale
 
 function HeatList({
   heat,
+  fromBrowser,
+  error,
   bandMode,
   selected,
   onSelect,
 }: {
   heat: Record<string, import("./api").Health> | undefined;
+  fromBrowser: boolean;
+  error: Error | null;
   bandMode: "design" | "construction";
   selected: string | null;
   onSelect: (c: string) => void;
@@ -679,16 +683,14 @@ function HeatList({
     return sb - sa || a[0].localeCompare(b[0]);
   });
   return (
+    <>
+    {fromBrowser && <p className="v2-small muted">Showing the last heat view this browser saw while the server answers (it is recomputing if the inputs changed).</p>}
     <ul className="v2-heat">
-  fromBrowser,
-  error,
       {rows.map(([c, hh]) => {
         const band = bandOf(hh, bandMode)!;
         const top = hh.reasons.find((r) => (bandMode === "design" ? r.factor !== "construction status" : true));
         return (
           <li key={c}>
-  fromBrowser: boolean;
-  error: Error | null;
             <button type="button" className={`v2-heat-row${selected === c ? " on" : ""}`} onClick={() => onSelect(c)}>
               <i className="v2-dot" style={{ background: BAND_COLOR[band] }} />
               <span className="mono">{colShort(c)}</span>
@@ -700,10 +702,9 @@ function HeatList({
             </button>
           </li>
         );
-    <>
-    {fromBrowser && <p className="v2-small muted">Showing the last heat view this browser saw while the server answers (it is recomputing if the inputs changed).</p>}
       })}
     </ul>
+    </>
   );
 }
 
@@ -721,7 +722,6 @@ function CompareDock({ result, rev, style, idx }: { result: RerunResult; rev: Ca
           label: `${result.record} - re-run sheet ${np.rerun_sheet!.sheet ?? ""}`,
           sub: `rerun_sheets.pdf p.${np.rerun_sheet!.page}${np.rerun_sheet!.recomputed ? ` - math recomputed, ${np.rerun_sheet!.asserts ?? 0} values asserted against the re-run` : ""}`,
         }
-    </>
       : {
           url: urls.v2RevisionPdf(rev.rev_id, "calc_revision"),
           page: np.page,

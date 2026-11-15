@@ -93,14 +93,18 @@
   },
   "set_coverage": {
    "metrics": {
-    "calc_edges": 0,
-    "calc_pages_linked_frac": 0.2222222222222222,
+    "calc_edges": 83,
+    "calc_pages_linked_frac": 0.4666666666666667,
     "elements": 416,
-    "elements_linked_frac": 0.3918269230769231,
-    "elements_linked_strong_frac": 0.009615384615384616,
-    "findings": 288,
-    "links": 326,
-    "load_path_edges": 144
+    "elements_linked_frac": 0.9807692307692307,
+    "elements_linked_strong_frac": 0.9759615384615384,
+    "findings": 32,
+    "link_precision_truth": 0.9510204081632653,
+    "link_recall_truth": 0.9874686716791979,
+    "links": 506,
+    "load_path_edges": 144,
+    "no_calc_found": 8,
+    "worst_tag_group_linked_frac": 0.6428571428571429
    }
   },
   "v2_design": {
@@ -129,11 +133,21 @@
    }
   },
   "v2_ifc_mapping": {
+   "checks": {
+    "every_tier_precision_ge_50pct": true
+   },
    "metrics": {
     "calcs": 37,
-    "design_precision": 0.7274678111587983,
-    "design_recall": 0.9712556732223904,
-    "xref_links": 209
+    "design_precision": 0.9829545454545454,
+    "design_recall": 0.9924357034795764,
+    "tier_exact_links": 704,
+    "tier_family_links": 0,
+    "tier_loose_links": 0,
+    "tier_partial_links": 0,
+    "tier_range_links": 0,
+    "tier_size_links": 0,
+    "tier_type_links": 0,
+    "xref_links": 201
    }
   }
  },
