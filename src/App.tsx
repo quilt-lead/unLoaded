@@ -657,10 +657,14 @@ export const App: React.FC = () => {
    * when an export view is shown over it); once added it is shown through showAddedRevision. With
    * `compareWithHead`, a new model revision is shown as the diff (previous head -> new revision).
    * `kind: 'any'` dispatches by content (openAnyFile): a project file opens as a new project and an
-   * export JSON as a read-only view instead.
+   * export JSON as a read-only view instead. Calcs take several PDFs at once (one large package, one PDF
+   * per calc, or a new revision of some): each is placed in turn, and the toast says where each went.
    */
-  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', file: File, opts?: { compareWithHead?: boolean }) =>
-    run(`${kind === 'any' ? 'Opening' : 'Reading'} ${file.name}…`, async () => {
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', files: File | File[], opts?: { compareWithHead?: boolean }) => {
+    const list = Array.isArray(files) ? files : [files];
+    const file = list[0];
+    if (!file) return;
+    return run(`${kind === 'any' ? 'Opening' : 'Reading'} ${list.length > 1 ? `${list.length} PDFs` : file.name}…`, async () => {
       const target = projectId;
       if (!target) throw new Error('The project store is still opening; try again in a moment.');
       const startEpoch = scopeRef.current.epoch;
@@ -684,9 +688,23 @@ export const App: React.FC = () => {
         const out = await uploadModel.mutateAsync({ projectId: target, file });
         added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
       } else {
-        const out = await uploadCalcs.mutateAsync({ projectId: target, file });
-        if (out.revisionId == null) return calcPlacementText(file.name, out.placement, null);
-        added = { kind: 'calcs', id: out.revisionId, warnings: [], placement: out.placement };
+        // one at a time: each placement sees the documents the PDFs before it made
+        const placed: { name: string; placement: CalcPlacement; id: number | null }[] = [];
+        for (const [i, f] of list.entries()) {
+          if (list.length > 1) setBusyText(`Reading ${f.name} (${i + 1} of ${list.length})…`);
+          const out = await uploadCalcs.mutateAsync({ projectId: target, file: f });
+          placed.push({ name: f.name, placement: out.placement, id: out.revisionId });
+        }
+        const last = [...placed].reverse().find((x) => x.id != null);
+        if (!last) return placed.map((x) => calcPlacementText(x.name, x.placement, null)).join('; ');
+        if (list.length > 1) {
+          showAddedRevision(target, startEpoch, undefined);
+          const fresh = placed.filter((x) => x.placement.kind === 'new').length;
+          const revs = placed.filter((x) => x.placement.kind === 'revision').length;
+          const dups = placed.length - fresh - revs;
+          return `${list.length} calc PDFs: ${fresh} new document${fresh === 1 ? '' : 's'}, ${revs} new revision${revs === 1 ? '' : 's'}${dups ? `, ${dups} already loaded` : ''}. See Revisions to move any.`;
+        }
+        added = { kind: 'calcs', id: last.id!, warnings: [], placement: last.placement };
       }
       if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
       const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
@@ -696,7 +714,8 @@ export const App: React.FC = () => {
         : `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
       return shown ? what : `${what} of ${projectName(target)}`;
     });
-  const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);
+  };
+  const handleUpload = (kind: 'model' | 'calcs', file: File | File[]) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) => addRevisionFile('any', file);
 
@@ -885,6 +904,7 @@ export const App: React.FC = () => {
   const ghostRids = (diffApplied?.ghosts ?? []).map((g) => g.revisionId).filter((rid) => revisions?.find((r) => r.id === rid)?.isIfc);
   const ghostUrls = useRevisionUrls(ghostRids);
   const pdfUrl = exportView ? null : (projectQ.data?.pdfUrl ?? null);
+  const pdfUrls = exportView ? undefined : projectQ.data?.pdfUrls;
   const ghostSources = useMemo(
     () =>
       (diffApplied?.ghosts ?? [])
@@ -1075,9 +1095,9 @@ export const App: React.FC = () => {
         </button>
         <div className="grid grid-cols-3 gap-1.5 mt-2">
           {[
-            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', on: (f: File) => handleUpload('model', f) },
-            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDF', accept: '.pdf,application/pdf', on: (f: File) => handleUpload('calcs', f) },
-            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', on: handleOpenFile },
+            { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', multiple: false, on: (f: File[]) => handleUpload('model', f[0]!) },
+            { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDFs', accept: '.pdf,application/pdf', multiple: true, on: (f: File[]) => handleUpload('calcs', f) },
+            { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', multiple: false, on: (f: File[]) => handleOpenFile(f[0]!) },
           ].map((b) => (
             <label
               key={b.label}
@@ -1088,10 +1108,11 @@ export const App: React.FC = () => {
               <input
                 type="file"
                 accept={b.accept}
+                multiple={b.multiple}
                 className="sr-only"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) b.on(f);
+                  const fs = [...(e.target.files ?? [])];
+                  if (fs.length) b.on(fs);
                   e.target.value = '';
                 }}
               />
@@ -1145,7 +1166,7 @@ export const App: React.FC = () => {
         onLoadSample={handleLoadSample}
         onLoadDemo={handleLoadDemo}
         onUploadModel={(f) => handleUpload('model', f)}
-        onUploadCalcs={(f) => handleUpload('calcs', f)}
+        onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
         diffSummary={diffSummary}
         diffRevs={diffRevs}
@@ -1320,6 +1341,7 @@ export const App: React.FC = () => {
               calcs={view.calcs}
               calcPackageName={view.calcPackageName}
               pdfUrl={pdfUrl}
+              pdfUrls={pdfUrls}
               elementNodes={elementNodes}
               calcToElementIds={view.calcToElementIds}
               calcDependencies={view.calcDependencies}

@@ -102,6 +102,8 @@ describe('elementGraphToBim on simple-frame', () => {
       calcs: [
         {
           key: 'beam-calc',
+          docId: null,
+          docName: null,
           title: 'BEAM DESIGN',
           software: '',
           elementType: 'Beam',

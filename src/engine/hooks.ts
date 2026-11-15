@@ -69,7 +69,11 @@ async function projectView(projectId: string, onProgress: Progress, modelRev: nu
     /** the head calc package could not be read: the model is shown without calc data, and this says why */
     calcError: snap.calcError,
     view,
-    pdfUrl: snap.calcRev ? await revisionFileUrl(snap.calcRev.id) : null,
+    // one document: its PDF; a set: each document's PDF by docId (the view's calcs name their docId), and the first as the fallback
+    pdfUrl: snap.calcSet.length ? await revisionFileUrl(snap.calcSet[0]!.rev.id) : null,
+    pdfUrls: Object.fromEntries(
+      (await Promise.all(snap.calcSet.map(async (h) => [h.doc.docId, await revisionFileUrl(h.rev.id)] as const))).filter((e): e is readonly [string, string] => !!e[1]),
+    ) as Record<string, string>,
   };
 }
 

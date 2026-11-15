@@ -144,6 +144,9 @@ export interface CalcPackage {
   color: string;
   /** the calc as ordered regions of pages (a calc can start half way down a sheet); [] when unknown */
   regions: CalcRegionView[];
+  /** The calc document (PDF) it is in, when the calcs are a set of PDFs; every page above is a page of that PDF. */
+  docId: string | null;
+  docName: string | null;
 }
 
 /** calc -> calc: the source calc's output feeds the target calc's input. */
