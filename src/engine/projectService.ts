@@ -248,9 +248,11 @@ export async function projectSnapshot(projectId: string, onProgress: Progress = 
   const project = await getProject(projectId);
   if (!project) throw new Error('This project no longer exists.');
   const k = project.headCalcRev;
-  const [revisions, model, calcRev, pkg] = await Promise.all([
+  // the revision asked for is checked before any engine work starts, so a refused snapshot never
+  // leaves a PDF extraction running in the background
+  const model = await chosenModelRev(project, modelRev);
+  const [revisions, calcRev, pkg] = await Promise.all([
     listRevisions(projectId),
-    chosenModelRev(project, modelRev),
     k != null ? getRevision(k).then((r) => r ?? null) : null,
     k != null ? revisionPackage(k) : null,
   ]);

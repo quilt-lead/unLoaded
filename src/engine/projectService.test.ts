@@ -52,7 +52,10 @@ describe('revisions are checked to belong to the project', () => {
     await expect(compareRevisions(q.id, a.id, b.id)).rejects.toThrow(/not a model revision of this project/);
     await expect(compareRevisions(p.id, a.id, c.id)).rejects.toThrow(/not a model revision of this project/);
     await expect(projectSnapshot(p.id, () => {}, foreign.id)).rejects.toThrow(/not a model revision of this project/);
-    expect(ops).not.toContain('diff');
+    // a refused snapshot starts no engine work: p's head calc revision has no extraction, so before the
+    // check moved ahead of the work, its PDF extraction kept running after the rejection
+    await new Promise((r) => setTimeout(r, 50));
+    expect(ops).toEqual([]);
   });
 
   // the old snapshot always showed the head, so a diff of (A, B) with head != B was laid over the wrong model

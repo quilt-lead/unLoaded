@@ -50,7 +50,15 @@ describe('escapeStack: one Escape does one thing', () => {
     const offenders = files.filter((p) => {
       if (p.endsWith(join('components', 'escapeStack.ts'))) return false;
       const s = readFileSync(p, 'utf8');
-      return /(window|document)\.addEventListener\(\s*['"]keydown['"]/.test(s) && /['"]Escape['"]/.test(s);
+      // for each global keydown listener, look at the code that defines it: from the start of the
+      // enclosing effect (or the file) to the addEventListener call. An element's own onKeyDown
+      // handling Escape (e.g. an inline rename input) is local and allowed.
+      const listener = /(window|document)\.addEventListener\(\s*['"]keydown['"]/g;
+      for (let m = listener.exec(s); m; m = listener.exec(s)) {
+        const start = Math.max(0, s.lastIndexOf('useEffect(', m.index));
+        if (/['"]Escape['"]/.test(s.slice(start, m.index))) return true;
+      }
+      return false;
     });
     expect(offenders).toEqual([]);
   });
