@@ -201,7 +201,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   
             <div className="flex items-center gap-1.5 pr-2 pl-1">
               <label htmlFor="traceStepsSlider" className="mono text-[9px] text-zinc-500 uppercase cursor-pointer">
-                Steps
+                {traceDirection === 'up' ? 'Up steps' : traceDirection === 'both' ? 'Up & down steps' : 'Down steps'}
               </label>
               <input
                 id="traceStepsSlider"
@@ -210,6 +210,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 max={16}
                 value={traceSteps}
                 onChange={(e) => onChangeTraceSteps(parseInt(e.target.value, 10))}
+                title={`Limit each ${traceDirection === 'both' ? 'upward and downward' : traceDirection === 'up' ? 'upward' : 'downward'} trace to this many steps.`}
                 className="trace-steps-slider w-20"
               />
               <span className="mono text-[10px] font-semibold text-calcmap min-w-[26px] text-right">

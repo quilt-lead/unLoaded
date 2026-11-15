@@ -22,4 +22,24 @@ describe('computeLoadPathTrace', () => {
     expect(trace.chainNodeIds).toEqual(new Set(['column-upper', 'column-lower']));
     expect(trace.chainLinkKeys).toEqual(new Set(['column-upper->column-lower']));
   });
+
+  it('applies the selected step limit to upward and bidirectional traces', () => {
+    const longPath = Array.from({ length: 20 }, (_, i) => ({
+      source: `member-${i + 1}`,
+      target: `member-${i}`,
+      rule: 'supports',
+    }));
+
+    const limitedUp = computeLoadPathTrace(longPath, ['member-0'], 'up', 1);
+    expect(limitedUp.chainNodeIds).toEqual(new Set(['member-0', 'member-1']));
+    expect(limitedUp.chainLinkKeys).toEqual(new Set(['member-1->member-0']));
+
+    const fullUp = computeLoadPathTrace(longPath, ['member-0'], 'up', 16);
+    expect(fullUp.chainNodeIds.size).toBe(21);
+    expect(fullUp.chainNodeIds.has('member-20')).toBe(true);
+    expect(fullUp.chainLinkKeys.size).toBe(20);
+
+    const both = computeLoadPathTrace(longPath, ['member-10'], 'both', 2);
+    expect(both.chainNodeIds).toEqual(new Set(['member-8', 'member-9', 'member-10', 'member-11', 'member-12']));
+  });
 });

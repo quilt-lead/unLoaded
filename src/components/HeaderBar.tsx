@@ -12,19 +12,22 @@ import {
   FolderPlus,
   FileJson,
   FileText,
+  Flame,
   GitCompareArrows,
   Loader2,
-  Minimize2,
   Sparkles,
   Upload,
   X,
 } from 'lucide-react';
-import type { ProjectSource, WorkspaceView } from '../types/bim';
+import type { ColorMode, ProjectSource, WorkspaceView } from '../types/bim';
 
 interface HeaderBarProps {
   activeView: WorkspaceView;
   onChangeView: (view: WorkspaceView) => void;
   calcCount: number;
+  colorMode: ColorMode;
+  onChangeColorMode: (mode: ColorMode) => void;
+  hasUtilization: boolean;
   /** the project store persists (IndexedDB) rather than living in memory for this tab only */
   persistent: boolean;
   source: ProjectSource | null;
@@ -48,7 +51,6 @@ interface HeaderBarProps {
   onToggleCompare: () => void;
   onSwapDatabases: () => void;
   onClearDiff: () => void;
-  onResetAll: () => void;
 }
 
 const viewBtn = (active: boolean) =>
@@ -212,6 +214,54 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
       </nav>
 
       <div className="flex items-center space-x-2 flex-shrink-0">
+        {!p.diffRevs && (
+          <div
+            role="group"
+            aria-label="Colour elements by"
+            className="flex items-center bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.14]"
+          >
+            {([
+              { id: 'type', label: 'Type', title: 'Colour elements by IFC type' },
+              { id: 'review', label: 'Review', title: 'Colour elements by mapping status' },
+              { id: 'confidence', label: 'Confidence', title: 'Colour elements by the confidence of their strongest calc link' },
+            ] as const).map((mode) => (
+              <button
+                key={mode.id}
+                type="button"
+                title={mode.title}
+                aria-pressed={p.colorMode === mode.id}
+                onClick={() => p.onChangeColorMode(mode.id)}
+                className={`mono text-[10px] px-2 py-1 rounded-md transition ${
+                  p.colorMode === mode.id
+                    ? 'bg-calcmap/15 text-calcmap border border-calcmap/40'
+                    : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-calcmap/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1e2127]`}
+              >
+                {mode.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              disabled={!p.hasUtilization}
+              title={
+                p.hasUtilization
+                  ? 'Colour elements by demand / capacity utilisation'
+                  : 'No utilisation data: this project has no demand / capacity values yet'
+              }
+              aria-label="Toggle utilization heatmap"
+              aria-pressed={p.colorMode === 'utilisation'}
+              onClick={() => p.onChangeColorMode(p.colorMode === 'utilisation' ? 'type' : 'utilisation')}
+              className={`mono text-[10px] px-2 py-1 rounded-md transition flex items-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed ${
+                p.colorMode === 'utilisation'
+                  ? 'bg-amber-500/20 text-amber-200 border border-amber-400/40'
+                  : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1e2127]`}
+            >
+              <Flame className="w-3 h-3 text-amber-400" aria-hidden="true" />
+              <span className="hidden 2xl:inline">Heatmap</span>
+            </button>
+          </div>
+        )}
         <div className="relative">
           <button
             ref={menuButtonRef}
@@ -330,9 +380,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
           <span className="sr-only">{p.persistent ? 'Saved in this browser' : 'Not persisted'}</span>
         </span>
 
-        <button type="button" onClick={p.onResetAll} title="Reset view, filters & panels" aria-label="Reset view, filters and panels" className={chromeBtn}>
-          <Minimize2 className="w-3.5 h-3.5 text-zinc-400" aria-hidden="true" />
-        </button>
       </div>
     </header>
   );

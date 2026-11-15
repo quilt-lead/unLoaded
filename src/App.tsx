@@ -817,23 +817,6 @@ export const App: React.FC = () => {
     showToast('Exited diff mode');
   };
 
-  const handleResetAll = useCallback(() => {
-    setFilters(NO_FILTERS);
-    setDiffFilter('ALL');
-    setImpactReq(null);
-    handleClearSelection();
-    setMoved(new Map());
-    setViewer3dDock('float');
-    setInspectorDock('float');
-    setLeftDockWidth(340);
-    setRightDockWidth(360);
-    setDocFilterBySelected(false);
-    setPdfTarget(null);
-    setDocumentOpenRequest((c) => c + 1);
-    setResetTrigger((c) => c + 1);
-    showToast('View, filters & panels reset');
-  }, [handleClearSelection, showToast]);
-
   const openTarget = useCallback(
     (t: PdfTarget, elementId?: string) => {
       if (elementId) {
@@ -896,7 +879,9 @@ export const App: React.FC = () => {
     // a refused pair is dropped from the URL too, so a reload does not refuse it again
     if (cmp && !(cmp.length === 2 && requestDiff(cmp[0], cmp[1]))) dropFromHash('compare');
     const color = h.get('color') as ColorMode | null;
-    if (color === 'review' || color === 'confidence' || color === 'type') setColorMode(color);
+    if (color === 'review' || color === 'confidence' || color === 'type' || (color === 'utilisation' && view?.hasUtilization)) {
+      setColorMode(color);
+    }
   }, [deepLink, scope.epoch, pid, projectQ.isPending, projectQ.isFetching, view, hasProject, elementById, handleSelectElementNode, selectCalcByKey, showElementCalcs, changeView]);
 
   // ---------------------------------------------------------------- panels
@@ -990,6 +975,8 @@ export const App: React.FC = () => {
     ? 'Mapping status'
     : colorMode === 'confidence'
     ? 'Link confidence'
+    : colorMode === 'utilisation'
+    ? 'Utilisation'
     : 'IFC Model';
 
   const renderViewer3dPanel = () => (
@@ -1178,6 +1165,9 @@ export const App: React.FC = () => {
         activeView={activeView}
         onChangeView={changeView}
         calcCount={view?.calcs.length ?? 0}
+        colorMode={colorMode}
+        onChangeColorMode={setColorMode}
+        hasUtilization={view?.hasUtilization ?? false}
         persistent={storeInfo.data?.persistent ?? true}
         source={view?.source ?? null}
         busy={Boolean(busyText)}
@@ -1196,7 +1186,6 @@ export const App: React.FC = () => {
         onToggleCompare={() => setCompareOpen((v) => !v)}
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
-        onResetAll={handleResetAll}
       />
 
       <FileDropOverlay

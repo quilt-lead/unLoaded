@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
 import { SEGMENTER_VERSION, sha256 } from '@unloaded/calc-mapper';
 import { __testing, addRevision, createProject, getExtraction, getRevision, listRevisions } from '../data/projectStore';
-import { addModelRevision, compareRevisions, projectSnapshot } from './projectService';
+import { addCalcRevision, addModelRevision, compareRevisions, openAnyFile, projectSnapshot } from './projectService';
 
 // one memory backend for the whole file, set before any test: tests remove stored blobs through it.
 // (Swapping backends between tests would restart revision ids under projectService's per-id caches.)
@@ -84,6 +84,28 @@ describe('revisions are checked to belong to the project', () => {
     expect((await projectSnapshot(p.id)).modelRev?.id).toBe(b.id);
     const s = await projectSnapshot(p.id, () => {}, a.id);
     expect([s.modelRev?.id, s.graph?.nodes[0]?.id]).toEqual([a.id, 'C1']);
+  });
+});
+
+describe('calc PDF intake', () => {
+  it('explains when a selected PDF is only a Git LFS pointer', async () => {
+    const p = await createProject('P');
+    const file = new File(
+      ['version https://git-lfs.github.com/spec/v1\noid sha256:', 'a'.repeat(64), '\nsize 100\n'],
+      'calcs.pdf',
+      { type: 'application/pdf' },
+    );
+
+    await expect(openAnyFile(p.id, file, () => {})).rejects.toThrow(/Git LFS pointer, not PDF content/);
+    expect(ops).toEqual([]);
+  });
+
+  it('rejects a non-PDF upload with an explicit format error before starting the worker', async () => {
+    const p = await createProject('P');
+    const file = new File(['not a PDF'], 'calcs.pdf', { type: 'application/pdf' });
+
+    await expect(addCalcRevision(p.id, file, undefined, () => {})).rejects.toThrow(/no PDF header was found/);
+    expect(ops).toEqual([]);
   });
 });
 

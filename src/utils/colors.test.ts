@@ -51,6 +51,13 @@ describe('node colors', () => {
     expect(calcCategory('Shear Wall & Lateral calcs')).toBe(KIND_PALETTE.wall);
     expect(calcCategory('Foundation & Geotech calcs')).toBe(KIND_PALETTE.footing);
   });
+
+  it('shows unmapped elements in red in review mode while keeping missing status distinct', () => {
+    const element: BimNode = { id: 'beam-1', label: 'B101', kind: 'element', elementKind: 'beam', level: 2, x: 0, y: 0, r: 8 };
+
+    expect(getEffectiveNodeColor({ ...element, mappingStatus: 'unmapped' }, 'review')).toBe('#ef4444');
+    expect(getEffectiveNodeColor(element, 'review')).toBe(NO_DATA_COLOR);
+  });
 });
 
 describe('utilization heatmap', () => {

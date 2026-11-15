@@ -46,7 +46,9 @@ export function runEngine<K extends EngineOp>(op: K, args: EngineOps[K]['args'],
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress });
     const req = { id, op, args } as EngineRequest;
     // hand PDF bytes over instead of copying them
-    const transfer = op === 'extract' ? [(args as EngineOps['extract']['args']).bytes.buffer as ArrayBuffer] : [];
+    const transfer = op === 'extract' || op === 'extractPlaced'
+      ? [(args as EngineOps['extract']['args'] | EngineOps['extractPlaced']['args']).bytes.buffer as ArrayBuffer]
+      : [];
     try {
       getWorker().postMessage(req, transfer);
     } catch (e) {

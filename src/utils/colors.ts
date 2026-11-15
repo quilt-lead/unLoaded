@@ -154,7 +154,7 @@ export const NO_DATA_COLOR = '#FF1493';
 export const STATUS_COLORS: Record<MappingStatus, string> = {
   confirmed: '#059669',
   review: '#d97706',
-  unmapped: '#e11d48',
+  unmapped: '#ef4444',
 };
 
 export const STATUS_LABELS: Record<MappingStatus, string> = {

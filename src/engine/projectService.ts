@@ -48,6 +48,14 @@ type Progress = (message: string) => void;
 const MEDIA: Record<string, string> = { ifc: 'application/x-step', json: 'application/json', pdf: 'application/pdf' };
 const mediaOf = (name: string) => MEDIA[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
 
+function pdfHeaderWindow(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes.subarray(0, 1024));
+}
+
+function isGitLfsPointer(bytes: Uint8Array): boolean {
+  return /^version https:\/\/git-lfs\.github\.com\/spec\/v1(?:\r?\n|$)/.test(pdfHeaderWindow(bytes));
+}
+
 // ---------------------------------------------------------------- projects
 
 const ACTIVE_KEY = 'calc-graph.active-project';
@@ -202,10 +210,17 @@ export async function addCalcRevision(
   projectId: string, file: File, label: string | undefined, onProgress: Progress, target: string | 'new' | 'auto' = 'auto',
 ): Promise<{ revision: RevisionRecord | null; placement: CalcPlacement }> {
   onProgress(`Reading ${file.name}`);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (isGitLfsPointer(bytes)) {
+    throw new Error(`${file.name} is a Git LFS pointer, not PDF content. Install Git LFS and run "git lfs pull" before adding this file.`);
+  }
+  if (!pdfHeaderWindow(bytes).includes('%PDF-')) {
+    throw new Error(`${file.name} is not a readable PDF: no PDF header was found in the first 1024 bytes.`);
+  }
   const known = target === 'auto' ? await knownDocuments(projectId) : [];
   const { pkg, target: suggested }: { pkg: CalcPackage; target: RevisionTarget | null } = target === 'auto'
-    ? await runEngine('extractPlaced', { bytes: new Uint8Array(await file.arrayBuffer()), sourceName: file.name, known }, onProgress)
-    : { pkg: await runEngine('extract', { bytes: new Uint8Array(await file.arrayBuffer()), sourceName: file.name }, onProgress), target: null };
+    ? await runEngine('extractPlaced', { bytes, sourceName: file.name, known }, onProgress)
+    : { pkg: await runEngine('extract', { bytes, sourceName: file.name }, onProgress), target: null };
   const documents = await listDocuments(projectId);
   const nameOf = (id: string) => documents.find((d) => d.docId === id)?.name ?? id;
   if (suggested?.kind === 'duplicate') {
@@ -264,8 +279,7 @@ export type OpenedFile =
  */
 export async function openAnyFile(projectId: string, file: File, onProgress: Progress): Promise<OpenedFile> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const head = new TextDecoder().decode(bytes.subarray(0, 5));
-  if (/\.pdf$/i.test(file.name) || head === '%PDF-') {
+  if (/\.pdf$/i.test(file.name) || pdfHeaderWindow(bytes).includes('%PDF-') || isGitLfsPointer(bytes)) {
     const { revision, placement } = await addCalcRevision(projectId, file, undefined, onProgress);
     return revision ? { kind: 'revision', revision, warnings: [], placement } : { kind: 'duplicate', placement };
   }
