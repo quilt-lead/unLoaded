@@ -9,11 +9,24 @@ Nothing. (The buildingSMART sample IFC this folder used to carry is a byte-ident
 `packages/ifc-parser/test/fixtures/Building-Structural-IFC4.ifc`, which keeps its provenance in that
 folder's SOURCES.md.)
 
+### AISC shapes subset (committed with synth/v2, NOT an open licence - decision pending)
+
+| File | Source | Licence | Fetched |
+|---|---|---|---|
+| `synth/v2/data/aisc_v16_subset.csv` | Subset (W8..W36 and square HSS 4..12; 300 shapes, sha256 `2c4090e1cb6987a7364634335c96e94f89177cf43a1b94c9c595a10ed1b6a54e`) of the AISC Shapes Database v16.0, obtained via `data/aisc-v16.csv` in https://github.com/cmccomb/structural-shapes | AISC data, (C) American Institute of Steel Construction - NOT MIT. The MIT licence in that repository covers only its author's code. Redistribution terms are AISC's, not an open licence. | copied byte-for-byte from the calc-graph hackathon prototype's `synth/v2/data/` (where it was committed by project decision), 2026-11-14 |
+
+The v2 generator designs with it, and the move-impact gate passes rows of it to `packages/move-impact`
+as the caller-supplied shape table (`scripts/move_fixture.py`). The TS package itself ships no shape data.
+
 ## Generated (not downloaded)
 
 `tools/calcgraph-reference/data/synthetic/` is produced by `uv run python -m synth.generate` (run from `tools/calcgraph-reference/`;
 gitignored, byte-stable for a given seed). Everything in it - model, calc package, numbers,
 ground truth - is synthetic.
+
+`tools/calcgraph-reference/data/synthetic_v2/` is produced by `uv run python -m synth.v2.generate` and
+`uv run python -m synth.v2.scenarios` (the v2 building, its calc package and the move-a-column answer
+key) plus `scripts/move_fixture.py` / the move-impact CLI (gitignored). All synthetic.
 
 ## Libraries (installed, not vendored)
 

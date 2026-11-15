@@ -12,6 +12,12 @@ Stages (a stage whose inputs are missing is SKIPPED, never failed):
                    rev1 -> rev2 diff, decisions carried forward, C8 impact; link roles, typical-group
                    links and findings; and on the supplement package - span boundaries, roles, group
                    links, size-mismatch findings. Needs Node + `npm ci`.
+  move_answer_key  scripts/evaluate_move.py: the TypeScript move-a-column screen (packages/move-impact, run
+                   through its Node CLI on the v2 model's element graph + calc facts from
+                   scripts/move_fixture.py) scored on the v2 answer key - stale P/R (topological, screened),
+                   UC error, health band. Skipped unless data/synthetic_v2/ holds design.json,
+                   answer_key.json and model.graph.json (synth.v2.generate, synth.v2.scenarios,
+                   scripts/build_graph.mjs). Needs Node.
   copyright        scripts/check_no_copyrighted.py --tracked (pass/fail)
 
 Gating: a metric is compared with the baseline when it is listed as gated; a drop larger than
@@ -107,12 +113,38 @@ def _check(cmd: list[str], name: str) -> tuple[bool, str]:
     return p.returncode == 0, f"{name}: {tail[:120]}"
 
 
+def st_move_answer_key(a) -> dict:
+    v2 = os.path.join(ROOT, "data", "synthetic_v2")
+    need = ("design.json", "answer_key.json", "model.graph.json")
+    missing = [n for n in need if not os.path.exists(os.path.join(v2, n))]
+    if missing:
+        raise Skip(f"data/synthetic_v2 lacks {', '.join(missing)} (run synth.v2.generate, synth.v2.scenarios, build_graph.mjs)")
+    p = run([PY, "scripts/move_fixture.py"])
+    if p.returncode:
+        raise RuntimeError(f"scripts/move_fixture.py exit {p.returncode}: {p.stderr[-600:]}")
+    d = "data/synthetic_v2"
+    p = run(["node", "../../packages/move-impact/scripts/run-scenarios.ts", "--graph", f"{d}/model.graph.json",
+             "--scenarios", f"{d}/move_scenarios.json", "--facts", f"{d}/move_facts.json",
+             "--sections", f"{d}/move_sections.json", "--out", f"{d}/move_results.json"])
+    if p.returncode:
+        raise RuntimeError(f"run-scenarios.ts exit {p.returncode}: {p.stderr[-600:]}")
+    with tempfile.TemporaryDirectory() as tmp:
+        out = os.path.join(tmp, "move.json")
+        p = run([PY, "scripts/evaluate_move.py", "--json-out", out])
+        if p.returncode:
+            raise RuntimeError(f"scripts/evaluate_move.py exit {p.returncode}: {p.stderr[-600:]}")
+        r = json.load(open(out))
+    return {"metrics": r["metrics"], "gated": r["gated"],
+            "notes": ["calc facts are printed calc-row values from the generator's calc-sheet data (stand-in for matcher output)"]}
+
+
 def st_copyright(a) -> dict:
     c = _check([PY, "scripts/check_no_copyrighted.py", "--tracked"], "copyright")
     return {"checks": {"no_copyrighted_in_head": c[0]}, "notes": [c[1]]}
 
 
-STAGES = [("synthetic_check", st_synthetic_check), ("synthetic_v1", st_synthetic_v1), ("copyright", st_copyright)]
+STAGES = [("synthetic_check", st_synthetic_check), ("synthetic_v1", st_synthetic_v1), ("move_answer_key", st_move_answer_key),
+          ("copyright", st_copyright)]
 
 
 # ----------------------------------------------------------------------------- scorecard
