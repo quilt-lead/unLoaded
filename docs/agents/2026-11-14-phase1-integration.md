@@ -24,6 +24,18 @@
    checkout (`core.autocrlf=true`), so it now normalises line endings. A calc-mapper test expected an old `parseGraph`
    error message (`f7eedc4`, from the Phase 2 branch).
 
+4. **One calc engine: `packages/calc-parser` retired (decided by Carl).** PR #8 put a second TS port of the same
+   Python prototype on `prod`, not wired into the UI. `calc-mapper` stays the engine. What `calc-parser` added that
+   `calc-mapper` lacked was a golden regression on the synthetic package, so that moved to
+   `packages/calc-mapper/test/golden.test.ts`. Its fixtures are trimmed to the asserted fields: segmentation, links
+   (element, calc, tier, page, span) and calc dependency edges. Confidence isn't pinned, because calc-mapper scores it
+   as a sum of evidence weights, so 184 of 800 values differ by design. Its PDF / IFC fixtures, the Python dump script
+   and the PyMuPDF / IfcOpenShell parity tests were dropped. Direction from Carl: **the Python prototype is not a
+   reference anymore; TypeScript is.**
+   - **Bug the golden test caught:** `runningLines` treated any band line that recurs with a page number as a running
+     footer, even when the number didn't change. So "Reactions carried to column design (page 13)", closing two
+     different calcs, lost its "output to" evidence. Now the page number must actually differ between the occurrences.
+
 ## Gotchas
 
 - There's no system Python on this Windows machine. Run the tooling with `uv run --no-project python ...`.

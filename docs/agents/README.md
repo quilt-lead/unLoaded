@@ -24,4 +24,4 @@ Read it before starting work. Write to it before handing off.
 | [2026-11-14-3d-controls.md](2026-11-14-3d-controls.md) | done | Direct camera navigation, reliable drag detection, and interruptible Fit/Reset transitions |
 | [2026-11-14-ui-review.md](2026-11-14-ui-review.md) | done | Inspector visibility, panel/graph gestures, honest missing data, document filters/revisions, and keyboard controls |
 | [2026-11-14-data-consolidation.md](2026-11-14-data-consolidation.md) | done | All IFC and JSON app data (samples + test fixtures) moved into one `data/` folder |
-| [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | active | Integrates PR #4 with prod (PR #5 + #7 merges, copyright allowlist, Windows test fixes) for merge into prod |
+| [2026-11-14-phase1-integration.md](2026-11-14-phase1-integration.md) | active | Integrates PR #4 with prod (PR #5, #7, #8 merges; calc-parser retired into calc-mapper; copyright allowlist; Windows test fixes) |

@@ -75,21 +75,24 @@ const runningKey = (band: string, line: string): string =>
  * make it a reference; a line that names a page and does not recur stays one.
  */
 export function runningLines(pages: readonly Pick<CalcPage, "n" | "text">[]): Map<number, Set<number>> {
-  const seen = new Map<string, { pages: Set<number>; at: [number, number][] }>();
+  const seen = new Map<string, { pages: Set<number>; raw: Set<string>; at: [number, number][] }>();
   for (const pg of pages) {
     const U = foldText(pg.text);
     for (const [st, band, line] of bandLines(U)) {
       if (line.search(PAGE) < 0) continue;
       const k = runningKey(band, line);
       let e = seen.get(k);
-      if (!e) seen.set(k, (e = { pages: new Set(), at: [] }));
+      if (!e) seen.set(k, (e = { pages: new Set(), raw: new Set(), at: [] }));
       e.pages.add(pg.n);
+      e.raw.add(line.replace(/\s+/g, " ").trim());
       e.at.push([pg.n, st]);
     }
   }
   const out = new Map<number, Set<number>>();
-  for (const { pages: ps, at } of seen.values()) {
-    if (ps.size < 2) continue;
+  for (const { pages: ps, raw, at } of seen.values()) {
+    // the page number must actually change: the same line twice ("carried to column design (page 13)"
+    // closing two calcs) is a repeated reference, not a running footer
+    if (ps.size < 2 || raw.size < 2) continue;
     for (const [n, st] of at) {
       let s = out.get(n);
       if (!s) out.set(n, (s = new Set()));
