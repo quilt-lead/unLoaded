@@ -123,7 +123,7 @@ export function buildLevels(facts: Facts, sheets: Sheet[], warnings: string[]): 
   for (const l of all) {
     if (l.stated || l.name === "Foundation") continue;
     const below = anchors.filter((a) => order(a.name) < order(l.name)).sort((p, q) => q.ft - p.ft)[0];
-    let above = anchors.filter((a) => order(a.name) > order(l.name)).sort((p, q) => p.ft - q.ft)[0];
+    let above: Level | undefined = anchors.filter((a) => order(a.name) > order(l.name)).sort((p, q) => p.ft - q.ft)[0];
     if (below && above && above.ft <= below.ft) above = undefined; // contradictory statements (warned): step up from below
     const key = `${below?.name ?? ""}|${above?.name ?? ""}`;
     const g = gaps.get(key) ?? gaps.set(key, { ...(below ? { lo: below } : {}), ...(above ? { hi: above } : {}), levels: [] }).get(key)!;
