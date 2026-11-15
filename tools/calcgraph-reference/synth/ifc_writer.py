@@ -3,7 +3,7 @@
 Byte-stable: GlobalIds are uuid5 of each element's logical key (so they are also
 stable across model revisions), the header timestamp is fixed, and entities are
 created in a fixed order. The IFC plumbing is shared with the plans-to-IFC builder
-(calcgraph.ifc_common).
+(synth.ifc_common).
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import uuid
 
 import numpy as np
 
-from calcgraph.ifc_common import IfcBuilder
+from .ifc_common import IfcBuilder
 
 from . import shapes
 from .building import LEVELS, Building, El

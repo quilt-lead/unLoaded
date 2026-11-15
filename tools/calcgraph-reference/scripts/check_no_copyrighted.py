@@ -3,12 +3,12 @@ drawing set + calc package used during development, never part of this repo).
 
 The repo is public. That set carries copyright notices, so no PDF, page render, extracted text,
 derived JSON or screenshot of it may enter git. The guard scans the WHOLE repository (repo root
-from git: the Vite app in src/ and public/, backend/, docs, CI config - every path).
-Rules (config in backend/scripts/copyright_guard.json):
+from git: the Vite app in src/ and public/, packages/, tools/, docs, CI config - every path).
+Rules (config in tools/calcgraph-reference/scripts/copyright_guard.json):
   1. any *.pdf, or any file whose bytes start with %PDF
   2. any image (png/jpg/jpeg/gif/webp/tif/tiff/bmp) not on the image allowlist, which pins
      each allowed synthetic image by path AND blob sha (a re-used path with new pixels fails)
-  3. anything under backend/data/sets/ or backend/data/labels/ (anywhere in the path)
+  3. anything under tools/calcgraph-reference/data/sets/ or tools/calcgraph-reference/data/labels/ (anywhere in the path)
   4. any text file containing a protected term (a distinctive string from the set: firm names,
      project name, job / package / permit numbers), unless the file's path is on the term
      allowlist for that term id
@@ -25,14 +25,14 @@ its self-test. The config holds a random salt, one salted SHA-256 per term and `
 At scan time every n-gram of 1..max_n consecutive tokens of each text file is hashed; a hit is
 reported as file, line, column and token position plus the term's opaque id - never the term.
 `max_n` is the largest token count of any stored term. Add a term without it ever touching a
-file, argv or shell history:  backend/scripts/check_no_copyrighted.py --add-term   (reads
+file, argv or shell history:  tools/calcgraph-reference/scripts/check_no_copyrighted.py --add-term   (reads
 stdin, one term per line; type it, then Ctrl-D).
 
 The salt only defeats precomputed tables: a short term can still be brute-forced from its hash,
 so a hash list is obscurity for short strings, not secrecy. It keeps the identity out of
 plaintext search, diffs and indexes, which is what this public repo needs.
 
-  (paths below are from backend/; the script may be run from any directory in the repo)
+  (paths below are from tools/calcgraph-reference/; the script may be run from any directory in the repo)
   python scripts/check_no_copyrighted.py --staged            # pre-commit hook (index contents)
   python scripts/check_no_copyrighted.py --tracked           # every file in HEAD
   python scripts/check_no_copyrighted.py --history [REV]     # every blob ever added on REV's history
@@ -60,7 +60,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(HERE, "copyright_guard.json")
 IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".tif", ".tiff", ".bmp")
-FORBIDDEN_DIRS = ("backend/data/sets/", "backend/data/labels/")
+FORBIDDEN_DIRS = ("tools/calcgraph-reference/data/sets/", "tools/calcgraph-reference/data/labels/")
 TOKEN = re.compile(r"[0-9A-Za-z]+(?:\.[0-9]+)*")
 
 
@@ -133,7 +133,7 @@ def check_blob(path: str, data: bytes, sha: str | None, cfg: dict) -> list[str]:
     low = path.lower()
     norm = "/" + path
     if any(f"/{d}" in norm for d in FORBIDDEN_DIRS):
-        found.append("path under backend/data/sets/ or backend/data/labels/ (derived from the drawing set)")
+        found.append("path under tools/calcgraph-reference/data/sets/ or tools/calcgraph-reference/data/labels/ (derived from the drawing set)")
     if low.endswith(".pdf") or data[:5] == b"%PDF-":
         found.append("PDF file")
     if low.endswith(IMAGE_EXT):
@@ -227,9 +227,9 @@ def report(found: dict[str, list[str]], what: str) -> int:
     for p, fs in sorted(found.items()):
         for f in fs:
             print(f"  {p}: {f}")
-    print("Derived data belongs in a gitignored dir (backend/data/sets/, backend/data/labels/). If a file must "
+    print("Derived data belongs in a gitignored dir (tools/calcgraph-reference/data/sets/, tools/calcgraph-reference/data/labels/). If a file must "
           "carry a protected term, add its path and the term id to term_allowlist in "
-          "backend/scripts/copyright_guard.json; pin a synthetic image with --allow-image. Never commit the PDFs "
+          "tools/calcgraph-reference/scripts/copyright_guard.json; pin a synthetic image with --allow-image. Never commit the PDFs "
           "or anything rendered or extracted from them.")
     return 1
 
@@ -281,9 +281,9 @@ def self_test() -> int:
     expect("PDF by bytes", check_blob("x/notes.txt", b"%PDF-1.7 ...", None, cfg), "PDF file")
     expect("unpinned image", check_blob("x/shot.png", b"\x89PNG\r\n\x1a\n\0", None, cfg), "image not on")
     expect("unpinned image in public/", check_blob("public/thumb.png", b"\x89PNG\r\n\x1a\n\0", None, cfg), "image not on")
-    expect("backend/data/sets path", check_blob("backend/data/sets/s/graph.json", b"{}", None, cfg), "data/sets")
-    expect("backend/data/labels path", check_blob("backend/data/labels/s/tags.json", b"{}", None, cfg), "data/labels")
-    expect("nested data/sets path", check_blob("src/fixtures/backend/data/sets/s/x.json", b"{}", None, cfg), "data/sets")
+    expect("data/sets path", check_blob("tools/calcgraph-reference/data/sets/s/graph.json", b"{}", None, cfg), "data/sets")
+    expect("data/labels path", check_blob("tools/calcgraph-reference/data/labels/s/tags.json", b"{}", None, cfg), "data/labels")
+    expect("nested data/sets path", check_blob("src/fixtures/tools/calcgraph-reference/data/sets/s/x.json", b"{}", None, cfg), "data/sets")
     planted = f"line one\nprepared by {w1.upper()}-{w2.upper()}, see sheet\n".encode()
     expect("planted term, other case + punctuation, line 2", check_blob("x/a.py", planted, None, cfg),
            f"protected term {tid} (line 2, col 13")
@@ -345,7 +345,7 @@ def main() -> None:
     if a.allow_image:
         rel = os.path.relpath(os.path.abspath(a.allow_image), root)
         print(json.dumps({rel: blob_sha(open(a.allow_image, "rb").read())}))
-        print("add this entry to image_allowlist in backend/scripts/copyright_guard.json - only for a SYNTHETIC "
+        print("add this entry to image_allowlist in tools/calcgraph-reference/scripts/copyright_guard.json - only for a SYNTHETIC "
               "image you have looked at")
         return
     if a.staged:

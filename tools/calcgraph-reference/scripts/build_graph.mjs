@@ -1,7 +1,7 @@
 // IFC -> serialized element graph (format "unloaded.element-graph" v1), with the SAME code the UI
 // runs: packages/ifc-parser (parseIfc) then packages/element-graph (buildGraph, ElementGraph.serialize).
 //
-//   node backend/scripts/build_graph.mjs model.ifc model.graph.json [more.ifc more.graph.json ...]
+//   node tools/calcgraph-reference/scripts/build_graph.mjs model.ifc model.graph.json [more.ifc more.graph.json ...]
 //
 // Node >= 22.18 (runs the packages' .ts sources through Node's type stripping, like
 // packages/ifc-parser/scripts/dump.ts and scripts/smoke.ts). The @unloaded/* workspace names are
@@ -14,7 +14,7 @@ import { register } from "node:module";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const targets = {
   "@unloaded/element-graph": "packages/element-graph/src/index.ts",
   "@unloaded/element-graph/input": "packages/element-graph/src/model/input.ts",
@@ -29,7 +29,7 @@ register(`data:text/javascript,${encodeURIComponent(hooks)}`);
 
 const args = process.argv.slice(2);
 if (args.length === 0 || args.length % 2) {
-  console.error("usage: node backend/scripts/build_graph.mjs in.ifc out.graph.json [in2.ifc out2.graph.json ...]");
+  console.error("usage: node tools/calcgraph-reference/scripts/build_graph.mjs in.ifc out.graph.json [in2.ifc out2.graph.json ...]");
   process.exit(2);
 }
 const { parseIfc } = await import(map["@unloaded/ifc-parser"]);

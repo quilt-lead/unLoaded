@@ -266,6 +266,11 @@ shown labelled as demo data, never mixed with real calc links, and their A/B dif
 - **Commits authored as Isabel Greenslade**, branch prefixed `issy/`. Only the feature branch is pushed;
   `prod` is changed only by merging the PR.
 - **Intermediate checkpoint commits don't type-check** (said in their messages); review the branch at its head.
+- **Mislabelled commit, kept rather than rewritten:** `ffa9c9c` is titled "Decision log: follow-up sequencing..."
+  but also contains 48 files the engine agent had staged with `git mv` / `git rm` (the start of moving
+  `backend/` → `tools/calcgraph-reference/` and deleting the Python server), because a plain `git commit` takes the
+  whole index. It was already pushed to PR #4, so it is recorded here instead of force-pushed. The engine stage
+  is completed in the next commit. Since then Claude commits named paths only (`git commit -- <paths>`).
 
 ### D21. Follow-up work is a separate PR stacked on this branch
 **Why:** PR #4 is already large and a reviewer needs a stable base. The D18 items go on

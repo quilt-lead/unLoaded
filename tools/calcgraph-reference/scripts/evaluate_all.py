@@ -1,18 +1,20 @@
 """Run every evaluation, print one scorecard, exit non-zero on a regression vs the stored baseline.
 
-  uv run python scripts/evaluate_all.py                    # every stage (from backend/)
+  uv run python scripts/evaluate_all.py                    # every stage (from tools/calcgraph-reference/)
   uv run python scripts/evaluate_all.py --synthetic-only   # CI (today the same stages: all are synthetic)
   uv run python scripts/evaluate_all.py --update-baseline  # accept the current numbers as the baseline
 
 Stages (a stage whose inputs are missing is SKIPPED, never failed):
   synthetic_check  python -m synth.generate --check: the synthetic generator is byte-stable (pass/fail)
-  synthetic_v1     scripts/evaluate.py on the synthetic package (segmentation, design-mapping P/R, xref,
-                   load path, calc edges, revisions), scored on the element graphs the UI's packages build
-                   (scripts/build_graph.mjs, rebuilt here from data/synthetic/model_rev{1,2}.ifc; needs Node)
+  synthetic_v1     scripts/evaluate.py: the TypeScript calc engine (packages/calc-mapper, run through its
+                   Node CLI on the element graphs scripts/build_graph.mjs builds) scored on the synthetic
+                   package - segmentation, design-mapping P/R per tier, xref, load path, calc edges,
+                   rev1 -> rev2 diff, decisions carried forward, C8 impact. Needs Node + `npm ci`.
   copyright        scripts/check_no_copyrighted.py --tracked (pass/fail)
 
 Gating: a metric is compared with the baseline when it is listed as gated; a drop larger than
---tolerance (default 0.005 absolute) is a regression; a pass/fail check that passed in the baseline
+--tolerance (default 0.005 absolute) is a regression; a metric listed as exact (link counts per tier,
+xref, calc-edge tp/fp/fn, diff and impact counts) must equal the baseline; a pass/fail check that passed in the baseline
 and fails now is a regression, and any failing check exits 1. Metrics of skipped stages are not
 compared. The baseline file (eval/baseline.json) holds numbers only - no drawing text - and is committed.
 """
@@ -27,7 +29,7 @@ import tempfile
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # backend/
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # tools/calcgraph-reference/
 PY = sys.executable
 BASELINE = os.path.join(ROOT, "eval", "baseline.json")
 
@@ -52,15 +54,6 @@ def st_synthetic_check(a) -> dict:
 
 
 def st_synthetic_v1(a) -> dict:
-    syn = os.path.join(ROOT, "data", "synthetic")
-    if not os.path.exists(os.path.join(syn, "ground_truth.json")):
-        g = run([PY, "-m", "synth.generate", "--out", syn])
-        if g.returncode:
-            raise RuntimeError(f"synth.generate exit {g.returncode}: {g.stderr[-600:]}")
-    b = run(["node", "scripts/build_graph.mjs"] + [os.path.join(syn, f"model_rev{n}{ext}") for n in (1, 2)
-                                                   for ext in (".ifc", ".graph.json")])
-    if b.returncode:
-        raise RuntimeError(f"scripts/build_graph.mjs exit {b.returncode}: {b.stderr[-600:]}")
     p = run([PY, "scripts/evaluate.py"])
     if p.returncode:
         raise RuntimeError(f"scripts/evaluate.py exit {p.returncode}: {p.stderr[-600:]}")
@@ -77,7 +70,22 @@ def st_synthetic_v1(a) -> dict:
         "rev_diff_exact": float(rv["diff_removed"]["exact"] and rv["diff_changed"]["exact"]),
         "decisions_carried": float(rv["decisions_carried_forward"] == {"confirm": "confirmed", "reject": "rejected"}),
     }
-    return {"metrics": m, "gated": list(m)}
+    # counts that must equal the baseline exactly (a drop OR a rise is a behaviour change to look at)
+    x, im = r["xref_tier"], r["impact_remove_C8"]
+    exact = {
+        "segmentation_exact_count": sg["exact"], "segmentation_truth_calcs": sg["truth_calcs"],
+        **{f"tier_{t}_links": v["links"] for t, v in d_tiers(r).items()},
+        **{f"tier_{t}_correct": v["correct"] for t, v in d_tiers(r).items()},
+        "xref_links": x["links"], "xref_real_mentions": x["real_mentions"],
+        "calc_edges_tp": r["calc_edges"]["tp"], "calc_edges_fp": r["calc_edges"]["fp"], "calc_edges_fn": r["calc_edges"]["fn"],
+        "diff_removed": rv["diff_removed"]["pred"], "diff_changed": rv["diff_changed"]["pred"], "diff_added": rv["diff_added"]["pred"],
+        "impact_c8_removed": im["removed"], "impact_c8_hit": im["hit"], "impact_c8_stale_calcs": len(im["stale_calcs"]),
+    }
+    return {"metrics": m | exact, "gated": list(m), "exact": list(exact)}
+
+
+def d_tiers(r: dict) -> dict:
+    return r["design_mapping"]["per_tier"]
 
 
 def _check(cmd: list[str], name: str) -> tuple[bool, str]:
@@ -145,6 +153,10 @@ def main() -> None:
                 regressions.append(f"{name}.{k}: {fmt(v)} < baseline {fmt(bv)}")
             elif v > bv + a.tolerance:
                 improvements.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)}")
+        for k in r.get("exact", []):
+            v, bv = r["metrics"].get(k), b.get("metrics", {}).get(k)
+            if bv is not None and v != bv:
+                regressions.append(f"{name}.{k}: {fmt(v)} != baseline {fmt(bv)} (must match exactly)")
         for k, v in r.get("checks", {}).items():
             if b.get("checks", {}).get(k) and not v:
                 regressions.append(f"{name}.{k}: FAIL (passed in baseline)")
@@ -163,7 +175,7 @@ def main() -> None:
             print(f"  {k:<36} {fmt(v)}")
         for k, v in r.get("metrics", {}).items():
             bv = b.get("metrics", {}).get(k)
-            mark = "" if k in r.get("gated", []) else "   (info)"
+            mark = "" if k in r.get("gated", []) else "   (exact)" if k in r.get("exact", []) else "   (info)"
             print(f"  {k:<36} {fmt(v):>8}   baseline {fmt(bv):>8}{mark}")
         for n in r.get("notes", []):
             print(f"  - {n}")

@@ -1,5 +1,5 @@
 {
-  "about": "Config for backend/scripts/check_no_copyrighted.py. terms: salted SHA-256 of each protected term's canonical form (see the script's docstring) - never the term itself. max_n: the largest token count of any term. term_allowlist: repo path -> term ids that file may carry. image_allowlist: synthetic images pinned by blob sha.",
+  "about": "Config for tools/calcgraph-reference/scripts/check_no_copyrighted.py. terms: salted SHA-256 of each protected term's canonical form (see the script's docstring) - never the term itself. max_n: the largest token count of any term. term_allowlist: repo path -> term ids that file may carry. image_allowlist: synthetic images pinned by blob sha.",
   "salt": "c897b0407fd8997db95fff712b218035",
   "max_n": 2,
   "terms": [

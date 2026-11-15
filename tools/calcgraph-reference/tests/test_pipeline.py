@@ -1,9 +1,8 @@
 """CI tests (not run on the dev laptop - a hook blocks local test runners).
 
-They run the production pipeline on the synthetic package and pin the floor the
-evaluation reached on 2026-11-14 so a regression fails CI. The element graphs come from the
-TypeScript packages the UI runs (scripts/build_graph.mjs -> packages/ifc-parser +
-packages/element-graph), so Node >= 22.18 and the repo's `npm ci` are needed.
+They run the app's calc engine (packages/calc-mapper, through scripts/evaluate.py: element graphs
+from scripts/build_graph.mjs, then the engine's Node CLI) on a freshly generated synthetic package
+and pin the floor the evaluation reached so a regression fails CI. Needs Node >= 22.18 + `npm ci`.
 """
 import json
 import os
@@ -12,17 +11,13 @@ import sys
 
 import pytest
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # backend/
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # tools/calcgraph-reference/
 
 
 @pytest.fixture(scope="session")
 def report(tmp_path_factory):
     data = tmp_path_factory.mktemp("synthetic")
-    subprocess.run([sys.executable, "-m", "synth.generate", "--out", str(data)], check=True, cwd=ROOT)
-    subprocess.run(["node", os.path.join(ROOT, "scripts", "build_graph.mjs"),
-                    str(data / "model_rev1.ifc"), str(data / "model_rev1.graph.json"),
-                    str(data / "model_rev2.ifc"), str(data / "model_rev2.graph.json")], check=True, cwd=ROOT)
-    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "evaluate.py"), "--data", str(data)],
+    subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "evaluate.py"), "--data", str(data), "--regen"],
                    check=True, cwd=ROOT)
     return json.load(open(os.path.join(ROOT, "data", "eval", "latest.json")))
 
