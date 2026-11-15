@@ -177,8 +177,8 @@ describe("parseGraph validates every field the engine reads", () => {
     [withB1({ bbox: {} }), "geometry.bbox needs min and max"],
     [withB1({ bbox: { min: "abc", max: [1, 1, 1] } }), "geometry.bbox needs min and max"],
     [withB1({ bbox: { min: [0, 0, 0], max: [1, 1, 1] }, axis: { start: [0, 0, 0] } }), "geometry.axis needs start and end"],
-    [JSON.stringify(graph({ levels: [{}] as never })), "graph.levels[0] needs a string id"],
-    [JSON.stringify(graph({ levels: [null] as never })), "graph.levels[0] needs a string id"],
+    [JSON.stringify(graph({ levels: [{}] as never })), "graph.levels[0] needs a string or number id"],
+    [JSON.stringify(graph({ levels: [null] as never })), "graph.levels[0] needs a string or number id"],
     [JSON.stringify(graph({ edges: [{ id: "e", kind: "supports", a: "B1", b: "C1", directed: true, evidence: {} }] as never })), "evidence must be a list"],
     [JSON.stringify(graph({ nodes: graph().nodes.map((n) => (n.id === "B1" ? { ...n, params: [] } : n)) as never })), "params must be an object"],
   ])("rejects a shape graphElements / loadPath would throw a TypeError on: %#", (bad, msg) => {
