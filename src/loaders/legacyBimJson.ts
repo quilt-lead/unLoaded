@@ -1,6 +1,6 @@
 /**
  * Legacy / hand-authored BIM graph JSON ({ projectName, nodes, links }) -> BimGraphData.
- * This is the format of public/data/bim-database.json. IFC and ModelInput imports go
+ * This is the format of data/bim-database.json. IFC and ModelInput imports go
  * through @unloaded/ifc-parser + @unloaded/element-graph instead (see parsers.ts).
  */
 import { BimGraphData, BimLink, BimNode } from '../types/bim';

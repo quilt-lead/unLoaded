@@ -1,7 +1,6 @@
 // Copies runtime assets into public/ (generated, git-ignored):
-//   public/wasm/web-ifc.wasm                     - web-ifc runtime used by @unloaded/ifc-parser in the browser
-//   public/samples/simple-frame.json             - ModelInput fixture (fixtures/)
-//   public/samples/Building-Structural-IFC4.ifc  - IFC fixture (packages/ifc-parser/test/fixtures/)
+//   public/wasm/web-ifc.wasm  - web-ifc runtime used by @unloaded/ifc-parser in the browser
+// Sample IFC / JSON models live in data/ and are imported manually from there.
 // Runs on postinstall / predev / prebuild. Never fails the install.
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -20,8 +19,6 @@ try {
 
 const copies = [
   [wasm, "public/wasm/web-ifc.wasm"],
-  [join(repoRoot, "fixtures/simple-frame.json"), "public/samples/simple-frame.json"],
-  [join(repoRoot, "packages/ifc-parser/test/fixtures/Building-Structural-IFC4.ifc"), "public/samples/Building-Structural-IFC4.ifc"],
 ];
 
 for (const [from, rel] of copies) {

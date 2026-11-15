@@ -23,3 +23,4 @@ Read it before starting work. Write to it before handing off.
 | [2026-11-14-3d-controls.md](2026-11-14-3d-controls.md) | done | Direct camera navigation, reliable drag detection, and interruptible Fit/Reset transitions |
 | [2026-11-14-calc-parser-port.md](2026-11-14-calc-parser-port.md) | active | Python calc PDF parser / matcher / calc graph ported to `@unloaded/calc-parser` (TS, pdf.js) with Python parity tests; not wired into the UI yet |
 | [2026-11-14-ui-review.md](2026-11-14-ui-review.md) | done | Inspector visibility, panel/graph gestures, honest missing data, document filters/revisions, and keyboard controls |
+| [2026-11-14-data-consolidation.md](2026-11-14-data-consolidation.md) | done | All IFC and JSON app data (samples + test fixtures) moved into one `data/` folder |

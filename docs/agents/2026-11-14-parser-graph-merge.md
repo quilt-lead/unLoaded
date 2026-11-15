@@ -58,13 +58,13 @@ The user's instruction: **the React UI is the source of truth**, so merge the pa
 - `npm test`: 8 adapter tests (`src/loaders/elementGraphToBim.test.ts`, simple-frame + real IFC end to end) + 60 package tests.
 - `npm run build` passes. `npm run smoke` prints an IFC → graph summary in Node.
 - Headless Chromium (Playwright from a scratch dir, not a project dependency): the demo DB loads, then importing
-  `public/samples/Building-Structural-IFC4.ifc` populates the graph, Inspector and 3D view with no console errors.
+  `Building-Structural-IFC4.ifc` (now `data/`) populates the graph, Inspector and 3D view with no console errors.
   The only 404 is `/favicon.ico`, which predates this work.
 
 ## Update: prod merged back in (c69ef3d, "added diff compare to the ui")
 
-- Prod now starts with an empty workspace (no auto-load of `public/data/bim-database.json`; the sample lives in
-  `sample-data/`) and adds Diff Mode: `handleUploadFile(file, slot: 'base' | 'compare')` with `computeDatabaseDiff`.
+- Prod now starts with an empty workspace (no auto-load of `public/data/bim-database.json`; the sample now lives in
+  `data/`) and adds Diff Mode: `handleUploadFile(file, slot: 'base' | 'compare')` with `computeDatabaseDiff`.
   The merged handler keeps prod's slot logic on top of the async `importModel`.
 - Diffing two IFC imports works well because element ids are IFC GlobalIds (stable across re-exports).
   Importing the same file as A and B gives +0 / ~0 / -0.
