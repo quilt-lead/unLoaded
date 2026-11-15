@@ -348,6 +348,31 @@ Seen once and not chased: right after rev 2 the calc-graph tab showed 15 calcs f
 **Open:** the two synthetic IFCs could be committed so the demo works straight after a clone (PDFs would still need
 generating); not done.
 
+### D25. Drawing-set ingest is a second `ModelInput` parser (`packages/drawing-parser`)
+**Built ~10:00 PM ET (D18 item 3).** Plan PDFs → `ModelInput` → Carl's `buildGraph`, so a drawing set with no IFC gets
+the same element graph, calc mapping and impact. Ids are content-based and never contain the size (a resize keeps
+the id). Every printed appearance is kept in `params["Drawing.Occurrences"]` for two-sided evidence later (extraction
+idea #6). Geometry states how it was placed and its precision (infill beams ~0.03 m at 3/16"). Only relations the
+drawing states are emitted; connectivity is left to the graph. PDF text comes from calc-mapper (one extractor): an
+opt-in `extractPdfWords` adds rotated word boxes; `extractPdf` output unchanged (gate re-run by Claude, exit 0).
+**Measured** on the v2 synthetic drawing set (scripts on data): every element class recall/precision 1.000; size,
+level, mark 1.000; grid placement within 0.5 ft 1.000; callout attribution 0.833 (3 of 5 misses flagged ambiguous).
+Shortfalls found in the element graph, not the parser (for Carl): a brace's upper end gets only `connects`, and there
+is no "beam end bears on footing" rule (grade beam → footing 0/28). Expect lower numbers on real sets: vector-only
+content, scans, non-orthogonal members and non-north-up plans aren't read.
+**v2 generator drift:** after it was copied, the hackathon committed `18b6203` (brace connection relations, 18 more
+placed calc rows). Not synced, so the answer key stays the one the gates were measured on; syncing means re-measuring.
+**CI coverage:** both v2 gates (move-impact, drawing-parser) need the v2 generator, whose design step needs the AISC
+table (D22), so **both run locally only** until that is decided. Their package tests and type-checks do run in CI.
+
+### D26. First green CI, and what it took
+CI on PR #4 went green at `5dd128f` (2026-11-14 ~10:15 PM ET): copyright, tooling (gated evaluation), frontend
+(typecheck, tests, build). The first two full runs failed only on type errors that couldn't be caught locally (D20):
+an open-union narrowing in `elementGraphToBim.ts`, an unreachable line in drawing-parser, and indexed tuple mutation
+in move-impact under `noUncheckedIndexedAccess`. All three fixed at the line, no checks loosened.
+Also: calc-mapper's `Producer` type now accepts any workspace package (`<pkg>@<version>/<module>`), so move-impact uses
+the shared `Provenance` rather than a narrowed copy (D23).
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
@@ -370,7 +395,7 @@ generating); not done.
 ## How to review this branch
 
 1. Read this file, then `docs/ARCHITECTURE.md`.
-2. Wait for CI green on the pushed branch (D11); nothing has been tested locally.
+2. CI is green from `5dd128f` (D26). The v2 gates (move-impact, drawing-parser) run locally only (D22, D25).
 3. Run it: `cd tools/calcgraph-reference && uv sync && uv run python -m synth.generate` (writes the sample IFCs and calc
    PDF, gitignored), then at the repo root `npm install && npm run dev`; press **Load sample**.
 4. Spot-check D6 (only `src/data/` + `src/loaders/` touch package shapes), D16/D17 (evaluation numbers in CI

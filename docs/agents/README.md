@@ -19,5 +19,5 @@ Read it before starting work. Write to it before handing off.
 | Note | Status | Summary |
 |---|---|---|
 | [2026-11-14-parser-graph-merge.md](2026-11-14-parser-graph-merge.md) | done | Merged the IFC parser and element-graph packages into the React UI via an adapter |
-| [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (frontend only: calc-mapper, move-impact, provenance contract) and extraction ideas into main; decision log D1-D24 |
+| [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (frontend only: calc-mapper, move-impact, provenance contract) and extraction ideas into main; decision log D1-D26 |
 | [2026-11-14-font-update.md](2026-11-14-font-update.md) | done | Switched the app to Apercu across the global styles and canvas text overrides |
