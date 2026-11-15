@@ -43,7 +43,14 @@ import {
   useUploadCalcs,
   useUploadModel,
 } from './engine/hooks';
-import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError } from './engine/projectService';
+import { downloadProjectFile, openAnyFile, rememberActiveProject, revisionFileUrl, SampleMissingError, type CalcPlacement } from './engine/projectService';
+
+/** Where an added calc PDF went, in words (a toast): a new calc document, a new revision of one, or already loaded. */
+function calcPlacementText(fileName: string, p: CalcPlacement, revisionId: number | null): string {
+  if (p.kind === 'duplicate') return `${fileName} is already loaded (in ${p.docName}); not added again`;
+  if (p.kind === 'new') return `${fileName} added as a new calc document, ${p.docName} (revision #${revisionId})`;
+  return `${fileName} added as revision #${revisionId} of ${p.docName}${p.note && p.note !== 'chosen' ? ` (${p.note})` : ''}`;
+}
 import { calcNodeId } from './data/loadProject';
 import { applyModelDiff } from './data/mergeProject';
 import { diffRevisionsError, keepWhatExists } from './data/viewState';
@@ -658,7 +665,7 @@ export const App: React.FC = () => {
       if (!target) throw new Error('The project store is still opening; try again in a moment.');
       const startEpoch = scopeRef.current.epoch;
       const before = headModelRev;
-      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[] };
+      let added: { kind: 'model' | 'calcs'; id: number; warnings: string[]; placement?: CalcPlacement };
       if (kind === 'any') {
         const opened = await openAnyFile(target, file, setBusyText);
         if (opened.kind === 'export') {
@@ -671,18 +678,22 @@ export const App: React.FC = () => {
           switchProject(opened.projectId);
           return `Imported project from ${file.name}`;
         }
-        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings };
+        if (opened.kind === 'duplicate') return calcPlacementText(file.name, opened.placement, null);
+        added = { kind: opened.revision.kind, id: opened.revision.id, warnings: opened.warnings, placement: opened.placement };
       } else if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ projectId: target, file });
         added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
       } else {
         const out = await uploadCalcs.mutateAsync({ projectId: target, file });
-        added = { kind: 'calcs', id: out.revisionId, warnings: [] };
+        if (out.revisionId == null) return calcPlacementText(file.name, out.placement, null);
+        added = { kind: 'calcs', id: out.revisionId, warnings: [], placement: out.placement };
       }
       if (added.warnings.length) console.warn(`${file.name}: ${added.warnings.length} import warnings`, added.warnings);
       const diff = opts?.compareWithHead && added.kind === 'model' && before != null ? { a: before, b: added.id } : undefined;
       const shown = showAddedRevision(target, startEpoch, diff);
-      const what = `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+      const what = added.placement
+        ? calcPlacementText(file.name, added.placement, added.id)
+        : `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
       return shown ? what : `${what} of ${projectName(target)}`;
     });
   const handleUpload = (kind: 'model' | 'calcs', file: File) => addRevisionFile(kind, file);

@@ -16,7 +16,7 @@ import { isDeepStrictEqual } from "node:util";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
-  buildExport, buildState, diffGraphs, impactOf, mapCalcs, parseGraph, sha256Json,
+  buildCalcSet, buildExport, buildState, diffGraphs, impactOf, mapCalcs, parseGraph, sha256Json,
   type CalcPackage, type DecisionFields, type SerializedElementGraph,
 } from "@unloaded/calc-mapper";
 import { impact as moveImpact } from "@unloaded/move-impact";
@@ -29,15 +29,20 @@ if (!file) {
 }
 
 // ------------------------------------------------------------ direct: calc-mapper on the same file
-interface Rev { id: number; kind: "model" | "calcs"; sourceName: string; graph?: unknown; extraction?: CalcPackage }
+interface Rev { id: number; kind: "model" | "calcs"; sourceName: string; graph?: unknown; extraction?: CalcPackage; docId?: string }
 const pf = JSON.parse(readFileSync(file, "utf8")) as {
+  documents: { docId: string; name: string; removed: boolean }[];
   revisions: Rev[];
   decisions: { globalId: string; calcKey: string; action: DecisionFields["action"]; actor: string | null; note: string | null; at: string; modelRev: number | null; calcRev: number | null }[];
 };
 const head = (k: Rev["kind"]) => pf.revisions.filter((r) => r.kind === k).sort((a, b) => b.id - a.id)[0]!;
-const mRev = head("model"), cRev = head("calcs");
+const mRev = head("model");
+// the calc set: each live calc document's head revision, in document order (what the app and the server map)
+const cRevs = pf.documents.filter((d) => !d.removed)
+  .map((d) => pf.revisions.filter((r) => r.kind === "calcs" && r.docId === d.docId).sort((a, b) => b.id - a.id)[0]!);
+const cRev = cRevs.length === 1 ? cRevs[0]! : null;
 const graph = parseGraph(mRev.graph) as SerializedElementGraph;
-const pkg = cRev.extraction!;
+const pkg = buildCalcSet(cRevs.map((r) => ({ doc_id: r.docId!, name: pf.documents.find((d) => d.docId === r.docId)!.name, revision: r.id, package: r.extraction! })));
 const decisions: DecisionFields[] = pf.decisions.map((d, i) => ({
   id: i + 1, global_id: d.globalId, calc_key: d.calcKey, action: d.action, actor: d.actor, note: d.note, at: d.at,
   model_rev: d.modelRev, calc_rev: d.calcRev,
@@ -45,7 +50,8 @@ const decisions: DecisionFields[] = pf.decisions.map((d, i) => ({
 const run = await mapCalcs(graph, pkg);
 const state = buildState(graph, pkg, run, decisions);
 const exp = buildExport(graph, pkg, run, decisions, {
-  model: mRev.sourceName, model_revision: mRev.id, calc_package: cRev.sourceName, calc_revision: cRev.id,
+  model: mRev.sourceName, model_revision: mRev.id,
+  calc_package: cRev ? cRev.sourceName : `${cRevs.length} calc documents`, calc_revision: cRev ? cRev.id : null,
 });
 
 // ------------------------------------------------------------ via MCP: the real CLI over stdio
@@ -161,7 +167,7 @@ check("get_page_image: PNG image content", [png.mimeType, bytes.subarray(1, 4).t
 check("get_page_image: crop width in pixels", bytes.readUInt32BE(16), img.json.pixels[0]);
 check("get_page_image: pdf sha256 is the run's", img.json.source.pdf_sha256, run.producers.calc_package?.sha256);
 const full = await call("get_page_image", { page: 1 });
-check("get_page_image: full page", full.json.area_pt, [0, 0, pkg.pages[0]!.width, pkg.pages[0]!.height]);
+check("get_page_image: full page", full.json.area_pt, [0, 0, pkg.combined.pages[0]!.width, pkg.combined.pages[0]!.height]);
 if (values.out) writeFileSync(values.out.replace(/\.json$/, ".png"), bytes);
 
 // move_column: equals move-impact called directly

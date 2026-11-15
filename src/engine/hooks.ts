@@ -148,13 +148,18 @@ export function useUploadModel(onProgress: Progress) {
   });
 }
 
-/** A calc package PDF as a new revision of `projectId` (named per call, as useUploadModel). */
+/**
+ * A calc PDF into `projectId` (named per call, as useUploadModel), placed as a new calc document or the
+ * next revision of one (`target`, default the engine's suggestion). `revisionId` is null when the same PDF
+ * was already loaded (`placement.kind` "duplicate").
+ */
 export function useUploadCalcs(onProgress: Progress) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ projectId, file, label }: { projectId: string; file: File; label?: string }) => ({
-      revisionId: (await addCalcRevision(projectId, file, label, onProgress)).id,
-    }),
+    mutationFn: async ({ projectId, file, label, target }: { projectId: string; file: File; label?: string; target?: string | 'new' | 'auto' }) => {
+      const { revision, placement } = await addCalcRevision(projectId, file, label, onProgress, target);
+      return { revisionId: revision?.id ?? null, placement };
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });
 }
