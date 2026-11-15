@@ -43,7 +43,7 @@ export const App: React.FC = () => {
   const [compareSnapshot, setCompareSnapshot] = useState<{ graph: BimGraphData; rawLinks: BimLink[] } | null>(null);
   const [diffFilter, setDiffFilter] = useState<'ALL' | 'CHANGED' | DiffStatus>('ALL');
 
-  const [projectName, setProjectName] = useState<string>('No Model Loaded');
+  const [projectName, setProjectName] = useState<string>('');
   const [elementNodes, setElementNodes] = useState<BimNode[]>([]);
   const [rawLinks, setRawLinks] = useState<BimGraphData['links']>([]);
   const [groups, setGroups] = useState<NodeGroup[]>([]);
@@ -136,7 +136,7 @@ export const App: React.FC = () => {
     async (file: File, slot: 'base' | 'compare') => {
       try {
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const { graph, rawLinks: parsedLinks, warnings, parser } = await importModel(file.name, bytes, (msg) =>
+        const { graph, rawLinks: parsedLinks, warnings } = await importModel(file.name, bytes, (msg) =>
           showToast(`${msg}…`)
         );
         if (!graph.nodes.some(isInstanceNode)) {
@@ -161,9 +161,9 @@ export const App: React.FC = () => {
 
         if (slot === 'compare') {
           if (!baseSnapshot) {
-            // If user clicked Compare DB first before loading DB A, load into DB A and prompt for DB B
+            // If Compare was chosen first, load the file as the primary model.
             setBaseSnapshot({ graph, rawLinks: parsedLinks });
-            showToast(`Loaded DB A (${graph.projectName || file.name}). Click "Compare DB" again to pick DB B.`);
+            showToast(`Loaded primary model (${graph.projectName || file.name}). Choose Compare again to add a second model.`);
             return;
           }
           setCompareSnapshot({ graph, rawLinks: parsedLinks });
@@ -174,7 +174,7 @@ export const App: React.FC = () => {
           setBaseSnapshot({ graph, rawLinks: parsedLinks });
           const catCount = graph.nodes.filter(isElementTypeNode).length;
           const instCount = graph.nodes.filter(isInstanceNode).length;
-          showToast(`Loaded DB A via ${parser.name}: ${instCount} elements across ${catCount} types${warnText}`);
+          showToast(`Loaded model: ${instCount} elements across ${catCount} types${warnText}`);
         }
       } catch (err: any) {
         showToast(`Import Error: ${err?.message || 'Parse failure'}`, true);
@@ -190,7 +190,7 @@ export const App: React.FC = () => {
       );
       if (supported.length === 0) {
         const names = files.map((f) => f.name).join(', ');
-        showToast(`Can’t import ${names}. Drop a ${ACCEPTED_EXTENSIONS.join(' or ')} file.`, true);
+        showToast(`Can’t import ${names}. Choose a supported model file.`, true);
         return;
       }
       if (files.length > 1) {
@@ -214,7 +214,7 @@ export const App: React.FC = () => {
     setSelectedCalcNodeId(null);
     setSelectedCalcNodeIds(new Set());
     showToast(
-      `Swapped models: A is now "${prevCompare.graph.projectName || 'DB B'}" ↔ B is now "${prevBase.graph.projectName || 'DB A'}"`
+      `Swapped models: "${prevCompare.graph.projectName || 'Comparison model'}" is now primary; "${prevBase.graph.projectName || 'Primary model'}" is now the comparison.`
     );
   }, [baseSnapshot, compareSnapshot, showToast]);
 
@@ -225,7 +225,7 @@ export const App: React.FC = () => {
     setSelectedNodeIds(new Set());
     setSelectedCalcNodeId(null);
     setSelectedCalcNodeIds(new Set());
-    showToast('Exited Diff Mode — showing Base DB (A)');
+    showToast('Exited comparison — showing the primary model');
   }, [showToast]);
 
   const hierarchyLinks = useMemo(() => buildHierarchyLinks(elementNodes, rawLinks), [elementNodes, rawLinks]);
@@ -447,35 +447,23 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDocFilterBySelected(false);
+        handleClearSelection();
+        return;
+      }
+
       const target = e.target;
       if (e.defaultPrevented || (target instanceof HTMLElement &&
         (target.isContentEditable || target.closest('input, textarea, select')))) return;
       if (activeView === 'element-graph' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         handleGroupSelection();
-      } else if (e.key === 'Escape') {
-        setDocFilterBySelected(false);
-        handleClearSelection();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeView, handleGroupSelection, handleClearSelection]);
-
-  const handleResetAll = useCallback(() => {
-    setFilters({ search: '', type: 'ALL', level: 'ALL' });
-    setDiffFilter('ALL');
-    handleClearSelection();
-    setViewer3dDock('float');
-    setInspectorDock('float');
-    setDocFilterBySelected(false);
-    setInitialDocId(null);
-    setDocumentOpenRequest((value) => value + 1);
-    setLeftDockWidth(340);
-    setRightDockWidth(340);
-    setResetTrigger((c) => c + 1);
-    showToast('View, filters & panels reset');
-  }, [handleClearSelection, showToast]);
 
   const handleOpenDocument = useCallback(
     (nodeId: string, docId?: string, preserveSelection = false) => {
@@ -546,15 +534,15 @@ export const App: React.FC = () => {
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
+      title={diffMode ? '3D Comparison Model' : '3D Structural Model'}
       indicatorClassName={
         diffMode
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b]'
+          ? 'bg-amber-400'
           : selectedNodeId
-          ? 'bg-amber-400 shadow-[0_0_10px_#f59e0b] animate-pulse'
+          ? 'bg-amber-400'
           : heatmapMode
-          ? 'bg-amber-400 shadow-[0_0_8px_#f59e0b]'
-          : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'
+          ? 'bg-amber-400'
+          : 'bg-cyan-400'
       }
       dockSide={viewer3dDock}
       defaultPos={defaultV3dPos}
@@ -568,7 +556,7 @@ export const App: React.FC = () => {
             type="button"
             onClick={() => setFit3dTrigger((c) => c + 1)}
             title="Zoom Fit Selected Element"
-            className="mono text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition mr-0.5"
+            className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
             FIT
           </button>
@@ -583,7 +571,7 @@ export const App: React.FC = () => {
         </>
       }
     >
-      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#282c34]">
+      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
         <Structural3DViewer
           nodes={elementNodes}
           selectedNodeId={selectedNodeId}
@@ -617,11 +605,7 @@ export const App: React.FC = () => {
     <DockableHudPanel
       id="inspectorPanel"
       title={diffMode ? 'Diff & Element Inspector' : activeView === 'calculation-graph' ? 'Calculation Inspector' : 'Element Inspector'}
-      indicatorClassName={
-        selectedNodeId
-          ? 'bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse'
-          : 'bg-indigo-500 shadow-[0_0_8px_#6366f1] animate-pulse'
-      }
+      indicatorClassName="bg-calcmap"
       dockSide={inspectorDock}
       defaultPos={defaultInspPos}
       zIndex={topHudZ.insp}
@@ -672,14 +656,12 @@ export const App: React.FC = () => {
         diffSummary={diffSummary}
         onSwapDatabases={handleSwapDatabases}
         onClearDiff={handleClearDiff}
-        onResetAll={handleResetAll}
       />
 
       <FileDropOverlay
         visible={isDragging}
         hoverSlot={hoverSlot}
         hasBaseModel={Boolean(baseSnapshot)}
-        acceptedExtensions={ACCEPTED_EXTENSIONS}
       />
 
       <FilterBar
@@ -705,13 +687,13 @@ export const App: React.FC = () => {
       />
 
       {hoverEdge === 'left' && (
-        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Left</span>
         </div>
       )}
       {hoverEdge === 'right' && (
-        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-indigo-400 bg-indigo-500/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-indigo-200">
+        <div className="fixed top-24 bottom-2 right-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
           <Columns className="w-5 h-5" />
           <span className="mono text-[10px] font-semibold uppercase tracking-wider">Dock Right</span>
         </div>
@@ -729,7 +711,7 @@ export const App: React.FC = () => {
             </div>
             <div
               onPointerDown={startDockColumnResize('left')}
-              className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25"
+              className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25"
             />
           </>
         )}
@@ -778,15 +760,17 @@ export const App: React.FC = () => {
           )}
 
           {activeView === '3d' && (
-            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#282c34]">
+            <section className="w-full h-full relative flex flex-col overflow-hidden bg-[#2d3139]">
               <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-[#2d3139]/92 backdrop-blur-xl border border-white/[0.14] px-3 py-1.5 rounded-xl shadow-[0_12px_32px_rgba(0,0,0,0.8)]">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
-                <span className="mono text-[11px] text-zinc-200 font-medium">{projectName} 3D Frame</span>
+                <span className="w-2 h-2 rounded-full bg-calcmap" />
+                <span className="mono text-[11px] text-zinc-200 font-medium">
+                  {projectName ? `${projectName} 3D Frame` : '3D Frame'}
+                </span>
                 <span className="text-zinc-700">|</span>
                 <button
                   type="button"
                   onClick={() => setFit3dTrigger((c) => c + 1)}
-                  className="mono text-[10px] px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25 hover:bg-indigo-500/25 transition flex items-center gap-1"
+                  className="mono text-[10px] px-2 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition flex items-center gap-1"
                 >
                   <Crosshair className="w-3 h-3" />
                   Zoom Fit
@@ -844,7 +828,7 @@ export const App: React.FC = () => {
           <>
             <div
               onPointerDown={startDockColumnResize('right')}
-              className="w-1.5 cursor-ew-resize hover:bg-indigo-400/50 transition flex-shrink-0 z-25"
+              className="w-1.5 cursor-ew-resize hover:bg-calcmap/50 transition flex-shrink-0 z-25"
             />
             <div
               style={{ width: rightDockWidth }}
@@ -871,7 +855,7 @@ export const App: React.FC = () => {
         {toast.isError ? (
           <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
         ) : (
-          <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-calcmap flex-shrink-0" />
         )}
         <div className="text-xs font-medium">{toast.visible ? toast.message : ''}</div>
       </div>

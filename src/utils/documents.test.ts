@@ -35,6 +35,12 @@ describe('mapped calculation documents', () => {
     expect(graph.calcNodes.filter((node) => node.id.startsWith('calc-doc-'))).toEqual([]);
   });
 
+  it('uses a neutral root label when no project name is available', () => {
+    const graph = buildCalculationGraph([], '');
+
+    expect(graph.calcNodes.find((node) => node.id === 'calc-root')?.label).toBe('Calculation Graph');
+  });
+
   it('preserves supplied document metadata without inventing revision history', () => {
     expect(getNodeDocuments(element('B1', [document]))).toEqual([document]);
     const withHistory = {

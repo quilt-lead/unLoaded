@@ -132,6 +132,19 @@ export function computeLoadPathTrace(
 
   const downstreamAdj = new Map<string, string[]>();
   const upstreamAdj = new Map<string, string[]>();
+  const addLoadPath = (sourceId: string, targetId: string) => {
+    const downstream = downstreamAdj.get(sourceId) || [];
+    if (!downstream.includes(targetId)) {
+      downstream.push(targetId);
+      downstreamAdj.set(sourceId, downstream);
+    }
+
+    const upstream = upstreamAdj.get(targetId) || [];
+    if (!upstream.includes(sourceId)) {
+      upstream.push(sourceId);
+      upstreamAdj.set(targetId, upstream);
+    }
+  };
 
   // Graphs built by @unloaded/element-graph carry explicit, directed load-path links
   // (source is supported by target). Use those as-is. Older hand-authored graphs only
@@ -145,11 +158,49 @@ export function computeLoadPathTrace(
     if (!s || !t || !isInstanceNode(s) || !isInstanceNode(t)) return;
 
     const oriented = hasDirectedLoadPath ? l : orientLoadLink(s, t, l);
-    if (!downstreamAdj.has(oriented.source)) downstreamAdj.set(oriented.source, []);
-    downstreamAdj.get(oriented.source)!.push(oriented.target);
+    addLoadPath(oriented.source, oriented.target);
+  });
 
-    if (!upstreamAdj.has(oriented.target)) upstreamAdj.set(oriented.target, []);
-    upstreamAdj.get(oriented.target)!.push(oriented.source);
+  const hasLoadPath = (fromId: string, toId: string) => {
+    const pending = [fromId];
+    const visited = new Set(pending);
+    while (pending.length > 0) {
+      const current = pending.pop()!;
+      if (current === toId) return true;
+      (downstreamAdj.get(current) || []).forEach((next) => {
+        if (!visited.has(next)) {
+          visited.add(next);
+          pending.push(next);
+        }
+      });
+    }
+    return false;
+  };
+
+  const stackMembers = new Map<string, BimNode[]>();
+  nodes.forEach((node) => {
+    if (!isInstanceNode(node) || !node.parent || !isColumnStackNode(nodeMap.get(node.parent))) return;
+    const members = stackMembers.get(node.parent) || [];
+    members.push(node);
+    stackMembers.set(node.parent, members);
+  });
+
+  stackMembers.forEach((members) => {
+    if (members.length < 2) return;
+    const hasFloorOrder = members.every((node) => typeof node.floorNum === 'number');
+    const hasHeightOrder = members.every((node) => typeof node.pos3d?.[1] === 'number');
+    if (!hasFloorOrder && !hasHeightOrder) return;
+
+    const ordered = [...members].sort((a, b) => {
+      const floorDelta = hasFloorOrder ? a.floorNum! - b.floorNum! : 0;
+      return floorDelta || (hasHeightOrder ? a.pos3d![1] - b.pos3d![1] : 0);
+    });
+
+    for (let i = 1; i < ordered.length; i++) {
+      const lower = ordered[i - 1]!;
+      const upper = ordered[i]!;
+      if (!hasLoadPath(upper.id, lower.id)) addLoadPath(upper.id, lower.id);
+    }
   });
 
   const maxSteps = traceSteps >= 16 ? Infinity : Math.max(1, traceSteps);
@@ -328,7 +379,7 @@ export function buildCalculationGraph(
   const rawCalcNodes: BimNode[] = [
     {
       id: 'calc-root',
-      label: `${projectName} Calcs`,
+      label: projectName ? `${projectName} Calcs` : 'Calculation Graph',
       type: 'Project',
       level: 0,
       floor: 'ALL',
@@ -336,7 +387,7 @@ export function buildCalculationGraph(
       r: 36,
       x: 0,
       y: 0,
-      color: '#312e81',
+      color: '#14AE5C',
       desc: `Structural Calculation Graph mapping ${docMetaMap.size} PDF calculation sheets to physical BIM elements.`,
     },
   ];
@@ -405,7 +456,7 @@ export function computeRadialLayout(rawNodes: BimNode[]): BimNode[] {
       x: Math.cos(fallbackAngle) * 320,
       y: Math.sin(fallbackAngle) * 320,
       r: n.r || (isProj ? 36 : isCategory ? 26 : 14),
-      color: n.color || '#312e81',
+      color: n.color || '#14AE5C',
     };
   });
 
@@ -593,7 +644,7 @@ export function normalizeGraphData(parsed: Partial<BimGraphData>, fallbackName: 
           r: 36,
           x: 0,
           y: 0,
-          color: '#312e81',
+          color: '#14AE5C',
           desc: `Root structural BIM model: ${projectLabel}`,
         },
         ...rawNodes,
@@ -686,7 +737,7 @@ export function computeDatabaseDiff(
       rawMergedNodes.push({
         ...a,
         diffStatus: status,
-        diffChanges: [{ field: 'Presence', before: 'Present in Base DB', after: 'Removed in Compare DB' }],
+        diffChanges: [{ field: 'Presence', before: 'Present in primary model', after: 'Removed from comparison model' }],
         diffBefore: a,
       });
     } else if (!a && b) {
@@ -695,13 +746,13 @@ export function computeDatabaseDiff(
       rawMergedNodes.push({
         ...b,
         diffStatus: status,
-        diffChanges: [{ field: 'Presence', before: 'Not in Base DB', after: 'Added in Compare DB' }],
+        diffChanges: [{ field: 'Presence', before: 'Not in primary model', after: 'Added to comparison model' }],
       });
     } else if (a && b) {
       if (isProjectNode(b)) {
         rawMergedNodes.push({
           ...b,
-          label: `${baseGraph.projectName || 'DB A'} vs ${compareGraph.projectName || 'DB B'}`,
+          label: `${baseGraph.projectName || 'Primary model'} vs ${compareGraph.projectName || 'Comparison model'}`,
           diffStatus: 'unchanged',
           diffChanges: [],
         });
@@ -741,8 +792,8 @@ export function computeDatabaseDiff(
     mergedRawLinks,
     mergedHierarchyLinks,
     summary: {
-      baseName: baseGraph.projectName || 'Base DB (A)',
-      compareName: compareGraph.projectName || 'Compare DB (B)',
+      baseName: baseGraph.projectName || 'Primary model',
+      compareName: compareGraph.projectName || 'Comparison model',
       addedCount,
       removedCount,
       modifiedCount,

@@ -74,10 +74,13 @@ describe('PropertyInspector data display', () => {
     expect(html).not.toContain('0 kN');
   });
 
-  it.each([['added', 'B'], ['removed', 'A']] as const)('explains %s elements as belonging to only one database', (diffStatus, database) => {
+  it.each([
+    ['added', 'This element exists only in the comparison model.'],
+    ['removed', 'This element exists only in the primary model.'],
+  ] as const)('explains %s elements as belonging to only one model', (diffStatus, explanation) => {
     const html = renderInspector({ ...beam, diffStatus });
 
-    expect(html).toContain(`This element exists only in DB ${database}.`);
+    expect(html).toContain(explanation);
     expect(html).not.toContain('No property changes');
   });
 });

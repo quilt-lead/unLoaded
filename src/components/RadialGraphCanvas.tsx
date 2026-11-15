@@ -8,7 +8,7 @@ import {
   isInstanceNode,
   isProjectNode,
 } from '../utils/graphEngine';
-import { getContrastingTextStyle, getEffectiveNodeColor } from '../utils/colors';
+import { getContrastingTextStyle, getGraphNodeColor } from '../utils/colors';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -335,8 +335,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         {selectedNodeIds.size > 1 && (
           <>
             <div className="h-4 w-px bg-white/[0.1] mx-0.5" />
-            <span className="mono text-[10px] px-2.5 h-7 rounded-lg bg-indigo-500/20 text-indigo-200 border border-indigo-400/40 flex items-center gap-1.5">
-              <Layers className="w-3 h-3 text-indigo-300" />
+            <span className="mono text-[10px] px-2.5 h-7 rounded-lg bg-calcmap/15 text-calcmap border border-calcmap/40 flex items-center gap-1.5">
+              <Layers className="w-3 h-3 text-calcmap" />
               <span>{selectedNodeIds.size} Selected</span>
               <button
                 type="button"
@@ -377,12 +377,9 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         {nodes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="bg-[#2d3139]/90 backdrop-blur-xl border border-white/[0.14] rounded-2xl px-6 py-5 text-center max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.85)]">
-              <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
-                No BIM / IFC Model Loaded
-              </p>
-              <h3 className="text-sm font-semibold text-white">Import an IFC or JSON Graph</h3>
+              <h3 className="text-sm font-semibold text-white">Import a structural model</h3>
               <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                Click <span className="text-zinc-200 font-medium">Import IFC / DB</span> in the top-right bar to load a raw <code className="text-indigo-300">.ifc</code> STEP file or <code className="text-indigo-300">.json</code> structural graph, or drop the file anywhere on the window.
+                Choose <span className="text-zinc-200 font-medium">Import</span> in the top-right bar, or drop a model file anywhere on the window.
               </p>
             </div>
           </div>
@@ -481,8 +478,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       ry={cornerR}
                       onPointerDown={handleSelectWholeGroup}
                       className="cursor-pointer"
-                      fill={isGroupSelected ? 'rgba(99, 102, 241, 0.11)' : 'rgba(255, 255, 255, 0.035)'}
-                      stroke={isGroupSelected ? '#818cf8' : 'rgba(255, 255, 255, 0.55)'}
+                      fill={isGroupSelected ? 'rgba(20, 174, 92, 0.11)' : 'rgba(255, 255, 255, 0.035)'}
+                      stroke={isGroupSelected ? '#D2F2DF' : 'rgba(255, 255, 255, 0.55)'}
                       strokeWidth={isGroupSelected ? 2.0 : 1.4}
                       strokeDasharray="6 4"
                     />
@@ -508,7 +505,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                             if (e.key === 'Enter') commitRename();
                             if (e.key === 'Escape') setEditingGroupId(null);
                           }}
-                          className="w-full h-5 px-2 rounded bg-[#181b20] text-white mono text-[10px] font-semibold border border-indigo-400 focus:outline-none shadow-lg"
+                          className="w-full h-5 px-2 rounded bg-[#181b20] text-white mono text-[10px] font-semibold border border-calcmap focus:outline-none shadow-lg"
                         />
                       </foreignObject>
                     ) : (
@@ -524,8 +521,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                           height={badgeHeight}
                           rx={5}
                           ry={5}
-                          fill={isGroupSelected ? '#4f46e5' : '#2d3139'}
-                          stroke={isGroupSelected ? '#a5b4fc' : 'rgba(255, 255, 255, 0.35)'}
+                          fill={isGroupSelected ? '#14AE5C' : '#2d3139'}
+                          stroke={isGroupSelected ? '#D2F2DF' : 'rgba(255, 255, 255, 0.35)'}
                           strokeWidth={1}
                         />
                         <text
@@ -550,7 +547,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                             x={6}
                             y={9.2}
                             textAnchor="middle"
-                            fill="#e0e7ff"
+                            fill="#14AE5C"
                             fontSize="8px"
                             fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                           >
@@ -579,7 +576,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                     d={computeCenterToCenterSplinePath(s, t)}
                     fill="none"
                     strokeLinecap="round"
-                    stroke={isConn && (hasSelection || isFilterActive) ? '#bef264' : 'rgba(255, 255, 255, 0.16)'}
+                    stroke={isConn && (hasSelection || isFilterActive) ? '#FFFFFF' : 'rgba(255, 255, 255, 0.16)'}
                     strokeWidth={isConn && hasSelection ? 1.85 : 1.05}
                     style={{
                       opacity: dimmed ? 0.06 : 1,
@@ -600,7 +597,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const isProj = isProjectNode(node);
                 const isCategory = isElementTypeNode(node);
                 const isStack = isColumnStackNode(node);
-                const fillHex = getEffectiveNodeColor(node, heatmapMode, diffMode);
+                const fillHex = getGraphNodeColor(node, heatmapMode, diffMode);
                 const textStyle = getContrastingTextStyle(fillHex);
                 const displayLabel = isStack ? node.colNumber || node.label : node.label;
 
@@ -619,9 +616,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       <circle
                         r={node.r + 6}
                         fill="none"
-                        stroke={isPrimary ? '#ffffff' : '#38bdf8'}
+                        stroke="#D2F2DF"
                         strokeWidth={1.75}
-                        strokeDasharray="4 3"
                       />
                     )}
                     <circle
@@ -630,7 +626,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       fillOpacity={1}
                       stroke={
                         isSelected
-                          ? '#ffffff'
+                          ? '#14AE5C'
                           : isProj
                           ? '#ffffff'
                           : isCategory
@@ -663,7 +659,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
       {/* Canvas Hint Footer */}
       <div className="absolute bottom-4 left-4 pointer-events-none hidden sm:flex items-center space-x-3 text-[11px] text-zinc-400 bg-[#2d3139]/92 px-3.5 py-1.5 rounded-xl border border-white/[0.12] backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.8)]">
         <span className="flex items-center gap-1.5">
-          <Move className="w-3 h-3 text-indigo-400" />
+          <Move className="w-3 h-3 text-calcmap" />
           MMB / RMB Drag: Pan
         </span>
         <span className="text-zinc-700">|</span>

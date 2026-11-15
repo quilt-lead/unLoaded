@@ -66,7 +66,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
   const utilPct = typeof node.utilization === 'number' && Number.isFinite(node.utilization)
     ? Math.round(node.utilization * 100)
     : null;
-  const utilColor = utilPct !== null ? getHeatmapColor(node.utilization) : '#6366f1';
+  const utilColor = utilPct !== null ? getHeatmapColor(node.utilization) : '#71717a';
 
   const connectedLinks = links.filter((l) => l.source === node.id || l.target === node.id);
   const hierarchyIds = connectedLinks
@@ -214,10 +214,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       })()}
 
       {multiList.length > 1 && (
-        <div className="bg-indigo-500/15 border border-indigo-400/35 rounded-xl p-2.5 space-y-1.5">
+        <div className="bg-calcmap/15 border border-calcmap/35 rounded-xl p-2.5 space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="mono text-[10px] font-semibold text-indigo-200 uppercase tracking-wider flex items-center gap-1">
-              <Layers className="w-3 h-3 text-indigo-300" />
+            <span className="mono text-[10px] font-semibold text-calcmap uppercase tracking-wider flex items-center gap-1">
+              <Layers className="w-3 h-3 text-calcmap" />
               {multiList.length} Elements Selected
             </span>
             <button
@@ -238,7 +238,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                 className={`mono text-[9px] px-1.5 py-0.5 rounded cursor-pointer border ${
                   mn.id === node.id
                     ? 'bg-white text-zinc-900 border-white font-semibold'
-                    : 'bg-black/40 text-zinc-200 border-white/15 hover:border-indigo-400/50'
+                    : 'bg-black/40 text-zinc-200 border-white/15 hover:border-calcmap/50'
                 }`}
               >
                 {mn.label}
@@ -249,7 +249,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <span className="mono text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-400/25">
+        <span className="mono text-[10px] font-medium px-2 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25">
           {displayType}
         </span>
         {node.floor && node.floor !== 'ALL' && (
@@ -267,7 +267,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
         </p>
       </div>
 
-      {/* Database Diff Comparison Card (DB A vs DB B) */}
+      {/* Model comparison card */}
       {diffMode && node.diffStatus && (
         <div
           className="rounded-xl p-2.5 border space-y-2"
@@ -286,7 +286,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             >
               DIFF: {node.diffStatus.toUpperCase()}
             </span>
-            <span className="mono text-[9px] text-zinc-400">DB A → DB B</span>
+            <span className="mono text-[9px] text-zinc-400">Primary → comparison</span>
           </div>
 
           {node.diffChanges && node.diffChanges.length > 0 ? (
@@ -305,10 +305,10 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
           ) : (
             <p className="text-[11px] text-zinc-400 italic">
               {node.diffStatus === 'added'
-                ? 'This element exists only in DB B.'
+                ? 'This element exists only in the comparison model.'
                 : node.diffStatus === 'removed'
-                  ? 'This element exists only in DB A.'
-                  : 'No property changes between DB A and DB B.'}
+                  ? 'This element exists only in the primary model.'
+                  : 'No property changes between the primary and comparison models.'}
             </p>
           )}
         </div>
@@ -378,7 +378,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
             <button
               type="button"
               onClick={() => onOpenDocument(node.id)}
-              className="mono text-[9px] text-indigo-300 hover:text-white underline"
+              className="mono text-[9px] text-calcmap hover:text-white underline"
             >
               PDF Viewer →
             </button>
@@ -506,7 +506,7 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = ({
                   />
                   <span className="text-[11px] font-medium text-zinc-200 truncate">{cn.label}</span>
                 </span>
-                <span className="mono text-[9px] text-indigo-400 flex-shrink-0">
+                <span className="mono text-[9px] text-calcmap flex-shrink-0">
                   {cn.floor && cn.floor !== 'ALL' ? cn.floor : getDisplayType(cn)}
                 </span>
               </button>

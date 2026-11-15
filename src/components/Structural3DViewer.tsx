@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { BimNode } from '../types/bim';
-import { DIFF_PALETTE, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
+import { getGraphNodeColor } from '../utils/colors';
 import { isColumnStackNode, isElementTypeNode, isInstanceNode, isProjectNode } from '../utils/graphEngine';
 import { Structural3DControls } from './Structural3DControls';
 
@@ -135,12 +135,12 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
     const height = container.clientHeight || 220;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x2a2e36);
-    scene.fog = new THREE.FogExp2(0x2a2e36, 0.00038);
+    scene.background = new THREE.Color(0x2d3139);
+    scene.fog = new THREE.FogExp2(0x2d3139, 0.00038);
 
     const camera = new THREE.PerspectiveCamera(40, width / height, 1.0, 4500);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setClearColor(0x2a2e36, 1);
+    renderer.setClearColor(0x2d3139, 1);
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -260,9 +260,8 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         geomCache.set(geomKey, cached);
       }
 
-      const resolvedHex = getEffectiveNodeColor(node, false);
+      const resolvedHex = getGraphNodeColor(node, false);
       const baseColor = new THREE.Color(resolvedHex);
-      const heatColor = new THREE.Color(getHeatmapColor(node.utilization));
       const isSlab = node.parent === 'cat-slab' || (node.ifcType || '').toUpperCase() === 'IFCSLAB';
 
       const mat = new THREE.MeshStandardMaterial({
@@ -288,7 +287,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       const wireframe = new THREE.LineSegments(cached.edges, lineMat);
       mesh.add(wireframe);
 
-      mesh.userData = { nodeId: node.id, node, baseColor, heatColor, isSlab, wireframe };
+      mesh.userData = { nodeId: node.id, node, isSlab, wireframe };
       rootGroup.add(mesh);
       st.meshMap.set(node.id, mesh);
     });
@@ -308,12 +307,8 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         const wf = mesh.userData.wireframe as THREE.LineSegments;
         const wfMat = wf.material as THREE.LineBasicMaterial;
         const nodeObj = mesh.userData.node as BimNode;
+        const activeColor = new THREE.Color(getGraphNodeColor(nodeObj, heatmapMode, diffMode));
         const diffStatus = diffMode ? nodeObj.diffStatus : undefined;
-        const activeColor = diffStatus
-          ? new THREE.Color(DIFF_PALETTE[diffStatus])
-          : heatmapMode
-          ? mesh.userData.heatColor
-          : mesh.userData.baseColor;
         const matchesFilter = !isFilterActive || matchingNodeIds.has(id);
         const isSlab = mesh.userData.isSlab;
 
@@ -358,10 +353,10 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
           mat.transparent = true;
           mat.depthWrite = false;
           mesh.renderOrder = 0;
-          mat.color.setHex(0x3b404b);
-          mat.emissive.setHex(0x24272d);
+          mat.color.copy(activeColor);
+          mat.emissive.copy(activeColor);
           mat.emissiveIntensity = 0.04;
-          mat.opacity = 0.07;
+          mat.opacity = 0.15;
           mat.needsUpdate = true;
           wfMat.color.setHex(0x94a3b8);
           wfMat.opacity = 0.22;
@@ -398,14 +393,15 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
       const isPrimary = selectedSet.has(id);
       const isLit = litIds.has(id);
       const isSlab = mesh.userData.isSlab;
-      const heatOrBase = heatmapMode ? mesh.userData.heatColor : mesh.userData.baseColor;
+      const nodeObj = mesh.userData.node as BimNode;
+      const activeColor = new THREE.Color(getGraphNodeColor(nodeObj, heatmapMode, diffMode));
 
       if (isPrimary) {
         mat.transparent = false;
         mat.depthWrite = true;
         mesh.renderOrder = 3;
-        mat.color.setHex(0xffffff);
-        mat.emissive.copy(heatOrBase);
+        mat.color.copy(activeColor);
+        mat.emissive.copy(activeColor);
         mat.emissiveIntensity = 1.15;
         mat.opacity = 1.0;
         mat.needsUpdate = true;
@@ -415,9 +411,9 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         mat.transparent = isSlab;
         mat.depthWrite = !isSlab;
         mesh.renderOrder = isSlab ? 1 : 2;
-        mat.color.copy(heatOrBase);
-        mat.emissive.copy(heatmapMode ? mesh.userData.heatColor : new THREE.Color(0xbef264));
-        mat.emissiveIntensity = isSlab ? 0.42 : 0.85;
+        mat.color.copy(activeColor);
+        mat.emissive.copy(activeColor);
+        mat.emissiveIntensity = isSlab ? 0.3 : 0.55;
         mat.opacity = isSlab ? 0.42 : 1.0;
         mat.needsUpdate = true;
         wfMat.color.setHex(0xffffff);
@@ -426,10 +422,10 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
         mat.transparent = true;
         mat.depthWrite = false;
         mesh.renderOrder = 0;
-        mat.color.setHex(0x3b404b);
-        mat.emissive.setHex(0x24272d);
+        mat.color.copy(activeColor);
+        mat.emissive.copy(activeColor);
         mat.emissiveIntensity = 0.04;
-        mat.opacity = 0.05;
+        mat.opacity = 0.15;
         mat.needsUpdate = true;
         wfMat.color.setHex(0x94a3b8);
         wfMat.opacity = 0.18;

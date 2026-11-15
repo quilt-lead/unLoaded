@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   CircleDot,
   Calculator,
@@ -6,12 +6,14 @@ import {
   FileText,
   Flame,
   Upload,
-  Minimize2,
   GitCompareArrows,
   ArrowLeftRight,
   X,
 } from 'lucide-react';
 import { DatabaseDiffSummary, WorkspaceView } from '../types/bim';
+
+const WORKSPACE_VIEW_ORDER: WorkspaceView[] = ['element-graph', 'calculation-graph', '3d', 'docs'];
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 interface HeaderBarProps {
   projectName: string;
@@ -25,7 +27,6 @@ interface HeaderBarProps {
   diffSummary: DatabaseDiffSummary | null;
   onSwapDatabases: () => void;
   onClearDiff: () => void;
-  onResetAll: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -40,10 +41,37 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   diffSummary,
   onSwapDatabases,
   onClearDiff,
-  onResetAll,
 }) => {
   const baseFileInputRef = useRef<HTMLInputElement | null>(null);
   const compareFileInputRef = useRef<HTMLInputElement | null>(null);
+  const viewNavRef = useRef<HTMLElement | null>(null);
+  const viewButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const activeViewIndex = WORKSPACE_VIEW_ORDER.indexOf(activeView);
+
+  useIsomorphicLayoutEffect(() => {
+    const nav = viewNavRef.current;
+    const button = viewButtonRefs.current[activeViewIndex];
+    if (!nav || !button) return;
+
+    const updateIndicator = () => {
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      setIndicatorStyle({
+        left: buttonRect.left - navRect.left - nav.clientLeft,
+        width: buttonRect.width,
+      });
+    };
+
+    updateIndicator();
+    const resizeObserver = new ResizeObserver(updateIndicator);
+    resizeObserver.observe(nav);
+    viewButtonRefs.current.forEach((viewButton) => {
+      if (viewButton) resizeObserver.observe(viewButton);
+    });
+
+    return () => resizeObserver.disconnect();
+  }, [activeViewIndex]);
 
   return (
     <header className="apple-glass-chrome border-b border-white/[0.08] px-5 py-2.5 flex items-center justify-between gap-4 overflow-x-auto shadow-[0_4px_12px_rgba(0,0,0,0.24)] z-30 flex-shrink-0">
@@ -53,32 +81,42 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           alt="CalcMap"
           width={1888}
           height={580}
-          className="w-28 max-h-9 h-auto object-contain flex-shrink-0"
+          draggable={false}
+          className="w-28 max-h-9 h-auto object-contain flex-shrink-0 select-none"
         />
         <div className="min-w-0">
-          <h1 className="font-medium text-xs text-zinc-300 tracking-tight flex items-center gap-2 truncate">
-            <span className="truncate">{projectName}</span>
-            {diffSummary && (
-              <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
-                DIFF MODE
-              </span>
-            )}
-          </h1>
+          {(projectName || diffSummary) && (
+            <h1 className="font-medium text-xs text-zinc-300 tracking-tight flex items-center gap-2 truncate">
+              {projectName && <span className="truncate">{projectName}</span>}
+              {diffSummary && (
+                <span className="mono text-[10px] font-semibold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-400/35 tracking-wider flex-shrink-0">
+                  DIFF MODE
+                </span>
+              )}
+            </h1>
+          )}
         </div>
       </div>
 
       {/* Center Dual-Graph + 3D + PDF Browser View Switcher */}
       <nav
+        ref={viewNavRef}
         aria-label="Primary Workspace Views"
-        className="flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0"
+        className="relative flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0"
       >
+        <span
+          aria-hidden="true"
+          className="workspace-view-indicator absolute top-1 bottom-1 z-0 rounded-lg bg-white/[0.10] border border-white/[0.22] pointer-events-none"
+          style={{ width: indicatorStyle.width, transform: `translateX(${indicatorStyle.left}px)` }}
+        />
         <button
+          ref={(button) => { viewButtonRefs.current[0] = button; }}
           type="button"
           onClick={() => onChangeView('element-graph')}
           aria-pressed={activeView === 'element-graph'}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             activeView === 'element-graph'
-              ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+              ? 'text-white border border-transparent'
               : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
           }`}
         >
@@ -87,12 +125,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
 
         <button
+          ref={(button) => { viewButtonRefs.current[1] = button; }}
           type="button"
           onClick={() => onChangeView('calculation-graph')}
           aria-pressed={activeView === 'calculation-graph'}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             activeView === 'calculation-graph'
-              ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+              ? 'text-white border border-transparent'
               : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
           }`}
         >
@@ -104,12 +143,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
 
         <button
+          ref={(button) => { viewButtonRefs.current[2] = button; }}
           type="button"
           onClick={() => onChangeView('3d')}
           aria-pressed={activeView === '3d'}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             activeView === '3d'
-              ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+              ? 'text-white border border-transparent'
               : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
           }`}
         >
@@ -118,12 +158,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
 
         <button
+          ref={(button) => { viewButtonRefs.current[3] = button; }}
           type="button"
           onClick={() => onChangeView('docs')}
           aria-pressed={activeView === 'docs'}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          className={`relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             activeView === 'docs'
-              ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+              ? 'text-white border border-transparent'
               : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
           }`}
         >
@@ -135,7 +176,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </button>
       </nav>
 
-      {/* Right Heatmap, Dual-Database Import (DB A + DB B Diff) & Reset */}
+      {/* Workspace actions */}
       <div className="flex items-center space-x-2 flex-shrink-0">
         {!diffSummary && (
           <button
@@ -146,7 +187,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="Color elements by axial load & demand-capacity heatmap"
             className={
               heatmapMode
-                ? 'bg-amber-500/20 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/40 shadow-[0_0_16px_rgba(245,158,11,0.25)]'
+                ? 'bg-amber-500/20 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/40'
                 : 'bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14]'
             }
           >
@@ -155,22 +196,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           </button>
         )}
 
-        {/* Base DB (A) */}
         <button
           type="button"
           onClick={() => baseFileInputRef.current?.click()}
-          title="Load Primary / Base Database (DB A: .ifc or .json)"
-          className="bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.1] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] hover:border-indigo-400/40 cursor-pointer shadow-inner"
+          title="Import a structural model"
+          className="bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.1] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] hover:border-calcmap/40 cursor-pointer shadow-inner"
         >
-          <Upload className="w-3.5 h-3.5 text-indigo-400" />
-          <span>{diffSummary ? 'DB A' : 'Import IFC / DB'}</span>
+          <Upload className="w-3.5 h-3.5 text-calcmap" />
+          <span>Import</span>
         </button>
         <input
           ref={baseFileInputRef}
           type="file"
           accept=".json,.ifc,application/json"
           className="hidden"
-          aria-label="Import base database"
+          aria-label="Import model"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) onUploadFile(f, 'base');
@@ -182,35 +222,34 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <button
             type="button"
             onClick={onSwapDatabases}
-            aria-label="Swap base and compare databases"
-            title="Swap Base DB (A) and Compare DB (B)"
-            className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35"
+            aria-label="Swap compared models"
+            title="Swap compared models"
+            className="bg-calcmap/15 hover:bg-calcmap/25 text-calcmap px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-calcmap/35"
           >
-            <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-300" />
-            <span className="hidden xl:inline">Swap A↔B</span>
+            <ArrowLeftRight className="w-3.5 h-3.5 text-calcmap" />
+            <span className="hidden xl:inline">Swap models</span>
           </button>
         )}
 
-        {/* Compare DB (B) for Diff */}
         <button
           type="button"
           onClick={() => compareFileInputRef.current?.click()}
-          title="Select Second Database (DB B) to run a full structural diff across Graph, 3D & PDFs"
+          title="Choose a second model to compare"
           className={
             diffSummary
-              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/45 cursor-pointer shadow-[0_0_14px_rgba(245,158,11,0.2)]'
+              ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-amber-400/45 cursor-pointer'
               : 'bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] hover:border-amber-400/40 cursor-pointer'
           }
         >
           <GitCompareArrows className="w-3.5 h-3.5 text-amber-400" />
-          <span>{diffSummary ? 'DB B' : 'Compare DB'}</span>
+          <span>Compare</span>
         </button>
         <input
           ref={compareFileInputRef}
           type="file"
           accept=".json,.ifc,application/json"
           className="hidden"
-          aria-label="Import compare database"
+          aria-label="Import comparison model"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) onUploadFile(f, 'compare');
@@ -223,23 +262,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             type="button"
             onClick={onClearDiff}
             aria-label="Exit diff mode"
-            title="Exit Diff Mode and return to Base DB (A)"
+            title="Exit comparison and return to the primary model"
             className="bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-rose-400/35"
           >
             <X className="w-3.5 h-3.5" />
             <span className="hidden xl:inline">Exit Diff</span>
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={onResetAll}
-          title="Reset View & Filters"
-          aria-label="Reset view, filters and panels"
-          className="bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.1] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] hover:border-white/20"
-        >
-          <Minimize2 className="w-3.5 h-3.5 text-zinc-400" />
-        </button>
       </div>
     </header>
   );

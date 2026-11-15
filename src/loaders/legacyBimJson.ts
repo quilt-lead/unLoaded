@@ -88,7 +88,7 @@ export function normalizeImportedJsonGraph(parsed: any, fileName: string): { gra
       r: 36,
       x: 0,
       y: 0,
-      color: '#312e81',
+      color: '#14AE5C',
       desc: `Imported BIM model (${rawNodes.length} elements).`,
     },
   ];

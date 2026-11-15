@@ -164,15 +164,15 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search PDFs, codes, members…"
-              className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
+              className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-calcmap/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 min-[900px]:grid-cols-12 overflow-hidden min-h-0">
         {/* Document List */}
-        <div className="lg:col-span-5 xl:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
+        <div className="min-w-0 min-h-0 min-[900px]:col-span-5 min-[1280px]:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
           {filteredDocs.length === 0 ? (
             <div className="text-center py-12 text-zinc-500">
               <FileQuestion className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
@@ -197,9 +197,9 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                     setSelectedDocId(doc.id);
                     setSelectedRevision(null);
                   }}
-                  className={`block w-full text-left p-3 rounded-xl cursor-pointer transition border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+                  className={`block w-full text-left p-3 rounded-xl cursor-pointer transition border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
                     isActive
-                      ? 'bg-indigo-500/15 border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+                      ? 'bg-calcmap/15 border-calcmap/40'
                       : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
                   }`}
                 >
@@ -259,7 +259,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
         </div>
 
         {/* Document Preview & Revision Selector */}
-        <div className="lg:col-span-7 xl:col-span-8 overflow-y-auto p-6 bg-[#252729] flex flex-col">
+        <div className="min-w-0 min-h-0 min-[900px]:col-span-7 min-[1280px]:col-span-8 overflow-y-auto p-4 bg-[#252729] flex flex-col">
           {!activeDoc || !activeRevision ? (
             <div className="flex-1 flex items-center justify-center text-zinc-600 text-xs">
               Select a calculation PDF from the left panel to preview its engineering sheet.
@@ -308,7 +308,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               {revisions.length > 0 && (
                 <div className="px-5 py-2 border-b border-white/[0.08] bg-[#1e2127]/60 flex items-center justify-between gap-2">
                   <span className="mono text-[10px] text-zinc-400 flex items-center gap-1.5">
-                    <History className="w-3 h-3 text-indigo-400" />
+                    <History className="w-3 h-3 text-calcmap" />
                     PDF Versions ({revisions.length}):
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -322,7 +322,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           aria-pressed={isCurr}
                           className={`mono text-[10px] px-2.5 py-0.5 rounded-md border transition ${
                             isCurr
-                              ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'
+                              ? 'bg-calcmap/15 text-calcmap border-calcmap/45 font-semibold'
                               : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
                           }`}
                         >
@@ -338,7 +338,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                 <div className="border border-white/[0.14] rounded-xl p-5 bg-[#05070c] relative overflow-hidden">
                   <div className="flex items-start justify-between gap-4 border-b border-white/[0.12] pb-4">
                     <div>
-                      <p className="mono text-[10px] text-indigo-400 uppercase tracking-widest mb-1">
+                      <p className="mono text-[10px] text-calcmap uppercase tracking-widest mb-1">
                         {activeDoc.type} // {activeDoc.code}
                       </p>
                       <h3 className="text-base font-bold text-white tracking-tight">{activeDoc.title}</h3>
@@ -361,7 +361,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           key={el.id}
                           type="button"
                           onClick={() => onLocateElement(el.id, 'element-graph')}
-                          className="mono text-[10px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-indigo-500/20 text-zinc-200 border border-white/[0.12] hover:border-indigo-400/40 transition flex items-center gap-1.5"
+                          className="mono text-[10px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-calcmap/20 text-zinc-200 border border-white/[0.12] hover:border-calcmap/40 transition flex items-center gap-1.5"
                         >
                           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: activeDoc.nodeColor }} />
                           <span>{el.label}</span>
