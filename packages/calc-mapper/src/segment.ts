@@ -13,10 +13,15 @@
  * Two deliberate changes from the mockup: software named in the title wins over software the
  * body cites, and the element type falls back to the line directly UNDER the title line (the
  * mockup took the page's second line, which is the title itself once a page has a running header).
+ *
+ * Every calc carries provenance: the segmentation rule that made it (a scanned run, front matter, or
+ * a calc title) and the sha256 of the PDF its pages come from (each page's `doc_sha256`).
  */
+import { sheetRect } from "./frames.ts";
 import { rectsForSpan } from "./pdf.ts";
 import { sha1Json } from "./hash.ts";
-import type { Calc, CalcPackage, CalcPage, ElementCategory, TitleBox } from "./types.ts";
+import { RULES, inputList, ruleProvenance } from "./provenance.ts";
+import type { Calc, CalcPackage, CalcPage, CalcRegion, CalcSpan, ElementCategory, TitleBox } from "./types.ts";
 
 const SOFTWARE: [RegExp, string][] = [
   [/RAM\s*CONCEPT/i, "RAM Concept"], [/RAM\s*(STRUCTURAL|STEEL|FRAME|ELEMENTS)/i, "RAM Structural System"],
@@ -63,17 +68,20 @@ function slug(s: string): string {
   return base.slice(0, 60) || "calc";
 }
 
-/** Where a calc's title sits on its first page (the title line's word boxes, or the whole page, saying why). */
-export function titleBox(page: CalcPage, title: string, scanned = false, front = false): TitleBox {
+/**
+ * Where a calc's title sits on its first page (the title line's word boxes, or the whole page, saying
+ * why). `from` = where the calc starts in the page text (0 = top of page; > 0 for a calc that starts mid-page).
+ */
+export function titleBox(page: CalcPage, title: string, scanned = false, front = false, from = 0): TitleBox {
   const whole = (note: string): TitleBox => ({
-    page: page.n, rects: [[0, 0, round2(page.width), round2(page.height)]], span: null, rule: TITLE_BOX_RULE, note,
+    page: page.n, rects: [sheetRect(0, 0, round2(page.width), round2(page.height))], span: null, rule: TITLE_BOX_RULE, note,
   });
   if (scanned) return whole("scanned page, no text layer: located by the whole page");
   if (front) return whole("front matter / contents page: located by the whole page");
   const want = norm(title);
-  let pos = 0;
+  let pos = from;
   let seen = 0;
-  for (const line of page.text.split("\n")) {
+  for (const line of page.text.slice(from).split("\n")) {
     const start = pos;
     pos += line.length + 1;
     if (!line.trim()) continue;
@@ -92,48 +100,144 @@ export function titleBox(page: CalcPage, title: string, scanned = false, front =
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
 
+interface Part {
+  page: CalcPage;
+  start: number;
+  end: number;
+  text: string;
+}
+
 interface Building {
   title: string;
   software: string;
   cat: ElementCategory | "";
-  pages: number[];
+  parts: Part[];
   scanned: boolean;
   front: boolean;
   text: string;
 }
 
-/** Segment pages (from extractPdf) into calcs. Returns the calcs with keys, software, category, title boxes. */
+/** Height of the tallest word on [start, end) of the page (a proxy for the line's font size). */
+function lineHeight(page: CalcPage, start: number, end: number): number {
+  let h = 0;
+  for (const [, y0, , y1, s] of page.words) if (s >= start && s < end) h = Math.max(h, y1 - y0);
+  return h;
+}
+
+/** A heading line this much taller than the page's typical line starts a new calc mid-page. */
+export const HEADING_RATIO = 1.2;
+/** ... and, when the page has a leading title, at least this fraction of that title's height. */
+export const TITLE_HEIGHT_RATIO = 0.9;
+
+/**
+ * Cut a page into parts at mid-page calc titles: a line below the page's leading title that reads as
+ * a calc title (titleOf) AND is set as a heading - taller than HEADING_RATIO x the page's median line
+ * and, when the page has a leading title, set about as large as it (TITLE_HEIGHT_RATIO). A body line
+ * that merely contains a title keyword ("design", "bracing") is not a heading. A page with no such
+ * line is one part (the whole page).
+ */
+export function pageParts(page: CalcPage): Part[] {
+  const lines: { start: number; end: number; text: string; h: number }[] = [];
+  let pos = 0;
+  for (const line of page.text.split("\n")) {
+    if (line.trim()) lines.push({ start: pos, end: pos + line.length, text: line, h: lineHeight(page, pos, pos + line.length) });
+    pos += line.length + 1;
+  }
+  const hs = lines.map((l) => l.h).filter((h) => h > 0).sort((p, q) => p - q);
+  const median = hs.length ? hs[Math.floor((hs.length - 1) / 2)]! : 0;
+  const lead = titleOf(page.text);
+  const leadIdx = lead ? lines.slice(0, 6).findIndex((l) => norm(titleOf(l.text)) === norm(lead)) : -1;
+  const leadH = leadIdx >= 0 ? lines[leadIdx]!.h : 0;
+  const cuts: number[] = [];
+  lines.forEach((l, i) => {
+    if (i === 0 || i <= leadIdx || !median) return;
+    if (l.h >= HEADING_RATIO * median && l.h >= TITLE_HEIGHT_RATIO * leadH && titleOf(l.text)) cuts.push(l.start);
+  });
+  const bounds = [0, ...cuts, page.text.length];
+  const parts: Part[] = [];
+  for (let i = 0; i + 1 < bounds.length; i++) {
+    const start = bounds[i]!, end = bounds[i + 1]!;
+    parts.push({ page, start, end, text: page.text.slice(start, end) });
+  }
+  return parts;
+}
+
+const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+function regionOf(p: Part): CalcRegion {
+  const { page, start, end } = p;
+  const full = start === 0 && end >= page.text.length;
+  let y0 = Infinity, y1 = -Infinity;
+  for (const [, wy0, , wy1, s] of page.words) {
+    if (s >= start && s < end) {
+      y0 = Math.min(y0, wy0);
+      y1 = Math.max(y1, wy1);
+    }
+  }
+  const top = start === 0 || !Number.isFinite(y0) ? 0 : Math.max(0, round1(y0 - 4));
+  const bottom = end >= page.text.length || !Number.isFinite(y1) ? round2(page.height) : Math.min(round2(page.height), round1(y1 + 4));
+  return { page: page.n, rect: sheetRect(0, full ? 0 : top, round2(page.width), full ? round2(page.height) : bottom), start, end };
+}
+
+/** Regions in reading order -> spans: a region continues the span when it picks up exactly where the last one stopped. */
+function spansOf(parts: Part[]): CalcSpan[] {
+  const spans: CalcSpan[] = [];
+  let prev: Part | null = null;
+  for (const p of parts) {
+    const continues = prev !== null && (
+      (p.page.n === prev.page.n && p.start === prev.end) ||
+      (p.page.n === prev.page.n + 1 && prev.end >= prev.page.text.length && p.start === 0));
+    if (!continues) spans.push({ regions: [] });
+    spans[spans.length - 1]!.regions.push(regionOf(p));
+    prev = p;
+  }
+  return spans;
+}
+
+/**
+ * Segment pages (from extractPdf) into calcs: keys, software, category, title boxes, and the calc's
+ * spans of page regions. Rules of the reference segmenter, applied to page PARTS (a page cut at
+ * mid-page calc titles; a page without one is one part), plus: a part titled like an EARLIER calc
+ * (not the current one) continues that calc after a gap, as a new span.
+ */
 export function segment(pages: CalcPage[]): Calc[] {
   const calcs: Building[] = [];
   let cur: Building | null = null;
   const push = (title: string, scanned = false): Building => {
-    const c: Building = { title, software: "", cat: "", pages: [], scanned, front: false, text: "" };
+    const c: Building = { title, software: "", cat: "", parts: [], scanned, front: false, text: "" };
     calcs.push(c);
     return c;
   };
   for (const pg of pages) {
-    const t = pg.text.trim();
-    if (t.length < 25) {
+    const whole = pg.text.trim();
+    if (whole.length < 25) {
       if (!cur || !cur.scanned) cur = push("Scanned page(s) - no text layer", true);
-      cur.pages.push(pg.n);
+      cur.parts.push({ page: pg, start: 0, end: pg.text.length, text: pg.text });
       continue;
     }
-    if ((t.match(TOC) ?? []).length >= 3) {
+    if ((whole.match(TOC) ?? []).length >= 3) {
       cur = push("Front matter / contents");
       cur.front = true;
-      cur.pages.push(pg.n);
-      cur.text += "\n" + t;
+      cur.parts.push({ page: pg, start: 0, end: pg.text.length, text: pg.text });
+      cur.text += "\n" + whole;
       continue;
     }
-    const title = titleOf(t);
-    if (!cur || cur.scanned || cur.front || (title && norm(title) !== norm(cur.title))) {
-      cur = push(title || (cur ? cur.title + " (cont.)" : "Front matter"));
+    for (const part of pageParts(pg)) {
+      const t = part.text.trim();
+      const title = titleOf(t);
+      if (cur && !cur.scanned && !cur.front && title && norm(title) !== norm(cur.title)) {
+        // titled like an earlier calc: that calc continues here (a gap -> a new span)
+        const earlier = calcs.find((c) => !c.scanned && !c.front && norm(c.title) === norm(title));
+        if (earlier) cur = earlier;
+      }
+      if (!cur || cur.scanned || cur.front || (title && norm(title) !== norm(cur.title))) {
+        cur = push(title || (cur ? cur.title + " (cont.)" : "Front matter"));
+      }
+      cur.parts.push(part);
+      cur.text += "\n" + t;
     }
-    cur.pages.push(pg.n);
-    cur.text += "\n" + t;
   }
 
-  const byN = new Map(pages.map((p) => [p.n, p]));
   const seen = new Map<string, number>();
   let nScanned = 0;
   return calcs.map((c, ord) => {
@@ -161,21 +265,47 @@ export function segment(pages: CalcPage[]): Calc[] {
       }
       c.cat = catOfText(c.title) || catOfText(under);
     }
-    const first = byN.get(c.pages[0]!)!;
+    const first = c.parts[0]!;
+    const rule = c.scanned ? RULES.segment.scanned : c.front ? RULES.segment.front : RULES.segment.calc;
     return {
-      key, ord, title: c.title, software: c.software, cat: c.cat, pages: c.pages, scanned: c.scanned, front: c.front,
-      title_box: titleBox(first, c.title, c.scanned, c.front), content_hash: sha1Json([c.title, c.text]),
+      key, ord, title: c.title, software: c.software, cat: c.cat, pages: [...new Set(c.parts.map((p) => p.page.n))],
+      scanned: c.scanned, front: c.front, title_box: titleBox(first.page, c.title, c.scanned, c.front, first.start),
+      content_hash: sha1Json([c.title, c.text]), spans: spansOf(c.parts),
+      provenance: ruleProvenance("segment", rule, c.parts.map((p) => p.page.doc_sha256)),
     };
   });
 }
 
-/** Segment extracted pages into a calc package. */
-export function segmentCalcs(pages: CalcPage[], sourceName: string | null = null): CalcPackage {
-  return { source_name: sourceName, pages, calcs: segment(pages) };
+/** The page regions of a calc in reading order (whole pages for a calc stored without spans). */
+export function calcRegions(calc: Pick<Calc, "pages"> & { spans?: CalcSpan[] }, pages: CalcPage[]): CalcRegion[] {
+  if (calc.spans?.length) return calc.spans.flatMap((s) => s.regions);
+  const byN = new Map(pages.map((p) => [p.n, p]));
+  return calc.pages.flatMap((n) => {
+    const p = byN.get(n);
+    return p ? [{ page: n, rect: sheetRect(0, 0, p.width, p.height), start: 0, end: p.text.length }] : [];
+  });
 }
 
-/** Each calc's text (its pages joined, as the matcher reads it). */
-export function calcText(pkg: Pick<CalcPackage, "pages">, calc: Pick<Calc, "pages">): string {
+/**
+ * The one document a calc package's pages come from: their shared `doc_sha256`. Throws when pages
+ * carry none (not from extractPdf) or come from more than one PDF.
+ */
+export function packageSha256(pages: Pick<CalcPage, "doc_sha256">[]): string {
+  if (!pages.length || pages.some((p) => !p.doc_sha256)) {
+    throw new Error("calc pages carry no document hash (doc_sha256): extract them with extractPdf");
+  }
+  const docs = inputList(pages.map((p) => p.doc_sha256));
+  if (docs.length !== 1) throw new Error(`a calc package is one PDF, but its pages come from ${docs.length} documents`);
+  return docs[0]!;
+}
+
+/** Segment extracted pages into a calc package. */
+export function segmentCalcs(pages: CalcPage[], sourceName: string | null = null): CalcPackage {
+  return { source_name: sourceName, source_sha256: packageSha256(pages), pages, calcs: segment(pages) };
+}
+
+/** Each calc's text (its regions joined, as the matcher reads it). */
+export function calcText(pkg: Pick<CalcPackage, "pages">, calc: Pick<Calc, "pages"> & { spans?: CalcSpan[] }): string {
   const byN = new Map(pkg.pages.map((p) => [p.n, p.text]));
-  return calc.pages.map((n) => byN.get(n) ?? "").join("\n");
+  return calcRegions(calc, pkg.pages).map((r) => (byN.get(r.page) ?? "").slice(r.start, r.end)).join("\n");
 }

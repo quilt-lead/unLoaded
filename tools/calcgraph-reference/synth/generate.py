@@ -2,8 +2,9 @@
 
     uv run python -m synth.generate --out data/synthetic --seed 7
 
-Writes model_rev1.ifc, model_rev2.ifc (column C8 removed), calc_package.pdf and
-ground_truth.json. Re-running with the same seed is byte-stable (checked by
+Writes model_rev1.ifc, model_rev2.ifc (column C8 removed), calc_package.pdf, calc_supplement.pdf
+(feature checks: mid-page calc, a calc continued after a gap, a typical-group calc, a loads-only
+reference, a deliberate size mismatch) and ground_truth.json. Re-running with the same seed is byte-stable (checked by
 ``--check``, which generates twice into temp dirs and compares sha256).
 """
 from __future__ import annotations
@@ -63,8 +64,10 @@ def generate(out: str, seed: int = 7) -> dict:
         builds[rev] = (b, res, gids)
     b1, res1, g1 = builds[1]
     calc_pdf.write(b1, res1, os.path.join(out, "calc_package.pdf"), seed=seed)
+    sup = calc_pdf.write_supplement(b1, os.path.join(out, calc_pdf.SUPPLEMENT_FILE))
 
-    truth["files"] = {"model_rev1": "model_rev1.ifc", "model_rev2": "model_rev2.ifc", "calc_package": "calc_package.pdf"}
+    truth["files"] = {"model_rev1": "model_rev1.ifc", "model_rev2": "model_rev2.ifc", "calc_package": "calc_package.pdf",
+                      "calc_supplement": calc_pdf.SUPPLEMENT_FILE}
     truth["calcs"] = [
         {"id": cid, "title": title, "pages": pages, "software": sw, "element_type": cat,
          "front": cid == building.K_FRONT, "scanned": cid == building.K_CANT, "no_elements": cid == building.K_CRIT}
@@ -87,6 +90,13 @@ def generate(out: str, seed: int = 7) -> dict:
         "changed": sorted(g1[k] for k in k1.keys() & k2.keys()
                           if (k1[k].object_type, k1[k].psets) != (k2[k].object_type, k2[k].psets)),
         "load_path": sorted([g2[s], g2[d]] for s, d in b2.load_path),
+    }
+    # supplement ground truth, element keys -> rev 1 GlobalIds
+    gid = lambda k: g1[k]  # noqa: E731
+    truth["supplement"] = {
+        **{k: v for k, v in sup.items() if k not in ("roles", "mismatches")},
+        "roles": [{"global_id": gid(r["key"]), "calc": r["calc"], "role": r["role"]} for r in sup["roles"]],
+        "mismatches": [{"global_id": gid(m["key"]), **{k: v for k, v in m.items() if k != "key"}} for m in sup["mismatches"]],
     }
     with open(os.path.join(out, "ground_truth.json"), "w") as fh:
         json.dump(truth, fh, indent=1, sort_keys=True)

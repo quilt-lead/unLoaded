@@ -139,6 +139,24 @@ an input; later), and **all of `calc-viewer/data/`**.
 snippets with box positions, summaries, ~1.4 MB. **It is already pushed to the public repo on
 `origin/extraction`**; that is outside this branch and needs rh-6 / Noah to remove it from history.
 
+### D13a. Extraction ideas 1-5: how they were built (implemented ~8:30 PM ET)
+- **Link role** design vs loads: a cross-reference is always `loads`; otherwise `design` if any hit is on a line
+  without a load cue word. Element status counts design links only.
+- **Confidence as weighted evidence:** item 1 is always the existing tier at its existing weight (so tier metrics
+  are unchanged), plus storey equal +0.05 / different −0.15 and size equal +0.05 / different on a mark line −0.20;
+  clamped, banded (high ≥0.75, medium ≥0.5), with caveats. Hit selection still uses tier confidence alone, which is
+  why pages, spans and calc edges didn't move. (`ExportLink` calls the items `reasons`, since `evidence` was taken.)
+- **Typical groups** = same kind + storey + size; a size on a line naming no mark links once to the group, members
+  get `via_group` links.
+- **Size-mismatch findings** when a design line names the element's mark with a different size; one profile
+  normaliser (`profile.ts`, port of the parser's, parity-tested) because importing the parser pulls in web-ifc.
+- **Spans:** a page is cut at a mid-page heading ≥1.2× median line height and close to the page title's size (a
+  looser first rule wrongly split two main-package pages and was tightened); mapping reads only inside regions.
+- **Measured:** a 3-page `calc_supplement.pdf` (synthetic, with ground truth) plants a typ. calc, a mid-page span, a
+  loads-only line and a size mismatch. All existing baseline values unchanged; elements whose top link is correct
+  440 → 455 of 457; main-package role accuracy 767/768; supplement spans 4/4, roles 7/7, group links P/R 1.0/1.0,
+  mismatch P/R 1.0/1.0. 8 new gated rates + 7 exact counts added to the baseline.
+
 ### D14. The copyright guard stores only hashes of the protected terms
 **Why:** the hackathon guard listed the protected set's firm, project and architect names and job /
 permit numbers in plain text, in `copyright_guard.json` and the guard script. In a public repo that
@@ -231,7 +249,7 @@ link-level comparison of Python vs TS output is recorded below once measured. Th
 their invented documents are shown labelled as demo data, never mixed with real calc links.
 
 ### D18. Pull back four pieces of the hackathon that the pivots had dropped (follow-up PR)
-> **Scope (Issy, ~7:45 PM ET):** these go in a **follow-up PR**, stacked on this branch, not in PR #4. The schema item had already been sent to the engine agent and was withdrawn from this PR.
+> **Scope:** at ~7:45 PM ET Issy put these in a follow-up PR; at ~8:15 PM ET she reversed that: **they go in PR #4** too. The schema item was briefly withdrawn in between; it now follows the extraction ideas in `packages/calc-mapper` so the two don't edit the same types in parallel.
 **Decided by:** Issy, 2026-11-14 ~7:35 PM ET, after Claude listed what survived the pivots (the core
 matcher, segmentation, calc deps, impact, diff semantics, decision log, evidence UI and the synthetic gate)
 and what didn't. Claude had dropped the schema with the backend without flagging it; this corrects that.
@@ -272,7 +290,8 @@ shown labelled as demo data, never mixed with real calc links, and their A/B dif
   whole index. It was already pushed to PR #4, so it is recorded here instead of force-pushed. The engine stage
   is completed in the next commit. Since then Claude commits named paths only (`git commit -- <paths>`).
 
-### D21. Follow-up work is a separate PR stacked on this branch
+### D21. The D18 work is built in a second worktree and merged into this branch (one PR)
+> **Amended ~8:15 PM ET:** Issy: "keep adding it to that one PR". No follow-up PR. `issy/calc-engine-followups` is now only a staging branch for agents that would otherwise collide with this worktree's; each piece is merged into this branch and pushed to PR #4.
 **Why:** PR #4 is already large and a reviewer needs a stable base. The D18 items go on
 `issy/calc-engine-followups`, branched from this branch, in its own worktree so its agents can't collide
 with this branch's (worktree `~/.paradev/worktrees/unLoaded/issy-calc-engine-followups`).
@@ -281,6 +300,23 @@ Drawing-set ingest needs PDF text extraction, which `packages/calc-mapper/src/pd
 before the port is committed would mean a second PDF extractor, so it waits. The schema contract and the MCP
 server also build on calc-mapper's types and wait. The follow-up branch merges this branch forward when the
 port lands.
+
+### D22. Move-a-column impact on uploaded data (`packages/move-impact`), and the AISC table stays out
+**Built ~8:45 PM ET (D18 item 2).** Input is any element graph plus optional calc facts. Everything the hackathon
+read from the generator's `design.json` now comes from graph geometry (spans and supports match the generator for
+189/189 members) or from calc facts. Without facts it gives topological + screened impact only, comparing ratios on
+a unit area load; utilisation estimates, health bands and stale calc rows appear only where a calc states values,
+each labelled `method: "estimate"` with its basis. Left out (no honest source on uploaded data): next heavier size,
+transfer-member sizing on removal, and the construction-status band adjustment (it came from mock platform data).
+Four screening rules were added beyond the hackathon, each with an engineering reason in the code.
+**Measured** on the v2 answer key (25 scenarios), scripts on data: topological P/R 0.540/0.992, screened
+**0.867/0.923** (hackathon now 0.81/0.913), band 25/25, UC within 0.05 0.998, flag 0.999. The hackathon's own baseline
+was re-measured on today's generated building mid-session (the numbers in the original brief were from an older
+build); ours was copied from its current baseline unchanged. Calc facts come from the generator's calc-sheet data
+as printed (a stand-in for matcher output until calc-mapper extracts row values).
+**AISC shapes table: not committed.** It is AISC data without an open licence and this repo is public. It is
+gitignored (`tools/calcgraph-reference/synth/v2/data/aisc_*.csv`), so CI skips the `move_answer_key` gate until
+Issy decides. **That is mitigation, not a fix:** the gate only runs locally until then.
 
 ## Upstream merges
 
@@ -299,6 +335,7 @@ port lands.
 3. D19: should demo JSON with invented calc documents stay in the repo? (Noah)
 4. The public `origin/extraction` data (D13): needs removing from history (rh-6 / Noah).
 5. `prod` has no branch protection; requiring a review needs a repo admin.
+6. D22: can the AISC shapes subset be committed (licence)? If not, the move gate needs an openly licensed shape source to run in CI.
 
 ## How to review this branch
 

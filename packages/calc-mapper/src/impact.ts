@@ -13,14 +13,18 @@
  * `edges` are the graph's `supports` edges (src is supported by dst). Waves count steps the way
  * packages/element-graph's loadPathDown counts depth: the step into a connection node counts, the
  * step out of it to a member does not, so the engine and the UI report the same depth.
+ *
+ * `inputs`: sha256 of the documents the answer rests on (the element graph; the calc PDF when calcs
+ * are linked) - the result's provenance (rule `impact.propagate.<mode>`).
  */
+import { RULES, ruleProvenance } from "./provenance.ts";
 import type { CalcEdge, ElementRow, Impact, ImpactMode, Link, LoadPathEdge } from "./types.ts";
 
 type Lite = Pick<ElementRow, "cat" | "mark" | "name">;
 
 export function propagate(
   gid: string, mode: ImpactMode, edges: Pick<LoadPathEdge, "src" | "dst">[], links: Link[], calcEdges: CalcEdge[],
-  elements: Map<string, Lite> | Record<string, Lite>,
+  elements: Map<string, Lite> | Record<string, Lite>, inputs: readonly string[],
 ): Impact {
   const get = (g: string): Lite | undefined => (elements instanceof Map ? elements.get(g) : elements[g]);
   const down = new Map<string, string[]>();
@@ -110,5 +114,6 @@ export function propagate(
   return {
     global_id: gid, mode, removed: [...removed].sort(), hit, why, stale,
     waves: Math.max(0, ...Object.values(hit)),
+    provenance: ruleProvenance("impact", RULES.impact.propagate(mode), inputs),
   };
 }

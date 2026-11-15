@@ -11,16 +11,53 @@ import { extractPdf, segmentCalcs, mapCalcs, buildExport, impactOf, diffGraphs, 
 
 const text = await extractPdf(pdfBytes);                 // pages: text + word boxes + spans; scanned flag
 const pkg = segmentCalcs(text.pages, "calcs.pdf");       // calcs: key, title, software, element type, pages
-const run = mapCalcs(graph, pkg);                        // auto links (status "auto") + calc dependency edges
-let decisions = addDecision([], { global_id, calc_key, action: "confirm" });
+const run = await mapCalcs(graph, pkg);                  // auto links (status "auto") + calc dependency edges
+let decisions = addDecision([], { global_id, calc_key, action: "confirm" }, { inputs: run.inputs });
 const exp = buildExport(graph, pkg, run, decisions);     // the retired backend's /export (+ connectivity)
-const imp = impactOf(graph, pkg, run, decisions, gid, "remove");
+const imp = await impactOf(graph, pkg, run, decisions, gid, "remove");
 const cmp = diffGraphs(graphRev1, graphRev2);            // the retired backend's /compare
 ```
 
 The output shapes are the retired Python backend's, with snake_case kept (`src/types.ts`). They
 cover `/export`, `/compare`, `/impact`, the `/state` pieces (`buildState`) and the decision
 records.
+
+## Auditability contract (`src/types.ts`)
+
+Ported from the reference schema (`calcgraph/schema/{models,units,frames}.py`). Every addition is a
+new field; no field of the export was renamed or removed.
+
+- **Provenance is required** (`provenance.ts`) on every `Link`, `GroupLink`, `CalcEdge`, `Calc`,
+  `Finding`, `Impact` and `Decision`: `{ producer: "calc-mapper@<version>/<module>", rule, method,
+  inputs }`. `method` is `"rule"`, `"human"` (decisions, hand links: plus `actor` and `at`) or
+  `"estimate"`. `inputs` are the sha256 of the documents the record rests on. A record built without
+  provenance does not type-check, and `inputList` throws on anything that is not a sha256.
+  - Rule ids: `segment.calc-title | scanned-run | front-matter`, `matcher.tier.<tier>`,
+    `matcher.typical-group`, `matcher.finding.size-mismatch`,
+    `calcdeps.page-reference.input | output`, `calcdeps.cross-reference` (joined with "+" when an
+    edge has both), `impact.propagate.<mode>`, `decision.<action>`.
+  - A link a person confirmed / rejected keeps the matcher's provenance and gains
+    `review_provenance` (the decision's).
+  - A decision read back from a store or file may lack provenance (`DecisionFields`).
+    `buildState`, `buildExport` and `impactOf` accept those and pass each through `decisionFrom`,
+    which states the provenance from the decision's own fields.
+  - `PACKAGE_VERSION` is the version in every producer string; a test pins it to `package.json`.
+- **Document hashes** (WebCrypto `crypto.subtle.digest`, in browsers, workers and Node >= 20):
+  - `extractPdf` hashes the PDF's bytes once, and every page carries the hash (`doc_sha256`).
+  - `mapCalcs` hashes the graph's canonical JSON.
+  - `MappingRun.producers` and `Export.producers` hold the producers (`calc-mapper@<version>`, the
+    graph's `<format>@<version>`) and both hashes. `MappingRun.inputs` is `[graph, pdf]`.
+  - So `mapCalcs` and `impactOf` are async.
+- **Units** (`units.ts`): `Quantity { value, unit }`. `Unit` is units.py's fixed set of 57 canonical
+  units. `convert()` uses the same table.
+  - An unknown unit throws `UnknownUnit`, and a literal one is a type error. Mixed dimensions
+    throw `UnitMismatch`.
+  - The engine reports the load-path `gap` as `Quantity<"m">` (beside `gap_m`).
+  - A graph whose `meta.units` is not metres is refused.
+  - Section designations stay strings.
+- **Frames** (`frames.ts`): every rect is a `SheetRect` (PDF points on one page). Graph geometry is
+  `ModelPointM` (world metres). `BuildingPointFt` is declared for drawing-set ingest. The brands
+  are type-level only, so JSON stays plain arrays.
 
 ## What it does (rules unchanged from the reference engine)
 
@@ -56,6 +93,35 @@ records.
 
   A mark tier whose element type differs from the calc's becomes an **xref**, capped at 0.45.
   Every link keeps its page, span, snippet, highlight rects and rule.
+- **Calcs as spans of page regions** (`segment.ts`):
+  - A page is cut at a mid-page heading that reads as a calc title (set at least 1.2x the page's
+    median line height and about as large as the page's own title). So a calc can start or end
+    mid-page. Body lines that merely contain "design" or "bracing" are not headings.
+  - A part titled like an EARLIER calc (e.g. "... (cont.)" after another calc) continues that calc.
+    Each calc carries `spans: [{regions: [{page, rect, start, end}]}]`. A region that picks up where
+    the last stopped continues the span; a gap starts a new one. `pages` is kept.
+  - The matcher and calc edges read only inside a calc's own regions.
+- **Link role, evidence and confidence** (`matcher.ts`):
+  - Every link has `evidence[]` of `{kind, weight, note, page, rects}`. Item 1 is always the tier,
+    so tier metrics still compute. Then the matched line adds:
+    - storey: +0.05 if it names the element's storey, -0.15 if it names a different one;
+    - size: +0.05 if it names the model's size, -0.20 if a mark line names a different size.
+  - `conf` is the sum, clamped to [0, 1]. Bands: high >= 0.75, medium >= 0.5, low otherwise.
+    `caveats[]` explain the doubts in plain words.
+  - Role is "design" or "loads". An xref is always loads. Otherwise a link is design when any hit
+    sits on a line without a load cue (reactions, loads, from, carried, end moments, punching,
+    supporting, designed separately, see).
+  - Element status counts design links only: a loads-only element is "unmapped" (not designed).
+  - Which hit a link keeps is still decided by the tier confidence, as in the reference engine, so
+    pages, spans and calc edges are unchanged.
+- **Typical groups**: a group is the elements of one kind, storey and size. A size on a line that
+  names no mark ("Level 3 typical beams W18X35") links the calc to the group ONCE
+  (`group_links[]`). Members keep a per-element size link marked `via_group`. A size beside a mark
+  keeps the reference engine's plain per-element size links.
+- **Size-mismatch findings**: a design-role line that names the mark (exact or range tier) and a
+  different size than the model gives a finding: element, calc, model size, calc size, location.
+  Sizes on both sides go through one normaliser (`profile.ts`, a port of packages/ifc-parser's
+  `normaliseProfile`; a test pins the two together).
 - **Calc edges** (`calcdeps.ts`): page references ("see page 7"; a "to" cue reverses the
   direction) and cross-references.
 - **Impact** (`impact.ts`): walks the graph's `supports` edges. Connection nodes pass load through,
@@ -76,7 +142,10 @@ records.
 scorer, `tools/calcgraph-reference/scripts/evaluate.py`, grades that JSON against the synthetic
 ground truth. CI gates on `tools/calcgraph-reference/eval/baseline.json`: precision, recall and F1,
 exact link counts per tier, xref, calc edges, segmentation, the rev 1 -> rev 2 diff and the C8
-impact.
+impact, plus role accuracy, group-link precision and findings. A small second synthetic package
+(`calc_supplement.pdf`) adds what the main one lacks: a calc starting mid-page, a calc continued
+after a gap, a typical-group calc, a loads-only reference and a planted size mismatch. It is scored on
+span boundaries, roles, group links and mismatch precision and recall.
 
 ```
 node packages/calc-mapper/scripts/run-pipeline.ts --graph g.json --pdf calcs.pdf --out out.json \

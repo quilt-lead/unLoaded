@@ -9,7 +9,9 @@ Stages (a stage whose inputs are missing is SKIPPED, never failed):
   synthetic_v1     scripts/evaluate.py: the TypeScript calc engine (packages/calc-mapper, run through its
                    Node CLI on the element graphs scripts/build_graph.mjs builds) scored on the synthetic
                    package - segmentation, design-mapping P/R per tier, xref, load path, calc edges,
-                   rev1 -> rev2 diff, decisions carried forward, C8 impact. Needs Node + `npm ci`.
+                   rev1 -> rev2 diff, decisions carried forward, C8 impact; link roles, typical-group
+                   links and findings; and on the supplement package - span boundaries, roles, group
+                   links, size-mismatch findings. Needs Node + `npm ci`.
   move_answer_key  scripts/evaluate_move.py: the TypeScript move-a-column screen (packages/move-impact, run
                    through its Node CLI on the v2 model's element graph + calc facts from
                    scripts/move_fixture.py) scored on the v2 answer key - stale P/R (topological, screened),
@@ -87,7 +89,18 @@ def st_synthetic_v1(a) -> dict:
         "diff_removed": rv["diff_removed"]["pred"], "diff_changed": rv["diff_changed"]["pred"], "diff_added": rv["diff_added"]["pred"],
         "impact_c8_removed": im["removed"], "impact_c8_hit": im["hit"], "impact_c8_stale_calcs": len(im["stale_calcs"]),
     }
-    return {"metrics": m | exact, "gated": list(m), "exact": list(exact)}
+    # roles / typical groups / findings / spans (main package + supplement)
+    fm, sp = r["features_main"], r.get("supplement") or {}
+    feat = {"role_accuracy_main": fm["role_accuracy"], "group_link_precision_main": fm["group_link_precision"],
+            "role_accuracy_supplement": sp.get("role_accuracy"), "span_boundary_accuracy_supplement": sp.get("span_boundary_accuracy"),
+            "group_link_precision_supplement": sp.get("group_link_precision"),
+            "group_link_recall_supplement": sp.get("group_link_recall"),
+            "mismatch_precision_supplement": sp.get("mismatch_precision"),
+            "mismatch_recall_supplement": sp.get("mismatch_recall")}
+    exact |= {"roles_checked_main": fm["roles_checked"], "group_links_main": fm["group_links"], "findings_main": fm["findings"],
+              "calcs_supplement": sp.get("calcs"), "calcs_with_exact_spans_supplement": sp.get("calcs_with_exact_spans"),
+              "group_links_supplement": sp.get("group_links"), "findings_supplement": sp.get("findings")}
+    return {"metrics": m | feat | exact, "gated": list(m) + list(feat), "exact": list(exact)}
 
 
 def d_tiers(r: dict) -> dict:

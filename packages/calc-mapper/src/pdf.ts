@@ -16,7 +16,13 @@
  * workerPort as the app already does) and in Node: pass the legacy build there,
  *   extractPdf(bytes, { pdfjs: await import("pdfjs-dist/legacy/build/pdf.mjs") })
  * No Node-only imports here.
+ *
+ * The PDF's bytes are hashed (sha256, WebCrypto) here, once: every page carries that hash
+ * (`doc_sha256`), so everything segmented, matched or found on a page can name the document it
+ * rests on (provenance.ts) without a caller having to remember to pass it.
  */
+import { sheetRect } from "./frames.ts";
+import { sha256 } from "./hash.ts";
 import type { CalcPage, PdfText, Rect, WordBox } from "./types.ts";
 
 /** The slice of the pdf.js API this module uses (the real module satisfies it). */
@@ -110,8 +116,8 @@ function pageWords(
   return words;
 }
 
-/** Page text + word boxes from words (the reference reader's row rebuild). */
-export function buildPage(n: number, words: PdfWord[], width: number, height: number): CalcPage {
+/** Page text + word boxes from words (the reference reader's row rebuild). `docSha256`: sha256 of the PDF's bytes. */
+export function buildPage(n: number, words: PdfWord[], width: number, height: number, docSha256: string): CalcPage {
   const rows: { y: number; items: PdfWord[] }[] = [];
   const order = [...words].sort((p, q) => round(p.y1, 1) - round(q.y1, 1) || p.x0 - q.x0);
   for (const w of order) {
@@ -136,7 +142,7 @@ export function buildPage(n: number, words: PdfWord[], width: number, height: nu
     if (text.length > lineStart) text += "\n";
   }
   text = text.replace(/\n+$/, "");
-  return { n, text, words: boxes, width, height, scanned: text.trim().length < SCANNED_MAX_CHARS };
+  return { n, text, words: boxes, width, height, scanned: text.trim().length < SCANNED_MAX_CHARS, doc_sha256: docSha256 };
 }
 
 let defaultPdfjs: Promise<PdfjsLike> | null = null;
@@ -144,6 +150,7 @@ let defaultPdfjs: Promise<PdfjsLike> | null = null;
 /** Extract every page. `pdfjs` defaults to `import("pdfjs-dist")` (browser build). */
 export async function extractPdf(data: Uint8Array, opts: { pdfjs?: PdfjsLike } = {}): Promise<PdfText> {
   const pdfjs = opts.pdfjs ?? (await (defaultPdfjs ??= import("pdfjs-dist") as unknown as Promise<PdfjsLike>));
+  const docSha256 = await sha256(data);
   // pdf.js may transfer (detach) the buffer it is given: hand it a copy
   const doc = await pdfjs.getDocument({ data: data.slice(), verbosity: 0, isEvalSupported: false }).promise;
   try {
@@ -152,10 +159,12 @@ export async function extractPdf(data: Uint8Array, opts: { pdfjs?: PdfjsLike } =
       const page = await doc.getPage(n);
       const vp = page.getViewport({ scale: 1 });
       const tc = await page.getTextContent();
-      pages.push(buildPage(n, pageWords(tc.items, tc.styles, vp), vp.width, vp.height));
+      pages.push(buildPage(n, pageWords(tc.items, tc.styles, vp), vp.width, vp.height, docSha256));
     }
     const info = ((await doc.getMetadata().catch(() => ({ info: {} }))).info ?? {}) as { Title?: unknown };
-    return { pages, meta: { page_count: doc.numPages, title: typeof info.Title === "string" ? info.Title : "" } };
+    return {
+      pages, meta: { page_count: doc.numPages, title: typeof info.Title === "string" ? info.Title : "", sha256: docSha256 },
+    };
   } finally {
     await doc.destroy();
   }
@@ -171,7 +180,7 @@ export function rectsForSpan(page: Pick<CalcPage, "words">, start: number, end: 
         last[2] = Math.max(last[2], x1);
         last[1] = Math.min(last[1], y0);
       } else {
-        out.push([x0, y0, x1, y1]);
+        out.push(sheetRect(x0, y0, x1, y1));
       }
     }
   }

@@ -1,5 +1,9 @@
 import type { CalcPage, ElementRow, SerializedElementGraph } from "../src/index.ts";
 
+/** A stand-in sha256 of "the" calc PDF the helper pages come from, and of "the" element graph. */
+export const DOC_SHA = "d".repeat(64);
+export const GRAPH_SHA = "a".repeat(64);
+
 /** A page whose words are laid out one per line position (boxes are dummies; spans are real). */
 export function page(n: number, text: string): CalcPage {
   const words: CalcPage["words"] = [];
@@ -10,7 +14,33 @@ export function page(n: number, text: string): CalcPage {
       pos += w.length + 1;
     }
   }
-  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25 };
+  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25, doc_sha256: DOC_SHA };
+}
+
+/**
+ * A page with realistic word heights: lines starting with "# " are headings (12 pt tall), others body
+ * (8 pt). The "# " marker is not part of the text.
+ */
+export function styledPage(n: number, lines: string[]): CalcPage {
+  const words: CalcPage["words"] = [];
+  const out: string[] = [];
+  let pos = 0;
+  let y = 40;
+  for (const raw of lines) {
+    const heading = raw.startsWith("# ");
+    const line = heading ? raw.slice(2) : raw;
+    const h = heading ? 12 : 8;
+    y += h + 6;
+    let x = 40;
+    for (const w of line.split(" ")) {
+      words.push([x, y - h, x + w.length * 5, y, pos, pos + w.length]);
+      pos += w.length + 1;
+      x += w.length * 5 + 5;
+    }
+    out.push(line);
+  }
+  const text = out.join("\n");
+  return { n, text, words, width: 612, height: 792, scanned: text.trim().length < 25, doc_sha256: DOC_SHA };
 }
 
 export function el(global_id: string, cat: ElementRow["cat"], mark: string, profile = "", storey = "Level 2"): ElementRow {

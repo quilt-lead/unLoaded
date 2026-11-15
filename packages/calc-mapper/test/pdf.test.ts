@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildPage, rectsForSpan, sha1 } from "../src/index.ts";
+import { DOC_SHA } from "./helpers.ts";
 
 describe("page rebuild (the reference reader's row grouping)", () => {
   it("groups words into rows by bottom edge, orders rows top-down and words left-right, records spans", () => {
     const w = (s: string, x0: number, y1: number) => ({ s, x0, x1: x0 + s.length * 5, y0: y1 - 10, y1 });
-    const p = buildPage(1, [w("B", 60, 101.5), w("A", 10, 100), w("C", 10, 130)], 612, 792);
+    const p = buildPage(1, [w("B", 60, 101.5), w("A", 10, 100), w("C", 10, 130)], 612, 792, DOC_SHA);
     expect(p.text).toBe("A B\nC");
     expect(p.words.map((x) => x.slice(4))).toEqual([[0, 1], [2, 3], [4, 5]]);
     expect(p.scanned).toBe(true);

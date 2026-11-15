@@ -13,11 +13,13 @@
  *   profile    node.profile           (the parser's normalised section designation)
  *   storey     name of node.levelId in graph.levels ("" when the file states no storey)
  *   params     node.params
- *   geom       bbox min / max + axis start / end (p1 / p2)
- * Load path = `supports` edges (a is supported by b: load flows a -> b); `connects` edges are
- * physical connectivity.
+ *   geom       bbox min / max + axis start / end (p1 / p2), world metres (ModelPointM)
+ * Load path = `supports` edges (a is supported by b: load flows a -> b; `gap` in metres); `connects`
+ * edges are physical connectivity. A graph whose meta declares units other than metres is refused.
  */
+import { modelPointM } from "./frames.ts";
 import { sha1Json } from "./hash.ts";
+import { canonicalUnit, q as quantity } from "./units.ts";
 import type {
   ConnectivityEdge, ElementCategory, ElementRow, LoadPathEdge, SerializedElementGraph,
 } from "./types.ts";
@@ -54,6 +56,16 @@ export function parseGraph(input: string | unknown): SerializedElementGraph {
   }
   for (const k of ["levels", "nodes", "edges"]) {
     if (!Array.isArray(o[k])) throw new GraphFormatError(`graph.${k} must be a list`);
+  }
+  const units = (o.meta as { units?: unknown } | null | undefined)?.units;
+  if (units !== undefined) {
+    let u: string;
+    try {
+      u = canonicalUnit(String(units));
+    } catch {
+      throw new GraphFormatError(`graph.meta.units ${JSON.stringify(units)} is not a known unit`);
+    }
+    if (u !== "m") throw new GraphFormatError(`graph.meta.units must be "m" (got ${JSON.stringify(units)}): geometry is read as world metres`);
   }
   const ids = new Set<string>();
   (o.nodes as unknown[]).forEach((n, i) => {
@@ -103,7 +115,7 @@ export function graphElements(g: SerializedElementGraph): ElementRow[] {
       const bb = n.geometry?.bbox;
       const ax = n.geometry?.axis;
       const geom = bb
-        ? { min: [...bb.min], max: [...bb.max], ...(ax ? { p1: [...ax.start], p2: [...ax.end] } : {}) }
+        ? { min: modelPointM(bb.min), max: modelPointM(bb.max), ...(ax ? { p1: modelPointM(ax.start), p2: modelPointM(ax.end) } : {}) }
         : null;
       const row: Omit<ElementRow, "content_hash"> = {
         global_id: n.id, express_id: n.source?.nativeId ?? null, ifc_type: n.source?.nativeType || n.kind,
@@ -120,7 +132,10 @@ export function graphElements(g: SerializedElementGraph): ElementRow[] {
 export function loadPath(g: SerializedElementGraph): LoadPathEdge[] {
   return g.edges
     .filter((e) => e.kind === "supports")
-    .map((e): LoadPathEdge => ({ src: e.a, dst: e.b, kind: "supports", rule: firstRule(e), gap_m: gapOf(e) }))
+    .map((e): LoadPathEdge => {
+      const gap = gapOf(e);
+      return { src: e.a, dst: e.b, kind: "supports", rule: firstRule(e), gap_m: gap, gap: gap === null ? null : quantity(gap, "m") };
+    })
     .sort((p, q) => byId(p.src, q.src) || byId(p.dst, q.dst));
 }
 
