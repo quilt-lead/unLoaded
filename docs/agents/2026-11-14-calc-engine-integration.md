@@ -318,6 +318,19 @@ as printed (a stand-in for matcher output until calc-mapper extracts row values)
 gitignored (`tools/calcgraph-reference/synth/v2/data/aisc_*.csv`), so CI skips the `move_answer_key` gate until
 Issy decides. **That is mitigation, not a fix:** the gate only runs locally until then.
 
+### D23. The auditability contract lives in calc-mapper and every other package reuses it
+**Built ~9:00 PM ET (D18 item 1).** Required `provenance` (producer `calc-mapper@<version>/<module>`, rule id,
+method rule / human / estimate, input sha256s) on links, group links, calc edges, calcs, findings, impact and
+decisions, built only through `src/provenance.ts`; a missing or malformed hash throws rather than defaulting.
+Producer records per run carry the element-graph format and the sha256 of the graph JSON and of the PDF.
+`Quantity` with the 57 canonical units of the hackathon's `units.py` (checked identical), unknown units throw.
+Branded `SheetRect` / `ModelPointM` frames (JSON stays plain numbers). `ENGINE_VERSION` → `mapper-v1.1` so cached
+runs recompute. Every baseline metric unchanged.
+**One contract, not two:** `packages/move-impact` is being moved onto these same helpers (its own `unit: "klf"`
+fields and unlabelled estimates replaced) rather than keeping a parallel provenance/units type.
+**Deliberately not brought:** BHoM / structural-analysis types from `schema/structural.py` (analysis-software
+round trips are out of scope, D3).
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
