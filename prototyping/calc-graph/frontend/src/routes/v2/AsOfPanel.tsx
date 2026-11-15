@@ -4,6 +4,7 @@ import { useState } from "react";
 import { InfoTip } from "../../help/InfoTip";
 import type { Move } from "./api";
 import { asOfLabel, useAsOfInfo, useImpactTimeline, type Timeline } from "./asOf";
+import { Updating } from "./Updating";
 import { fmtUsd } from "./util";
 import "./asof-inbox.css";
 
@@ -57,6 +58,7 @@ export function AsOfTimeline({ move, asOf, onPick }: { move: Move | null; asOf: 
   if (tl.error) return <p className="v2-error v2-small">{String(tl.error)}</p>;
   if (!tl.data) return null;
   return (
+    <Updating busy={tl.isPlaceholderData} label="Re-projecting cost and slip for the new approval date (previous date shown)...">
     <div className="ai-tl" data-testid="asof-timeline">
       <h3 className="v2-h3">
         Cost and slip vs approval date <InfoTip id="panel.asof-timeline" />
@@ -112,6 +114,7 @@ export function AsOfTimeline({ move, asOf, onPick }: { move: Move | null; asOf: 
       </table>
       <p className="v2-small muted">{tl.data.assumption}</p>
     </div>
+    </Updating>
   );
 }
 

@@ -1,7 +1,7 @@
 // As-of date for impact (backend/calcgraph/as_of.py): presets + the cost / slip vs approval date timeline.
 import { useQuery } from "@tanstack/react-query";
 import { get, post } from "../../api/client";
-import type { Move } from "./api";
+import { moveAtDate, type Move } from "./api";
 
 export interface AsOfPreset {
   key: string;
@@ -85,12 +85,14 @@ export const useAsOfInfo = () =>
     staleTime: 60_000,
   });
 
+/** Key + placeholder: moveAtDate - while only the date changed, the previous date's timeline stays shown
+ * (isPlaceholderData: dim it with "updating"); a late answer for an older date cannot overwrite a newer one. */
 export const useImpactTimeline = (move: Move | null, asOf: string) =>
   useQuery({
-    queryKey: ["v2", "timeline", move, asOf],
+    ...moveAtDate<Timeline>("timeline", move, asOf),
     enabled: !!move && (move.remove || move.dx !== 0 || move.dy !== 0),
     queryFn: () =>
-      post<Timeline>("/api/v2/impact/timeline", { ...move!, as_of: asOf }),
+      post<Timeline>("/api/v2/impact/timeline", { column: move!.column, dx: move!.dx, dy: move!.dy, remove: move!.remove, as_of: asOf }),
     staleTime: Infinity,
   });
 

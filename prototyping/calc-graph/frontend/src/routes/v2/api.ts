@@ -519,22 +519,31 @@ export const useHealthHeat = (probe = 2) =>
     },
   });
 
-/** POST /impact as a query keyed by the move (the call is read-only on the server). */
-/** asOf = the approval date (as_of.py): "today" (default, current behaviour), "+1w", "+2w", "+1m" or a date */
-/** While only the approval date changed, the previous date's impact stays as placeholder data
- * (isPlaceholderData = true: show it dimmed as "updating"), so the colouring never drops back to the
- * heat view between dates. A different move never inherits another move's impact. Responses are
- * keyed by (move, date), so a slow answer for an earlier date can never replace the current one. */
+/** The ONE key + placeholder rule for every query of a move at an approval date (impact, cost / slip
+ * timeline): keyed by (move, date), so a slow answer for an earlier date lands in its own cache entry and
+ * can never replace the current date's; and while ONLY the date changed, the previous date's answer for the
+ * same move stays as placeholder data (isPlaceholderData = true: show it dimmed with "updating"), so a panel
+ * never blanks while it re-estimates. A different move never inherits another move's answer. */
+export function moveAtDate<T>(kind: string, m: Move | null, asOf: string) {
+  const queryKey = ["v2", kind, m?.column ?? null, m?.dx ?? 0, m?.dy ?? 0, m?.remove ?? false, asOf] as const;
+  return {
+    queryKey,
+    placeholderData: (prev: T | undefined, prevQuery?: { queryKey: readonly unknown[] }) => {
+      const k = prevQuery?.queryKey;
+      return k && k.length === queryKey.length && queryKey.slice(0, -1).every((v, i) => k[i] === v) ? prev : undefined;
+    },
+  };
+}
+
+/** POST /impact as a query keyed by the move (the call is read-only on the server).
+ * asOf = the approval date (as_of.py): "today" (default, current behaviour), "+1w", "+2w", "+1m" or a date.
+ * Key + placeholder: moveAtDate (the colouring never drops back to the heat view between dates). */
 export const useMoveImpact = (m: Move | null, asOf = "today") =>
   useQuery({
-    queryKey: ["v2", "impact", m?.column, m?.dx, m?.dy, m?.remove, asOf],
+    ...moveAtDate<Impact>("impact", m, asOf),
     enabled: !!m && (m.remove || m.dx !== 0 || m.dy !== 0),
     staleTime: 5 * 60_000,
     queryFn: () => post<Impact>("/api/v2/impact", { ...moveBody(m!), as_of: asOf }),
-    placeholderData: (prev, prevQuery) => {
-      const k = prevQuery?.queryKey;
-      return k && k[2] === m?.column && k[3] === m?.dx && k[4] === m?.dy && k[5] === m?.remove ? prev : undefined;
-    },
   });
 
 export const useConstructionStatus = (eid: string | null | undefined, asOf = "today") =>
