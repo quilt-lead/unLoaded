@@ -36,6 +36,13 @@
      footer, even when the number didn't change. So "Reactions carried to column design (page 13)", closing two
      different calcs, lost its "output to" evidence. Now the page number must actually differ between the occurrences.
 
+5. **PR #10 (drag & drop) and the new header merged in.** PR #9's code wins the conflicts. `prod`'s header changes were
+   ported: the logo in place of the icon, no "IFC 4.3" tag or strapline, and no Inspector toggle. With the toggle gone,
+   the inspector's own show / hide state and its close button went too, as on `prod`. The subtitle stays once a project
+   is loaded (model ⇄ calc package · engine). Drag & drop is wired to PR #4's revision model (see the drag-drop note).
+   `prod`'s colour tweaks (diff palette, filter-bar styling) weren't carried over: PR #4 replaced those components'
+   colour model. Not smoke-tested in a browser: an OS file drop can't be scripted headless here.
+
 ## Gotchas
 
 - There's no system Python on this Windows machine. Run the tooling with `uv run --no-project python ...`.

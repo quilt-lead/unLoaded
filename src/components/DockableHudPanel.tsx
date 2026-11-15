@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { GripVertical, ArrowLeftToLine, ArrowRightToLine, ExternalLink, X } from 'lucide-react';
+import { GripVertical, ArrowLeftToLine, ArrowRightToLine, ExternalLink } from 'lucide-react';
 import { DockSide } from '../types/bim';
 
 type PanelRect = { left: number; top: number; width: number; height: number };
@@ -35,8 +35,6 @@ interface DockableHudPanelProps {
   onChangeDockSide: (side: DockSide) => void;
   onDragHoverEdge?: (edge: 'left' | 'right' | null) => void;
   headerActions?: React.ReactNode;
-  onCloseAction?: () => void;
-  closeTitle?: string;
   children: React.ReactNode;
 }
 
@@ -53,8 +51,6 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
   onChangeDockSide,
   onDragHoverEdge,
   headerActions,
-  onCloseAction,
-  closeTitle,
   children,
 }) => {
   const fitToViewport = (value: PanelRect) => typeof window === 'undefined'
@@ -322,17 +318,6 @@ export const DockableHudPanel: React.FC<DockableHudPanelProps> = ({
               className="text-indigo-300 hover:text-white w-6 h-6 rounded-lg flex items-center justify-center bg-indigo-500/15 hover:bg-indigo-500/25 transition"
             >
               <ExternalLink className="w-3 h-3" />
-            </button>
-          )}
-          {onCloseAction && (
-            <button
-              type="button"
-              onClick={onCloseAction}
-              title={closeTitle || 'Close'}
-              aria-label={closeTitle || `Close ${title}`}
-              className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
-            >
-              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
