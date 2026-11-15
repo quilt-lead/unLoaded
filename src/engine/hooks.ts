@@ -12,6 +12,7 @@ import { elementGraphToBim } from '../loaders/elementGraphToBim';
 import { createProject, deleteProject, listProjects, storeInfo } from '../data/projectStore';
 import {
   addCalcRevision,
+  addDrawingRevision,
   addModelRevision,
   changeDocument,
   compareCalcRevisions,
@@ -25,6 +26,7 @@ import {
   revisionCounts,
   revisionFileUrl,
   sampleFile,
+  SampleMissingError,
 } from './projectService';
 
 type Progress = (m: string) => void;
@@ -35,6 +37,13 @@ export const useProjectList = () => useQuery({ queryKey: ['projects'], queryFn: 
 
 /** The active project id: the last one used, else the newest, else a new empty one. */
 export const useInitialProject = () => useQuery({ queryKey: ['initial-project'], queryFn: openActiveProject, staleTime: Infinity });
+
+/** The drawing PDF behind a drawing-set model revision, keyed by its file name (empty for any other model). */
+async function drawingUrlsOf(rev: { id: number; sourceName: string; meta: Record<string, unknown> } | null): Promise<Record<string, string>> {
+  if (!rev || rev.meta.format !== 'drawing') return {};
+  const url = await revisionFileUrl(rev.id);
+  return url ? { [rev.sourceName]: url } : {};
+}
 
 /** The project as view data for one model revision (default: the head). */
 async function projectView(projectId: string, onProgress: Progress, modelRev: number | null) {
@@ -76,6 +85,8 @@ async function projectView(projectId: string, onProgress: Progress, modelRev: nu
     view,
     // one document: its PDF; a set: each document's PDF by docId (the view's calcs name their docId), and the first as the fallback
     pdfUrl: snap.calcSet.length ? await revisionFileUrl(snap.calcSet[0]!.rev.id) : null,
+    // a model revision parsed from a drawing set: its PDF, by the file name its elements' Drawing.Occurrences give
+    drawingUrls: await drawingUrlsOf(snap.modelRev),
     pdfUrls: Object.fromEntries(
       (await Promise.all(snap.calcSet.map(async (h) => [h.doc.docId, await revisionFileUrl(h.rev.id)] as const))).filter((e): e is readonly [string, string] => !!e[1]),
     ) as Record<string, string>,
@@ -177,6 +188,18 @@ export function useUploadModel(onProgress: Progress) {
   return useMutation({
     mutationFn: async ({ projectId, file, label }: { projectId: string; file: File; label?: string }) => {
       const { revision, warnings } = await addModelRevision(projectId, file, label, onProgress);
+      return { revisionId: revision.id, warnings };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+/** A structural drawing set PDF into `projectId` as a model revision (parsed by the drawing parser in the worker). */
+export function useUploadDrawings(onProgress: Progress) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ projectId, file, label }: { projectId: string; file: File; label?: string }) => {
+      const { revision, warnings } = await addDrawingRevision(projectId, file, label, onProgress);
       return { revisionId: revision.id, warnings };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
@@ -293,6 +316,39 @@ export function useLoadHarborview(onProgress: Progress) {
       const rb = await addModelRevision(pid, await sampleFile(harborviewPath(m.models.rev2), baseName(m.models.rev2)), m.labels.rev2, onProgress);
       await addCalcs(m.calcs.rev2, 'Rev 2');
       return { projectId: pid, a: ra.revision.id, b: rb.revision.id };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
+  });
+}
+
+/** The Dana Point Building 12 public set (real drawings + calcs; copied from data/sampleCalc by scripts/copy-assets.mjs). */
+const DANA = {
+  dir: 'dana-point-bldg12',
+  drawings: 'OC-DPH_PKG21-0516_Bldg12_ApprovedPlans.pdf',
+  calcs: 'OC-DPH_PKG21-0516_Bldg12_Calcs.pdf',
+} as const;
+
+/**
+ * The Dana Point Bldg 12 sample: the approved structural plans as a drawing-set model revision (no IFC exists for
+ * this building) and its calc package, mapped onto the drawing-derived model. A new project.
+ */
+export function useLoadDanaPoint(onProgress: Progress) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const get = (name: string) =>
+        sampleFile(`${DANA.dir}/${name}`, name).catch((e: unknown) => {
+          if (e instanceof SampleMissingError) {
+            throw new SampleMissingError(name, `Dana Point sample not available (${name} missing). It is a Git LFS file: run git lfs pull for data/sampleCalc, then npm run assets.`);
+          }
+          throw e;
+        });
+      const [drawings, calcs] = await Promise.all([get(DANA.drawings), get(DANA.calcs)]);
+      const pid = (await createProject('Dana Point Bldg 12 (drawings + calcs)')).id;
+      rememberActiveProject(pid);
+      const { revision } = await addDrawingRevision(pid, drawings, 'Bldg 12 approved plans (drawings)', onProgress);
+      await addCalcRevision(pid, calcs, 'Bldg 12 calc package', onProgress);
+      return { projectId: pid, modelRevisionId: revision.id };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   });

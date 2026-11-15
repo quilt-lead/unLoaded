@@ -32,6 +32,10 @@ export interface PdfPageProps {
   className?: string;
   /** hide the caption bar (when the parent already shows one) */
   bare?: boolean;
+  /** smallest span (PDF points) the evidence zoom shows; default ~360 on a large sheet, ~170 on a letter page */
+  minSpan?: number;
+  /** show the zoom / page / text / PDF tools (default true; off for a static thumbnail inside a button) */
+  tools?: boolean;
 }
 
 export interface PdfPageHandle {
@@ -57,7 +61,7 @@ export function unionBox(rs: readonly Box[] | undefined): Box | null {
 const toolBtn =
   'h-7 min-w-7 px-1.5 rounded-lg bg-[#2d3139] border border-white/[0.14] text-zinc-300 hover:text-white hover:bg-[#3a3f49] focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 flex items-center justify-center gap-1 transition text-[10px] mono shadow-[0_4px_12px_rgba(0,0,0,0.5)]';
 
-export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage({ source, emptyText, className, bare }, ref) {
+export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage({ source, emptyText, className, bare, minSpan: minSpanProp, tools = true }, ref) {
   const stage = useRef<HTMLDivElement>(null);
   const world = useRef<HTMLDivElement>(null);
   const bg = useRef<HTMLCanvasElement>(null);
@@ -158,13 +162,13 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
       return;
     }
     // keep context: at least ~360 pt across on a large sheet, ~170 pt on a letter page
-    const minSpan = Math.max(size.pw, size.ph) > 1500 ? 360 : 170;
+    const minSpan = minSpanProp ?? (Math.max(size.pw, size.ph) > 1500 ? 360 : 170);
     const cx = (f[0] + f[2]) / 2;
     const cy = (f[1] + f[3]) / 2;
     const w = Math.max(f[2] - f[0] + 60, minSpan);
     const h = Math.max(f[3] - f[1] + 60, minSpan * 0.6);
     fitTo([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2]);
-  }, [size, source, fitTo, fitPage]);
+  }, [size, source, fitTo, fitPage, minSpanProp]);
 
   const refocus = useCallback(() => {
     userMoved.current = false;
@@ -402,7 +406,7 @@ export const PdfPage = forwardRef<PdfPageHandle, PdfPageProps>(function PdfPage(
           )}
         </div>
 
-        {source && (
+        {source && tools && (
           <div data-pdf-tools className="absolute right-2 top-2 flex items-center gap-1 flex-wrap justify-end" role="toolbar" aria-label="Page tools">
             <button type="button" className={toolBtn} title="Zoom in" aria-label="Zoom in" onClick={() => center(1.6)}>
               <Plus className="w-3 h-3" />

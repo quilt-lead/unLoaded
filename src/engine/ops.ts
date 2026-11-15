@@ -1,5 +1,5 @@
 // The calc engine operations the worker runs: thin calls into @unloaded/calc-mapper (the ONLY
-// module in src/ that imports its functions). Kept free of worker plumbing so the same functions
+// module in src/ that imports its functions), plus @unloaded/drawing-parser for drawing sets. Kept free of worker plumbing so the same functions
 // could run on the main thread (tests, a future non-worker fallback).
 //
 // Calcs reach map / export / impact as a calc SET (the head revision of every calc document); the set
@@ -35,5 +35,11 @@ export function engineOps(pdfjs: unknown): { [K in EngineOp]: Op<K> } {
       impactOf(graph, docs ? buildCalcSet(docs) : null, run, decisions, globalId, mode),
     diff: async ({ a, b, labelA, labelB }) => diffGraphs(a, b, { a: labelA, b: labelB }),
     calcDiff: async ({ before, after }) => diffCalcSets(before, after),
+    parseDrawing: async ({ bytes, sourceName }, progress) => {
+      // loaded on first use: the drawing parser pulls in ifc-parser (section names), which this worker otherwise never needs
+      const { parseDrawingSet } = await import('@unloaded/drawing-parser');
+      progress(`Reading the sheets of ${sourceName}`);
+      return parseDrawingSet([{ name: sourceName, data: bytes }], { pdfjs: pdfjs as PdfjsLike });
+    },
   };
 }

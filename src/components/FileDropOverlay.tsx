@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitCompareArrows, Upload } from 'lucide-react';
+import { GitCompareArrows, PencilRuler, Upload } from 'lucide-react';
 import { DROP_SLOT_ATTR, DropSlot } from '../hooks/useFileDrop';
 
 interface FileDropOverlayProps {
@@ -31,11 +31,17 @@ const ZONE_TONE: Record<DropSlot, { idle: string; active: string; icon: string; 
     icon: 'text-amber-300',
     eyebrow: 'text-amber-300',
   },
+  drawings: {
+    idle: 'border-sky-400/35 bg-[#2d3139]/80',
+    active: 'border-sky-300 bg-sky-500/15',
+    icon: 'text-sky-300',
+    eyebrow: 'text-sky-300',
+  },
 };
 
 const DropZone: React.FC<ZoneProps> = ({ slot, active, eyebrow, title, detail }) => {
   const tone = ZONE_TONE[slot];
-  const Icon = slot === 'base' ? Upload : GitCompareArrows;
+  const Icon = slot === 'base' ? Upload : slot === 'drawings' ? PencilRuler : GitCompareArrows;
   return (
     <div
       {...{ [DROP_SLOT_ATTR]: slot }}
@@ -78,7 +84,7 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
               <>
                 <DropZone
                   slot="base"
-                  active={hoverSlot !== 'compare'}
+                  active={hoverSlot !== 'compare' && hoverSlot !== 'drawings'}
                   eyebrow="Primary model"
                   title="Replace Base Model"
                   detail="Replaces the current model, groups and selection."
@@ -94,12 +100,19 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
             ) : (
               <DropZone
                 slot="base"
-                active
+                active={hoverSlot !== 'drawings'}
                 eyebrow="Import model"
                 title="Drop to Load Model"
                 detail="Import a structural model to build the element graph."
               />
             )}
+            <DropZone
+              slot="drawings"
+              active={hoverSlot === 'drawings'}
+              eyebrow="Drawing set (PDF)"
+              title="Build the Model from Drawings"
+              detail="Structural plans with no IFC: elements are read from tags, grids and schedules, and each one links back to its sheet."
+            />
           </div>
           <p className="mono text-[10px] text-zinc-400 text-center uppercase tracking-wider">
             Accepts {extList} · one file at a time

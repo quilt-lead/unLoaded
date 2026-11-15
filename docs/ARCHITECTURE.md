@@ -30,6 +30,11 @@ connection records (`IfcRelConnects*`). The graph is the single source of truth 
 Other inputs reach the same graph:
 - a serialized element graph or a `ModelInput` JSON;
 - a **model bundle** (below), whose element graph is the serialized one, embedded unchanged.
+- a **structural drawing set** PDF (no IFC): `packages/drawing-parser` reads it in the engine worker (op
+  `parseDrawing`) into a `ModelInput`, imported by `importDrawingModel` (`src/loaders/parsers.ts`). It is an explicit
+  choice (Add drawing set, the Drawing PDF tile, the drawings drop zone), never sniffed: a calc package is a PDF too.
+  The PDF is stored as the model revision's file; each element's `Drawing.Occurrences` (where it is printed) is read
+  by `src/data/drawingOccurrences.ts`.
 
 `src/loaders/parsers.ts` dispatches every file by content: IFC, model bundle, element graph, ModelInput, a
 calc-graph export, or a project file. The retired legacy `{ projectName, nodes, links }` demo format is refused
@@ -150,6 +155,9 @@ instructions to fetch their contents.
   outlined); calc dependencies side by side (`pdf/EvidenceCompare.tsx`); tabs for **typical groups** (elements of
   one size on one storey that a size-only calc links to once) and **findings** (the calc sizes an element
   differently from the model; click jumps to the page and selects the element).
+- **Drawing evidence** (`drawing/DrawingEvidence.tsx`, in the inspector): for an element of a drawing-set model,
+  a crop of its sheet with the printed tag / schedule row boxed (reusing `pdf/PdfPage.tsx`), stepping through every
+  occurrence; clicking opens the whole sheet at that box. Nothing for IFC elements.
 - **Inspector**: links ranked by confidence with their role (**design** = the calc sizes the element; **loads
   only** = it takes loads from / mentions it), confidence band, caveats, "via typical group", and an expandable
   "why" listing the weighted evidence the confidence is the sum of (each item can be shown on its page);

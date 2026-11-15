@@ -18,6 +18,7 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-drawing-evidence.md](2026-11-15-drawing-evidence.md) | in review | Drawing sets as an explicit model import (drawing-parser in the worker), Dana Point Bldg 12 sample, and the drawing evidence card: the selected element's tag / schedule row boxed on its sheet |
 | [2026-11-15-graph-comments.md](2026-11-15-graph-comments.md) | done | Sticky-note comments on the Element and Calculation Graphs: add (button / C), edit, select, box-select, drag with nodes, arrow nudge, delete with Undo; not yet persisted |
 | [2026-11-15-plan-view.md](2026-11-15-plan-view.md) | in review | 2D plan tab in the model panel: framing plan per floor level (SVG from element geometry), level stepping, shared 3D/plan emphasis rules |
 | [2026-11-15-loading-calcs.md](2026-11-15-loading-calcs.md) | done | Loading section in the Calculation Graph: 4 synthetic Harborview loading calcs (gravity, wind, seismic, combos), a `Loading` calc category, and a calc-reference-by-sheet-number rule that links them to 111 calcs |

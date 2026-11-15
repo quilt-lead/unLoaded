@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   Network,
+  PencilRuler,
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import {
   useDecide,
   useImpact,
   useInitialProject,
+  useLoadDanaPoint,
   useLoadDemo,
   useLoadHarborview,
   useLoadSample,
@@ -43,6 +45,7 @@ import {
   useRevisionUrls,
   useStoreInfo,
   useUploadCalcs,
+  useUploadDrawings,
   useMoveCalcRevision,
   useChangeDocument,
   useUploadModel,
@@ -154,6 +157,8 @@ export const App: React.FC = () => {
   // revisions go to the store project, also when an export view is shown over it (addRevisionFile)
   const uploadModel = useUploadModel(setBusyText);
   const uploadCalcs = useUploadCalcs(setBusyText);
+  const uploadDrawings = useUploadDrawings(setBusyText);
+  const danaPoint = useLoadDanaPoint(setBusyText);
   const moveCalcRevision = useMoveCalcRevision(pid);
   const changeDocument = useChangeDocument(pid);
   const createProject = useCreateProject();
@@ -896,6 +901,17 @@ export const App: React.FC = () => {
       return 'Harborview sample loaded: IFC rev 1 and 2 with their calc PDFs, compared A → B';
     });
 
+  const handleLoadDanaPoint = () =>
+    run('Loading Dana Point Bldg 12 (reading the drawings, then the calc package)…', async () => {
+      try {
+        const out = await danaPoint.mutateAsync();
+        switchProject(out.projectId);
+      } catch (e) {
+        throw new Error(sampleError(e));
+      }
+      return 'Dana Point Bldg 12 loaded: model read from the approved plans, calc package mapped onto it';
+    });
+
   /**
    * The one path a chosen file becomes a revision of the store project (header menu, empty state,
    * revision panel, Open file). The revision goes to the project open when the action started (also
@@ -905,7 +921,7 @@ export const App: React.FC = () => {
    * export JSON as a read-only view instead. Calcs take several PDFs at once (one large package, one PDF
    * per calc, or a new revision of some): each is placed in turn, and the toast says where each went.
    */
-  const addRevisionFile = (kind: 'model' | 'calcs' | 'any', files: File | File[], opts?: { compareWithHead?: boolean }) => {
+  const addRevisionFile = (kind: 'model' | 'calcs' | 'any' | 'drawings', files: File | File[], opts?: { compareWithHead?: boolean }) => {
     const list = Array.isArray(files) ? files : [files];
     const file = list[0];
     if (!file) return;
@@ -932,6 +948,10 @@ export const App: React.FC = () => {
       } else if (kind === 'model') {
         const out = await uploadModel.mutateAsync({ projectId: target, file });
         added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
+      } else if (kind === 'drawings') {
+        // a drawing set: the model is read from the PDF's sheets (only this path parses a PDF as drawings)
+        const out = await uploadDrawings.mutateAsync({ projectId: target, file });
+        added = { kind: 'model', id: out.revisionId, warnings: out.warnings };
       } else {
         // one at a time: each placement sees the documents the PDFs before it made
         const placed: { name: string; placement: CalcPlacement; id: number | null }[] = [];
@@ -956,11 +976,11 @@ export const App: React.FC = () => {
       const shown = showAddedRevision(target, startEpoch, diff);
       const what = added.placement
         ? calcPlacementText(file.name, added.placement, added.id)
-        : `${file.name} added as ${added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
+        : `${file.name} added as ${kind === 'drawings' ? 'a drawing-set model' : added.kind === 'model' ? 'model' : 'calc'} revision #${added.id}`;
       return shown ? what : `${what} of ${projectName(target)}`;
     });
   };
-  const handleUpload = (kind: 'model' | 'calcs', file: File | File[]) => addRevisionFile(kind, file);
+  const handleUpload = (kind: 'model' | 'calcs' | 'drawings', file: File | File[]) => addRevisionFile(kind, file);
   /** Any accepted file, by content: model or calc PDF -> revision; project file -> new project; export -> read-only view. */
   const handleOpenFile = (file: File) => addRevisionFile('any', file);
 
@@ -982,6 +1002,14 @@ export const App: React.FC = () => {
   // "compare" zone (shown once a model is loaded) adds a model revision and diffs it against the current head.
   const handleDropFiles = (files: File[], slot: DropSlot) => {
     const pdfs = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (slot === 'drawings') {
+      if (!pdfs.length) showToast(`A drawing set is a PDF; ${files.map((f) => f.name).join(', ')} is not.`, true);
+      else {
+        if (files.length > 1) showToast(`Reading ${pdfs[0]!.name} as the drawing set; drop one drawing PDF at a time (${files.length - 1} ignored).`, true);
+        void handleUpload('drawings', pdfs[0]!);
+      }
+      return;
+    }
     if (slot !== 'compare' && pdfs.length > 0 && pdfs.length === files.length) {
       void handleUpload('calcs', pdfs);
       return;
@@ -1395,6 +1423,7 @@ export const App: React.FC = () => {
           onDecide={handleDecide}
           onImpact={(gid, mode) => setImpactReq({ gid, mode })}
           onClearImpact={() => setImpactReq(null)}
+          drawingUrls={exportView ? undefined : projectQ.data?.drawingUrls}
         />
       </div>
       <div className="apple-panel-scroll-fade" />
@@ -1428,9 +1457,10 @@ export const App: React.FC = () => {
           {busyText ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-calcmap" />}
           {busyText || 'Load sample'}
         </button>
-        <div className="grid grid-cols-3 gap-1.5 mt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
           {[
             { icon: <Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, label: 'IFC model', accept: '.ifc,.json,application/json', multiple: false, on: (f: File[]) => handleUpload('model', f[0]!) },
+            { icon: <PencilRuler className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />, label: 'Drawing PDF', accept: '.pdf,application/pdf', multiple: false, on: (f: File[]) => handleUpload('drawings', f[0]!) },
             { icon: <FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, label: 'Calc PDFs', accept: '.pdf,application/pdf', multiple: true, on: (f: File[]) => handleUpload('calcs', f) },
             { icon: <FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, label: 'Project file', accept: '.json,application/json', multiple: false, on: (f: File[]) => handleOpenFile(f[0]!) },
           ].map((b) => (
@@ -1461,6 +1491,14 @@ export const App: React.FC = () => {
           className="mt-2 w-full text-[11px] text-zinc-300 hover:text-white py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
         >
           Load the Harborview tower sample <span className="text-emerald-300/90">(IFC + calc PDFs, rev 1 and 2)</span>
+        </button>
+        <button
+          type="button"
+          disabled={Boolean(busyText)}
+          onClick={handleLoadDanaPoint}
+          className="mt-2 w-full text-[11px] text-zinc-300 hover:text-white py-1.5 rounded-lg hover:bg-white/[0.04] transition disabled:opacity-40"
+        >
+          Load Dana Point Bldg 12 <span className="text-sky-300/90">(real drawings + calcs, no IFC)</span>
         </button>
         <button
           type="button"
@@ -1502,6 +1540,8 @@ export const App: React.FC = () => {
         onLoadDemo={handleLoadDemo}
         onLoadHarborview={handleLoadHarborview}
         onUploadModel={(f) => handleUpload('model', f)}
+        onUploadDrawings={(f) => handleUpload('drawings', f)}
+        onLoadDanaPoint={handleLoadDanaPoint}
         onUploadCalcs={(fs) => handleUpload('calcs', fs)}
         onOpenFile={handleOpenFile}
         diffRevs={diffRevs}

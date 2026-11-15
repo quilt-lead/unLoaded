@@ -15,6 +15,7 @@ import {
   Flame,
   GitCompareArrows,
   Loader2,
+  PencilRuler,
   Sparkles,
   Upload,
   X,
@@ -45,6 +46,10 @@ interface HeaderBarProps {
   /** The Harborview tower with a real IFC and calc PDFs (synthetic), rev 1 and rev 2. */
   onLoadHarborview: () => void;
   onUploadModel: (file: File) => void;
+  /** A structural drawing set PDF, parsed into the model (an explicit choice: PDFs are calcs otherwise). */
+  onUploadDrawings?: (file: File) => void;
+  /** The Dana Point Bldg 12 public set: real drawings (no IFC) + calcs. */
+  onLoadDanaPoint?: () => void;
   /** One or more calc PDFs (one large package, one per calc, or new revisions): each is placed in a calc document. */
   onUploadCalcs: (files: File[]) => void;
   /** any accepted file, dispatched by content (model / calc PDF / project file / export JSON) */
@@ -78,6 +83,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const viewButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const modelInput = useRef<HTMLInputElement | null>(null);
   const calcInput = useRef<HTMLInputElement | null>(null);
+  const drawingInput = useRef<HTMLInputElement | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
@@ -318,6 +324,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 setMenuOpen(false);
                 p.onLoadHarborview();
               }, p.busy)}
+              {p.onLoadDanaPoint &&
+                menuItem(<Sparkles className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />, 'Dana Point Bldg 12 (drawings + calcs)', 'Real approved plans (no IFC) parsed into the model, with its calc package', () => {
+                  setMenuOpen(false);
+                  p.onLoadDanaPoint?.();
+                }, p.busy)}
               {menuItem(<Sparkles className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Harborview A/B demo', 'Two model bundle revisions with invented calcs (demo data)', () => {
                 setMenuOpen(false);
                 p.onLoadDemo();
@@ -328,6 +339,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
               }, p.busy)}
               <div className="h-px bg-white/[0.08] my-1" />
               {menuItem(<Box className="w-3.5 h-3.5 text-cyan-300" aria-hidden="true" />, 'Add model revision', 'IFC (or model bundle / element graph / ModelInput); parsed in this browser', () => pick(modelInput), p.busy || p.source !== 'project')}
+              {p.onUploadDrawings &&
+                menuItem(<PencilRuler className="w-3.5 h-3.5 text-sky-300" aria-hidden="true" />, 'Add drawing set (PDF)', 'Structural plans, no IFC: the model is read from tags, grids and schedules', () => pick(drawingInput), p.busy || p.source !== 'project')}
               {menuItem(<FileText className="w-3.5 h-3.5 text-rose-300" aria-hidden="true" />, 'Add calc PDFs', 'One package or one PDF per calc; each joins a calc document', () => pick(calcInput), p.busy || p.source !== 'project')}
               <div className="h-px bg-white/[0.08] my-1" />
               {menuItem(<FileJson className="w-3.5 h-3.5 text-amber-300" aria-hidden="true" />, 'Open file…', 'A project file (new project), an export JSON (read-only), a model or a PDF', () => pick(openInput), p.busy)}
@@ -352,6 +365,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         </div>
         {fileInput(modelInput, '.ifc,.json,application/json', 'Add model revision', (fs) => p.onUploadModel(fs[0]!))}
         {fileInput(calcInput, '.pdf,application/pdf', 'Add calc PDFs', p.onUploadCalcs, true)}
+        {fileInput(drawingInput, '.pdf,application/pdf', 'Add drawing set', (fs) => p.onUploadDrawings?.(fs[0]!))}
         {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', (fs) => p.onOpenFile(fs[0]!))}
 
         {p.diffRevs && (

@@ -5,6 +5,7 @@ import type {
   BundleCalcGraph, CalcPackage, CalcSetDiff, CalcSetDocument, Compare, DecisionFields, Export, ExportInfo, Impact, ImpactMode, KnownDocument, MappingRun,
   RevisionTarget, SerializedElementGraph,
 } from '@unloaded/calc-mapper';
+import type { ModelInput } from '@unloaded/element-graph';
 
 export interface EngineOps {
   /** calc package PDF -> pages (pdf.js, word boxes) + segmented calcs */
@@ -23,6 +24,8 @@ export interface EngineOps {
   diff: { args: { a: SerializedElementGraph; b: SerializedElementGraph; labelA: number; labelB: number }; result: Compare };
   /** calc revision diff: two calc sets (documents in their own page numbers) */
   calcDiff: { args: { before: CalcSetDocument[]; after: CalcSetDocument[] }; result: CalcSetDiff };
+  /** structural drawing set PDF -> ModelInput (@unloaded/drawing-parser: tags, grids, schedules, every printed occurrence) */
+  parseDrawing: { args: { bytes: Uint8Array; sourceName: string }; result: ModelInput };
 }
 
 export type EngineOp = keyof EngineOps;

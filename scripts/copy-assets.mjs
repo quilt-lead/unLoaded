@@ -10,6 +10,9 @@
 //                                                    (model bundles with demo calcs) and the Harborview sample
 //                                                    (IFC rev 1 + 2 and calc PDFs, listed in manifest.json; made by
 //                                                    tools/calcgraph-reference synth.harborview, committed, PDFs in LFS)
+//   public/samples/dana-point-bldg12/             - the Dana Point Building 12 public set (data/sampleCalc: approved
+//                                                    plans + calc package, real PDFs in LFS): "Dana Point Bldg 12";
+//                                                    copied only when both are real PDFs, never as LFS pointer stubs
 // Runs on postinstall / predev / prebuild (and `npm run assets`). The REQUIRED assets (web-ifc.wasm and
 // the tracked fixtures, the first block below) fail predev / prebuild / assets with exit 1, so a build
 // can never ship without the IFC runtime; on postinstall they only warn, so an install can finish and
@@ -89,4 +92,25 @@ if (missing.length) {
   );
 } else {
   for (const [from, rel] of sample) copy(from, rel);
+}
+
+// the Dana Point sample: optional, and copied only as real PDFs (a stub would load as a broken drawing set)
+const danaFiles = ["OC-DPH_PKG21-0516_Bldg12_ApprovedPlans.pdf", "OC-DPH_PKG21-0516_Bldg12_Calcs.pdf"]
+  .map((f) => [join(repoRoot, "data/sampleCalc", f), `public/samples/dana-point-bldg12/${f}`]);
+const isRealPdf = (from) => {
+  if (!existsSync(from)) return false;
+  const fd = openSync(from, "r");
+  const buf = Buffer.alloc(8);
+  readSync(fd, buf, 0, 8, 0);
+  closeSync(fd);
+  return buf.toString("latin1").startsWith("%PDF-");
+};
+const danaMissing = danaFiles.filter(([from]) => !isRealPdf(from));
+if (danaMissing.length) {
+  console.warn(
+    `[assets] Dana Point sample not copied (${danaMissing.map(([f]) => f.split("/").pop()).join(", ")}: missing or a Git LFS pointer): ` +
+      `"Dana Point Bldg 12" will say so. Fetch it with: git lfs pull --include "data/sampleCalc/*", then npm run assets`,
+  );
+} else {
+  for (const [from, rel] of danaFiles) copy(from, rel);
 }

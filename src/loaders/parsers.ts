@@ -16,6 +16,10 @@
  * src/loaders/elementGraphToBim.ts (the only ElementGraph -> view adapter). The store refuses a
  * serialized graph that calc-mapper's parseGraph (what reopens a saved project) rejects, so an
  * imported model can always be saved and reopened (projectStore checkStorableRevision).
+ * - drawing set PDF (an explicit choice: a calc package is a PDF too, so PDFs are never sniffed into this)
+ *                                      -> @unloaded/drawing-parser in the engine worker -> ModelInput -> importDrawingModel
+ *                                         (projectService addDrawingRevision); elements keep Drawing.* params,
+ *                                         incl. Drawing.Occurrences (where each is printed: src/data/drawingOccurrences.ts)
  * New formats (Revit, Tekla, ETABS, ...) should emit a ModelInput and reuse the element-graph
  * pipeline, so connectivity inference and load paths come for free.
  */
@@ -32,8 +36,8 @@ export type ImportResult =
       /** Domain graph: the single source of elements and topology. */
       elementGraph: ElementGraph;
       projectName: string;
-      /** 'ifc' when the bytes were an IFC (it can then be uploaded as a model revision). */
-      format: 'ifc' | 'element-graph' | 'model-input' | 'bundle';
+      /** 'ifc' when the bytes were an IFC (it can then be uploaded as a model revision); 'drawing' for a drawing set PDF. */
+      format: 'ifc' | 'element-graph' | 'model-input' | 'bundle' | 'drawing';
       /** A model bundle's calc graph (null: the bundle has none; absent: not a bundle). */
       calcGraph?: BundleCalcGraph | null;
       /** A model bundle's meta (its revision label, whether it is demo data). */
@@ -115,9 +119,9 @@ function decodeJson(bytes: Uint8Array, fileName: string): unknown {
 async function fromModelInput(
   input: ModelInput,
   fileName: string,
-  format: 'ifc' | 'model-input',
+  format: 'ifc' | 'model-input' | 'drawing',
   onProgress: (m: string) => void
-): Promise<ImportResult> {
+): Promise<Extract<ImportResult, { kind: 'model' }>> {
   onProgress(`Inferring connectivity (${input.elements.length} elements)`);
   await nextFrame();
   const { graph: elementGraph, warnings } = buildGraph(input);
@@ -128,6 +132,18 @@ async function fromModelInput(
     format,
     warnings: [...(input.warnings ?? []).map((w) => `parser: ${w}`), ...warnings.map((w) => `graph: ${w}`)],
   };
+}
+
+/**
+ * A drawing set's ModelInput (from @unloaded/drawing-parser, parsed in the engine worker) -> the element graph,
+ * like any ModelInput. Kept apart from BIM_PARSERS on purpose: which PDFs are drawings is the user's choice.
+ */
+export function importDrawingModel(
+  input: ModelInput,
+  fileName: string,
+  onProgress: (m: string) => void = () => {},
+): Promise<Extract<ImportResult, { kind: 'model' }>> {
+  return fromModelInput(input, fileName, 'drawing', onProgress);
 }
 
 export const BIM_PARSERS: BimParserPlugin[] = [

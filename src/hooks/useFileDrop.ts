@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-export type DropSlot = 'base' | 'compare';
+/** 'drawings': a PDF dropped there is a structural drawing set (parsed into the model), not a calc package. */
+export type DropSlot = 'base' | 'compare' | 'drawings';
 
 /** Attribute that marks an element as a drop target for a given slot. */
 export const DROP_SLOT_ATTR = 'data-drop-slot';
@@ -10,7 +11,7 @@ const carriesFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).i
 const slotAt = (target: EventTarget | null): DropSlot | null => {
   const el = target instanceof Element ? target.closest(`[${DROP_SLOT_ATTR}]`) : null;
   const slot = el?.getAttribute(DROP_SLOT_ATTR);
-  return slot === 'base' || slot === 'compare' ? slot : null;
+  return slot === 'base' || slot === 'compare' || slot === 'drawings' ? slot : null;
 };
 
 /**

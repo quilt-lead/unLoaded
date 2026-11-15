@@ -38,6 +38,7 @@ import { getDisplayType, getLoadNeighbors } from '../utils/graphEngine';
 import { DIFF_PALETTE, NO_DATA_COLOR, STATUS_COLORS, STATUS_LABELS, TIER_LABELS, getEffectiveNodeColor, getHeatmapColor } from '../utils/colors';
 import { calcTarget, linkTarget } from './DocumentBrowser';
 import { Chip, ConfidenceChip, RoleChip, StatusDot, TierChip } from './ui/Chips';
+import { DrawingEvidence } from './drawing/DrawingEvidence';
 
 interface PropertyInspectorProps {
   node: BimNode | null;
@@ -70,6 +71,8 @@ interface PropertyInspectorProps {
   onDecide: (elementId: string, calcKey: string, action: DecisionAction) => void;
   onImpact: (elementId: string, mode: 'change' | 'remove') => void;
   onClearImpact: () => void;
+  /** drawing PDFs of the model on screen by file name (a drawing-set model); the element's drawing evidence is shown from them */
+  drawingUrls?: Record<string, string>;
 }
 
 const Section: React.FC<{ title: React.ReactNode; tone?: string; action?: React.ReactNode; children: React.ReactNode }> = ({
@@ -823,6 +826,8 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
           )}
         </div>
       )}
+
+      {!el.isGhost && <DrawingEvidence key={el.id} params={el.params} elementLabel={el.label} drawingUrls={p.drawingUrls} />}
 
       {!el.isGhost && (
         <div className="grid grid-cols-2 gap-1.5">
