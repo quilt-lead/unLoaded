@@ -1,11 +1,11 @@
 # Phase 2: calc sets (many PDFs) and per-document revisions
 
-- **Status:** active
+- **Status:** done (steps 1-5); not pushed, no PR. Follow-ups below.
 - **Branch:** `cs/phase2-calc-sets`, cut from `cs/phase1-calc-engine` (PR #4 + `prod`). Rebase onto `prod` once Phase 1 merges.
 - **Owned files:** `packages/calc-mapper/src/{types,project,package,calcset}.ts` (calcset.ts new), `packages/project-file/`,
   `src/engine/{ops,projectService,hooks}.ts`, `src/data/{projectStore,loadProject,mergeProject}.ts`, `src/components/RevisionPanel.tsx`,
   the calc-upload path in `src/loaders/parsers.ts` / `HeaderBar.tsx`.
-- **Working files:** all of the above while status is active.
+- **Working files:** none in flight. Also touched: `src/components/{CalcDocumentsSection,RevisionPanel,DocumentBrowser,HeaderBar}.tsx`, `src/App.tsx`, `src/types/bim.ts`, `packages/mcp-server/`.
 
 ## Why
 
@@ -96,8 +96,9 @@ document instead" / "pick document" override). Record the rule used with provena
 | 1. calc-mapper: calc sets, calc refs, per-document page refs, revision targets, calc diff | done | `b4fd0c5` |
 | 2. project-file v2 + store: documents, per-document heads, legacy reads | done | `b383394` |
 | 3. engine ops / projectService / hooks + MCP server on the set | done | `e9a1b0d` |
-| 4. UI: PDF viewer per document, multi-upload, documents in the revision panel, calc diff | in progress | |
-| 5. Browser smoke | not started | |
+| 4a. View shows each PDF's own pages; calc opens in its document's PDF; multi-PDF upload | done | `b267967` |
+| 4b. Calc documents in the revision panel: revisions, move, withdraw, calc diff | done | `f56cd92` |
+| 5. Browser smoke (headless Chromium on the dev server) | done | see below |
 
 Also on this branch, not Phase 2 but needed for green tests (cherry-pick into Phase 1): `f7eedc4` (stale parseGraph
 test message), `563feaf` (App.scope test failed on a Windows CRLF checkout).
@@ -137,3 +138,24 @@ CRLF in the generated files, the same cause as `563feaf`). MCP parity on the syn
   takes a page of ONE PDF; descriptions say how to convert set pages).
 - **Open questions in the plan, answered as proposed:** no split / merge of documents across revisions; decisions do not
   follow a calc into another document (identity includes doc_id).
+
+- **View pages are each PDF's own** (not set pages): `toCalcData` converts once, by the document of the calc each page
+  belongs to (every page in the view belongs to a calc); view calcs carry `docId` / `docName`; DocumentBrowser picks the
+  PDF from `pdfUrls[docId]`.
+
+## Browser smoke (2026-11-15)
+
+Headless Chromium (playwright-core from another session's scratchpad, not a project dependency) on `vite --port 5191`:
+Load sample -> 1 document; Add sample supplement -> toast "added as a new calc document, calc_supplement (revision #3)",
+2 documents, 15 calcs; the supplement's PT SLAB TENDON PROFILE CHECK opens the supplement PDF at its own page 2 (sheet
+"SUPPLEMENT S-2 OF 3"), title highlighted; adding calc_package.pdf again adds nothing. One console 404 (pre-existing
+favicon, per the parser-merge note). Not exercised in the browser: one PDF per calc (covered by the calc-mapper test),
+move / withdraw / calc diff clicks (store + engine tests cover them).
+
+## Left / follow-ups
+
+- Calc diff badges on the calc graph nodes (the diff shows in the revision panel only).
+- Rename a calc document from the UI (`updateDocument({ name })` exists; no control yet).
+- A synthetic one-PDF-per-calc case in the Python gate (tools/calcgraph-reference): today the equivalence is a TS test.
+- `generator_byte_stable` fails on this Windows checkout (pre-existing; likely CRLF).
+- Rebase onto `prod` after Phase 1 merges; `f7eedc4` and `563feaf` belong in Phase 1.
