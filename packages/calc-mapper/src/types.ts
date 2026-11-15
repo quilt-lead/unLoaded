@@ -31,16 +31,17 @@ export type { BuildingPointFt, Framed, ModelPointM, SheetRect } from "./frames.t
  * only when it was segmented by this version (project-file `storedExtractionFor`), so ANY change to
  * what segmentCalcs returns for the same pages must bump it. v2: unique calc keys; untitled pages
  * continue the most recent calc with text; front matter only on contents / index / cover evidence.
+ * v3: the "Loading" calc category (load criteria / analysis calcs, segment.ts `LOADING_WORDS`).
  */
-export const SEGMENTER_VERSION = "segment-v2" as const;
+export const SEGMENTER_VERSION = "segment-v3" as const;
 
 /**
  * The matcher's version: ANY change to what mapCalcs returns for the same graph and calc package must
  * bump it. v1.1: the provenance contract. v1.2: the calc-text section grammar (complete designations
  * only), whole-word storeys, the folded text, design-role designers, page numbers that are not
- * references.
+ * references. v1.3: calc edges from a calc reference by sheet number (calcdeps rule 3).
  */
-export const MAPPER_VERSION = "mapper-v1.2" as const;
+export const MAPPER_VERSION = "mapper-v1.3" as const;
 
 /**
  * The mapping engine's version, as stored mapping runs are keyed (the app's run cache, MappingRun /
@@ -90,6 +91,13 @@ export type ElementCategory =
   | "Beam" | "Column" | "Slab" | "Wall" | "Footing" | "Pile" | "Brace" | "Connection" | "Other";
 
 /**
+ * What a calc is about: the element category it designs, or "Loading" for a load criteria / load
+ * analysis calc (gravity, wind, seismic, load combinations). A Loading calc designs no element; it
+ * feeds other calcs, which cite it by sheet number (calcdeps rule 3).
+ */
+export type CalcCategory = ElementCategory | "Loading";
+
+/**
  * A region of one page that belongs to a calc: the page's text range [start, end) and the box
  * around it (PDF points; full page width). A region can start mid-page (a calc titled half way
  * down a sheet) and end mid-page (the next calc starts below it).
@@ -113,8 +121,8 @@ export interface Calc {
   ord: number;
   title: string;
   software: string;
-  /** Element category the calc designs ("" when the title / line under it names none). */
-  cat: ElementCategory | "";
+  /** Element category the calc designs, or "Loading" ("" when the title / line under it names none). */
+  cat: CalcCategory | "";
   pages: number[];
   scanned: boolean;
   /** Front matter / contents page. Never mapped. */
@@ -431,7 +439,7 @@ export interface ExportCalc {
   key: string;
   title: string;
   software: string;
-  element_type: ElementCategory | "";
+  element_type: CalcCategory | "";
   pages: number[];
   scanned: boolean;
   front_matter: boolean;

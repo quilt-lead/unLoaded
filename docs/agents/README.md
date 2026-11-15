@@ -18,6 +18,10 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-loading-calcs.md](2026-11-15-loading-calcs.md) | done | Loading section in the Calculation Graph: 4 synthetic Harborview loading calcs (gravity, wind, seismic, combos), a `Loading` calc category, and a calc-reference-by-sheet-number rule that links them to 111 calcs |
+| [2026-11-15-graph-jump-and-view-history.md](2026-11-15-graph-jump-and-view-history.md) | done | Ctrl+Click a graph node jumps to its calc PDF; Shift+Click multi-select fixed in the calc graph; Alt+Left/Right step back/forward through views |
+| [2026-11-15-calc-graph-drag.md](2026-11-15-calc-graph-drag.md) | done | Calculation Graph nodes are draggable like the Element Graph; drags stored as offsets so mapped-element satellites follow their calc |
+| [2026-11-15-pdf-view-layout.md](2026-11-15-pdf-view-layout.md) | done | PDF Calcs view: hides the global filter bar, adds a narrow fixed-width calc list that can be hidden, puts the calc header and caption on one toolbar row, makes the deps/linked-elements footer collapsible |
 | [2026-11-15-default-panel-docking.md](2026-11-15-default-panel-docking.md) | done | Inspector defaults to the left dock and 3D model to the right dock; navbar shadow no longer overlaps filters |
 | [2026-11-15-theme-aware-favicon.md](2026-11-15-theme-aware-favicon.md) | done | Adds light/dark SVG favicons selected by the operating system color preference |
 | [2026-11-15-graph-controls-and-upward-trace.md](2026-11-15-graph-controls-and-upward-trace.md) | done | Restores type/review/confidence coloring and the data-gated utilization heatmap, removes the top-right reset control, and makes upward traces exhaustive |

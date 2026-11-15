@@ -33,7 +33,7 @@ import { bandOf } from "./matcher.ts";
 import { statusOf } from "./project.ts";
 import { inputList, producerOf, RULES, type Provenance } from "./provenance.ts";
 import {
-  ENGINE_VERSION, type CalcEdge, type CalcEdgeEvidence, type CalcSetDocRecord, type CalcSpan, type DecisionFields, type ElementCategory,
+  ENGINE_VERSION, type CalcCategory, type CalcEdge, type CalcEdgeEvidence, type CalcSetDocRecord, type CalcSpan, type DecisionFields, type ElementCategory,
   type Export, type ExportInfo, type Link, type LinkEvidence, type LinkRole, type Rect, type SerializedElementGraph, type Snippet, type Tier,
   type TitleBox,
 } from "./types.ts";
@@ -57,8 +57,8 @@ export type BundleCalcSource = { kind: "demo" } | { kind: "pdf"; documents: Bund
 export interface BundleCalc {
   key: string;
   title: string;
-  /** The element type the calc designs ("" when it is not tied to one). */
-  cat: ElementCategory | "";
+  /** The element type the calc designs, or "Loading" ("" when it is not tied to one). */
+  cat: CalcCategory | "";
   software?: string;
   /** Pages of the calc (set pages); absent for a demo calc. */
   pages?: number[];
@@ -136,7 +136,7 @@ export class BundleFormatError extends Error {
   name = "BundleFormatError";
 }
 
-const CATS: readonly (ElementCategory | "")[] = ["Beam", "Column", "Slab", "Wall", "Footing", "Pile", "Brace", "Connection", "Other", ""];
+const CATS: readonly (CalcCategory | "")[] = ["Beam", "Column", "Slab", "Wall", "Footing", "Pile", "Brace", "Connection", "Other", "Loading", ""];
 const ROLES: readonly LinkRole[] = ["design", "loads"];
 const REVIEWS: readonly BundleReview[] = ["auto", "confirmed", "manual"];
 const TIERS: readonly Tier[] = ["exact", "range", "loose", "family", "size", "partial", "xref", "type", "manual", "stated"];
@@ -182,7 +182,7 @@ function checkCalcGraph(cg: unknown, nodeIds: Set<string>): void {
     if (keys.has(c.key)) fail(`${at}: duplicate calc key ${JSON.stringify(c.key)}`);
     keys.add(c.key);
     if (typeof c.title !== "string") fail(`${at} (${JSON.stringify(c.key)}) needs a string title`);
-    if (!CATS.includes(c.cat as ElementCategory)) fail(`${at}.cat must be one of ${CATS.map((x) => JSON.stringify(x)).join(", ")}`);
+    if (!CATS.includes(c.cat as CalcCategory)) fail(`${at}.cat must be one of ${CATS.map((x) => JSON.stringify(x)).join(", ")}`);
     if (!absent(c.pages) && (!Array.isArray(c.pages) || !c.pages.every(isNum))) fail(`${at}.pages must be a list of page numbers`);
     if (!absent(c.spans) && !Array.isArray(c.spans)) fail(`${at}.spans must be a list`);
     for (const f of ["software", "code", "rev", "date", "summary"]) if (!optStr(c[f])) fail(`${at}.${f} must be a string`);

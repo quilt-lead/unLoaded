@@ -40,6 +40,8 @@ interface RadialGraphCanvasProps {
   onClearSelection: () => void;
   onMoveNodes: (movedIds: Set<string>, dx: number, dy: number) => void;
   onGroupSelection: () => void;
+  /** Ctrl / Cmd + click: jump to the node's calculation (PDF) */
+  onOpenNode?: (node: BimNode) => void;
 }
 
 function getFittedFontSize(label: string, radius: number): string {
@@ -75,6 +77,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   onClearSelection,
   onMoveNodes,
   onGroupSelection,
+  onOpenNode,
 }) => {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string>('');
@@ -375,6 +378,12 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     if (e.button === 1 || e.button === 2) return;
     e.stopPropagation();
     if (!containerRef.current) return;
+    if ((e.ctrlKey || e.metaKey) && onOpenNode) {
+      // a jump, not a selection or a drag
+      e.preventDefault();
+      onOpenNode(node);
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
 
     const rect = containerRef.current.getBoundingClientRect();
@@ -679,6 +688,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const lit = isNodeHighlighted(s) && isNodeHighlighted(t);
                 const dimmed = (hasSelection || isFilterActive) && !lit;
                 if (link.relation === 'calc-dependency') {
+                  // dependency wires are only drawn for the selected calc(s); always-on they bury the graph
+                  if (!selectedNodeIds.has(link.source) && !selectedNodeIds.has(link.target)) return null;
                   return (
                     <path
                       key={`cd-${idx}`}
@@ -835,6 +846,12 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
           <Layers className="w-3 h-3 text-emerald-400" />
           Drag L→R: contain • R→L: cross • Shift: add
         </span>
+        {onOpenNode && (
+          <>
+            <span className="text-zinc-700">|</span>
+            <span>Ctrl+Click: open calc • Alt+←/→: back/forward</span>
+          </>
+        )}
       </div>
     </section>
   );

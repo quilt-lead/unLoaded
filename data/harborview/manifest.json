@@ -10,6 +10,10 @@
  },
  "calcs": {
   "rev1": [
+   "calcs/rev1/S-001 Gravity Load Criteria - Rev A.pdf",
+   "calcs/rev1/S-002 Wind Load Analysis - Rev A.pdf",
+   "calcs/rev1/S-003 Seismic Load Analysis - Rev A.pdf",
+   "calcs/rev1/S-004 Load Combination Criteria - Rev A.pdf",
    "calcs/rev1/S-102 Pile Cap and Caisson Grid A1 Design - Rev A.pdf",
    "calcs/rev1/S-102 Pile Cap and Caisson Grid A2 Design - Rev A.pdf",
    "calcs/rev1/S-102 Pile Cap and Caisson Grid A3 Design - Rev A.pdf",
@@ -90,6 +94,10 @@
    "calcs/rev1/S-605 Steel Braced Frame and Gusset Plate Design - Rev A.pdf"
   ],
   "rev2": [
+   "calcs/rev2/S-001 Gravity Load Criteria - Rev B.pdf",
+   "calcs/rev2/S-002 Wind Load Analysis - Rev B.pdf",
+   "calcs/rev2/S-003 Seismic Load Analysis - Rev B.pdf",
+   "calcs/rev2/S-004 Load Combination Criteria - Rev B.pdf",
    "calcs/rev2/S-102 Pile Cap and Caisson Grid B1 Design - Rev B.pdf",
    "calcs/rev2/S-102 Pile Cap and Caisson Grid B2 Design - Rev B.pdf",
    "calcs/rev2/S-102 Pile Cap and Caisson Grid B3 Design - Rev B.pdf",

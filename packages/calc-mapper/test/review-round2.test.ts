@@ -174,7 +174,9 @@ describe("version ratchet: a behaviour change must bump the version that keys st
     page(3, "BEAM DESIGN\nbeam 2B1 W18X35 at Level 2, MU = 45 X 12 = 540 in-k\nbeams 2B2-2B4 W18X35 ok\nRISA-3D Version 19 Page 1"),
     page(4, ""),
     page(5, "beam 2B5 tributary 10 x 20 ft, HD12 holdown at end\nRISA-3D Version 19 Page 2"),
-    page(6, "COLUMN DESIGN\ncolumn C1 W12X53 reactions from page 3\nLevel 2 typical beams W18X35\nmax end reaction: page 5"),
+    page(6, "COLUMN DESIGN\ncolumn C1 W12X53 reactions from page 3\nLevel 2 typical beams W18X35\nmax end reaction: page 5\nDesign loads per S-001"),
+    page(7, "S-001 GRAVITY LOAD CRITERIA\nSuperimposed dead load 15 psf, live load 50 psf\nCarried to S-002"),
+    page(8, "S-002 SEISMIC LOAD ANALYSIS\nSeismic weight from S-001; base shear V = 0.12 W"),
   ];
   const RATCHET_ELEMENTS = [
     el("b1", "Beam", "2B1", "W18X35"), el("b3", "Beam", "2B3", "W18X35"), el("b5", "Beam", "2B5", "W18X35"),
@@ -183,7 +185,7 @@ describe("version ratchet: a behaviour change must bump the version that keys st
 
   it("segmenter", () => {
     const fp = sha1Json(segment(RATCHET_PAGES).map((c) => [c.key, c.title, c.pages, c.scanned, c.front, c.cat, c.software, c.spans]));
-    expect({ version: SEGMENTER_VERSION, fp }).toEqual({ version: "segment-v2", fp: "c709605641931a2d55abd86609f176a79502ec01" });
+    expect({ version: SEGMENTER_VERSION, fp }).toEqual({ version: "segment-v3", fp: "36d19b0cde0e583151850f28a5376169a0184720" });
   });
 
   it("matcher and calc edges", () => {
@@ -193,6 +195,6 @@ describe("version ratchet: a behaviour change must bump the version that keys st
       links.map((l) => [l.global_id, l.calc_key, l.tier, l.conf, l.role, l.span]),
       inferCalcEdges(calcs, RATCHET_PAGES, links).map((e) => [e.src, e.dst, e.rules]),
     ]);
-    expect({ version: MAPPER_VERSION, fp }).toEqual({ version: "mapper-v1.2", fp: "a2ce0f4b56d1f50131f7de74cd6dedee3922de35" });
+    expect({ version: MAPPER_VERSION, fp }).toEqual({ version: "mapper-v1.3", fp: "46cc6a4621703f3d228b8a63062618f505c7e9a1" });
   });
 });

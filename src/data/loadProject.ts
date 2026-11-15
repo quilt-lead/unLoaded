@@ -43,6 +43,8 @@ import { CALC_PALETTE } from '../utils/colors';
 export const CALC_ROOT_ID = 'calc-root';
 export const calcNodeId = (key: string) => `calc:${key}`;
 const calcCategoryId = (type: string) => `calccat:${type || 'general'}`;
+/** The calc engine's category for load criteria / load analysis calcs (calc-mapper `CalcCategory`). */
+const LOADING = 'Loading';
 
 function shortCalcLabel(title: string): string {
   const head = title.split(' - ')[0].trim();
@@ -149,7 +151,8 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
     const cid = calcCategoryId(type);
     if (!seen.has(cid)) {
       seen.add(cid);
-      const label = type ? (type === 'Front matter' ? type : `${type} calcs`) : 'General';
+      // Front matter and Loading name themselves: a Loading calc designs no element, it feeds other calcs
+      const label = type ? (type === 'Front matter' || type === LOADING ? type : `${type} calcs`) : 'General';
       calcNodes.push({
         id: cid,
         label,
@@ -159,7 +162,12 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
         r: Math.max(26, getCalcBubbleLayout(label).radius),
         x: 0,
         y: 0,
-        desc: type ? `Calculations that design ${type.toLowerCase()} elements` : 'Calculations not tied to one element type',
+        desc:
+          type === LOADING
+            ? 'Gravity, wind and seismic load calculations: they design no element and feed the calculations that cite them'
+            : type
+              ? `Calculations that design ${type.toLowerCase()} elements`
+              : 'Calculations not tied to one element type',
       });
       calcLinks.push({ source: CALC_ROOT_ID, target: cid, relation: 'hierarchy' });
     }

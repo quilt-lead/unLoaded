@@ -795,9 +795,485 @@
   [
    "doc-slab-l05",
    "doc-infill-l05"
+  ],
+  [
+   "load-combos",
+   "doc-braced-frames"
+  ],
+  [
+   "load-combos",
+   "doc-conn-baseplates"
+  ],
+  [
+   "load-combos",
+   "doc-core-walls"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a1/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a1/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a2/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a2/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a3/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a3/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a4/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-a4/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b1/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b1/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b2/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b2/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b3/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b3/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b4/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-b4/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c1/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c1/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c2/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c2/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c3/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c3/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c4/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-c4/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d1/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d1/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d2/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d2/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d3/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d3/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d4/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-d4/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e1/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e1/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e2/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e2/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e3/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e3/cap"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e4/caisson"
+  ],
+  [
+   "load-combos",
+   "doc-fdn-e4/cap"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-a1"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-a2"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-a3"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-a4"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-b1"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-b2"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-b3"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-b4"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-c1"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-c2"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-c3"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-c4"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-d1"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-d2"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-d3"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-d4"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-e1"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-e2"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-e3"
+  ],
+  [
+   "load-gravity",
+   "doc-col-stack-e4"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-1-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-1-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-1-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-1-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-1-l05"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-2-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-2-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-2-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-2-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-2-l05"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-3-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-3-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-3-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-3-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-3-l05"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-4-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-4-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-4-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-4-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-girder-line-4-l05"
+  ],
+  [
+   "load-gravity",
+   "doc-infill-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-infill-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-infill-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-infill-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-infill-l05"
+  ],
+  [
+   "load-gravity",
+   "doc-slab-l01"
+  ],
+  [
+   "load-gravity",
+   "doc-slab-l02"
+  ],
+  [
+   "load-gravity",
+   "doc-slab-l03"
+  ],
+  [
+   "load-gravity",
+   "doc-slab-l04"
+  ],
+  [
+   "load-gravity",
+   "doc-slab-l05"
+  ],
+  [
+   "load-gravity",
+   "load-combos"
+  ],
+  [
+   "load-gravity",
+   "load-seismic"
+  ],
+  [
+   "load-seismic",
+   "doc-braced-frames"
+  ],
+  [
+   "load-seismic",
+   "doc-core-walls"
+  ],
+  [
+   "load-seismic",
+   "doc-slab-l01"
+  ],
+  [
+   "load-seismic",
+   "doc-slab-l02"
+  ],
+  [
+   "load-seismic",
+   "doc-slab-l03"
+  ],
+  [
+   "load-seismic",
+   "doc-slab-l04"
+  ],
+  [
+   "load-seismic",
+   "doc-slab-l05"
+  ],
+  [
+   "load-seismic",
+   "load-combos"
+  ],
+  [
+   "load-wind",
+   "doc-braced-frames"
+  ],
+  [
+   "load-wind",
+   "doc-core-walls"
+  ],
+  [
+   "load-wind",
+   "doc-slab-l01"
+  ],
+  [
+   "load-wind",
+   "doc-slab-l02"
+  ],
+  [
+   "load-wind",
+   "doc-slab-l03"
+  ],
+  [
+   "load-wind",
+   "doc-slab-l04"
+  ],
+  [
+   "load-wind",
+   "doc-slab-l05"
+  ],
+  [
+   "load-wind",
+   "load-combos"
   ]
  ],
  "calcs": [
+  {
+   "doc": "load-gravity",
+   "element_type": "Loading",
+   "family": "gravity",
+   "id": "load-gravity",
+   "rev": "Rev A",
+   "title": "S-001 Gravity Load Criteria"
+  },
+  {
+   "doc": "load-wind",
+   "element_type": "Loading",
+   "family": "wind",
+   "id": "load-wind",
+   "rev": "Rev A",
+   "title": "S-002 Wind Load Analysis"
+  },
+  {
+   "doc": "load-seismic",
+   "element_type": "Loading",
+   "family": "seismic",
+   "id": "load-seismic",
+   "rev": "Rev A",
+   "title": "S-003 Seismic Load Analysis"
+  },
+  {
+   "doc": "load-combos",
+   "element_type": "Loading",
+   "family": "combos",
+   "id": "load-combos",
+   "rev": "Rev A",
+   "title": "S-004 Load Combination Criteria"
+  },
   {
    "doc": "doc-fdn-a1",
    "element_type": "Pile",
@@ -5954,7 +6430,11 @@
    "doc-slab-l02": "calcs/rev1/S-202 L02 Composite Floor Slab and Diaphragm Calc - Rev A.pdf",
    "doc-slab-l03": "calcs/rev1/S-203 L03 Composite Floor Slab and Diaphragm Calc - Rev A.pdf",
    "doc-slab-l04": "calcs/rev1/S-204 L04 Composite Floor Slab and Diaphragm Calc - Rev A.pdf",
-   "doc-slab-l05": "calcs/rev1/S-205 L05 Composite Floor Slab and Diaphragm Calc - Rev A.pdf"
+   "doc-slab-l05": "calcs/rev1/S-205 L05 Composite Floor Slab and Diaphragm Calc - Rev A.pdf",
+   "load-combos": "calcs/rev1/S-004 Load Combination Criteria - Rev A.pdf",
+   "load-gravity": "calcs/rev1/S-001 Gravity Load Criteria - Rev A.pdf",
+   "load-seismic": "calcs/rev1/S-003 Seismic Load Analysis - Rev A.pdf",
+   "load-wind": "calcs/rev1/S-002 Wind Load Analysis - Rev A.pdf"
   },
   "calc_documents_rev2": {
    "doc-braced-frames": "calcs/rev2/S-605 Steel Braced Frame and Gusset Plate Design - Rev B.pdf",
@@ -5975,7 +6455,11 @@
    "doc-girder-line-4-l06": "calcs/rev2/S-302 L06 Grid Line 4 Girder Sizing Calc - Rev A.pdf",
    "doc-infill-l06": "calcs/rev2/S-316 L06 Composite Infill Beams (W16x31) - Rev A.pdf",
    "doc-slab-l04": "calcs/rev2/S-204 L04 Composite Floor Slab and Diaphragm Calc - Rev B.pdf",
-   "doc-slab-l06": "calcs/rev2/S-206 L06 Composite Floor Slab and Diaphragm Calc - Rev A.pdf"
+   "doc-slab-l06": "calcs/rev2/S-206 L06 Composite Floor Slab and Diaphragm Calc - Rev A.pdf",
+   "load-combos": "calcs/rev2/S-004 Load Combination Criteria - Rev B.pdf",
+   "load-gravity": "calcs/rev2/S-001 Gravity Load Criteria - Rev B.pdf",
+   "load-seismic": "calcs/rev2/S-003 Seismic Load Analysis - Rev B.pdf",
+   "load-wind": "calcs/rev2/S-002 Wind Load Analysis - Rev B.pdf"
   },
   "calc_package": "calcs/harborview-calcs-rev1.pdf",
   "model_rev1": "harborview-rev1.ifc",
@@ -9049,6 +9533,30 @@
    "3yqNL7KpLNYeRPbBJiAUED": "doc-col-stack-d4"
   },
   "documents": [
+   {
+    "doc": "load-gravity",
+    "file": "calcs/rev2/S-001 Gravity Load Criteria - Rev B.pdf",
+    "kind": "revision",
+    "rev": "Rev B"
+   },
+   {
+    "doc": "load-wind",
+    "file": "calcs/rev2/S-002 Wind Load Analysis - Rev B.pdf",
+    "kind": "revision",
+    "rev": "Rev B"
+   },
+   {
+    "doc": "load-seismic",
+    "file": "calcs/rev2/S-003 Seismic Load Analysis - Rev B.pdf",
+    "kind": "revision",
+    "rev": "Rev B"
+   },
+   {
+    "doc": "load-combos",
+    "file": "calcs/rev2/S-004 Load Combination Criteria - Rev B.pdf",
+    "kind": "revision",
+    "rev": "Rev B"
+   },
    {
     "doc": "doc-fdn-b1",
     "file": "calcs/rev2/S-102 Pile Cap and Caisson Grid B1 Design - Rev B.pdf",

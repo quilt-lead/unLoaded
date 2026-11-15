@@ -12,9 +12,15 @@
  * 2. cross-reference - a calc that mentions (xref tier) an element designed by another calc takes
  *    that calc's output as input (designer -> this), unless the same line has a "to" cue before
  *    the mention ("carried to ST-1 design"), then this -> designer. The designer is `designerOf`.
+ * 3. calc reference - a calc that names another calc's sheet number ("loads per S-001", "from S-002")
+ *    takes that calc's output as input (that -> this), or, with a "to" cue before it on the line,
+ *    this -> that. The sheet number is the hyphenated token a title starts with (`sheetOf`), and only a
+ *    sheet number exactly one calc carries is resolved (twenty S-102 pile cap calcs name no one calc).
+ *    This is how a calc that designs no element (a Loading calc: gravity, wind, seismic) joins the
+ *    graph, across documents: the rule does not need a page number or an element mark.
  *
  * Provenance: producer calc-mapper/calcdeps, rule = the ids of the edge's rules joined with "+"
- * (`calcdeps.page-reference.input|output`, `calcdeps.cross-reference`), inputs = the PDF of every
+ * (`calcdeps.page-reference.input|output`, `calcdeps.cross-reference`, `calcdeps.calc-reference`), inputs = the PDF of every
  * page the evidence sits on, plus, for a cross-reference, the inputs of the links it was read from.
  */
 import { rectsForSpan } from "./pdf.ts";
@@ -121,6 +127,15 @@ export function pageReferences(U: string, running: ReadonlySet<number> = new Set
   return out;
 }
 
+/** A sheet number: letters, a hyphen, digits ("S-001", "SK-12", "S-302A"). Not "L01": a level is not a sheet. */
+const SHEET = /^([A-Z]{1,3}-\d{1,4}[A-Z]?)(?=\s)/;
+const escapeRx = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The sheet number a calc title starts with ("S-001 Gravity Load Criteria" -> "S-001"), else null. */
+export function sheetOf(title: string): string | null {
+  return SHEET.exec(foldText(title).trim().toUpperCase())?.[1] ?? null;
+}
+
 const tierConf = (l: Link): number => (l.evidence?.[0]?.kind === "tier" ? l.evidence[0].weight : l.conf);
 /** Design before loads (a link without a role - an older stored one - counts as design, as statusOf reads it). */
 const roleRank = (l: Link): number => ((l.role ?? "design") === "design" ? 0 : 1);
@@ -200,6 +215,41 @@ export function inferCalcEdges(calcs: Calc[], pages: CalcPage[], links: Link[]):
           };
           if (out) add(c.key, o.key, "page reference (output to)", RULES.calcdeps.pageOutput, ev, [pg.doc_sha256]);
           else add(o.key, c.key, "page reference (input from)", RULES.calcdeps.pageInput, ev, [pg.doc_sha256]);
+        }
+      }
+    }
+  }
+
+  // 3. calc reference: another calc's sheet number, when exactly one calc carries it
+  const bySheet = new Map<string, Calc[]>();
+  for (const c of calcs) {
+    if (c.front || c.scanned) continue;
+    const s = sheetOf(c.title);
+    if (s) (bySheet.get(s) ?? bySheet.set(s, []).get(s)!).push(c);
+  }
+  const sheets = [...bySheet].filter(([, cs]) => cs.length === 1).map(([s, [c]]) => [s, c!] as const);
+  if (sheets.length) {
+    const rx = new RegExp(`(?<![A-Z0-9-])(${sheets.map(([s]) => escapeRx(s)).sort((p, q) => q.length - p.length).join("|")})(?![A-Z0-9])`, "g");
+    const sheetCalc = new Map(sheets);
+    for (const c of calcs) {
+      if (c.front || c.scanned) continue;
+      for (const r of calcRegions(c, pages)) {
+        const pg = pageByN.get(r.page);
+        if (!pg) continue;
+        const U = foldText(pg.text);
+        for (const m of U.slice(r.start, r.end).matchAll(rx)) {
+          const o = sheetCalc.get(m[1]!);
+          if (!o || o.key === c.key) continue;
+          const start = r.start + m.index, end = start + m[1]!.length;
+          const ls = lineStart(U, start);
+          const le = U.indexOf("\n", end);
+          const ev: CalcEdgeEvidence = {
+            calc: c.key, page: r.page, text: pg.text.slice(start, end), line: pg.text.slice(ls, le >= 0 ? le : undefined),
+            rects: rectsForSpan(pg, start, end),
+          };
+          const [src, dst] = lastCue(U.slice(ls, start)) === "TO" ? [c.key, o.key] : [o.key, c.key];
+          add(src, dst, "calc reference (names the other calc's sheet number)", RULES.calcdeps.calcReference, ev,
+            [pg.doc_sha256, ...o.provenance.inputs]);
         }
       }
     }
