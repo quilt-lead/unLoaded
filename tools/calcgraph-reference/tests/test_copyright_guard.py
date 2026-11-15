@@ -81,8 +81,55 @@ def test_utf16_and_utf32_text_is_term_scanned(planted):
 
 def test_pdf_header_after_junk():
     cfg = guard.throwaway_config()
-    assert "PDF file" in guard.check_blob("x/a.txt", b"junk\n%PDF-1.4\n", None, cfg)
+    assert any("PDF content" in f for f in guard.check_blob("x/a.txt", b"junk\n%PDF-1.4\n", None, cfg))
     assert guard.check_blob("x/doc.md", b"the guard looks for a %PDF- header, e.g. %PDF-1.7", None, cfg) == []
+
+
+def test_pdf_content_can_be_pinned_but_a_pdf_name_cannot():
+    text = b"notes\n%PDF-1.7 is how a PDF starts\n"
+    pinned = {**guard.throwaway_config(), "blob_allowlist": {"x/p.md": guard.blob_sha(text), "x/p.pdf": guard.blob_sha(text)}}
+    assert guard.check_blob("x/p.md", text, None, pinned) == []
+    assert any("content changed" in f for f in guard.check_blob("x/p.md", text + b"x", None, pinned))
+    assert guard.check_blob("x/p.pdf", text, None, pinned) == ["PDF file"]
+
+
+@pytest.mark.parametrize("data", [
+    b"8BPS appears in prose\n",                       # PSD magic at 0
+    b"a" * 257 + b"ustar format\n",                  # tar magic at 257
+    b"abcdftypheic notes\n",                         # ISO-BMFF box at 4
+    b"GIF89a was the second GIF version\n",
+    b"BZh91AY&SY is the bzip2 block magic\n",
+])
+def test_magic_bytes_in_plain_text_are_text(data):
+    assert guard.classify("x/n.txt", data) == ("text", "")
+
+
+def test_magic_bytes_with_binary_context_still_classify():
+    assert guard.classify("x/a.dat", b"8BPS\x00\x01\x00\x00")[0] == "image"
+    assert guard.classify("x/a.dat", b"GIF89a\x10\x00\x10\x00")[0] == "image"
+    assert guard.classify("x/a.dat", b"a" * 257 + b"ustar\x0000")[0] == "archive"
+
+
+def test_raw_base64_without_data_prefix_must_be_pinned():
+    cfg = guard.throwaway_config()
+    std = b'{"png": "' + b"iVBORw0KGgoAAAANSUhEUg" * 15 + b'"}'
+    url = b'{"png": "' + b"iVBORw0K-_AAANSUhEUg9" * 15 + b'"}'
+    wrapped = b"".join(b"iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAYAAACAvzbMAAAACXBIWXMAAAsTAAALEwEAmpwY\n" for _ in range(5))
+    for data in (std, url, wrapped):
+        assert any("raw base64" in f for f in guard.check_blob("x/d.json", data, None, cfg)), data[:30]
+    pinned = {**cfg, "blob_allowlist": {"x/d.json": guard.blob_sha(std)}}
+    assert guard.check_blob("x/d.json", std, None, pinned) == []
+
+
+@pytest.mark.parametrize("data", [
+    b'"integrity": "sha512-' + b"Ab9+" * 22 + b'=="',  # lockfile integrity (88 chars)
+    b"a3f9" * 64 + b"\n",                            # 256 hex chars
+    b"ABCDEF0123" * 30 + b"\n",                      # upper-case hex
+    b"x" * 300 + b"\n",                              # one letter repeated (no case / digit mix)
+    b"the quick brown fox jumps over the lazy dog " * 20,
+])
+def test_raw_base64_detector_passes_hashes_and_prose(data):
+    assert guard.check_blob("x/a.txt", data, None, guard.throwaway_config()) == []
 
 
 # ---------------------------------------------------------------- finding 3: glued terms
@@ -93,27 +140,74 @@ def test_long_term_glued_into_a_token(planted):
         assert found and "glued tier" in found[0], s
 
 
+def tier(text, cfg, name):
+    """Term ids one tier finds on its own (the other two disabled)."""
+    return [tid for tid, *_ in guard.term_hits(text, cfg, tiers=(name,))]
+
+
 def test_camel_case_and_letter_digit_boundaries(planted):
     cfg, (tid, nid, did, _), t = planted
-    assert hits(guard.check_blob("x/a.ts", f"get{t['w1']}{t['w2'].capitalize()}Value".encode(), None, cfg), tid)
-    assert hits(guard.check_blob("x/a.ts", f"PRJ{t['num']}Rev2".encode(), None, cfg), nid)
-    assert hits(guard.check_blob("x/a.json", f"{{\"job\": {t['n5']}.{t['d1']}}}".encode(), None, cfg), did)
+    # each input is one the token tier cannot see, so the unit tier is what finds it
+    for text, want in ((f"get{t['w1']}{t['w2'].capitalize()}Value", tid), (f"PRJ{t['num']}Rev2", nid)):
+        assert not tier(text, cfg, "token") and want in tier(text, cfg, "unit"), text
+
+
+def test_decimal_is_one_number_in_both_directions():
+    """A decimal is never joined across its point (no 1234.56 -> 123456), and a term stored WITH a
+    dot keeps it, so the unit and glued tiers find it as stored."""
+    cfg = guard.throwaway_config()
+    n6 = str(secrets.randbelow(900_000) + 100_000)
+    n5, d = str(secrets.randbelow(90_000) + 10_000), str(secrets.randbelow(9) + 1)
+    six, dashed, dotted = guard.add_terms([n6, f"{n5}-{d}", f"{n5}.{d}{d}"], cfg)
+    coords = f"#7=IFCCARTESIANPOINT(({n6[:4]}.{n6[4:]},{n5}.{d},0.));"
+    assert guard.check_blob("x/m.ifc", coords.encode(), None, cfg) == []    # neither 6-digit term
+    assert dotted in tier(f"Job{n5}.{d}{d}", cfg, "unit")                   # stored with a dot, glued to letters
+    n4, d4 = str(secrets.randbelow(9_000) + 1_000), str(secrets.randbelow(9_000) + 1_000)
+    long_dotted = guard.add_terms([f"{n4}.{d4}"], cfg)[0]                   # 9 canonical chars: glued tier
+    assert long_dotted in tier(f"zz{n4}.{d4}zz", cfg, "glued")
+    assert not tier(f"zz{n4}{d4}zz", cfg, "glued")                         # the dotless digits are another string
+
+
+def test_units_and_glued_stream_use_the_term_canonical_form():
+    """The invariant behind the three tiers: what a tier concatenates equals canonical_of."""
+    alphabet = "abcXYZ019.-_ "
+    for _ in range(500):
+        s = "".join(secrets.choice(alphabet) for _ in range(secrets.randbelow(24) + 1))
+        if not guard.tokens(s):
+            continue
+        canon = guard.canonical_of(s)
+        assert "".join(u for u, _ in guard.units(s)) == canon, s
 
 
 def test_no_hit_inside_a_longer_number(planted):
     cfg, _, t = planted
     assert guard.check_blob("x/a.ifc", f"#12=IFCCARTESIANPOINT((0.{t['num']},1.5));".encode(), None, cfg) == []
-    long_num = guard.add_terms([str(secrets.randbelow(9 * 10**9) + 10**9)], cfg)[0]  # 10 digits: glued tier
-    digits = [x for x in cfg["terms"] if x["id"] == long_num][0]
-    assert digits["len"] == 10
+    n10 = str(secrets.randbelow(9 * 10**9) + 10**9)
+    long_num = guard.add_terms([n10], cfg)[0]  # 10 digits: scanned by the glued tier
+    assert [x for x in cfg["terms"] if x["id"] == long_num][0]["len"] == 10
+    assert long_num in tier(f"id {n10}zz", cfg, "glued")              # the glued tier does see it ...
+    for text in (f"(0.{n10},1.5)", f"({n10}.25,1.5)", f"v=3{n10}7"):  # ... but not inside a longer number
+        assert long_num not in tier(text, cfg, "glued"), text
 
 
 def test_glued_tier_respects_digit_runs():
     cfg = guard.throwaway_config()
     n10 = str(secrets.randbelow(9 * 10**9) + 10**9)
     tid = guard.add_terms([n10], cfg)[0]
-    assert hits(guard.check_blob("x/a.txt", f"PRJ{n10}REV".encode(), None, cfg), tid)
-    assert guard.check_blob("x/a.txt", f"v=3{n10}7".encode(), None, cfg) == []  # inside a longer number
+    assert tid in tier(f"prj{n10}rev", cfg, "glued")
+    assert not tier(f"prj{n10}rev", cfg, "token")             # only the glued (and unit) tier could see it
+    assert not tier(f"v=3{n10}7", cfg, "glued")               # inside a longer number
+
+
+def test_glued_digit_boundary_is_checked_on_the_original_text():
+    """`Sheet 3 12345abcxyz`: the 3 is a separate number; only the separator-free stream glues it on."""
+    cfg = guard.throwaway_config()
+    term = str(secrets.randbelow(90_000) + 10_000) + word(6)   # digit-led, 11 chars
+    tid = guard.add_terms([term], cfg)[0]
+    for text in (f"Sheet 3 {term}zz", f"Sheet-3 {term}zz", f"3, {term}zz"):
+        assert tid in tier(text, cfg, "glued"), text
+    for text in (f"Sheet3{term}zz", f"0.{term}zz", f"3.{term}zz"):
+        assert tid not in tier(text, cfg, "glued"), text
 
 
 def test_short_term_residual_is_documented(planted):
@@ -145,6 +239,74 @@ def test_report_never_echoes_a_term(planted):
 def _git(repo, *a):
     return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.symlinks=true", *a],
                           cwd=repo, check=True, capture_output=True, text=True).stdout
+
+
+# ---------------------------------------------------------------- push scans (CI push events)
+ZERO = "0" * 40
+
+
+@pytest.fixture()
+def pushed(tmp_path):
+    """An origin with prod (holding pre-guard content, as the real prod does) and a clone of it."""
+    origin, clone = tmp_path / "origin", tmp_path / "clone"
+    origin.mkdir()
+    o = str(origin)
+    _git(o, "init", "-q", "-b", "prod")
+    _git(o, "config", "uploadpack.allowAnySHA1InWant", "true")
+    (origin / "shot.png").write_bytes(PNG)  # unpinned: --history over prod can only fail
+    _git(o, "add", "."); _git(o, "commit", "-q", "-m", "pre-guard")
+    _git(str(tmp_path), "clone", "-q", o, str(clone))
+    return origin, clone
+
+
+def _commit(repo, name, body):
+    (repo / name).write_text(body)
+    _git(str(repo), "add", name); _git(str(repo), "commit", "-q", "-m", name)
+    return _git(str(repo), "rev-parse", "HEAD").strip()
+
+
+def test_push_new_branch_scans_only_commits_not_on_the_base(pushed):
+    _, clone = pushed
+    c = str(clone)
+    _git(c, "checkout", "-q", "-b", "main")
+    head = _commit(clone, "a.txt", "clean\n")
+    spec, _ = guard.push_spec(c, ZERO, head, "origin/prod", "main")
+    assert spec == f"origin/prod..{head}"
+    cfg = guard.throwaway_config()
+    assert guard.scan_range(c, cfg, spec) == {}
+    assert guard.scan_range(c, cfg, head)  # what the old fallback (--history) did: fails on prod's history
+
+
+def test_push_force_push_fetches_the_old_head_by_sha(pushed):
+    origin, clone = pushed
+    old = _commit(origin, "old.txt", "old head\n")            # on origin only: the clone never saw it
+    _git(str(origin), "reset", "-q", "--hard", "HEAD~1")        # force-push: old head is now unreferenced
+    c = str(clone)
+    assert subprocess.run(["git", "cat-file", "-e", f"{old}^{{commit}}"], cwd=c, capture_output=True).returncode
+    head = _commit(clone, "new.txt", "new\n")
+    spec, _ = guard.push_spec(c, old, head, "origin/prod", "prod")
+    assert spec == f"{old}..{head}"
+
+
+def test_push_unknown_before_scans_the_tree_and_warns(pushed, capsys):
+    _, clone = pushed
+    c = str(clone)
+    head = _commit(clone, "new.txt", "new\n")
+    spec, why = guard.push_spec(c, "1" * 40, head, "origin/prod", "prod")
+    assert spec is None and "could not be fetched" in why
+    cfg = {**guard.throwaway_config(), "blob_allowlist": {"shot.png": guard.blob_sha(PNG)}}
+    assert guard.scan_push(c, cfg, "1" * 40, head, "origin/prod", "prod") == 0
+    assert "::warning" in capsys.readouterr().out
+    assert guard.push_spec(c, ZERO, head, "origin/prod", "prod")[0] is None  # creating the base branch itself
+
+
+def test_ci_runs_the_guard_in_the_copyright_job():
+    """The copyright job is the only CI run of the guard (evaluate_all has no copyright stage)."""
+    ci = open(os.path.join(ROOT, "..", "..", ".github", "workflows", "ci.yml")).read()
+    job = ci[ci.index("  copyright:"):ci.index("  tooling:")]
+    for flag in ("--self-test", "--tracked", "--range", "--push"):
+        assert f'"$guard" {flag}' in job, flag
+    assert "--history" not in job.split("run: |", 1)[1]  # prod's history predates the guard
 
 
 def test_range_scans_merge_resolution(tmp_path, planted):

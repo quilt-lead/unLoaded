@@ -18,11 +18,17 @@ Stages (a stage whose inputs are missing reports SKIPPED; see Gating for what a 
                    UC error, health band. Skipped unless data/synthetic_v2/ holds design.json,
                    answer_key.json and model.graph.json (synth.v2.generate, synth.v2.scenarios,
                    scripts/build_graph.mjs). Needs Node.
-  copyright        scripts/check_no_copyrighted.py --tracked (pass/fail)
+  (The copyright guard is not a stage: the CI `copyright` job runs its --self-test, --tracked and the
+  PR / push range, and the pre-commit hook runs --staged. Re-running --tracked here cost ~30 s per run.)
 
 Gating (compare(), over the UNION of the baseline's and the run's keys):
   - gated metric (higher is better): a drop larger than --tolerance (default 0.005 absolute) is a
-    regression; gated_lower metric (an error, e.g. uc_abs_err_p90): a RISE larger than it is
+    regression. These are ratios in 0..1, where 0.005 is half a point.
+  - gated_lower metric (an error, e.g. uc_abs_err_p90): a RISE larger than lower_tolerance(baseline)
+    = max(LOWER_REL_TOL x baseline, LOWER_ABS_FLOOR) is. An error metric sits near zero (the p90 UC
+    error baseline is 0.0008), where a 0.005 absolute band would allow a ~7x rise; 25% relative keeps
+    the band proportional, and the 0.001 floor is one step of the 3-decimal rounding the printed calc
+    values (the truth the error is measured against) carry, so a one-step rounding change is not noise
   - exact metric (link counts per tier, xref, calc-edge tp/fp/fn, diff and impact counts): must
     equal the baseline
   - a baseline metric or check the run no longer emits (a tier or metric that disappeared) is a
@@ -33,7 +39,8 @@ Gating (compare(), over the UNION of the baseline's and the run's keys):
   - a stage with a baseline that did not run is a regression, except a stage in LOCAL_ONLY under
     --synthetic-only (CI): that is printed as a LOCAL-ONLY banner at the top and bottom of the
     scorecard, naming the metrics left unchecked. Without --synthetic-only (the full local run)
-    a skipped LOCAL_ONLY stage is a regression too. A stage left out with --only is reported as
+    a skipped LOCAL_ONLY stage is a regression too. Under GitHub Actions each such skip is also
+    emitted as a `::warning::` annotation, so it shows on the PR instead of reading as green. A stage left out with --only is reported as
     not selected. A stage in the baseline that no longer exists is a regression.
 The baseline file (eval/baseline.json) holds numbers only - no drawing text - and is committed.
 """
@@ -118,12 +125,6 @@ def d_tiers(r: dict) -> dict:
     return r["design_mapping"]["per_tier"]
 
 
-def _check(cmd: list[str], name: str) -> tuple[bool, str]:
-    p = run(cmd)
-    tail = (p.stdout.strip().splitlines() or [""])[-1]
-    return p.returncode == 0, f"{name}: {tail[:120]}"
-
-
 def st_move_answer_key(a) -> dict:
     v2 = os.path.join(ROOT, "data", "synthetic_v2")
     need = ("design.json", "answer_key.json", "model.graph.json")
@@ -149,13 +150,14 @@ def st_move_answer_key(a) -> dict:
             "notes": ["calc facts are printed calc-row values from the generator's calc-sheet data (stand-in for matcher output)"]}
 
 
-def st_copyright(a) -> dict:
-    c = _check([PY, "scripts/check_no_copyrighted.py", "--tracked"], "copyright")
-    return {"checks": {"no_copyrighted_in_head": c[0]}, "notes": [c[1]]}
+STAGES = [("synthetic_check", st_synthetic_check), ("synthetic_v1", st_synthetic_v1), ("move_answer_key", st_move_answer_key)]
+
+LOWER_REL_TOL = 0.25     # gated_lower: relative band (see Gating)
+LOWER_ABS_FLOOR = 0.001  # gated_lower: one step of 3-decimal rounding
 
 
-STAGES = [("synthetic_check", st_synthetic_check), ("synthetic_v1", st_synthetic_v1), ("move_answer_key", st_move_answer_key),
-          ("copyright", st_copyright)]
+def lower_tolerance(baseline: float) -> float:
+    return max(LOWER_REL_TOL * abs(baseline), LOWER_ABS_FLOOR)
 
 # Stages CI cannot run, with why. Only these may skip under --synthetic-only, and never silently.
 LOCAL_ONLY = {
@@ -213,9 +215,10 @@ def compare(res: dict, base_stages: dict, tolerance: float, synthetic_only: bool
                 if v != bv:
                     regressions.append(f"{name}.{k}: {fmt(v)} != baseline {fmt(bv)} (must match exactly)")
             elif k in lower:
-                if v > bv + tolerance:
-                    regressions.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)} (lower is better)")
-                elif v < bv - tolerance:
+                tol = lower_tolerance(bv)
+                if v > bv + tol:
+                    regressions.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)} + {tol:g} (lower is better)")
+                elif v < bv - tol:
                     improvements.append(f"{name}.{k}: {fmt(v)} < baseline {fmt(bv)} (lower is better)")
             elif k in gated:
                 if v < bv - tolerance:
@@ -229,6 +232,14 @@ def compare(res: dict, base_stages: dict, tolerance: float, synthetic_only: bool
             elif bc.get(k) and not cc[k]:
                 regressions.append(f"{name}.{k}: FAIL (passed in baseline)")
     return regressions, improvements, local_only
+
+
+def annotate(local_only: list[str], env=os.environ) -> list[str]:
+    """GitHub Actions `::warning::` lines for each LOCAL-ONLY skip (printed only under GITHUB_ACTIONS),
+    so a stage CI did not gate shows on the PR's checks instead of reading as green."""
+    if env.get("GITHUB_ACTIONS") != "true":
+        return []
+    return [f"::warning title=evaluate_all: stage NOT gated in CI::{x.replace(chr(10), ' ')}" for x in local_only]
 
 
 def banner(local_only: list[str]) -> None:
@@ -309,6 +320,8 @@ def main() -> None:
     for x in regressions:
         print(f"REGRESSION {x}")
     banner(local_only)
+    for line in annotate(local_only):
+        print(line)
 
     os.makedirs(os.path.dirname(a.json_out), exist_ok=True)
     json.dump({"run_at": now, "synthetic_only": a.synthetic_only, "stages": res, "regressions": regressions,

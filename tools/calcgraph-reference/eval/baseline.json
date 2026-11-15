@@ -1,11 +1,6 @@
 {
  "about": "calc-graph evaluation baseline - numbers only, no drawing text. Written by scripts/evaluate_all.py --update-baseline.",
  "stages": {
-  "copyright": {
-   "checks": {
-    "no_copyrighted_in_head": true
-   }
-  },
   "move_answer_key": {
    "metrics": {
     "health_band_exact": 1.0,

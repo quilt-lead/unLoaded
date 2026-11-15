@@ -27,13 +27,19 @@ jobs:
         with:
           fetch-depth: 0  # the guard walks the new commits
       - name: Copyright guard (self-test, every tracked file, the new commits)
-        # stdlib only, so the runner's python3 is enough; it scans the whole repo. A push is scanned
-        # over before..sha; a new branch (all-zero before) or a force-push whose old head is not in
-        # the clone falls back to the whole history of the pushed commit.
+        # stdlib only, so the runner's python3 is enough; it scans the whole repo. This job is the only
+        # place the guard runs in CI (evaluate_all has no copyright stage); a test in tests/ pins that it
+        # keeps running --self-test, --tracked and the PR / push scan.
+        # A push is scanned over what it INTRODUCES (check_no_copyrighted.py push_spec): before..sha for
+        # an update (a force-push's old head is fetched by sha), origin/prod..sha for a new branch. If that
+        # cannot be determined, the tree is scanned and a ::warning:: says the history was not. Never the
+        # full history: prod's history predates the guard (unpinned screenshots, .DS_Store versions under
+        # one path) and is already public, so it is neither rewritten nor allowlisted.
         env:
           EVENT: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
           BEFORE: ${{ github.event.before }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           guard=tools/calcgraph-reference/scripts/check_no_copyrighted.py
           python3 "$guard" --self-test
@@ -41,11 +47,7 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             python3 "$guard" --range "origin/$BASE_REF..HEAD"
           elif [ "$EVENT" = "push" ]; then
-            if [ -n "$BEFORE" ] && ! printf '%s' "$BEFORE" | grep -qE '^0+$' && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-              python3 "$guard" --range "$BEFORE..$GITHUB_SHA"
-            else
-              python3 "$guard" --history "$GITHUB_SHA"
-            fi
+            python3 "$guard" --push "$BEFORE" "$GITHUB_SHA" --base origin/prod --ref "$REF_NAME"
           fi
 
   tooling:

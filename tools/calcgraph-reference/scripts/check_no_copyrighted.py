@@ -5,18 +5,23 @@ The repo is public. That set carries copyright notices, so no PDF, page render, 
 derived JSON or screenshot of it may enter git. The guard scans the WHOLE repository (repo root
 from git: the Vite app in src/ and public/, packages/, tools/, docs, CI config - every path).
 Rules (config in tools/calcgraph-reference/scripts/copyright_guard.json):
-  1. any *.pdf, or any file with a PDF header (the PDF magic plus a n.n version) at the start of a
-     line in its first 1 KB - readers accept junk before it
+  1. any *.pdf (never allowed); any other file with a PDF header (the PDF magic plus a n.n
+     version) at the start of a line in its first 1 KB - readers accept junk before it - unless
+     pinned on the blob allowlist (a text file that quotes a header can be pinned)
   2. any NON-TEXT blob not on the blob allowlist, which pins each allowed file by path AND blob
      sha (a re-used path with new bytes fails). A file is classified by its CONTENT as well as its
      name: image magic bytes (PNG, JPEG, GIF, WebP, TIFF, BMP, ICO, PSD, JPEG 2000 / XL, HEIC /
      HEIF / AVIF), archives and office files (zip - which is also docx / xlsx / pptx / odt - OLE
      doc / xls, gzip, bzip2, xz, zstd, 7z, rar, tar), SVG (by name or by an <svg> root element),
-     and any other blob holding NUL bytes that does not decode as UTF-16 / UTF-32 text. An image
-     name (png, heic, ...) on a file whose bytes are not an image is still treated as an image.
-  3. any text file carrying an embedded base64 data: URI payload of 200+ characters (a raster or
-     archive smuggled inside SVG / HTML / CSS / JSON / Markdown) unless the file is pinned on the
-     blob allowlist
+     and any other blob holding NUL bytes that does not decode as UTF-16 / UTF-32 text. Magic bytes
+     count only in a binary context (a NUL, a control byte or invalid UTF-8 in the first 8 KB), so
+     plain text that happens to start `8BPS` or hold `ustar` at 257 is text. An image name (png,
+     heic, ...) on a file whose bytes are not an image is still treated as an image.
+  3. any text file carrying a base64 payload - an embedded data: URI of 200+ characters, or raw
+     base64 (standard or URL-safe) with no prefix: an unbroken run of 256+ characters, or 4+
+     consecutive wrapped lines of 60..100, mixing upper case, lower case and digits and not pure hex
+     (so hex hashes and lockfile integrity values pass) - unless the file is pinned on the blob
+     allowlist. RESIDUAL: base64 shorter than that, or broken up by other characters, is not seen.
   4. anything under tools/calcgraph-reference/data/sets/ or tools/calcgraph-reference/data/labels/
      (anywhere in the path)
   5. any text file containing a protected term (a distinctive string from the set: firm names,
@@ -27,23 +32,28 @@ Rules (config in tools/calcgraph-reference/scripts/copyright_guard.json):
 Protected terms are never stored in plaintext - not in the config, not in this script, not in
 its self-test. The config holds a random salt, one salted SHA-256 per term, the term's canonical
 length (`len`, see below) and `max_n`:
-  tokens(text)      = maximal runs of ASCII letters / digits, a decimal number (digits '.' digits)
-                      kept as one token, lowercased; everything else (whitespace, punctuation,
-                      dashes) separates tokens
+  tokens(text)      = maximal runs of ASCII letters / digits, with each following '.' digits
+                      group kept in the token (a decimal is ONE number), lowercased; everything
+                      else (whitespace, punctuation, dashes) separates tokens
   canonical(term)   = its tokens concatenated with no separator, so "Ab-Cd", "ab cd" and "AbCd"
-                      are one canonical form
+                      are one canonical form. All three tiers below scan in this same form, so a
+                      term matches exactly as stored: `1234.56` is never `123456`, and a term
+                      stored with a dot keeps it and is found with it.
   hash              = sha256(salt + "\\0" + canonical)
 A text file is matched in three tiers; a hit is reported as file, line, column and tier plus the
 term's opaque id - never the term:
   token tier   every n-gram of 1..max_n consecutive tokens, concatenated
   unit tier    every n-gram of 1..max_n+3 consecutive UNITS, where each token is further split at
-               letter <-> digit and camelCase boundaries and a decimal loses its dots; catches
-               `PRJ<term>Rev2`, `get<Term>Value`, and `12345.6` for a stored `12345-6`
-  glued tier   every substring of the separator-free stream (the file's letters and digits only,
-               lowercased) whose length is the canonical length of a stored term of >= GLUE_MIN_LEN
-               (8) characters; a hit may not start or end inside a longer digit run (so a term is
-               not found inside a decimal or a longer number). Catches a term glued into a longer
-               token with no case or digit boundary (`xx<term>yy`, `PRJ<TERM>REV`).
+               letter <-> digit and camelCase boundaries (a decimal stays one unit, dot included;
+               the units of a token concatenate back to the token); catches `PRJ<term>Rev2`,
+               `get<Term>Value`
+  glued tier   every substring of the canonical stream (the file's tokens concatenated, lowercased)
+               whose length is the canonical length of a stored term of >= GLUE_MIN_LEN (8)
+               characters; a hit may not start or end inside a longer number of the ORIGINAL text
+               (an adjacent digit, or a decimal point and digit), so a term is not found inside a
+               decimal or a longer number, while a separator ends a number (`Sheet 3 <term>`).
+               Catches a term glued into a longer token with no case or digit boundary
+               (`xx<term>yy`, `PRJ<TERM>REV`).
 Why 8: below 8 characters a substring of the separator-free stream collides with ordinary words
 and identifiers (a 5-letter name inside longer words, a 6-digit number inside the digit runs of
 IFC coordinates), so the guard would block legitimate files. At 8+ characters a hit needs the
@@ -51,6 +61,8 @@ exact, distinctive term string, and digit runs must match whole.
 RESIDUAL (mitigation, not a fix): a term shorter than 8 canonical characters glued to letters or
 digits of the same case with no letter/digit or camelCase boundary (all-lowercase `xx<term>yy`,
 all-caps `PRJ<TERM>REV`), or a digit-only term merged with adjacent digits, is NOT detected.
+Nor is a number term written as a decimal (`12345.6` for a stored `12345-6`): a decimal is one
+number, and matching across its point would find 6-digit terms in IFC coordinates.
 A term stored before `len` was recorded (no `len` in the config) is scanned in the glued tier at
 every length 8..GLUE_LEGACY_MAX_LEN (32), which is slower and misses such a term if it is longer
 than 32; re-entering the term with --add-term records its length (nothing else changes).
@@ -67,7 +79,12 @@ identity out of plaintext search, diffs and indexes, which is what this public r
   python scripts/check_no_copyrighted.py --staged            # pre-commit hook (index contents)
   python scripts/check_no_copyrighted.py --tracked           # every file in HEAD
   python scripts/check_no_copyrighted.py --history [REV]     # every (path, blob) ever introduced on REV's history
+                                                             # (fails on prod: its history predates the guard -
+                                                             # screenshots, .DS_Store - and is not rewritten)
   python scripts/check_no_copyrighted.py --range A..B        # every (path, blob) introduced in A..B, merges included (CI)
+  python scripts/check_no_copyrighted.py --push BEFORE AFTER [--base origin/prod] [--ref BRANCH]
+                                                             # CI push: what the push introduces (push_spec);
+                                                             # tree + ::warning:: when that cannot be determined
   python scripts/check_no_copyrighted.py --paths F [F ...]   # files on disk (working tree)
   python scripts/check_no_copyrighted.py --allow-blob PATH   # pin a synthetic image / binary (prints the entry)
   python scripts/check_no_copyrighted.py --add-term          # append term hash(es) read from stdin
@@ -96,10 +113,20 @@ ARCHIVE_EXT = (".zip", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp", ".doc"
                ".bz2", ".xz", ".zst", ".7z", ".rar", ".tar")
 FORBIDDEN_DIRS = ("tools/calcgraph-reference/data/sets/", "tools/calcgraph-reference/data/labels/")
 TOKEN = re.compile(r"[0-9A-Za-z]+(?:\.[0-9]+)*")
-UNIT = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+(?:\.[0-9]+)*")
-ALNUM = re.compile(r"[0-9A-Za-z]+")
+# a unit's dot-digits run keeps its dot, so the units of a token concatenate back to the token itself
+# (one canonical form for all three tiers; a decimal stays one number, `1234.56` never becomes `123456`)
+UNIT = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\.?[0-9]+(?:\.[0-9]+)*")
 PDF_HEADER = re.compile(rb"(?:^|[\r\n])%PDF-\d\.\d")
 DATA_URI = re.compile(r"data:[\w.+-]*/?[\w.+-]*(?:;[\w.+=-]+)*;base64,([A-Za-z0-9+/=\s\\]{200,})")
+# raw base64 (standard or URL-safe) with no data: prefix: one unbroken run of RAW_B64_MIN+ characters,
+# or RAW_B64_LINES+ consecutive wrapped lines of 60..100. A run must mix upper case, lower case and
+# digits and not be pure hex, so hex hashes, lockfile integrity values (sha512 = 88 chars) and long
+# identifiers do not trip it.
+RAW_B64_MIN = 256
+RAW_B64_LINES = 4
+RAW_B64 = re.compile(r"(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{%d,}={0,2}|(?:^[ \t]*[A-Za-z0-9+/]{60,100}={0,2}\r?\n){%d,}"
+                     % (RAW_B64_MIN, RAW_B64_LINES), re.M)
+BINARY_CTRL = re.compile(rb"[\x00-\x08\x0b\x0e-\x1a\x1c-\x1f\x7f]")
 GLUE_MIN_LEN = 8           # glued-tier threshold, justified in the docstring
 GLUE_LEGACY_MAX_LEN = 32   # glued-tier window for a term stored without `len`
 UNIT_EXTRA_N = 3           # unit tier: a token can split into several units
@@ -133,24 +160,44 @@ def repo_root() -> str:
 
 
 # ---------------------------------------------------------------- content classification
+def binary_context(data: bytes) -> bool:
+    """True when the first 8 KB are not plain text: a NUL, a control byte (other than tab, newline,
+    form feed, carriage return, escape) or invalid UTF-8 (a multibyte character cut at the 8 KB edge
+    does not count). Magic bytes only classify a file that has this - `8BPS`, `ustar` at 257 or
+    `ftyp` at 4 in an ordinary text file are just text."""
+    head = data[:8192]
+    if BINARY_CTRL.search(head):
+        return True
+    try:
+        head.decode("utf-8")
+    except UnicodeDecodeError as e:
+        if len(data) <= 8192 or e.start < len(head) - 3:
+            return True
+    return False
+
+
 def classify(path: str, data: bytes) -> tuple[str, str]:
-    """(kind, label): kind is pdf | image | archive | binary | text. Content first, then name."""
+    """(kind, label): kind is pdf | image | archive | binary | text. Content first, then name.
+    A PDF found by its header rather than its name is labelled "PDF content" (it can be pinned)."""
     low = path.lower()
-    if low.endswith(".pdf") or PDF_HEADER.search(data[:1024]):
+    if low.endswith(".pdf"):
         return "pdf", "PDF file"
-    for off, magic, label, kind in MAGIC:
-        if data[off:off + len(magic)] == magic:
-            return kind, label
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image", "WebP image"
-    if data[4:8] == b"ftyp":
-        brand = data[8:12]
-        return ("image", f"HEIF / AVIF image ({brand.decode('latin-1')})") if brand in BMFF_IMAGE_BRANDS \
-            else ("binary", "ISO media file")
-    if data[:2] == b"BM" and len(data) >= 26 and data[6:10] == b"\0\0\0\0":
-        return "image", "BMP image"
-    if data[:3] == b"BZh" and data[4:10] == b"1AY&SY":
-        return "archive", "bzip2 archive"
+    if PDF_HEADER.search(data[:1024]):
+        return "pdf", "PDF content (a PDF header at a line start in the first 1 KB)"
+    if binary_context(data):
+        for off, magic, label, kind in MAGIC:
+            if data[off:off + len(magic)] == magic:
+                return kind, label
+        if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            return "image", "WebP image"
+        if data[4:8] == b"ftyp":
+            brand = data[8:12]
+            return ("image", f"HEIF / AVIF image ({brand.decode('latin-1')})") if brand in BMFF_IMAGE_BRANDS \
+                else ("binary", "ISO media file")
+        if data[:2] == b"BM" and len(data) >= 26 and data[6:10] == b"\0\0\0\0":
+            return "image", "BMP image"
+        if data[:3] == b"BZh" and data[4:10] == b"1AY&SY":
+            return "archive", "bzip2 archive"
     if low.endswith(".svg"):
         return "image", "SVG image"
     if low.endswith(IMAGE_EXT):
@@ -207,11 +254,13 @@ def tokens(text: str) -> list[tuple[str, int]]:
 
 
 def units(text: str) -> list[tuple[str, int]]:
-    """(unit, start offset): each token split at letter<->digit and camelCase boundaries, decimals without dots."""
+    """(unit, start offset): each token split at letter<->digit and camelCase boundaries. A decimal
+    stays ONE unit with its dot (`1234.56`, never `1234` + `56` or `123456`), and a dot-digits run after
+    letters keeps its dot (`rev` + `.2`), so "".join(units(t)) == canonical_of(t) for every term t."""
     out = []
     for t in TOKEN.finditer(text):
         for m in UNIT.finditer(t.group(0)):
-            out.append((m.group(0).replace(".", "").lower(), t.start() + m.start()))
+            out.append((m.group(0).lower(), t.start() + m.start()))
     return out
 
 
@@ -269,11 +318,26 @@ def _ngram_hits(seq: list[tuple[str, int]], max_n: int, salt: str, hashes: dict,
                 out.setdefault((tid, seq[i][1]), tier)
 
 
+def _inside_number(text: str, o: int, step: int) -> bool:
+    """True when the digit at text[o] continues a number on side `step` (-1 before, +1 after): an
+    adjacent digit, or a decimal point with a digit beyond it. Checked on the ORIGINAL text, so a
+    separator (space, dash, comma) ends a number."""
+    d = "0123456789"
+    if not (0 <= o < len(text)) or text[o] not in d:
+        return False
+    n1, n2 = o + step, o + 2 * step
+    if not 0 <= n1 < len(text):
+        return False
+    return text[n1] in d or (text[n1] == "." and 0 <= n2 < len(text) and text[n2] in d)
+
+
 def _glued_hits(text: str, cfg: dict, out: dict) -> None:
+    """The stream is canonical(text): every token concatenated, the same normalisation as a stored
+    term (letters / digits lowercased, a decimal keeps its dot), so a term matches exactly as stored."""
     lens = cfg["_glue_lens"]
     if not lens:
         return
-    runs = [(m.start(), m.group(0)) for m in ALNUM.finditer(text)]
+    runs = [(m.start(), m.group(0)) for m in TOKEN.finditer(text)]
     if not runs:
         return
     run_pos, acc = [], 0  # stream offset where each run starts
@@ -295,25 +359,33 @@ def _glued_hits(text: str, cfg: dict, out: dict) -> None:
             tid = hashes.get(h.copy().digest())
             if not tid:
                 continue
-            # a hit may not start or end inside a longer digit run
-            if 48 <= s[i] <= 57 and i > 0 and 48 <= s[i - 1] <= 57:
-                continue
-            j = i + L - 1
-            if 48 <= s[j] <= 57 and j + 1 < n and 48 <= s[j + 1] <= 57:
-                continue
+            # a hit may not start or end inside a longer number of the ORIGINAL text
             k = bisect.bisect_right(run_pos, i) - 1
-            out.setdefault((tid, runs[k][0] + (i - run_pos[k])), "glued")
+            start = runs[k][0] + (i - run_pos[k])
+            j = i + L - 1
+            kj = bisect.bisect_right(run_pos, j) - 1
+            end = runs[kj][0] + (j - run_pos[kj])
+            if _inside_number(text, start, -1) or _inside_number(text, end, +1):
+                continue
+            out.setdefault((tid, start), "glued")
 
 
-def term_hits(text: str, cfg: dict) -> list[tuple[str, int, int, str]]:
-    """(term id, line, column, tier) for every protected-term hit in text, all three tiers."""
+TIERS = ("token", "unit", "glued")
+
+
+def term_hits(text: str, cfg: dict, tiers: tuple[str, ...] = TIERS) -> list[tuple[str, int, int, str]]:
+    """(term id, line, column, tier) for every protected-term hit in text. Every scan uses all three
+    tiers; `tiers` exists so a test can prove one tier on its own."""
     if not cfg["_hashes"]:
         return []
     salt, hashes, max_n = cfg["salt"], cfg["_hashes"], int(cfg["max_n"])
     found: dict[tuple[str, int], str] = {}
-    _ngram_hits(tokens(text), max_n, salt, hashes, "token", found)
-    _ngram_hits(units(text), max_n + UNIT_EXTRA_N, salt, hashes, "unit", found)
-    _glued_hits(text, cfg, found)
+    if "token" in tiers:
+        _ngram_hits(tokens(text), max_n, salt, hashes, "token", found)
+    if "unit" in tiers:
+        _ngram_hits(units(text), max_n + UNIT_EXTRA_N, salt, hashes, "unit", found)
+    if "glued" in tiers:
+        _glued_hits(text, cfg, found)
     line_starts = [0] + [m.end() for m in re.finditer("\n", text)]
     out = []
     for (tid, off), tier in sorted(found.items(), key=lambda kv: kv[0][1]):
@@ -337,6 +409,16 @@ def _pinned(path: str, sha: str, cfg: dict) -> str | None:
     return None
 
 
+def raw_base64(text: str) -> int:
+    """Length of the first base64-looking run (see RAW_B64), or 0."""
+    for m in RAW_B64.finditer(text):
+        run = re.sub(r"\s", "", m.group(0))
+        if re.search(r"[A-Z]", run) and re.search(r"[a-z]", run) and re.search(r"[0-9]", run) \
+                and not re.fullmatch(r"[0-9A-Fa-f]+", run.rstrip("=")):
+            return len(run)
+    return 0
+
+
 def check_blob(path: str, data: bytes, sha: str | None, cfg: dict) -> list[str]:
     """Findings for one file (path relative to the repo root)."""
     found = []
@@ -345,7 +427,12 @@ def check_blob(path: str, data: bytes, sha: str | None, cfg: dict) -> list[str]:
         found.append("path under tools/calcgraph-reference/data/sets/ or tools/calcgraph-reference/data/labels/ (derived from the drawing set)")
     kind, label = classify(path, data)
     if kind == "pdf":
-        found.append("PDF file")
+        # a .pdf is never allowed; a file holding a PDF header (e.g. a text file quoting one at a line
+        # start) is blocked unless pinned by path + sha, like any other non-text blob
+        if label == "PDF file":
+            found.append("PDF file")
+        elif why := _pinned(path, sha, cfg):
+            found.append(f"{label} {why}")
         return found
     if kind != "text":  # image / archive / office / SVG / unknown binary: pinned or blocked
         why = _pinned(path, sha, cfg)
@@ -356,6 +443,8 @@ def check_blob(path: str, data: bytes, sha: str | None, cfg: dict) -> list[str]:
     text = decode_text(data) or ""
     if (m := DATA_URI.search(text)) and _pinned(path, sha, cfg):
         found.append(f"embedded base64 data: URI ({len(m.group(1))} chars) {_pinned(path, sha, cfg)}")
+    elif (b64 := raw_base64(text)) and _pinned(path, sha, cfg):
+        found.append(f"raw base64 payload ({b64} chars, no data: prefix) {_pinned(path, sha, cfg)}")
     cache = cfg.setdefault("_hit_cache", {})
     if sha not in cache:
         cache[sha] = term_hits(text, cfg)
@@ -444,6 +533,45 @@ def scan_range(root: str, cfg: dict, spec: str) -> dict[str, list[str]]:
     return out
 
 
+def _has_commit(root: str, rev: str) -> bool:
+    return subprocess.run(["git", "cat-file", "-e", f"{rev}^{{commit}}"], cwd=root, capture_output=True).returncode == 0
+
+
+def push_spec(root: str, before: str, after: str, base: str = "origin/prod", ref: str = "",
+              remote: str = "origin") -> tuple[str | None, str]:
+    """(range spec, why) for what a push INTRODUCES relative to what the repo already accepted, or
+    (None, why) when that cannot be determined.
+      - an update (before is a commit): before..after; a force-push's old head that is not in the
+        clone is fetched from `remote` by sha first
+      - a new branch (before all zeros): base..after, the commits not reachable from the default
+        branch - unless the new branch IS the base (nothing to compare it with)
+    Never the full history: the default branch's history predates the guard (it holds unpinned
+    screenshots and .DS_Store versions) and is already public, so a history scan could only fail."""
+    if before and before.strip("0"):
+        if not _has_commit(root, before):
+            subprocess.run(["git", "fetch", "--no-tags", "--quiet", remote, before], cwd=root, capture_output=True)
+        if _has_commit(root, before):
+            return f"{before}..{after}", f"push update {before[:10]}..{after[:10]}"
+        return None, f"the pushed-over head {before[:10]} is not in the clone and could not be fetched from {remote}"
+    base_branch = base.split("/", 1)[1] if base.startswith(f"{remote}/") else base
+    if ref and ref == base_branch:
+        return None, f"the push created the base branch {base_branch} itself"
+    if not _has_commit(root, base):
+        return None, f"the base {base} is not in the clone"
+    return f"{base}..{after}", f"new branch: commits not on {base}"
+
+
+def scan_push(root: str, cfg: dict, before: str, after: str, base: str, ref: str) -> int:
+    spec, why = push_spec(root, before, after, base, ref)
+    if spec:
+        n = len(git("rev-list", spec, cwd=root).split())
+        return report(scan_range(root, cfg, spec), f"{n} commits in {spec} ({why}), merges included", cfg)
+    # GitHub Actions annotation: shows on the run and the commit, so an unscanned history is never silent
+    print(f"::warning title=copyright guard::history of this push was NOT scanned ({why}); "
+          f"only the tree of {after[:10]} was")
+    return report(scan_tree(root, cfg, after), f"files in {after[:10]} (push history not scanned: {why})", cfg)
+
+
 def scan_paths(root: str, cfg: dict, paths: list[str]) -> dict[str, list[str]]:
     out = {}
     for fp in paths:
@@ -523,7 +651,7 @@ def self_test() -> int:
     w1, w2, w3 = _rand_word().capitalize(), _rand_word(), _rand_word(6)
     num = str(secrets.randbelow(9_000_000) + 1_000_000)
     n5, d1 = str(secrets.randbelow(90_000) + 10_000), str(secrets.randbelow(9) + 1)
-    tid, nid, did, sid = add_terms([f"{w1} {w2}", num, f"{n5}-{d1}", w3], cfg)
+    tid, nid, did, sid, pid = add_terms([f"{w1} {w2}", num, f"{n5}-{d1}", w3, f"{n5}.{d1}{d1}"], cfg)
     ok = True
 
     def expect(label: str, got: list[str], want: str | None) -> None:
@@ -534,7 +662,11 @@ def self_test() -> int:
 
     png = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR"
     expect("PDF by name", check_blob("x/report.pdf", b"anything", None, cfg), "PDF file")
-    expect("PDF by bytes", check_blob("x/notes.txt", b"%PDF-1.7 ...", None, cfg), "PDF file")
+    expect("PDF by bytes", check_blob("x/notes.txt", b"%PDF-1.7 ...", None, cfg), "PDF content")
+    expect("PDF content can be pinned", check_blob("x/notes.txt", b"%PDF-1.7 ...", None,
+                                                    {**cfg, "blob_allowlist": {"x/notes.txt": blob_sha(b"%PDF-1.7 ...")}}), None)
+    expect("text starting 8BPS is text", check_blob("x/n.txt", b"8BPS is a magic, in prose\n", None, cfg), None)
+    expect("text with ustar at 257 is text", check_blob("x/n.txt", b"a" * 257 + b"ustar\n", None, cfg), None)
     expect("unpinned image", check_blob("x/shot.png", png, None, cfg), "not on the pinned blob allowlist")
     expect("unpinned image in public/", check_blob("public/thumb.png", png, None, cfg), "PNG image not on")
     expect("PNG renamed .bin", check_blob("x/page.bin", png, None, cfg), "PNG image not on")
@@ -565,8 +697,12 @@ def self_test() -> int:
            f"protected term {tid}")
     expect("number glued between letters (unit tier)", check_blob("x/i.ts", f"PRJ{num}Rev2".encode(), None, cfg),
            f"protected term {nid}")
-    expect("12345.6 for a stored 12345-6 (unit tier)", check_blob("x/j.json", f'{{"job": {n5}.{d1}}}'.encode(), None, cfg),
-           f"protected term {did}")
+    expect("a decimal is one number: 12345.6 is not a stored 12345-6 (documented)",
+           check_blob("x/j.json", f'{{"job": {n5}.{d1}}}'.encode(), None, cfg), None)
+    expect("a term stored with a dot is found glued to letters (unit tier)",
+           check_blob("x/j.ts", f"Job{n5}.{d1}{d1}".encode(), None, cfg), f"protected term {pid}")
+    expect("raw base64 with no data: prefix", check_blob("x/d.json", b'{"img": "' + b"iVBORw0KGgo9" * 30 + b'"}', None, cfg),
+           "raw base64")
     expect("planted number", check_blob("x/c.json", f'{{"job": "{num}"}}'.encode(), None, cfg), f"protected term {nid}")
     expect("number inside a decimal is not a hit", check_blob("x/d.ifc", f"(0.{num},1.5)".encode(), None, cfg), None)
     expect("half a term is not a hit", check_blob("x/e.py", f"{w1} other".encode(), None, cfg), None)
@@ -623,10 +759,14 @@ def main() -> None:
     g.add_argument("--tracked", action="store_true")
     g.add_argument("--history", nargs="?", const="HEAD", metavar="REV")
     g.add_argument("--range", metavar="A..B")
+    g.add_argument("--push", nargs=2, metavar=("BEFORE", "AFTER"),
+                   help="CI push event: scan what the push introduces (see push_spec)")
     g.add_argument("--paths", nargs="+")
     g.add_argument("--allow-blob", "--allow-image", dest="allow_blob", metavar="PATH")
     g.add_argument("--add-term", action="store_true", help="read term(s) from stdin, one per line; store only hashes")
     g.add_argument("--self-test", action="store_true")
+    ap.add_argument("--base", default="origin/prod", help="--push: the default branch a new branch is compared with")
+    ap.add_argument("--ref", default="", help="--push: the pushed branch name (GITHUB_REF_NAME)")
     a = ap.parse_args()
     if a.self_test:
         sys.exit(self_test())
@@ -650,6 +790,8 @@ def main() -> None:
         sys.exit(report(scan_staged(root, cfg), "staged changes", cfg))
     if a.tracked:
         sys.exit(report(scan_tree(root, cfg), "files in HEAD", cfg))
+    if a.push:
+        sys.exit(scan_push(root, cfg, a.push[0], a.push[1], a.base, a.ref))
     if a.history or a.range:
         spec = a.history or a.range
         n = len(git("rev-list", spec, cwd=root).split())

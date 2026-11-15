@@ -106,3 +106,28 @@ def test_real_baseline_and_declarations_agree():
     base = json.load(open(ev.BASELINE))["stages"]
     assert set(base) <= names
     assert set(ev.LOCAL_ONLY) <= names
+
+
+def test_small_error_metric_uses_a_relative_band():
+    """uc_abs_err_p90's baseline is ~0.0008: the 0.005 absolute band would allow a ~7x rise."""
+    base = {"move": {"metrics": {"err": 0.0008}}}
+    assert gate({"move": ok({"err": 0.0058}, lower=["err"])}, base)[0]          # 7x: a regression now
+    assert gate({"move": ok({"err": 0.0019}, lower=["err"])}, base)[0]          # past the 0.001 floor
+    assert not gate({"move": ok({"err": 0.0017}, lower=["err"])}, base)[0]      # one rounding step: noise
+    assert ev.lower_tolerance(0.2) == 0.05 and ev.lower_tolerance(0.0) == ev.LOWER_ABS_FLOOR
+
+
+def test_local_only_skip_is_a_github_warning_annotation_in_ci():
+    notices = ["move: SKIPPED, 9 baseline metric(s)/check(s) NOT compared in this run"]
+    lines = ev.annotate(notices, {"GITHUB_ACTIONS": "true"})
+    assert len(lines) == 1 and lines[0].startswith("::warning ") and "NOT compared" in lines[0]
+    assert ev.annotate(notices, {}) == []                     # a local run prints the banner only
+    src = open(os.path.join(ROOT, "scripts", "evaluate_all.py")).read()
+    assert "for line in annotate(local_only):" in src
+
+
+def test_copyright_guard_is_not_rerun_by_evaluate_all():
+    """The CI copyright job runs the guard (pinned in test_copyright_guard); evaluate_all must not repeat
+    the ~30 s --tracked scan, and the baseline must not expect a copyright stage."""
+    assert "copyright" not in {n for n, _ in ev.STAGES}
+    assert "copyright" not in json.load(open(ev.BASELINE))["stages"]
