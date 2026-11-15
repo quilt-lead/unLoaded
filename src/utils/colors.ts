@@ -186,10 +186,10 @@ export const TONE_COLORS: Record<HighlightTone, string> = {
 };
 
 export const DIFF_PALETTE: Record<DiffStatus, string> = {
-  added: '#A3D900',
-  removed: '#FF5E7E',
-  modified: '#FF8A00',
-  unchanged: '#00AEEF',
+  added: '#22C55E',
+  removed: '#EF4444',
+  modified: '#EAB308',
+  unchanged: '#71717A',
 };
 
 /** How a link was made, in words (matcher tier -> label). */
