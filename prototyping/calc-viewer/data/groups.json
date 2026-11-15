@@ -1,0 +1,1975 @@
+{
+ "meta": {
+  "builtAt": "2026-11-14T18:25:23",
+  "matcher": "0.2.0",
+  "scope": [
+   "S0.0.1",
+   "S0.0.2",
+   "S0.0.3",
+   "S2.0.1",
+   "S2.0.2",
+   "S2.0.3",
+   "S3.0.1",
+   "S4.0.1",
+   "S4.0.2",
+   "S4.0.3",
+   "S4.0.4",
+   "S4.0.5",
+   "S4.0.6",
+   "S4.0.7",
+   "S4.0.8",
+   "S4.0.9",
+   "S4.0.10",
+   "S5.0.1",
+   "S5.0.2",
+   "S5.0.3",
+   "S8.0.1",
+   "S8.0.2",
+   "S8.0.3",
+   "S8.2.1",
+   "S8.2.2",
+   "S8.2.3",
+   "S8.2.4",
+   "S8.2.5",
+   "S8.2.6",
+   "S8.2.7",
+   "S8.4.1",
+   "S8.4.2",
+   "S8.4.3",
+   "S8.4.4",
+   "S8.4.5",
+   "S8.6.1",
+   "S8.8.1"
+  ],
+  "memberSheets": [
+   "S2.0.1",
+   "S2.0.2",
+   "S2.0.3",
+   "S3.0.1",
+   "S4.0.1",
+   "S4.0.2",
+   "S5.0.1",
+   "S5.0.2",
+   "S5.0.3"
+  ],
+  "levels": [
+   "Foundation",
+   "Level 2",
+   "Roof",
+   "Elevation",
+   "Details"
+  ]
+ },
+ "groups": [
+  {
+   "id": "group/elevation/beam/W21X44",
+   "level": "Elevation",
+   "type": "beam",
+   "size": "W21X44",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W21X44",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation beams W21X44 (typ.)",
+   "members": [
+    "elevation/beam/D–C@5/h/roof",
+    "elevation/beam/C–B@5/h/roof",
+    "elevation/beam/B@3–2/h/roof",
+    "elevation/beam/B@5–4/h/roof",
+    "elevation/beam/E@2–3/h/roof",
+    "elevation/beam/E@3–4/h/roof",
+    "elevation/beam/C–D@2/h/roof",
+    "elevation/beam/D–E@2/h/roof"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/beam/W21X93",
+   "level": "Elevation",
+   "type": "beam",
+   "size": "W21X93",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W21X93",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation beams W21X93 (typ.)",
+   "members": [
+    "elevation/beam/D–C@5/h/level-2",
+    "elevation/beam/C–B@5/h/level-2",
+    "elevation/beam/E@2–3/h/level-2",
+    "elevation/beam/E@3–4/h/level-2",
+    "elevation/beam/C–D@2/h/level-2",
+    "elevation/beam/D–E@2/h/level-2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/beam/W24X94",
+   "level": "Elevation",
+   "type": "beam",
+   "size": "W24X94",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W24X94",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation beams W24X94 (typ.)",
+   "members": [
+    "elevation/beam/B@3–2/h/level-2",
+    "elevation/beam/B@5–4/h/level-2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/column/W14X193",
+   "level": "Elevation",
+   "type": "column",
+   "size": "W14X193",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "W14X193",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation column W14X193",
+   "members": [
+    "elevation/column/B@5–4/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/column/W18X158",
+   "level": "Elevation",
+   "type": "column",
+   "size": "W18X158",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "W18X158",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation columns W18X158 (typ.)",
+   "members": [
+    "elevation/column/B@5/v",
+    "elevation/column/D@5/v",
+    "elevation/column/B@5/v#2",
+    "elevation/column/B@4/v",
+    "elevation/column/E@2/v",
+    "elevation/column/E@3–4/v",
+    "elevation/column/E@2/v#2",
+    "elevation/column/C@2/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/column/W18X258",
+   "level": "Elevation",
+   "type": "column",
+   "size": "W18X258",
+   "system": "Moment frames (SMF)",
+   "sheets": [
+    "S3.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "W18X258",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation columns W18X258 (typ.)",
+   "members": [
+    "elevation/column/C@5/v",
+    "elevation/column/B@2/v",
+    "elevation/column/B@3/v",
+    "elevation/column/E@2–3/v",
+    "elevation/column/D@2/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/hss-member/HSS14X6X5/8",
+   "level": "Elevation",
+   "type": "hss-member",
+   "size": "HSS14X6X5/8",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "MEMBER",
+    "name": "HSS14X6X5/8",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation HSS member HSS14X6X5/8",
+   "members": [
+    "elevation/hss-member/S:4–3/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/hss-member/HSS6X6X1/4",
+   "level": "Elevation",
+   "type": "hss-member",
+   "size": "HSS6X6X1/4",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1",
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "MEMBER",
+    "name": "HSS6X6X1/4",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation HSS members HSS6X6X1/4 (typ.)",
+   "members": [
+    "elevation/hss-member/E:C–B/h",
+    "elevation/hss-member/E:D–C/h",
+    "elevation/hss-member/E:E–D/h",
+    "elevation/hss-member/E:F–E/h",
+    "elevation/hss-member/E:E–D/h#2",
+    "elevation/hss-member/E:D–C/h#2",
+    "elevation/hss-member/E:C–B/h#2",
+    "elevation/hss-member/N:3–4/h",
+    "elevation/hss-member/N:4–5/h",
+    "elevation/hss-member/N:1.2–2/h",
+    "elevation/hss-member/S:3–2/h",
+    "elevation/hss-member/S:5–4/h",
+    "elevation/hss-member/S:5–4/h#2",
+    "elevation/hss-member/S:3–2/h#2",
+    "elevation/hss-member/S:4–3/h",
+    "elevation/hss-member/S:6–5/h",
+    "elevation/hss-member/S:2–1.2/h",
+    "elevation/hss-member/S:3–2/h#3",
+    "elevation/hss-member/S:5–4/h#3",
+    "elevation/hss-member/W:D–E/h",
+    "elevation/hss-member/W:D–E/h#2",
+    "elevation/hss-member/W:E–F/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/hss-member/HSS8X6X5/16",
+   "level": "Elevation",
+   "type": "hss-member",
+   "size": "HSS8X6X5/16",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "MEMBER",
+    "name": "HSS8X6X5/16",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation HSS members HSS8X6X5/16 (typ.)",
+   "members": [
+    "elevation/hss-member/N:2–3/h",
+    "elevation/hss-member/N:4/h",
+    "elevation/hss-member/N:4–5/h#2",
+    "elevation/hss-member/N:2–3/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/stud/H1 600S162-54",
+   "level": "Elevation",
+   "type": "stud",
+   "size": "H1 600S162-54",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1",
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STUD",
+    "name": "H1 600S162-54",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation studs H1 600S162-54 (typ.)",
+   "members": [
+    "elevation/stud/N:4–5/h",
+    "elevation/stud/N:3–4/h",
+    "elevation/stud/W:B–C/h",
+    "elevation/stud/W:A–B/h",
+    "elevation/stud/W:A–B/h#2",
+    "elevation/stud/W:B/h",
+    "elevation/stud/W:D–E/h",
+    "elevation/stud/W:B–C/h#2",
+    "elevation/stud/W:C–D/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/stud/J1 600S137-54",
+   "level": "Elevation",
+   "type": "stud",
+   "size": "J1 600S137-54",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1",
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STUD",
+    "name": "J1 600S137-54",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation studs J1 600S137-54 (typ.)",
+   "members": [
+    "elevation/stud/N:4–5/v",
+    "elevation/stud/N:4–5/v#2",
+    "elevation/stud/N:3–4/v",
+    "elevation/stud/N:3–4/v#2",
+    "elevation/stud/W:B–C/v",
+    "elevation/stud/W:B–C/v#2",
+    "elevation/stud/W:B–C/v#3",
+    "elevation/stud/W:B–C/v#4",
+    "elevation/stud/W:C–D/v",
+    "elevation/stud/W:D/v",
+    "elevation/stud/W:D–E/v",
+    "elevation/stud/W:D–E/v#2",
+    "elevation/stud/W:A/v",
+    "elevation/stud/W:A–B/v",
+    "elevation/stud/W:B/v",
+    "elevation/stud/W:A–B/v#2",
+    "elevation/stud/W:A–B/v#3",
+    "elevation/stud/W:B–C/v#5"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/elevation/stud/ST-1 600S162-54",
+   "level": "Elevation",
+   "type": "stud",
+   "size": "ST-1 600S162-54",
+   "system": "Exterior walls",
+   "sheets": [
+    "S4.0.1",
+    "S4.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STUD",
+    "name": "ST-1 600S162-54",
+    "material": "steel",
+    "storey": null
+   },
+   "title": "Elevation stud ST-1 600S162-54",
+   "members": [
+    "elevation/stud/schedule/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS10X6X1/2",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS10X6X1/2",
+   "system": "Elevator framing",
+   "sheets": [
+    "S5.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS10X6X1/2",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation columns HSS10X6X1/2 (typ.)",
+   "members": [
+    "foundation/column/B(ext)@3(ext)/h",
+    "foundation/column/B(ext)@3(ext)/h#2",
+    "foundation/column/B(ext)@3(ext)/h#3"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS4X4X1/4",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS4X4X1/4",
+   "system": "Stair framing",
+   "sheets": [
+    "S5.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS4X4X1/4",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation columns HSS4X4X1/4 (typ.)",
+   "members": [
+    "foundation/column/E(ext)@6(ext)/h",
+    "foundation/column/E(ext)@6(ext)/h#2",
+    "foundation/column/A(ext)@5–4/h",
+    "foundation/column/A(ext)@5–4/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS4X4X3/16",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS4X4X3/16",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS4X4X3/16",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation column HSS4X4X3/16",
+   "members": [
+    "foundation/column/A–B@3–2/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS6X6X1/4",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS6X6X1/4",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS6X6X1/4",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation columns HSS6X6X1/4 (typ.)",
+   "members": [
+    "foundation/column/A–B@2–1.2/h",
+    "foundation/column/A–B@1(ext)/h",
+    "foundation/column/A–B@3–2/h#3",
+    "foundation/column/B–C@1(ext)/h",
+    "foundation/column/C–D@1(ext)/h",
+    "foundation/column/C–D@1(ext)/h#2",
+    "foundation/column/D–E@1(ext)/h",
+    "foundation/column/D–E@1(ext)/h#2",
+    "foundation/column/E–F@6–5/h",
+    "foundation/column/E–F@1(ext)/h",
+    "foundation/column/E–F@1(ext)/h#2",
+    "foundation/column/E–F@1(ext)/h#3",
+    "foundation/column/E–F@5–4/h#2",
+    "foundation/column/E–F@5–4/h#3",
+    "foundation/column/E–F@5–4/h#4",
+    "foundation/column/E–F@5–4/h#5",
+    "foundation/column/E–F@3–2/h",
+    "foundation/column/F(ext)@6(ext)/h",
+    "foundation/column/F(ext)@6(ext)/h#2",
+    "foundation/column/F(ext)@3–2/h",
+    "foundation/column/F(ext)@3–2/h#2",
+    "foundation/column/F(ext)@3–2/h#3",
+    "foundation/column/F(ext)@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS6X6X3/8",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS6X6X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS6X6X3/8",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation columns HSS6X6X3/8 (typ.)",
+   "members": [
+    "foundation/column/A(ext)@6/h",
+    "foundation/column/A–B@4–3/h",
+    "foundation/column/A–B@6(ext)/h",
+    "foundation/column/A–B@3–2/h",
+    "foundation/column/A–B@4–3/h#2",
+    "foundation/column/A–B@4–3/h#3",
+    "foundation/column/A–B@5–4/h",
+    "foundation/column/C@2–1.2/h",
+    "foundation/column/C–D@6(ext)/h",
+    "foundation/column/D–E@2–1.2/h",
+    "foundation/column/D–E@2–1.2/h#2",
+    "foundation/column/D–E@6–5/h",
+    "foundation/column/E–F@6–5/h#2",
+    "foundation/column/E–F@2–1.2/h#2",
+    "foundation/column/E–F@5/h",
+    "foundation/column/F(ext)@5–4/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/column/HSS8X8X3/8",
+   "level": "Foundation",
+   "type": "column",
+   "size": "HSS8X8X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS8X8X3/8",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation columns HSS8X8X3/8 (typ.)",
+   "members": [
+    "foundation/column/B@1(ext)/h",
+    "foundation/column/C–D@4–3/h",
+    "foundation/column/C–D@3–2/h",
+    "foundation/column/D–E@3–2/h",
+    "foundation/column/D–E@4–3/h",
+    "foundation/column/E–F@2–1.2/h",
+    "foundation/column/E–F@5–4/h",
+    "foundation/column/E–F@3–2/h#2",
+    "foundation/column/F(ext)@4–3/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F10",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F10",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F10",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footing F10",
+   "members": [
+    "foundation/footing/E–F@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F12",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F12",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F12",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footings F12 (typ.)",
+   "members": [
+    "foundation/footing/C–D@5–4/h",
+    "foundation/footing/C–D@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F4",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F4",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F4",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footings F4 (typ.)",
+   "members": [
+    "foundation/footing/A(ext)@6–5/h",
+    "foundation/footing/A(ext)@5–4/h",
+    "foundation/footing/A@3–2/h",
+    "foundation/footing/A@4–3/h",
+    "foundation/footing/A–B@5–4/h",
+    "foundation/footing/A–B@4–3/h",
+    "foundation/footing/C@1(ext)/h",
+    "foundation/footing/C–D@1(ext)/h",
+    "foundation/footing/E@1(ext)/h",
+    "foundation/footing/E–F@6/h",
+    "foundation/footing/F@4–3/h",
+    "foundation/footing/F@5/h",
+    "foundation/footing/F@6–5/h",
+    "foundation/footing/F(ext)@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F4.5",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F4.5",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F4.5",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footing F4.5",
+   "members": [
+    "foundation/footing/E–F@6(ext)/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F5",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F5",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F5",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footings F5 (typ.)",
+   "members": [
+    "foundation/footing/A@6(ext)/h",
+    "foundation/footing/A–B@1(ext)/h",
+    "foundation/footing/C@3–2/h",
+    "foundation/footing/C@4–3/h",
+    "foundation/footing/C@6(ext)/h",
+    "foundation/footing/D@3–2/h",
+    "foundation/footing/D@4–3/h",
+    "foundation/footing/E@6/h",
+    "foundation/footing/E–F@5/h",
+    "foundation/footing/E–F@1(ext)/h",
+    "foundation/footing/F(ext)@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/footing/F9",
+   "level": "Foundation",
+   "type": "footing",
+   "size": "F9",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "PAD_FOOTING",
+    "name": "F9",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation footings F9 (typ.)",
+   "members": [
+    "foundation/footing/B–C@5–4/h",
+    "foundation/footing/B–C@2–1.2/h",
+    "foundation/footing/B–C@3–2/h",
+    "foundation/footing/B–C@4/h",
+    "foundation/footing/B–C@2–1.2/h#2",
+    "foundation/footing/C–D@5–4/h#2",
+    "foundation/footing/D–E@2–1.2/h",
+    "foundation/footing/D–E@4–3/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/grade-beam/GB1",
+   "level": "Foundation",
+   "type": "grade-beam",
+   "size": "GB1",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcFootingType",
+    "predefinedType": "FOOTING_BEAM",
+    "name": "GB1",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation grade beams GB1 (typ.)",
+   "members": [
+    "foundation/grade-beam/A–B@5–4/h",
+    "foundation/grade-beam/B–C@6–5/v",
+    "foundation/grade-beam/C–D@2–1.2/v",
+    "foundation/grade-beam/D–E@2–1.2/v",
+    "foundation/grade-beam/D–E@3/h",
+    "foundation/grade-beam/D–E@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/pile/P2.5",
+   "level": "Foundation",
+   "type": "pile",
+   "size": "P2.5",
+   "system": "Foundations",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcPileType",
+    "predefinedType": "NOTDEFINED",
+    "name": "P2.5",
+    "material": "concrete",
+    "storey": "Foundation"
+   },
+   "title": "Foundation piles P2.5 (typ.)",
+   "members": [
+    "foundation/pile/A@2/h",
+    "foundation/pile/A–B@1(ext)/h",
+    "foundation/pile/A–B@1/h",
+    "foundation/pile/B@1(ext)/h",
+    "foundation/pile/C@1(ext)/h",
+    "foundation/pile/D@1(ext)/h",
+    "foundation/pile/E–F@1(ext)/h",
+    "foundation/pile/E–F@6(ext)/h",
+    "foundation/pile/F@1(ext)/h",
+    "foundation/pile/F(ext)@6(ext)/h",
+    "foundation/pile/F(ext)@1(ext)/h",
+    "foundation/pile/F(ext)@5–4/h",
+    "foundation/pile/F(ext)@4–3/h",
+    "foundation/pile/F(ext)@3/h",
+    "foundation/pile/F(ext)@1(ext)/h#2",
+    "foundation/pile/F(ext)@3–2/h",
+    "foundation/pile/F(ext)@2–1.2/h",
+    "foundation/pile/F(ext)@6(ext)/h#2",
+    "foundation/pile/F(ext)@6–5/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/post/HSS6X6X3/8",
+   "level": "Foundation",
+   "type": "post",
+   "size": "HSS6X6X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "POST",
+    "name": "HSS6X6X3/8",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation post HSS6X6X3/8",
+   "members": [
+    "foundation/post/A–B@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/stringer/C12X20.7",
+   "level": "Foundation",
+   "type": "stringer",
+   "size": "C12X20.7",
+   "system": "Stair framing",
+   "sheets": [
+    "S5.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STRINGER",
+    "name": "C12X20.7",
+    "material": "steel",
+    "storey": "Foundation"
+   },
+   "title": "Foundation stringers C12X20.7 (typ.)",
+   "members": [
+    "foundation/stringer/E(ext)@6(ext)/v",
+    "foundation/stringer/E@6(ext)/v",
+    "foundation/stringer/A@5–4/h",
+    "foundation/stringer/A(ext)@5–4/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/foundation/wood-member/10X10",
+   "level": "Foundation",
+   "type": "wood-member",
+   "size": "10X10",
+   "system": "Wood framing",
+   "sheets": [
+    "S2.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "10X10",
+    "material": "wood",
+    "storey": "Foundation"
+   },
+   "title": "Foundation wood member 10X10",
+   "members": [
+    "foundation/wood-member/F(ext)@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/C8X11.5",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "C8X11.5",
+   "system": "Stair framing",
+   "sheets": [
+    "S5.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "C8X11.5",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams C8X11.5 (typ.)",
+   "members": [
+    "level-2/beam/E–F@6(ext)/h",
+    "level-2/beam/E–F@6(ext)/v#2",
+    "level-2/beam/A(ext)@5–4/v",
+    "level-2/beam/A(ext)@5–4/v#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X120",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X120",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X120",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beam W12X120",
+   "members": [
+    "level-2/beam/A–B@2/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X14",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X14",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X14",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W12X14 (typ.)",
+   "members": [
+    "level-2/beam/B–C@5–4/v",
+    "level-2/beam/B–C@5–4/h",
+    "level-2/beam/B–C@5–4/h#2",
+    "level-2/beam/C–D@5/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X19",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X19",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X19",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W12X19 (typ.)",
+   "members": [
+    "level-2/beam/B–C@3/v",
+    "level-2/beam/B–C@4–3/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X26",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X26",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X26",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beam W12X26",
+   "members": [
+    "level-2/beam/B–C@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X35",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X35",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X35",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beam W12X35",
+   "members": [
+    "level-2/beam/A–B@3–2/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X45",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X45",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X45",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W12X45 (typ.)",
+   "members": [
+    "level-2/beam/A–B@3–2/h",
+    "level-2/beam/A–B@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W12X65",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W12X65",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X65",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beam W12X65",
+   "members": [
+    "level-2/beam/B–C@1/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W14X22",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W14X22",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W14X22",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W14X22 (typ.)",
+   "members": [
+    "level-2/beam/A@6–5/h",
+    "level-2/beam/A@4–3/h",
+    "level-2/beam/A–B@6–5/v",
+    "level-2/beam/A–B@4–3/h",
+    "level-2/beam/A–B@5–4/h",
+    "level-2/beam/A–B@6–5/h",
+    "level-2/beam/A–B@4–3/h#2",
+    "level-2/beam/A–B@4–3/v",
+    "level-2/beam/A–B@5–4/v",
+    "level-2/beam/A–B@4–3/v#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W16X26",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W16X26",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W16X26",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W16X26 (typ.)",
+   "members": [
+    "level-2/beam/B@4–3/v",
+    "level-2/beam/B@5–4/h",
+    "level-2/beam/B–C@4–3/h",
+    "level-2/beam/B–C@3–2/v",
+    "level-2/beam/B–C@4–3/v#2",
+    "level-2/beam/B–C@6–5/h",
+    "level-2/beam/C@2–1.2/h",
+    "level-2/beam/C@6–5/h",
+    "level-2/beam/C@5–4/h",
+    "level-2/beam/C@4–3/h",
+    "level-2/beam/C–D@1/v",
+    "level-2/beam/C–D@2–1.2/h",
+    "level-2/beam/C–D@5–4/h",
+    "level-2/beam/C–D@4–3/h",
+    "level-2/beam/C–D@6–5/h",
+    "level-2/beam/D@2–1.2/h",
+    "level-2/beam/D@6–5/h",
+    "level-2/beam/D@5–4/h",
+    "level-2/beam/D@4–3/h",
+    "level-2/beam/D–E@1/v",
+    "level-2/beam/D–E@2–1.2/h",
+    "level-2/beam/D–E@6–5/h",
+    "level-2/beam/D–E@5–4/h",
+    "level-2/beam/D–E@4–3/h",
+    "level-2/beam/D–E@6–5/v",
+    "level-2/beam/D–E@5–4/v",
+    "level-2/beam/D–E@4–3/v#2",
+    "level-2/beam/D–E@3–2/v",
+    "level-2/beam/D–E@3–2/v#2",
+    "level-2/beam/E–F@1.2/h",
+    "level-2/beam/E–F@1.2/v",
+    "level-2/beam/E–F@6–5/h",
+    "level-2/beam/E–F@2/v",
+    "level-2/beam/E–F@3–2/h",
+    "level-2/beam/E–F@2–1.2/h",
+    "level-2/beam/E–F@5–4/h",
+    "level-2/beam/E–F@1/v",
+    "level-2/beam/E–F@6–5/v",
+    "level-2/beam/E–F@3–2/v#2",
+    "level-2/beam/E–F@1.2/v#2",
+    "level-2/beam/E–F@3–2/v#3",
+    "level-2/beam/E–F@6–5/v#2",
+    "level-2/beam/E–F@5–4/v",
+    "level-2/beam/E–F@4–3/v",
+    "level-2/beam/E–F@4–3/v#2",
+    "level-2/beam/E–F@5–4/v#2",
+    "level-2/beam/F@5/h",
+    "level-2/beam/F@5–4/h",
+    "level-2/beam/F@4–3/h",
+    "level-2/beam/F@3–2/h",
+    "level-2/beam/F@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W18X35",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W18X35",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W18X35",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W18X35 (typ.)",
+   "members": [
+    "level-2/beam/A–B@3/v",
+    "level-2/beam/A–B@5/v",
+    "level-2/beam/B@4–3/h",
+    "level-2/beam/B@4–3/h#2",
+    "level-2/beam/B@2–1.2/h",
+    "level-2/beam/B@6–5/h",
+    "level-2/beam/B–C@2/v",
+    "level-2/beam/B–C@3–2/h",
+    "level-2/beam/B–C@4–3/h#2",
+    "level-2/beam/C@3–2/h",
+    "level-2/beam/C–D@3–2/h",
+    "level-2/beam/D@3–2/h",
+    "level-2/beam/D–E@3/v",
+    "level-2/beam/D–E@3–2/h",
+    "level-2/beam/D–E@4–3/v",
+    "level-2/beam/E@6/h",
+    "level-2/beam/E@5–4/h",
+    "level-2/beam/E@2–1.2/h",
+    "level-2/beam/E–F@6(ext)/v",
+    "level-2/beam/E–F@3–2/v",
+    "level-2/beam/E–F@4–3/h",
+    "level-2/beam/E–F@4/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/beam/W21X44",
+   "level": "Level 2",
+   "type": "beam",
+   "size": "W21X44",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W21X44",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 beams W21X44 (typ.)",
+   "members": [
+    "level-2/beam/B–C@6(ext)/v",
+    "level-2/beam/B–C@4/v",
+    "level-2/beam/B–C@3/v#2",
+    "level-2/beam/C–D@6(ext)/v",
+    "level-2/beam/C–D@4/v",
+    "level-2/beam/C–D@3/v",
+    "level-2/beam/D–E@5/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/column/HSS10X6X1/2",
+   "level": "Level 2",
+   "type": "column",
+   "size": "HSS10X6X1/2",
+   "system": "Elevator framing",
+   "sheets": [
+    "S5.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS10X6X1/2",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 columns HSS10X6X1/2 (typ.)",
+   "members": [
+    "level-2/column/B@3(ext)/h",
+    "level-2/column/B@3(ext)/h#2",
+    "level-2/column/B@3(ext)/h#3"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/column/HSS14X6X5/8",
+   "level": "Level 2",
+   "type": "column",
+   "size": "HSS14X6X5/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS14X6X5/8",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 column HSS14X6X5/8",
+   "members": [
+    "level-2/column/A@5–4/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/column/HSS6X6X1/4",
+   "level": "Level 2",
+   "type": "column",
+   "size": "HSS6X6X1/4",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS6X6X1/4",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 columns HSS6X6X1/4 (typ.)",
+   "members": [
+    "level-2/column/A–B@6–5/h",
+    "level-2/column/A–B@3–2/h",
+    "level-2/column/B–C@3–2/h",
+    "level-2/column/B–C@2–1.2/h",
+    "level-2/column/B–C@5–4/h",
+    "level-2/column/B–C@5–4/h#2",
+    "level-2/column/B–C@2–1.2/h#2",
+    "level-2/column/C–D@2–1.2/h",
+    "level-2/column/C–D@2–1.2/h#2",
+    "level-2/column/C–D@6(ext)/h",
+    "level-2/column/D–E@2–1.2/h",
+    "level-2/column/D–E@2–1.2/h#2",
+    "level-2/column/D–E@1(ext)/h",
+    "level-2/column/D–E@6(ext)/h#2",
+    "level-2/column/D–E@5–4/h",
+    "level-2/column/E–F@4–3/h",
+    "level-2/column/E–F@4–3/h#2",
+    "level-2/column/E–F@5–4/h",
+    "level-2/column/E–F@5–4/h#2",
+    "level-2/column/E–F@5–4/h#3",
+    "level-2/column/E–F@5–4/h#4",
+    "level-2/column/E–F@3/h",
+    "level-2/column/E–F@3/h#2",
+    "level-2/column/E–F@3–2/h",
+    "level-2/column/E–F@3–2/h#2",
+    "level-2/column/E–F@4–3/h#3"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/column/HSS6X6X3/8",
+   "level": "Level 2",
+   "type": "column",
+   "size": "HSS6X6X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS6X6X3/8",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 column HSS6X6X3/8",
+   "members": [
+    "level-2/column/D–E@6(ext)/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/post/HSS6X6X3/8",
+   "level": "Level 2",
+   "type": "post",
+   "size": "HSS6X6X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "POST",
+    "name": "HSS6X6X3/8",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 post HSS6X6X3/8",
+   "members": [
+    "level-2/post/B–C@4–3/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/stringer/C12X20.7",
+   "level": "Level 2",
+   "type": "stringer",
+   "size": "C12X20.7",
+   "system": "Stair framing",
+   "sheets": [
+    "S5.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STRINGER",
+    "name": "C12X20.7",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 stringers C12X20.7 (typ.)",
+   "members": [
+    "level-2/stringer/E–F@6(ext)/v",
+    "level-2/stringer/E–F@6(ext)/v#2",
+    "level-2/stringer/E–F@6(ext)/h",
+    "level-2/stringer/A(ext)@5–4/h",
+    "level-2/stringer/A(ext)@5–4/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/stringer/MC18X42.7",
+   "level": "Level 2",
+   "type": "stringer",
+   "size": "MC18X42.7",
+   "system": "Stair framing",
+   "sheets": [
+    "S5.0.1"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "STRINGER",
+    "name": "MC18X42.7",
+    "material": "steel",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 stringer MC18X42.7",
+   "members": [
+    "level-2/stringer/E–F@6/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/wood-member/10X10",
+   "level": "Level 2",
+   "type": "wood-member",
+   "size": "10X10",
+   "system": "Wood framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "10X10",
+    "material": "wood",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 wood members 10X10 (typ.)",
+   "members": [
+    "level-2/wood-member/A–B@1.2/v",
+    "level-2/wood-member/A–B@3–2/v",
+    "level-2/wood-member/B@1(ext)/h",
+    "level-2/wood-member/C@1(ext)/h",
+    "level-2/wood-member/D@1(ext)/h",
+    "level-2/wood-member/E–F@1(ext)/h",
+    "level-2/wood-member/E–F@6/h",
+    "level-2/wood-member/F@6/h",
+    "level-2/wood-member/F@1(ext)/h",
+    "level-2/wood-member/F(ext)@2/v",
+    "level-2/wood-member/F(ext)@4/v",
+    "level-2/wood-member/F(ext)@3–2/v",
+    "level-2/wood-member/F(ext)@1/v",
+    "level-2/wood-member/F(ext)@5–4/v",
+    "level-2/wood-member/F(ext)@4–3/v",
+    "level-2/wood-member/F(ext)@6–5/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/wood-member/8X10",
+   "level": "Level 2",
+   "type": "wood-member",
+   "size": "8X10",
+   "system": "Wood framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "8X10",
+    "material": "wood",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 wood members 8X10 (typ.)",
+   "members": [
+    "level-2/wood-member/A–B@2–1.2/h",
+    "level-2/wood-member/A–B@1/h",
+    "level-2/wood-member/A–B@1(ext)/v",
+    "level-2/wood-member/A–B@2–1.2/h#2",
+    "level-2/wood-member/B–C@1/v",
+    "level-2/wood-member/B–C@1(ext)/v",
+    "level-2/wood-member/C–D@1/v",
+    "level-2/wood-member/C–D@1(ext)/v",
+    "level-2/wood-member/D–E@1(ext)/v",
+    "level-2/wood-member/D–E@1/v",
+    "level-2/wood-member/E–F@1/v",
+    "level-2/wood-member/E–F@1(ext)/v",
+    "level-2/wood-member/F@5/h",
+    "level-2/wood-member/F@4–3/h",
+    "level-2/wood-member/F@3/h",
+    "level-2/wood-member/F@6(ext)/v",
+    "level-2/wood-member/F(ext)@2–1.2/h",
+    "level-2/wood-member/F(ext)@3–2/h",
+    "level-2/wood-member/F(ext)@1(ext)/v",
+    "level-2/wood-member/F(ext)@6(ext)/v",
+    "level-2/wood-member/F(ext)@5–4/h",
+    "level-2/wood-member/F(ext)@6–5/h",
+    "level-2/wood-member/F(ext)@4–3/h",
+    "level-2/wood-member/F(ext)@3/h",
+    "level-2/wood-member/F(ext)@3–2/h#2",
+    "level-2/wood-member/F(ext)@2–1.2/h#2",
+    "level-2/wood-member/F(ext)@6(ext)/h",
+    "level-2/wood-member/F(ext)@1(ext)/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/level-2/wood-member/8X8",
+   "level": "Level 2",
+   "type": "wood-member",
+   "size": "8X8",
+   "system": "Wood framing",
+   "sheets": [
+    "S2.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "8X8",
+    "material": "wood",
+    "storey": "Level 2"
+   },
+   "title": "Level 2 wood members 8X8 (typ.)",
+   "members": [
+    "level-2/wood-member/E–F@4–3/h",
+    "level-2/wood-member/E–F@2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W12X14",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W12X14",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X14",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W12X14 (typ.)",
+   "members": [
+    "roof/beam/A–B@5–4/h",
+    "roof/beam/B@5–4/h",
+    "roof/beam/B–C@5–4/v",
+    "roof/beam/B–C@5–4/v#2",
+    "roof/beam/B–C@3–2/v",
+    "roof/beam/B–C@3–2/v#2",
+    "roof/beam/B–C@3–2/v#3",
+    "roof/beam/B–C@6–5/v#2",
+    "roof/beam/B–C@5/h",
+    "roof/beam/B–C@5–4/h#2",
+    "roof/beam/B–C@5–4/h#3",
+    "roof/beam/B–C@5/v",
+    "roof/beam/B–C@5–4/h#4",
+    "roof/beam/C@5–4/h",
+    "roof/beam/C–D@3–2/v",
+    "roof/beam/C–D@5–4/v",
+    "roof/beam/C–D@6–5/v#2",
+    "roof/beam/C–D@5–4/h#2",
+    "roof/beam/C–D@4–3/h#2",
+    "roof/beam/D@5–4/v",
+    "roof/beam/D@3–2/v",
+    "roof/beam/D@6–5/v",
+    "roof/beam/D–E@3–2/v",
+    "roof/beam/D–E@5–4/v",
+    "roof/beam/D–E@5–4/v#2",
+    "roof/beam/D–E@4–3/v",
+    "roof/beam/D–E@4–3/v#2",
+    "roof/beam/D–E@3–2/v#2",
+    "roof/beam/D–E@3–2/v#3",
+    "roof/beam/D–E@3–2/v#4"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W12X79",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W12X79",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W12X79",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beam W12X79",
+   "members": [
+    "roof/beam/C–D@1/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W14X22",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W14X22",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W14X22",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W14X22 (typ.)",
+   "members": [
+    "roof/beam/B–C@4–3/v",
+    "roof/beam/B–C@6–5/v",
+    "roof/beam/C–D@6–5/v",
+    "roof/beam/D–E@6–5/v"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W16X26",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W16X26",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3",
+    "S5.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W16X26",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W16X26 (typ.)",
+   "members": [
+    "roof/beam/B@4–3/h",
+    "roof/beam/B@6–5/h",
+    "roof/beam/B–C@5–4/h",
+    "roof/beam/B–C@3/v",
+    "roof/beam/B–C@4–3/v#2",
+    "roof/beam/B–C@5–4/v#3",
+    "roof/beam/B–C@6–5/h",
+    "roof/beam/B–C@3–2/h",
+    "roof/beam/B–C@4–3/h",
+    "roof/beam/C@4–3/h",
+    "roof/beam/C@6–5/h",
+    "roof/beam/C@3–2/h",
+    "roof/beam/C@5–4/h#2",
+    "roof/beam/C–D@5–4/v#2",
+    "roof/beam/C–D@6–5/h",
+    "roof/beam/C–D@5–4/h",
+    "roof/beam/C–D@4–3/h",
+    "roof/beam/C–D@3–2/h",
+    "roof/beam/C–D@4–3/v",
+    "roof/beam/C–D@5–4/v#3",
+    "roof/beam/C–D@6–5/h#2",
+    "roof/beam/D@4–3/h",
+    "roof/beam/D@6–5/h",
+    "roof/beam/D@5–4/h",
+    "roof/beam/D@3–2/h",
+    "roof/beam/D–E@6–5/h",
+    "roof/beam/D–E@5–4/h",
+    "roof/beam/D–E@4–3/h",
+    "roof/beam/D–E@3–2/h",
+    "roof/beam/D–E@4/v#2",
+    "roof/beam/D–E@3–2/v#5",
+    "roof/beam/B(ext)@?/h",
+    "roof/beam/B(ext)@?/v",
+    "roof/beam/B(ext)@?/v#2",
+    "roof/beam/B(ext)@?/h#4"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W18X35",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W18X35",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W18X35",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W18X35 (typ.)",
+   "members": [
+    "roof/beam/B@4–3/h#2",
+    "roof/beam/B–C@2/v",
+    "roof/beam/B–C@5–4/v#4",
+    "roof/beam/B–C@4/v",
+    "roof/beam/B–C@3/v#2",
+    "roof/beam/C–D@3/v",
+    "roof/beam/C–D@4/v",
+    "roof/beam/D–E@5/v",
+    "roof/beam/D–E@3/v",
+    "roof/beam/D–E@4/v",
+    "roof/beam/E@5–4/h",
+    "roof/beam/E@5–4/h#2",
+    "roof/beam/E@5–4/h#3"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W8X10",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W8X10",
+   "system": "Elevator framing",
+   "sheets": [
+    "S5.0.2"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W8X10",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W8X10 (typ.)",
+   "members": [
+    "roof/beam/B@?/h",
+    "roof/beam/B(ext)@?/h#2",
+    "roof/beam/B(ext)@?/h#3"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/beam/W8X35",
+   "level": "Roof",
+   "type": "beam",
+   "size": "W8X35",
+   "system": "Steel framing",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "W8X35",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof beams W8X35 (typ.)",
+   "members": [
+    "roof/beam/B@2–1.2/h",
+    "roof/beam/B–C@2–1.2/h",
+    "roof/beam/B–C@1(ext)/h",
+    "roof/beam/C@1(ext)/h",
+    "roof/beam/C–D@1(ext)/h",
+    "roof/beam/C–D@1.2/v",
+    "roof/beam/D@1(ext)/h",
+    "roof/beam/D–E@1(ext)/h",
+    "roof/beam/D–E@2–1.2/h",
+    "roof/beam/E@2–1.2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/post/HSS6X6X1/4",
+   "level": "Roof",
+   "type": "post",
+   "size": "HSS6X6X1/4",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcMemberType",
+    "predefinedType": "POST",
+    "name": "HSS6X6X1/4",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof post HSS6X6X1/4",
+   "members": [
+    "roof/post/C–D@3–2/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/post/HSS6X6X3/8",
+   "level": "Roof",
+   "type": "post",
+   "size": "HSS6X6X3/8",
+   "system": "Columns & posts",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcColumnType",
+    "predefinedType": "COLUMN",
+    "name": "HSS6X6X3/8",
+    "material": "steel",
+    "storey": "Roof"
+   },
+   "title": "Roof post HSS6X6X3/8",
+   "members": [
+    "roof/post/B–C@4–3/h"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/wood-member/2X6",
+   "level": "Roof",
+   "type": "wood-member",
+   "size": "2X6",
+   "system": "Wood trellis",
+   "sheets": [
+    "S5.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "2X6",
+    "material": "wood",
+    "storey": "Roof"
+   },
+   "title": "Roof wood members 2X6 (typ.)",
+   "members": [
+    "roof/wood-member/B(ext)@5(ext)/h",
+    "roof/wood-member/B(ext)@3–2/h",
+    "roof/wood-member/B(ext)@4–3/h#2",
+    "roof/wood-member/B(ext)@5–4/h",
+    "roof/wood-member/B(ext)@5–4/h#2",
+    "roof/wood-member/B(ext)@5/h",
+    "roof/wood-member/B(ext)@4–3/h#3",
+    "roof/wood-member/B(ext)@3–2/h#2",
+    "roof/wood-member/B(ext)@3–2/h#3",
+    "roof/wood-member/B(ext)@4–3/h#4"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/wood-member/4X6",
+   "level": "Roof",
+   "type": "wood-member",
+   "size": "4X6",
+   "system": "Wood trellis",
+   "sheets": [
+    "S5.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "4X6",
+    "material": "wood",
+    "storey": "Roof"
+   },
+   "title": "Roof wood members 4X6 (typ.)",
+   "members": [
+    "roof/wood-member/B(ext)@4–3/h",
+    "roof/wood-member/B(ext)@5(ext)/v",
+    "roof/wood-member/B(ext)@5–4/v",
+    "roof/wood-member/B(ext)@5–4/v#2",
+    "roof/wood-member/B(ext)@4/v",
+    "roof/wood-member/B(ext)@4–3/v",
+    "roof/wood-member/B(ext)@4–3/v#2",
+    "roof/wood-member/B(ext)@3–2/v",
+    "roof/wood-member/B(ext)@3–2/v#2",
+    "roof/wood-member/B(ext)@3–2/v#3",
+    "roof/wood-member/B(ext)@3–2/v#4",
+    "roof/wood-member/B(ext)@5(ext)/v#2",
+    "roof/wood-member/B(ext)@5/h#2",
+    "roof/wood-member/B(ext)@5–4/h#3",
+    "roof/wood-member/B(ext)@5–4/h#4",
+    "roof/wood-member/B(ext)@4–3/h#5",
+    "roof/wood-member/B(ext)@4–3/h#6",
+    "roof/wood-member/B(ext)@4–3/h#7",
+    "roof/wood-member/B(ext)@3–2/h#4",
+    "roof/wood-member/B(ext)@3–2/h#5",
+    "roof/wood-member/B(ext)@3–2/h#6",
+    "roof/wood-member/B(ext)@5(ext)/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/wood-member/4X8",
+   "level": "Roof",
+   "type": "wood-member",
+   "size": "4X8",
+   "system": "Wood trellis",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "4X8",
+    "material": "wood",
+    "storey": "Roof"
+   },
+   "title": "Roof wood members 4X8 (typ.)",
+   "members": [
+    "roof/wood-member/E–F@6–5/h",
+    "roof/wood-member/E–F@5–4/h",
+    "roof/wood-member/E–F@4–3/h",
+    "roof/wood-member/E–F@4–3/h#2",
+    "roof/wood-member/E–F@3–2/h",
+    "roof/wood-member/E–F@2/h",
+    "roof/wood-member/E–F@2/h#2",
+    "roof/wood-member/E–F@6–5/h#2",
+    "roof/wood-member/E–F@5–4/h#2",
+    "roof/wood-member/E–F@4–3/h#3",
+    "roof/wood-member/E–F@4–3/h#4",
+    "roof/wood-member/E–F@3–2/h#2"
+   ],
+   "description": null
+  },
+  {
+   "id": "group/roof/wood-member/8X8",
+   "level": "Roof",
+   "type": "wood-member",
+   "size": "8X8",
+   "system": "Wood trellis",
+   "sheets": [
+    "S2.0.3"
+   ],
+   "ifc": {
+    "typeClass": "IfcBeamType",
+    "predefinedType": "BEAM",
+    "name": "8X8",
+    "material": "wood",
+    "storey": "Roof"
+   },
+   "title": "Roof wood members 8X8 (typ.)",
+   "members": [
+    "roof/wood-member/E@2–1.2/h",
+    "roof/wood-member/E@5–4/h",
+    "roof/wood-member/E@5–4/h#2",
+    "roof/wood-member/E@4–3/h",
+    "roof/wood-member/E@3/h",
+    "roof/wood-member/E@3–2/h",
+    "roof/wood-member/E–F@6–5/v",
+    "roof/wood-member/E–F@1.2/v",
+    "roof/wood-member/E–F@3–2/v",
+    "roof/wood-member/E–F@5–4/v",
+    "roof/wood-member/E–F@4/v",
+    "roof/wood-member/E–F@4–3/v",
+    "roof/wood-member/E–F@3–2/v#2",
+    "roof/wood-member/F@5–4/h",
+    "roof/wood-member/F@5–4/h#2",
+    "roof/wood-member/F@4–3/h",
+    "roof/wood-member/F@3–2/h",
+    "roof/wood-member/F@3–2/h#2",
+    "roof/wood-member/F@2–1.2/h",
+    "roof/wood-member/F(ext)@3–2/h"
+   ],
+   "description": null
+  }
+ ]
+}
