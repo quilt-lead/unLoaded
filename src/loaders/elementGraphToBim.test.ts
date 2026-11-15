@@ -15,6 +15,17 @@ describe('elementGraphToBim on simple-frame', () => {
   const topo = elementGraphToBim(eg);
   const byId = new Map(topo.elementNodes.map((n) => [n.id, n]));
 
+  it('carries the storeys and each member\'s centreline and section for the 2D plan', () => {
+    expect(topo.levels).toEqual([
+      { id: 'L0', name: 'Foundation', elevation: 0 },
+      { id: 'L1', name: 'Level 1', elevation: 3.5 },
+    ]);
+    const beam = topo.elementNodes.find((n) => n.mark === 'B101')!;
+    expect(beam.axis).toEqual({ start: [0.14, 0, 3.3], end: [5.86, 0, 3.3] });
+    expect(beam.section).toEqual({ depth: 0.4, width: 0.14 });
+    expect(topo.elementNodes.find((n) => n.mark === 'S1')!.axis).toBeUndefined();
+  });
+
   it('builds project -> kind category -> family -> element', () => {
     expect(topo.elementNodes.filter(isProjectNode)).toHaveLength(1);
     expect(topo.projectName).toBe('Simple frame fixture');

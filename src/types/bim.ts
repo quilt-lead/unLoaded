@@ -201,6 +201,10 @@ export interface BimNode {
   calcLinks?: CalcLink[]; // strongest first, rejected included
   /** world bbox from the element graph (metres, Z up): the 3D fallback when there is no IFC to mesh */
   bbox?: { min: [number, number, number]; max: [number, number, number] };
+  /** analytical centreline (metres, Z up) for linear members; for columns `start` is the bottom */
+  axis?: { start: [number, number, number]; end: [number, number, number] };
+  /** cross-section size in metres, when the source states it */
+  section?: { depth?: number; width?: number };
   /** demand / capacity, 0..1. No source provides it yet, so it is always undefined today. */
   utilization?: number;
   // calc / mapped-element nodes
@@ -266,6 +270,13 @@ export interface ConnectivityEdge {
   rule: string;
 }
 
+/** A building storey of the model (IfcBuildingStorey / LevelInput): metres, Z up. */
+export interface ModelLevel {
+  id: string;
+  name: string;
+  elevation: number;
+}
+
 /** What the element graph says, as view data (built only by src/loaders/elementGraphToBim.ts). */
 export interface ElementTopology {
   projectName: string;
@@ -274,6 +285,8 @@ export interface ElementTopology {
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
+  /** the model's storeys, lowest first (empty when the source has none) */
+  levels?: ModelLevel[];
 }
 
 /** What the calc engine says, as view data (built only by src/data/loadProject.ts). */
@@ -317,6 +330,8 @@ export interface ProjectViewModel {
   hierarchyLinks: BimLink[];
   loadPath: LoadPathEdge[];
   connectivity: ConnectivityEdge[];
+  /** the model's storeys, lowest first */
+  levels?: ModelLevel[];
   /** IFC file for the 3D view (an object URL of the model revision's IFC), null when there is none */
   modelFileUrl: string | null;
   calcs: CalcPackage[];
