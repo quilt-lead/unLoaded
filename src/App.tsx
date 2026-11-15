@@ -1287,6 +1287,9 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* the filter bar (level, type, trace, mapping legend) acts on the graphs and 3D only; the PDF
+          view has its own calc search, so it gives the bar's height to the page */}
+      {activeView !== 'docs' && (
       <FilterBar
         filters={filters}
         onChangeFilters={setFilters}
@@ -1309,6 +1312,7 @@ export const App: React.FC = () => {
         matchedCount={matchingNodeIds.size}
         totalInstances={totalInstances}
       />
+      )}
 
       {hoverEdge === 'left' && (
         <div className="fixed top-24 bottom-2 left-2 w-32 z-45 pointer-events-none border-2 border-dashed border-calcmap bg-calcmap/20 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center gap-1.5 text-calcmap">
