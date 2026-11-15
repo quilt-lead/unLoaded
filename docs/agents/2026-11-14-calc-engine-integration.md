@@ -1,6 +1,6 @@
 # Calc engine integration: main + hackathon engine + extraction
 
-- **Status:** active
+- **Status:** active (handed over to a new session ~10:30 PM ET; see `~/Documents/claude-prompts/2026-11-14-unloaded-pr4-handover.md`)
 - **Branch:** `issy/integrate-calc-graph-engine` (owner: Issy). Draft PR #4 to `prod` (https://github.com/quilt-lead/unLoaded/pull/4), review requested from Carl (`cslotboom`). `prod` has no branch protection, so his review is requested, not enforced. This branch is pushed; `prod` is never pushed to directly.
 - **Owned files:** `backend/`, `.github/workflows/ci.yml`, `src/api/`, `src/data/`, `src/components/pdf/`,
   `src/components/three/`, `src/components/RevisionPanel.tsx`, and the merge of these into main's components.
@@ -372,6 +372,17 @@ an open-union narrowing in `elementGraphToBim.ts`, an unreachable line in drawin
 in move-impact under `noUncheckedIndexedAccess`. All three fixed at the line, no checks loosened.
 Also: calc-mapper's `Producer` type now accepts any workspace package (`<pkg>@<version>/<module>`), so move-impact uses
 the shared `Provenance` rather than a narrowed copy (D23).
+
+### D27. MCP server: a local stdio CLI over the engineer's project file (`packages/mcp-server`)
+**Built ~10:25 PM ET (D18 item 4, D4).** Reads one `*.calcgraph.json`, runs calc-mapper (and move-impact for
+`move_column`) in-process — the same engine as the app, never a second implementation — read-only, no hosted server
+(consistent with D17). Tools: project summary, element search/get, calc get, impact, revisions + compare, findings,
+typical groups, page image crop with highlight, move column. Every result carries the engine's provenance plus the
+project file and input hashes. Parity: the real CLI over stdio with the official MCP client matched the packages
+called directly, 35/35 checks on each of three files. CI green at `9f93813`.
+**Known duplication, to fix next (not a follow-up ticket):** the project-file type is declared in both
+`src/data/projectStore.ts` and `packages/mcp-server/src/projectFile.ts`; it belongs in one shared package module that
+both import. Also: add the MCP parity script to the CI tooling job.
 
 ## Upstream merges
 
