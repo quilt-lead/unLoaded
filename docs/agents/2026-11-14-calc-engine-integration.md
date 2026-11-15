@@ -412,6 +412,99 @@ and its PDF decodes byte-identical. **MCP parity 35/35** with the shared package
 **CI (Do next 2):** the tooling job now builds a synthetic project file with `make-project-file.ts` and runs
 `mcp-parity.ts` on it (exit 1 on any mismatch).
 
+### D29. Whole-branch review, round 1: 52 findings, fixed at the root in five owned waves
+**Run 2026-11-14 ~8:40-9:20 PM ET** (handover "Do next" 3). Five Opus reviewers at `high`, read-only, one per
+area (calc-mapper + project-file; app store/engine + MCP; UI; move-impact + drawing-parser; tooling/CI), briefed
+"correctness only, do not dispatch mutants" (mutation testing is off). All five finished; none crashed. **52 findings,
+all pre-existing at `54e8e70`**. None was introduced by D28, but one says D28's validator promised more than it
+checked (graph levels/bbox), which is now fixed in `parseGraph`. Five fix agents (Opus) owned disjoint files. Each
+re-verified its findings at HEAD first. All 52 were live, none dismissed. Commits `dd3bf9e` (calc-mapper), `62616e4`
+(store/engine/MCP), `34e3fe7` (UI), `bb1b4a5` (tooling), `1f97313` (move-impact/drawing-parser), plus CI follow-ups
+`dd11958`, `3e86c1e`, `bf22bd8`. CI green at `bf22bd8`.
+The root fixes, by class:
+- **Store:** the mid-session fallback to an empty memory store is deleted (any error, even "project not found",
+  used to swap the session onto empty memory). Every store call is one multi-store transaction (`run`), so
+  `addRevision`, import and delete are atomic. `seq` and head writes can't race. Export refuses missing files.
+- **One rule, two readers:** `storedExtractionFor` (project-file) decides for both the app and the MCP server
+  whether a stored calc package can be used. They disagreed before, and a malformed extraction crashed the app.
+  `parseProjectFile` returns a clean object, so extra keys in a file can't overwrite records.
+- **Diff mode** lays the diff over revision B's view (it used to be the head, which was wrong whenever head ≠ A, B).
+  Compare and snapshot refuse revisions from another project. Decisions and impact are recorded against the
+  revision on screen.
+- **UI:** one `scope` state. `enterScope` is the only way the open project changes and resets all project state,
+  and project-local components are keyed by its epoch. This replaced per-handler clears that `switchProject`
+  missed. One Escape owner (`escapeStack`). IFC loads are invalidated in one place.
+- **calc-mapper:** calc keys are unique by construction. A design-role link beats a loads-role one for designer.
+  ONE section grammar (the parser's patterns) for calc text and model profiles, so IPE/HE/UB/C/L are found. Page
+  footers are no longer references. One whole-word storey test. Text is folded once (dashes, case) with offsets
+  kept. The content hash and the field diff come from one list. `parseGraph` validates what downstream code
+  dereferences. **Every synthetic metric unchanged.**
+- **move-impact:** loads accumulate down a column stack (lower columns and footings used to see one storey). Footing
+  bearing uses plan area. Removal reactions are compared on one basis. New stated assumption: a column without a
+  calc row inherits the load combination of the column above. **drawing-parser:** dimensions must agree with the
+  calibrated scale. Assumed levels are labelled. Column ids never depend on sizes (per-storey sizes go in
+  `Drawing.StoreySizes`). Local v2 gates are unchanged (move screened P/R 0.867/0.923; drawing "no metric worse").
+- **Tooling:** the copyright guard classifies by content, not extension: every non-text blob must be pinned. It now
+  scans merge commits and terms glued into longer tokens (terms of 8+ characters; shorter glued terms remain a stated
+  residual, mitigation not a fix). The gate compares the union of baseline and run keys. A skipped stage is a
+  regression unless it is declared local-only, which prints a loud banner (`move_answer_key`). Pushes are
+  range-scanned. A missing required asset fails the build.
+**CI caught three things locally unverifiable:** two TS2352 casts, a test-isolation leak that exposed a real
+defect (a refused snapshot left a PDF extraction running; validation now precedes engine work), an over-broad
+source ratchet, and a test helper whose explicit `undefined` took a default.
+**Note on D22's numbers:** `eval/baseline.json` holds the hackathon's move-impact numbers (screened 0.81/0.913) as
+the floor; ours measure 0.867/0.923. Both statements are right; the baseline is a floor, not our score.
+**Round 2** reviews only the fix delta (`a930536..HEAD`), with four reviewers on the same areas.
+
+### D30. Review round 2 (fix delta): ~31 findings, ~23 introduced by round 1; process changed, all fixed
+**Run ~9:20-10:00 PM ET.** Four Opus reviewers on `a930536..bf22bd8`, same areas as D29, all finished. Most findings
+were defects the round-1 fixes introduced, all invisible on the synthetic data:
+- untitled text pages were never mapped;
+- the shared section grammar read `10 x 20` and `HD12` as sizes (false mismatch findings);
+- the engine version wasn't bumped, so no fix reached existing projects;
+- `parseGraph` was stricter than the app's import, so a saved project could refuse to reopen;
+- diff mode wiped groups and selection on every swap;
+- a bad compare id blanked the workspace;
+- a girder far support double-counted load;
+- the CI push fallback scanned all of `prod`'s history, which predates the guard (5 prototype screenshots from
+  `d27d4ba` and 4 `.DS_Store` versions), so it could only fail.
+**Process change** (the cause was fixes checked only on synthetic data): every round-2 fix was written against
+realistic probes, the reviewers' inputs plus the cases the old rule got right. Each probe was run through the old
+(`a930536`), round-1 and new production code with node scripts that import production modules only. Commits:
+- `5723742`, calc-mapper and project-file:
+  - an untitled text page continues the last calc that has text; front matter needs evidence;
+  - calc text has its own complete-designation grammar;
+  - `ENGINE_VERSION` = `mapper-v1.2+segment-v2`, and stored extractions carry and must match the segmenter version;
+  - running headers and footers are detected per document;
+  - stored packages are deep-validated.
+- `7e7ca9c`, app:
+  - only a project change resets user state, and a revision change keeps what still exists;
+  - diff revisions are validated through one function, and Exit diff is always available;
+  - a missing calc PDF degrades the view;
+  - each file's sha is recorded once at add;
+  - writes target the revision on screen;
+  - one upload path;
+  - the store refuses any revision a reader couldn't reopen;
+  - IndexedDB transaction tests on fake-indexeddb.
+- `f1beb54`, tooling:
+  - a push scan covers only what the push introduces (an update, a new branch against `prod`, a force-push fetches
+    the old head), else it scans the tree with a `::warning::`;
+  - decimals stay one unit;
+  - local-only stages are annotated in CI;
+  - small error metrics get a relative tolerance.
+- `50e8000`, move-impact and drawing-parser:
+  - girder load reaches columns through statics;
+  - each column uses one combination rule, with no inheritance;
+  - cycles and walls are reported, not crashed on or copied;
+  - columns are per-storey segments with position+storey ids; the scorer treats a stack as one truth column.
+Checked on data:
+- every graph source passes the import gate: both IFC fixtures, both synthetic models, both Harborview demo files;
+- `evaluate_all` is unchanged;
+- local v2 gates are unchanged (the move-impact output is byte-identical);
+- MCP parity is 35/35.
+**Open (for Issy):** `prod`'s history holds the prototype screenshots and `.DS_Store` versions noted above. The
+guard no longer scans pre-guard history, and nothing was rewritten or allowlisted.
+
 ## Upstream merges
 
 | When (ET) | prod commit | What it brought | How it was integrated |
@@ -421,6 +514,7 @@ and its PDF decodes byte-identical. **MCP parity 35/35** with the shared package
 | 6:46 PM | `d361b96` "added json samples" (Noah) | two legacy-format demo JSONs, `sample-data/harborview-tower-rev{1-base,2-compare}.json` (~47k lines, 420 invented `documents` entries), for the diff demo | To be merged after the PR #3 merge commit. The files are deleted: they use the legacy BIM JSON format whose loader goes (D16) and carry invented calc documents (D6/D10). **Withdrawn 2026-11-14 ~7:15 PM ET after Issy questioned it:** deleting a teammate's active demo data in a merge isn't this branch's call. The samples and `legacyBimJson.ts` stay; whether demo JSON with invented documents belongs in the repo is for Noah. |
 | 6:52 PM | `c3f39fb` "added json samples" (Noah) | the same two harborview JSONs again under root `data/`, plus a 10-line `package-lock.json` trim | Kept (see the `d361b96` row: deletion withdrawn). Note root `data/bim-database.json` was removed in D10 as a duplicate; these are new files. The lockfile is regenerated by `npm install` on this branch, so the trim is absorbed. |
 | 7:17 PM | `1ed39a2` "changed font to apercu" (Noah) | font swap in `tailwind.config.js` / `src/index.css`, two lines in `RadialGraphCanvas.tsx`, a `docs/agents` note | Applied by hand in the frontend commit (`143d175`), then merged (`47edc0d`); conflicts were formatting only. Font kept as Noah set it. |
+| 9:53 PM | `dfc92ae`, `340285b` "git ignore fix" (Carl) | `.gitignore` additions (Thumbs.db, logs, env files), `.DS_Store` removed | Merged (`63e7485`); `.gitignore` conflict resolved keeping both sides; `.DS_Store` was already deleted on this branch. |
 
 ## Open questions for Noah / the team
 
