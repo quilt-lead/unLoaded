@@ -19,8 +19,9 @@
  * compared). A live lock is waited for up to LOCK_WAIT_MS, then the append fails with a message naming
  * the lock file; so does a lock file that cannot be read or removed. Every unlink of the lock (a break
  * or a release) happens under a second O_EXCL file, `<lock>.guard`, held for one re-read and one
- * unlink: the lock removed is exactly the one judged stale (or one's own, by token), never one another
- * writer took meanwhile. No hard links are needed.
+ * unlink, and only while that guard is still this process's own (it holds a token): the lock removed is
+ * exactly the one judged stale (or one's own, by token), never one another writer took meanwhile - short
+ * of the residual below. No hard links are needed.
  *
  * File-system assumptions, stated honestly:
  * - Local file systems (APFS, ext4, NTFS...): O_EXCL create, rename over a file and fsync behave as
@@ -29,11 +30,13 @@
  *   NFSv2 or on folder-sync tools (Dropbox, OneDrive), which can lose an append. Staleness never compares
  *   clocks, so skew is harmless; a writer on another host is only ever judged stale by observation.
  *   Two servers on different hosts with the same hostname are taken to be one host.
- * - Residual (not prevented): a holder that stops for longer than LOCK_STALE_MS (process suspended,
- *   event loop blocked; an append does no heavy synchronous work under the lock) can lose its lock and
- *   write alongside the next holder. A process that crashes while holding `<lock>.guard` leaves it; it is
- *   removed after GUARD_STALE_MS unchanged, and if two processes remove a left guard at the same moment
- *   both can believe they hold it (needs a crash inside the guard plus concurrent breakers).
+ * - Residual (not prevented), one rule: staleness is judged by time, so a process that stops for longer
+ *   than LOCK_STALE_MS (process suspended, event loop blocked or GC pause; an append does no heavy
+ *   synchronous work under the lock) while holding the lock OR the guard can have it taken. A lock holder
+ *   then writes alongside the next holder. A guard holder re-checks its token right before unlinking the
+ *   lock and before releasing the guard, which narrows its window to the instant between that check and
+ *   the unlink. Likewise two processes removing a guard left by a crash at the same moment can both
+ *   believe they hold it; each still unlinks the lock only if it matches what it judged.
  * - A crash can leave `<lock>`, `<lock>.guard` or a `.<name>.<pid>.<hex>.tmp` file. They are harmless:
  *   the lock and guard are broken as above; a temp file is never read and can be deleted.
  * - A write replaces the file (temp + rename): its mode is kept, but its owner can change (to the
@@ -130,10 +133,14 @@ export const LOCK_WAIT_MS = 15_000;
 export const LOCK_STALE_MS = 5_000;
 /** How often a holder refreshes its lock's mtime. */
 export const LOCK_HEARTBEAT_MS = 1_000;
-/** `<lock>.guard` is held for one read and one unlink; one unchanged for this long was left by a crash. */
-const GUARD_STALE_MS = 3_000;
+/**
+ * `<lock>.guard` is held for one read and one unlink; one unchanged for this long was left by a crash.
+ * The same window as the lock's: a guard holder that merely stalls must not lose its guard sooner than a
+ * lock holder would lose its lock (and it re-checks that the guard is still its own before unlinking).
+ */
+const GUARD_STALE_MS = LOCK_STALE_MS;
 /** How long a break or a release waits for `<lock>.guard` (longer than GUARD_STALE_MS, so a left guard is removed). */
-const GUARD_WAIT_MS = 4_000;
+const GUARD_WAIT_MS = GUARD_STALE_MS + 1_000;
 
 type DiskRead =
   | { state: "missing" }
@@ -436,16 +443,20 @@ export async function observeLock(lock: string): Promise<LockObservation | null>
 }
 
 /**
- * Hold `<lock>.guard` (O_EXCL) while `fn` runs. Every unlink of a lock file (breaking a stale one,
- * releasing one's own) happens under this guard, so between re-reading the lock and unlinking it no
- * other process can unlink it, and therefore none can create a new one in its place: the lock that is
- * unlinked is exactly the one that was re-read. The guard is held for one read and one unlink
- * (milliseconds), so a guard whose state has not changed for GUARD_STALE_MS (on this process's
- * monotonic clock) is taken to be left by a process that crashed inside it, and removed. Returns
+ * Hold `<lock>.guard` (O_EXCL, holding a random token) while `fn` runs. Every unlink of a lock file
+ * (breaking a stale one, releasing one's own) happens under this guard, so between re-reading the lock
+ * and unlinking it no other process can unlink it, and therefore none can create a new one in its
+ * place: the lock that is unlinked is exactly the one that was re-read. The guard is held for one read
+ * and one unlink (milliseconds), so a guard whose state has not changed for GUARD_STALE_MS (on this
+ * process's monotonic clock) is taken to be left by a process that crashed inside it, and removed.
+ * Because a guard can thus be taken from a holder that only stalled, `fn` gets `stillMine()` and must
+ * call it immediately before acting; the guard is released only if it is still this holder's. Returns
  * null when the guard could not be had within `waitMs`.
  */
-async function underGuard<T>(lock: string, waitMs: number, fn: () => Promise<T>): Promise<T | null> {
+async function underGuard<T>(lock: string, waitMs: number, fn: (stillMine: () => Promise<boolean>) => Promise<T>): Promise<T | null> {
   const guard = `${lock}.guard`;
+  const token = randomBytes(8).toString("hex");
+  const stillMine = () => readFile(guard, "utf8").then((t) => t === token, () => false);
   const deadline = performance.now() + waitMs;
   let seen = null as Seen | null; // cast: a null initializer would narrow it to null for the whole loop (TS2339 in CI)
   for (;;) {
@@ -457,10 +468,17 @@ async function underGuard<T>(lock: string, waitMs: number, fn: () => Promise<T>)
     }
     if (fh) {
       try {
-        return await fn();
-      } finally {
+        await fh.writeFile(token);
+        await fh.close();
+      } catch (e) {
         await fh.close().catch(() => {});
-        await unlink(guard).catch(() => {});
+        await unlink(guard).catch(() => {}); // just created by us, never valid
+        throw new Error(`could not write ${guard}: ${(e as Error).message}`);
+      }
+      try {
+        return await fn(stillMine);
+      } finally {
+        if (await stillMine()) await unlink(guard).catch(() => {});
       }
     }
     try {
@@ -492,10 +510,12 @@ export async function removeLock(
   expected: (o: LockObservation) => boolean,
   guardWaitMs = GUARD_WAIT_MS,
 ): Promise<"removed" | "changed" | "gone" | "busy"> {
-  const r = await underGuard(lock, guardWaitMs, async () => {
+  const r = await underGuard(lock, guardWaitMs, async (stillMine) => {
     const now = await observeLock(lock).catch(() => undefined);
     if (now === null) return "gone" as const;
     if (now === undefined || !expected(now)) return "changed" as const;
+    // the guard was taken from us while we stalled: the lock may no longer be the one re-read
+    if (!(await stillMine())) return "busy" as const;
     await unlink(lock);
     return "removed" as const;
   });

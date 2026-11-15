@@ -185,16 +185,20 @@ describe("DecisionsFile", () => {
     const lock = `${path}.lock`;
     writeFileSync(path, "[]\n");
     const order: string[] = [];
-    const holder = withFileLock(lock, { waitMs: 3_000, staleMs: 300, heartbeatMs: 50 }, async () => {
+    let acquired!: () => void;
+    const holding = new Promise<void>((r) => (acquired = r));
+    // stale 600 ms vs a 50 ms heartbeat: a dozen beats of slack for a loaded CI runner
+    const holder = withFileLock(lock, { waitMs: 5_000, staleMs: 600, heartbeatMs: 50 }, async () => {
+      acquired(); // the waiter starts only once the lock is really held (no head-start race)
       const cur = JSON.parse(readFileSync(path, "utf8")) as Decision[];
       const mine = (await observeLock(lock))!.info!.token;
-      await new Promise((r) => setTimeout(r, 1_000)); // > 3 x staleMs
+      await new Promise((r) => setTimeout(r, 1_500)); // > 2 x staleMs
       expect((await observeLock(lock))?.info?.token).toBe(mine); // still ours: nobody broke it
       writeFileSync(path, JSON.stringify([...cur, make(cur, "holder")]));
       order.push("holder");
     });
-    await new Promise((r) => setTimeout(r, 20));
-    const f = new DecisionsFile(path, { lockWaitMs: 3_000, lockStaleMs: 300 });
+    await holding;
+    const f = new DecisionsFile(path, { lockWaitMs: 5_000, lockStaleMs: 600 });
     await f.load();
     await f.append((cur) => [make(cur, "waiter")]).then(() => order.push("waiter"));
     await holder;
@@ -223,6 +227,21 @@ describe("DecisionsFile", () => {
     expect(await removeLock(lock, (o) => o.key === j3.key)).toBe("removed");
     expect(readdirSync(join(lock, ".."))).toEqual([]);
     expect(await removeLock(lock, () => true)).toBe("gone");
+  });
+
+  it("never unlinks the lock once its guard was taken from it (a breaker that stalled inside the guard), nor the new guard", async () => {
+    const lock = join(tempDir(), "decisions.json.lock");
+    writeFileSync(lock, JSON.stringify({ pid: 1, host: "h", token: "a", at }));
+    const judged = (await observeLock(lock))!;
+    // while "we" hold the guard, another process judges it stale and takes its own (simulated: the guard file
+    // is replaced under us); our pending unlink must not act on the lock path any more
+    const r = await removeLock(lock, (o) => {
+      writeFileSync(`${lock}.guard`, "someone-else");
+      return o.key === judged.key;
+    });
+    expect(r).toBe("busy");
+    expect(readFileSync(lock, "utf8")).toBe(judged.raw);
+    expect(readFileSync(`${lock}.guard`, "utf8")).toBe("someone-else");
   });
 
   it.skipIf(process.getuid?.() === 0)("refuses to write a decisions file this process may not write (chmod 444); the file is untouched", async () => {
@@ -456,6 +475,21 @@ describe("record_decisions and the lock", () => {
     expect(r2.reloaded_external_changes).toBe(true);
     expect(r2.recorded[0]).toMatchObject({ link_before: { status: "rejected" }, link_after: { status: "auto" } });
     expect(underLock).toEqual([false, false]);
+  }, 120_000);
+});
+
+describe("record_decisions refused after a colleague appended", () => {
+  it("still applies the colleague's decision it re-read under the lock (no refresh needed)", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const p = await loadProject(inputs({ decisions: path }));
+    await tools.recordDecisions(p, { decisions: [{ global_id: "B1", calc_key: "beam-design-check", action: "reject" }] });
+    const cur = JSON.parse(readFileSync(path, "utf8"));
+    writeFileSync(path, JSON.stringify([...cur, { id: 2, global_id: "C1", calc_key: "column-design-check", action: "reject", at, actor: "colleague", note: null }]));
+    // undo on a pair with no decision is refused, after the append re-read the file
+    await expect(tools.recordDecisions(p, { decisions: [{ global_id: "C1", calc_key: "beam-design-check", action: "undo" }] })).rejects.toThrow(/nothing was written/);
+    const link = (p.linksByElement.get("C1") ?? []).find((l) => l.calc_key === "column-design-check");
+    expect(link?.status).toBe("rejected");
+    expect(p.computedLog).toBe(p.decisions!.log);
   }, 120_000);
 });
 

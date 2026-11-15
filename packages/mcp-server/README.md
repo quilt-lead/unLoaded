@@ -282,16 +282,18 @@ calc-mapper's decision log: a JSON array of `Decision`s, oldest first. It is the
   and no longer running, or when nothing about it has changed for 5 s as watched by the waiting server on its own
   clock (clocks of different machines are never compared). A live lock is waited for up to 15 s, then the write fails
   with a message naming the lock file; so does a lock file that cannot be read or removed. Removing a lock (breaking a
-  stale one, or releasing one's own) happens under a second short-lived file, `<file>.lock.guard`, so a server only
-  ever removes the exact lock it judged stale, never one another writer has just taken. `reloaded_external_changes` is
+  stale one, or releasing one's own) happens under a second short-lived file, `<file>.lock.guard`, and only while that
+  guard is still the server's own, so a server removes only the exact lock it judged stale, not one another writer has
+  just taken (short of the residual below). `reloaded_external_changes` is
   true when the file held decisions this server had not seen; they are kept. Within one server, reads and appends go
   through one queue, so a read can never land after an append and roll the answer back.
 - **What the file system has to provide.** On a local disk (APFS, ext4, NTFS) the above holds. On a network file
   system, `O_EXCL` creation must be atomic: true on NFSv3 and later and on SMB, not on NFSv2, and not on folder-sync
   tools (Dropbox, OneDrive, iCloud Drive), which can lose an append. Two machines with the same hostname are taken
-  to be one machine. No hard links are needed. Not prevented: a server that freezes for more than 5 s while holding
-  the lock (suspended process) can lose it to another writer; two servers removing a guard file left by a crash at the
-  same moment can both proceed. A crash can leave `<file>.lock`, `<file>.lock.guard` or a `.<file>.<pid>.<hex>.tmp`
+  to be one machine. No hard links are needed. Not prevented: staleness is judged by time, so a server that freezes
+  for more than 5 s (suspended process, long pause) while holding the lock or the guard can lose it to another writer
+  and, in a narrow window, write alongside it; two servers removing a guard file left by a crash at the same moment
+  can both proceed. A crash can leave `<file>.lock`, `<file>.lock.guard` or a `.<file>.<pid>.<hex>.tmp`
   file: all are harmless (the lock and guard are cleared automatically; the temp file is never read and can be
   deleted).
 - **Writes replace the file** (temp file + rename). The file's mode is kept, but its owner can change (to the user
