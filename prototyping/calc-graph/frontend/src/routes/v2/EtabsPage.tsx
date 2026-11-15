@@ -14,8 +14,9 @@ export default function EtabsPage() {
         ETABS link <InfoTip id="page.v2-etabs" />
       </h1>
       <p className="page-lede">
-        The synthetic building as ETABS would hold it: stories, frames, points, sections, combos, design ratios and drifts. To send a change, move a column on
-        the Move page and use the ETABS tab there.
+        Saved real ETABS runs of the current design (labelled with the ETABS version and date, with the agreement against our PyNite frames), then the
+        synthetic building as ETABS would hold it (mock): stories, frames, points, sections, combos, design ratios and drifts. To send a change, move a
+        column on the Move page and use the ETABS tab there.
       </p>
       <Panel title="ETABS model" info="panel.etabs" scroll={false}>
         <EtabsPanel move={null} />

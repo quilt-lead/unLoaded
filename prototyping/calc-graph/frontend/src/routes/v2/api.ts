@@ -410,17 +410,77 @@ export interface PlatformRecordFull extends PlatformRecord {
   raw?: Record<string, unknown>;
 }
 
+/** GET /scenarios: the answer key's design scenarios (kind "design": another lateral layout, column null)
+ * then its move scenarios (kind "move" / "remove"). */
 export interface Scenario {
   id: string;
   label: string;
   kind: string;
-  column: string;
+  column: string | null;
   dx: number;
   dy: number;
-  difficulty: Band;
-  difficulty_why?: string;
+  difficulty: Band | null;
+  difficulty_why?: string | null;
   stale: number;
   resized: number;
+  /** design scenarios only */
+  lateral?: string;
+  frames?: Record<string, Record<string, string>>;
+  design_drift?: Record<string, number>;
+  real_etabs?: EtabsRunSummary[];
+  stale_etabs?: EtabsRunSummary[];
+}
+
+/** A saved REAL ETABS run (etabs_runs.py) - what it found, worded from its own numbers. */
+export interface EtabsRunSummary {
+  run_id: string;
+  label: string;
+  etabs_version: string;
+  etabs_source: string;
+  run_at: string;
+  design: string;
+  e2k_sha1: string;
+  identity: string;
+  stale_reason?: string;
+  finding: {
+    headline: string;
+    mode1: { mode: number; period_s: number; ux: number; uy: number; rz: number; shape: string };
+    drift_ng: { line: string; system: string; level: string; etabs_ratio: number; design_ratio: number }[];
+    worst_drift: { line: string; system: string; level: string; etabs_ratio: number };
+    flagged: number;
+    compared: number;
+  };
+}
+
+export interface EtabsRunsForDesign {
+  design: string;
+  e2k: string | null;
+  e2k_sha1: string | null;
+  runs: EtabsRunSummary[];
+  stale: EtabsRunSummary[];
+}
+
+export interface EtabsRun extends EtabsRunSummary {
+  code_ta_s: { x: number; y: number };
+  modes: { mode: number; period_s: number; ux: number; uy: number; rz: number }[];
+  base_shear: { case: string; etabs_kip: number; design_kip: number }[];
+  totals: { case: string; etabs_kip: number; design_kip: number }[];
+  lines: { line: string; etabs_pos_ecc_kip: number; etabs_neg_ecc_kip: number; design_kip: number; design_share_of_v: number }[];
+  drift: { line: string; level: string; etabs_in: number; design_in: number; pct: number | null; allow_in: number; etabs_ratio: number }[];
+  members: {
+    flag_pct: number;
+    agreement: {
+      line: string;
+      members: string;
+      qty: string;
+      rows: number;
+      n: number;
+      within: number;
+      flagged: number;
+      median_abs_pct: number | null;
+      max_abs_pct: number | null;
+    }[];
+  };
 }
 
 const moveBody = (m: Move) => ({
@@ -567,6 +627,22 @@ export function usePlatformsRefresh() {
         `/api/v2/platforms/${enc(name!)}/${enc(type!)}${raw ? "?raw=true" : ""}`,
         signal,
       ),
+  });
+
+/** Saved real ETABS runs of a design ("current" or a design scenario id); refetched on the default schedule. */
+export const useEtabsRuns = (design: string) =>
+  useQuery({
+    queryKey: ["v2", "etabs", "runs", design],
+    staleTime: 60_000,
+    queryFn: ({ signal }) => get<EtabsRunsForDesign>(`/api/v2/etabs/runs?design=${enc(design)}`, signal),
+  });
+
+export const useEtabsRun = (runId: string | null) =>
+  useQuery({
+    queryKey: ["v2", "etabs", "run", runId],
+    enabled: !!runId,
+    staleTime: 5 * 60_000,
+    queryFn: ({ signal }) => get<EtabsRun>(`/api/v2/etabs/runs/${enc(runId!)}`, signal),
   });
 
 export const useScenarios = () =>

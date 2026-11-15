@@ -24,6 +24,8 @@ export interface Setup {
   committed: Move | null;
   /** approval date of the impact (as_of.py): "today" | "+1w" | "+2w" | "+1m" | "YYYY-MM-DD" */
   asOf: string;
+  /** a design scenario being looked at (answer key design_scenarios id, e.g. "ORIG"); null = the current design */
+  design?: string | null;
 }
 
 export const EMPTY_SETUP: Setup = {
@@ -34,6 +36,7 @@ export const EMPTY_SETUP: Setup = {
   step: 1,
   committed: null,
   asOf: "today",
+  design: null,
 };
 
 export type HistoryEntry =

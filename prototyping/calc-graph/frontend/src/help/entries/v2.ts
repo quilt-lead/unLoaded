@@ -143,9 +143,9 @@ export const V2_HELP = {
   "panel.move-scenarios": {
     title: "Scenarios",
     short:
-      "The 25 test moves the impact engine is scored against (gravity, corner, lateral-system and removal cases). Pick one to load it.",
+      "Design scenarios (another lateral layout, such as ORIG, the original single-SCBF layout, with what real ETABS found on it) and the test moves the impact engine is scored against. Pick a move to load it, or a design scenario to see its frames and ETABS results.",
     source:
-      "GET /api/v2/scenarios, the answer key built by re-designing the whole building for each move.",
+      "GET /api/v2/scenarios, the answer key (design_scenarios + scenarios) built by re-designing the whole building for each move; real ETABS findings from the saved runs in data/fixtures/etabs_runs.",
   },
   "panel.move-side": {
     title: "Impact",
@@ -549,6 +549,37 @@ export const V2_HELP = {
   },
 
   // ---------------------------------------------------------------- ETABS
+  "panel.etabs-real": {
+    title: "Real ETABS run",
+    short:
+      "A saved run of this design in real ETABS (version and date in the label): first modes, story drift by line against the design, and the per-member ETABS vs PyNite agreement.",
+    read: "Shown only while this design's e2k is byte-identical to the one ETABS ran (sha1). A run of an earlier version of the design is listed as stale. Agreement: rows within the flag % of PyNite, over the like-for-like comparisons only.",
+    source: "data/fixtures/etabs_runs (scripts/build_etabs_run_fixture.py from the compare_etabs_pynite.py report of the run). GET /api/v2/etabs/runs.",
+    real: "Real ETABS 23.3.2 results, read through CSI OAPI on the Windows bridge. Everything else on this page is the mock unless the bridge answers.",
+  },
+  "stat.etabs-mode1": {
+    title: "Mode 1",
+    short: "Period and shape of the first mode in the real ETABS run: X or Y translation, or torsional (the building twists first, a lateral-layout problem).",
+  },
+  "stat.etabs-drift-ratio": {
+    title: "Worst drift / limit",
+    short: "The largest story drift over the allowed drift (0.020 hsx) on any lateral line in the real ETABS run. Over 1.00 = drift NG.",
+  },
+  "stat.etabs-flagged": {
+    title: "Rows over flag %",
+    short: "Per-member comparisons where ETABS and our PyNite frames differ by more than the flag % (governing design combo), out of every comparison made.",
+  },
+  "table.etabs-agreement": {
+    title: "ETABS vs PyNite agreement",
+    short: "Per line, member kind and quantity (M, V, P): how many like-for-like comparisons fall within the flag %, and the median and largest difference.",
+    read: "Rows the comparator reports but does not score (beam axial under the rigid diaphragm, SCBF columns, 2D-frame-only column axial) show as not like-for-like.",
+  },
+  "panel.design-scenario": {
+    title: "Design scenario",
+    short:
+      "Another lateral layout of the building from the answer key (not a move). Shows its frames, the design's own drift ratios and what real ETABS found on it.",
+    read: "The 3D, the plan and the move tools stay on the current design; the ETABS tab shows this scenario's saved runs.",
+  },
   "panel.etabs": {
     title: "ETABS model",
     short:

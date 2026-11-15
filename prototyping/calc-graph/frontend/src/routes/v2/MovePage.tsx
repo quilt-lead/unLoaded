@@ -33,6 +33,8 @@ import { ChangeOrderPanel } from "./ChangeOrderPanel";
 import { AsOfControl, AsOfTimeline } from "./AsOfPanel";
 import { RevisionPanel } from "./RevisionPanel";
 import { EtabsPanel } from "./EtabsPanel";
+import { DesignScenarioCard } from "./DesignScenarioCard";
+import { Updating } from "./Updating";
 import { MockLink, PlatformRecordDialog, PlatformSourceBadge } from "./PlatformRecord";
 import { BAND_COLOR, BAND_LABEL, BAND_TONE, UC_COLOR, colShort, fmtUc, fmtUsd, recordSource, rerunSheetUnavailable, ucTone, useDesignIndex } from "./util";
 
@@ -101,7 +103,7 @@ export default function MovePage() {
     if (!col) return;
     const dx = Number(params.get("dx") ?? 0), dy = Number(params.get("dy") ?? 0), rm = params.get("remove") === "1";
     const ao = params.get("as_of") || "today";
-    record(`Open ${col} ${rm ? "remove" : `(${dx}, ${dy}) ft`} as of ${ao} from a link`, (cur) => ({ ...cur, selected: col, dx, dy, remove: rm, asOf: ao, committed: { column: col, dx, dy, remove: rm } }));
+    record(`Open ${col} ${rm ? "remove" : `(${dx}, ${dy}) ft`} as of ${ao} from a link`, (cur) => ({ ...cur, selected: col, dx, dy, remove: rm, asOf: ao, committed: { column: col, dx, dy, remove: rm }, design: null }));
     setParams({}, { replace: true });
   }, [params, record, setParams]);
   const impactQ = useMoveImpact(committed, asOf);
@@ -127,6 +129,7 @@ export default function MovePage() {
         dy: 0,
         remove: false,
         committed: col ? { column: col, dx: 0, dy: 0, remove: false } : null,
+        design: null,
       }));
       setActiveRecord(null);
     },
@@ -354,17 +357,31 @@ export default function MovePage() {
                   onChange={(e) => {
                     const s = scenarios.data!.find((x) => x.id === e.target.value);
                     if (!s) return;
+                    if (s.kind === "design" || !s.column) {
+                      // another lateral layout, not a move: show it (its frames + real ETABS runs) on the current design's page
+                      record(`Look at design scenario ${s.id}`, (cur) => ({ ...cur, selected: null, dx: 0, dy: 0, remove: false, committed: null, design: s.id }));
+                      setTab("etabs");
+                      return;
+                    }
                     const col = s.column.startsWith("COL-") ? s.column : `COL-${s.column}`;
                     const rm = s.kind === "remove";
-                    record(`Load scenario: ${s.label}`, (cur) => ({ ...cur, selected: col, remove: rm, dx: s.dx, dy: s.dy, committed: { column: col, dx: s.dx, dy: s.dy, remove: rm } }));
+                    record(`Load scenario: ${s.label}`, (cur) => ({ ...cur, selected: col, remove: rm, dx: s.dx, dy: s.dy, committed: { column: col, dx: s.dx, dy: s.dy, remove: rm }, design: null }));
                   }}
                   aria-label="Load a scenario from the answer key"
+                  data-testid="scenario-picker"
                 >
                   <option value="">a scenario...</option>
-                  {scenarios.data.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label}
-                    </option>
+                  {/* one list, from the answer key (GET /scenarios): grouped by its own kinds, nothing typed here */}
+                  {[...new Set(scenarios.data.map((s) => (s.kind === "design" ? "Design scenarios (lateral layouts)" : "Moves")))].map((g) => (
+                    <optgroup key={g} label={g}>
+                      {scenarios.data!
+                        .filter((s) => (s.kind === "design" ? "Design scenarios (lateral layouts)" : "Moves") === g)
+                        .map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.kind === "design" ? `${s.id}: ${s.label}` : s.label}
+                          </option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
                 <InfoTip id="panel.move-scenarios" />
@@ -374,6 +391,14 @@ export default function MovePage() {
         )}
       </div>
 
+      {setup.design && scenarios.data && (
+        <DesignScenarioCard
+          scenario={scenarios.data.find((x) => x.id === setup.design)}
+          id={setup.design}
+          onClose={() => record("Back to the current design", { design: null })}
+          onEtabs={() => setTab("etabs")}
+        />
+      )}
       <StatRow>
         {h && (
           <>
@@ -593,7 +618,9 @@ export default function MovePage() {
           )}
           {tab === "co" && <AsOfTimeline move={committed} asOf={asOf} onPick={(d) => record(`Approval date: ${d}`, { asOf: d })} />}
           {tab === "co" && co && (
-            <ChangeOrderPanel idx={idx} co={co} openPdf={(src) => setDock({ kind: "pdf", src, title: String(src.label ?? "Document") })} openMock={setMock} showCalcs={() => setTab("calcs")} />
+            <Updating busy={impactUpdating} label="Updating the change order for the new approval date (previous date shown)...">
+              <ChangeOrderPanel idx={idx} co={co} openPdf={(src) => setDock({ kind: "pdf", src, title: String(src.label ?? "Document") })} openMock={setMock} showCalcs={() => setTab("calcs")} />
+            </Updating>
           )}
           {tab === "revision" && (
             <RevisionPanel
@@ -617,7 +644,7 @@ export default function MovePage() {
               onViewRev={setViewRev}
             />
           )}
-          {tab === "etabs" && <EtabsPanel move={committed} />}
+          {tab === "etabs" && <EtabsPanel move={committed} design={setup.design ?? "current"} />}
         </Panel>
       </div>
       {mock && <PlatformRecordDialog url={mock} onClose={() => setMock(null)} />}

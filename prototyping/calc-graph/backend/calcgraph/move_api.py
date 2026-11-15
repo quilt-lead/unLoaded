@@ -733,6 +733,10 @@ def etabs_e2k(column: str | None = None, dx: float = 0.0, dy: float = 0.0, remov
 
 @router.post("/etabs/send")
 def etabs_send(m: Move):
+    """Stage the move as an ETABS job. A move that changes nothing (no offset, not a removal) is refused:
+    there is nothing to send."""
+    if not m.remove and m.dx == 0 and m.dy == 0:
+        raise HTTPException(400, "no move to send: give an offset (dx / dy) or remove=true")
     a = _etabs()
     return _safe(_answered(a.send_change(_design(), _change(m)), a))
 
@@ -743,6 +747,28 @@ def etabs_pull(job_id: str):
     return _safe(_answered(a.pull_results(job_id), a))
 
 
+@router.get("/etabs/runs")
+def etabs_runs(design: str = "current"):
+    """Saved REAL ETABS runs of a design ("current" = model.e2k, or a design scenario id such as ORIG):
+    `runs` = runs of exactly this design's e2k (sha1 match) with what each found, `stale` = runs of that
+    design whose e2k has changed since (etabs_runs.for_design). Read only; numbers from the saved fixtures."""
+    from . import etabs_runs as er
+    if design != er.CURRENT and not any(s["id"] == design for s in er.design_scenarios()):
+        raise HTTPException(404, f"no design {design!r} (use 'current' or a design scenario id)")
+    return er.for_design(design)
+
+
+@router.get("/etabs/runs/{run_id}")
+def etabs_run(run_id: str):
+    """One saved real ETABS run in full: modes, base shear, line forces, drift, and every per-member ETABS vs
+    PyNite row with the agreement summary."""
+    from . import etabs_runs as er
+    r = er.get(run_id)
+    if r is None:
+        raise HTTPException(404, f"no saved ETABS run {run_id!r}")
+    return {**r, "label": er.label(r), "finding": er.finding(r)}
+
+
 # ------------------------------------------------------------------ ground truth / evaluation
 @router.get("/scenarios")
 def scenarios():
@@ -750,8 +776,22 @@ def scenarios():
     if not os.path.exists(p):
         raise HTTPException(404, "no answer key - run: uv run python -m synth.v2.scenarios")
     k = json.load(open(p))
-    return [{x: s[x] for x in ("id", "label", "kind", "column", "dx", "dy", "difficulty", "difficulty_why")} |
-            {"stale": len(s["changed_records"]), "resized": len(s["resized"])} for s in k["scenarios"]]
+    return _design_scenarios(k) + [{x: s[x] for x in ("id", "label", "kind", "column", "dx", "dy", "difficulty", "difficulty_why")} |
+                                   {"stale": len(s["changed_records"]), "resized": len(s["resized"])} for s in k["scenarios"]]
+
+
+def _design_scenarios(k: dict) -> list[dict]:
+    """The answer key's design scenarios (kind "design": another lateral layout, not a move - column None),
+    each with its frames, the design's own drift ratios and its saved real ETABS runs (etabs_runs)."""
+    from . import etabs_runs as er
+    out = []
+    for s in k.get("design_scenarios", []):
+        et = er.for_design(s["id"])
+        out.append({"id": s["id"], "label": s["label"], "kind": "design", "column": None, "dx": 0.0, "dy": 0.0,
+                    "difficulty": None, "difficulty_why": None, "stale": 0, "resized": 0,
+                    "lateral": s.get("lateral", {}).get("name"), "frames": s.get("frames", {}),
+                    "design_drift": s.get("drift", {}), "real_etabs": et["runs"], "stale_etabs": et["stale"]})
+    return out
 
 
 @router.get("/eval")
