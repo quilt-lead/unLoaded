@@ -1203,6 +1203,11 @@ def positional(graph: dict, plans_path: str, recs: dict, pf) -> dict:
     stacks = [r for r in recs.values() if r["type"] == "column_stack" and r["values"].get("z") is not None]
     dpts = [to_feet(cal, *e["at"]) for e in cols]
     mpts = [(s["values"]["z"], s["values"]["x"]) for s in stacks]
+    if not dpts or not mpts:   # nothing to fit: a package without a calc model's column stacks, or no located columns
+        out["kept"] = False
+        out["reason"] = (f"no located columns on {col_sheet}" if not dpts else
+                         "the calc package prints no calc-model column stacks with coordinates")
+        return out
     T, pairs, stats = fit_transform(dpts, mpts)
     keep = stats["inliers"] >= 8 and stats["rms_ft"] is not None and stats["rms_ft"] <= 1.0
     # residuals of every drawn column to its nearest stack under the fit (not only inliers)

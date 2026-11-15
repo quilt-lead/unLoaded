@@ -5,7 +5,7 @@ BOTH sides: {doc, page, rects (PDF points), text}.
 
 Calc edges ("feeds"):
   label defined -> used      within one model output (B RISAFloor, C RISA-3D, D RISA
-                             foundation, stair calcs): the page that DEFINES a label
+                             foundation): the page that DEFINES a label
                              (member / point / stack tables, label sketches) feeds every
                              page that uses it
   RISAFloor -> RISA-3D       RISA-3D names the RISAFloor floor-k labels F<k>_N# / F<k>_M#;
@@ -26,10 +26,12 @@ Element <-> calc links (score, rule):
   0.45 drawing ref only      calc cites the element's sheet, names the same role (jamb / header /
                              stud) but prints another size
 Every link is gated by SYSTEM_SECTIONS: the member's structural system (lateral, gravity,
-jamb, exterior stud, foundation, stair, detail) fixes which calc sections it may link to.
+jamb, exterior stud, foundation, stair, detail) fixes which calc sections it may link to
+(sections by the A-E package convention: A criteria, B gravity, C lateral, D foundations, E
+connections / walls).
 HSS sizes matched through RISA's sixteenths-of-an-inch walls say so in the rule text.
-Positional registration of plans against calc sketches is NOT used: the 2021 calc model
-and the 2023 drawings use different grid systems (see findings).
+Positional registration of plans against calc sketches is NOT used: a calc model's sketches
+need not share the drawings' grid system.
 """
 from __future__ import annotations
 
@@ -48,9 +50,8 @@ DEFINERS = {
     "FM": re.compile(r"Member Primary Data|MEMBER LABELS", re.I),
     "R3D": re.compile(r"Ftn'?g|Footing", re.I),
     "FLR": re.compile(r"Ftn'?g|Footing", re.I),
-    "SM": re.compile(r".", re.I),
 }
-SCOPES = {"B": ["M", "N", "CS", "STACK"], "C": ["FN", "FM", "N"], "D": ["R3D", "FLR"], "STAIR": ["SM"]}
+SCOPES = {"B": ["M", "N", "CS", "STACK"], "C": ["FN", "FM", "N"], "D": ["R3D", "FLR"]}
 
 
 def _norm(s: str) -> str:
@@ -61,7 +62,7 @@ def _norm(s: str) -> str:
 # and results pages can be a member's calc; definition, load, sketch and front-matter pages
 # never are, whatever words ("hot rolled", "beam") their titles contain.
 ROLE_RULES: list[tuple[str, re.Pattern]] = [
-    ("front", re.compile(r"^(structural calculations|dph .*building 12|cover)$", re.I)),
+    ("front", re.compile(r"^(structural calculations|cover|calculation package cover|description)$", re.I)),
     ("design", re.compile(r"^(steel|wood) (beam|column)\b", re.I)),       # Enercalc member designs
     ("sketch", re.compile(r"labels|deck assignment|load assignments|line & point loads|^dl from|member sizes$|"
                           r"^\d{4}-\d\d-\d\d_.*\.rfl$|ftn'?g\.?$", re.I)),
@@ -92,7 +93,7 @@ def page_role(p: dict) -> str:
 
 def page_kind(p: dict) -> str:
     t = (p["title"] + " " + " ".join(x["title"] for x in p["tables"])).lower()
-    if p["doc"] == "stair":
+    if re.search(r"stair", t):
         return "Stair"
     if re.search(r"footing|ftn'?g|soil|sliding", t):
         return "Footing"
@@ -172,16 +173,6 @@ def calc_edges(pages: list[dict]) -> tuple[list[dict], dict]:
         if len(e["evidence"]["src"]) < 3:
             e["evidence"]["src"].append(ev_src)
             e["evidence"]["dst"].append(ev_dst)
-
-    # stair calcs: member marks B1 / C1 drawn on the sketch pads and named in the designs
-    for p in pages:
-        if p["doc"] == "stair":
-            sm = defaultdict(list)
-            for l in p["lines"]:
-                for m in re.finditer(r"\b([BC]\d)\b", l["text"]):
-                    if len(sm[m.group(1)]) < 3:
-                        sm[m.group(1)].append(l["rect"])
-            p["labels"]["SM"] = dict(sm)
 
     # 1. label defined -> used, per model output
     for section, kinds in SCOPES.items():
@@ -317,14 +308,14 @@ def _same_role(el_text: str, title: str) -> bool:
 
 # A member's structural system decides which calc sections may hold its calc. Every link
 # rule goes through link.add(), which refuses a pair this table does not allow, so no
-# rule can route a lateral member to a gravity page (or a stair member to building calcs).
+# rule can route a lateral member to a gravity page.
 SYSTEM_SECTIONS: dict[str, set[str]] = {
-    "lateral": {"C"},              # moment frames (S3.0.1, SMF markers, *SFRS-starred tags)
+    "lateral": {"C"},              # moment / braced frame elevations, SMF markers, *SFRS-starred tags
     "gravity": {"B"},              # framing-plan beams / columns, elevator framing, trellis
     "jamb": {"B", "E"},            # exterior HSS jambs: gravity columns in RISAFloor AND wall-opening jambs in E
     "exterior stud": {"E"},        # wall elevations / sections, CFS studs and tracks
     "foundation": {"D"},           # footings, piers, grade / tie beams
-    "stair": {"STAIR"},            # stair sheets -> the stair calc package only
+    "stair": {"B"},                # stair framing is gravity framing
     "detail": {"B", "E"},          # typical details: gravity steel or metal studs
 }
 
@@ -347,7 +338,7 @@ def system_of(el: dict) -> str:
 
 
 def calc_section(p: dict) -> str:
-    return "STAIR" if p["doc"] == "stair" else p["section"]
+    return p["section"]
 
 
 def risa_note(raw: str, norm: str) -> str:

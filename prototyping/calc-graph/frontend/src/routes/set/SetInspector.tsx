@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { CEdge, CInst, CType, EEdge, El, Ev, Lnk, Note, REdge, Rec, RLink, SetCalc } from "../../api/types";
 import { InfoTip } from "../../help/InfoTip";
 import type { HelpId } from "../../help/registry";
-import { PARAPET_DETAIL, PARAPET_REC, calcEv, calcSec, cinstEv, ctypeEv, elEv, fmtVal, recEv, secName, tierCls, type Sel, type SetIndex } from "./model";
+import { calcEv, calcSec, cinstEv, ctypeEv, elEv, fmtVal, recEv, secName, tierCls, type Sel, type SetIndex } from "./model";
 
 export interface InspActions {
   select: (s: Sel) => void;
@@ -301,7 +301,6 @@ function InspRec({ x, r, a }: { x: SetIndex; r: Rec; a: InspActions }) {
     const t = e.table || r.table;
     (byTable.get(t) ?? byTable.set(t, []).get(t)!).push(i);
   });
-  const t = r.type === "connection_design" ? x.ctypes.get(PARAPET_DETAIL) : undefined;
   return (
     <>
       <Head
@@ -360,23 +359,6 @@ function InspRec({ x, r, a }: { x: SetIndex; r: Rec; a: InspActions }) {
           ))}
         </>
       )}
-      {r.type === "connection_design" && (
-        <>
-          <H3 info="insp.set-rec-detail">Detail</H3>
-          {t ? (
-            <Li onClick={() => a.select({ kind: "ctype", id: t.id })}>
-              <span className="mono">
-                <b>{t.id}</b>
-              </span>{" "}
-              <span className="m">{t.title}</span>
-              <span className="chip warn">candidate</span>
-              <div className="why">by title only - the calc cites no detail number, so this is not a link</div>
-            </Li>
-          ) : (
-            <Li>no candidate detail</Li>
-          )}
-        </>
-      )}
       <H3 info="insp.set-rec-fed-by">Fed by ({ins.length})</H3>
       {ins.slice(0, 80).map((e, i) => reLi(e, e.src, "from", i))}
       {!ins.length && <Li>nothing in the calc load path</Li>}
@@ -415,7 +397,6 @@ function InspRec({ x, r, a }: { x: SetIndex; r: Rec; a: InspActions }) {
 
 function InspCtype({ x, t, a }: { x: SetIndex; t: CType; a: InspActions }) {
   const insts = (t.instances ?? []).map((i) => x.cinst.get(i)!).filter(Boolean);
-  const par = x.recs.get(PARAPET_REC);
   return (
     <>
       <Head
@@ -439,16 +420,14 @@ function InspCtype({ x, t, a }: { x: SetIndex; t: CType; a: InspActions }) {
         </div>
       )}
       <H3 info="insp.set-ctype-calc">Design calc</H3>
-      {t.id === PARAPET_DETAIL && par ? (
-        <Li onClick={() => a.select({ kind: "rec", id: par.id })}>
-          <span className="mono">
-            <b>{par.title}</b>
-          </span>
-          <span className="chip warn">candidate</span>
-          <div className="why">stair package pp {par.pages.join(", ")} - by title only, the calc cites no detail number</div>
-        </Li>
+      {(t.calc_refs ?? []).length ? (
+        (t.calc_refs ?? []).map((c, i) => (
+          <Li key={i}>
+            <span className="mono">{String(c.calc ?? "")}</span> <span className="m">{String(c.context ?? "").slice(0, 160)}</span>
+          </Li>
+        ))
       ) : (
-        <Li>No calc page designs this detail (the main package designs no steel connection).</Li>
+        <Li>No calc page cites this detail number.</Li>
       )}
       <H3 info="insp.set-ctype-instances">Instances ({insts.length})</H3>
       {insts.map((i) => (

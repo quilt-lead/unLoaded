@@ -2,9 +2,13 @@
 
   calc-graph serve [--port 8000]          API + built frontend
   calc-graph ingest model.ifc calcs.pdf   ingest into the store and print a summary
-  calc-graph ingest-set --plans plans.pdf --calcs calcs.pdf [--calcs stair.pdf:stair:STAIR] [--sid id] [--name ..]
-                                          drawing-set project (no BIM model) -> a revision in the store
-                                          (+ the working copy in data/sets/<sid>/)
+  calc-graph ingest-set --sid id --name .. --plans plans.pdf --calcs calcs.pdf [--calcs more.pdf:key:PREFIX]
+                       [--model building.ifc]
+                                          drawing-set project -> a revision in the store (+ the working copy in
+                                          data/sets/<sid>/); --model ties the drawing tags to the building's IFC
+                                          (the 3D view). Harbor View: --sid synthetic-v2 --plans
+                                          data/synthetic_v2/drawings.pdf --calcs data/synthetic_v2/calc_package.pdf
+                                          --model data/synthetic_v2/model.ifc
   calc-graph migrate-store                migrate data/store to the current store version, backfill schema
                                           facts, import data/sets/* outputs; prints counts
 """
@@ -25,9 +29,10 @@ def main() -> None:
     g = sub.add_parser("ingest-set")
     g.add_argument("--plans", required=True)
     g.add_argument("--calcs", action="append", required=True,
-                   help="path[:doc_key[:ID_PREFIX]] - ID_PREFIX names pages of a package without KPFF sheet ids")
-    g.add_argument("--sid", default="dana-point-bldg12")
-    g.add_argument("--name", default="Dana Point Harbor Bldg 12 (permit set)")
+                   help="path[:doc_key[:ID_PREFIX]] - ID_PREFIX names pages of a package without profile sheet ids")
+    g.add_argument("--model", help="the building's IFC: drawing tags are tied to its elements (3D view)")
+    g.add_argument("--sid", required=True)
+    g.add_argument("--name", required=True)
     sub.add_parser("migrate-store")
     a = ap.parse_args()
     if a.cmd == "serve":
@@ -40,7 +45,7 @@ def main() -> None:
             parts = spec.split(":")
             calcs.append((parts[0], parts[1] if len(parts) > 1 else ("calcs" if i == 0 else f"calcs{i + 1}"),
                           parts[2] if len(parts) > 2 else None))
-        g = set_pipeline.ingest_set(set_pipeline.safe_sid(a.sid), a.name, a.plans, calcs)
+        g = set_pipeline.ingest_set(set_pipeline.safe_sid(a.sid), a.name, a.plans, calcs, a.model)
         c = g["coverage"]
         print(f"set {a.sid}: {c['elements']} elements ({c['elements_linked']} linked), {c['load_path_edges']} load-path edges, "
               f"{c['calc_pages']} calc pages ({c['calc_pages_unlinked']} linked to nothing), {c['calc_edges']} calc edges, "

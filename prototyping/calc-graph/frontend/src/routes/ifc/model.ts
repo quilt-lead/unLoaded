@@ -1,4 +1,4 @@
-// Derived data for the synthetic IFC app: indexes over /api/projects/{pid}/state, colours, labels.
+// Derived data for the IFC app: indexes over /api/projects/{pid}/state, colours, labels.
 import type {
   IfcCalc,
   IfcElement,

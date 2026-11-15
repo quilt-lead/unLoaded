@@ -120,7 +120,7 @@ export interface SetGraph {
   coverage: Record<string, any>;
 }
 
-// ---- integrated layer: calc records, calc load path, connections, 2021 calc-model overlay ----
+// ---- integrated layer: calc records, calc load path, connections, calc-model overlay ----
 export interface Rec {
   id: string;
   type: string;
@@ -248,7 +248,6 @@ export interface Overlay {
   axes: string;
   members: OvMember[];
   columns: OvColumn[];
-  orientation: string;
   transform_dropped: string;
   differences: { what: string; text: string; calc: Ev[]; draw: Ev[] }[];
 }

@@ -1,6 +1,6 @@
-// 3D tab of the drawing-set view: the structural model built from the plans (IFC, in the plans'
-// own building coordinates), connection markers, and the 2021 calc model from the calc records as a
-// ghost placed beside or over it (a placement choice, never a registration).
+// 3D tab of the drawing-set view: the building's IFC model (each drawing tag tied to its model element by
+// the registry resolver), connection markers, and - when the calc package prints a calc model's
+// geometry - that calc model as a ghost placed beside or over it (a placement choice, never a registration).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { urls } from "../../api/client";
@@ -217,15 +217,16 @@ export function Set3D({ x, sel, onSelect, onDiff }: Set3DProps) {
   };
 
   const m = (x.g as unknown as { model?: { elements_in_3d?: number } }).model ?? {};
+  const hasCalcModel = !!ig && ig.overlay.members.length + ig.overlay.columns.length > 0;
   const assumed = x.g.elements.filter((e) => e.model?.in3d && (e.model.assumed ?? []).length).length;
   const legend: LegendItem[] = [
-    { label: "drawn: linked", color: STATUS3D.linked, info: "legend.set3d-linked" },
-    { label: "drawn: no calc found", color: STATUS3D["no calc found"], info: "legend.set3d-no-calc" },
-    { label: "drawn: size mismatch", color: STATUS3D["size mismatch"], info: "legend.set3d-size-mismatch" },
+    { label: "tag linked to a calc", color: STATUS3D.linked, info: "legend.set3d-linked" },
+    { label: "tag: no calc found", color: STATUS3D["no calc found"], info: "legend.set3d-no-calc" },
+    { label: "tag: size mismatch", color: STATUS3D["size mismatch"], info: "legend.set3d-size-mismatch" },
     ...(ig ? [{ label: "connection instance", color: MARK3D, shape: "dot" as const, info: "legend.set3d-marker" as const }] : []),
     ...(calcOn
       ? [
-          { label: "calc model 2021 (ghost)", color: CALC3D, info: "legend.set3d-calc-model" as const },
+          { label: "calc model (ghost)", color: CALC3D, info: "legend.set3d-calc-model" as const },
           { label: "calc member with an end not supported", color: CALC3D_GAP, info: "legend.set3d-calc-gap" as const },
         ]
       : []),
@@ -236,7 +237,7 @@ export function Set3D({ x, sel, onSelect, onDiff }: Set3DProps) {
   return (
     <div className="set-3d">
       <div className="set-3d-note muted">
-        {m.elements_in_3d ?? 0} of {x.g.elements.length} drawing elements in 3D · {assumed} with an assumed value
+        {m.elements_in_3d ?? 0} of {x.g.elements.length} drawing elements tied to the model{assumed ? ` · ${assumed} with an assumed value` : ""}
         <InfoTip id="stat.set3d-coverage" />
       </div>
       <div className="set-3d-stage">
@@ -249,15 +250,17 @@ export function Set3D({ x, sel, onSelect, onDiff }: Set3DProps) {
                   Layers <InfoTip id="tool.set3d-layers" />
                 </div>
                 <label>
-                  <input type="checkbox" checked={drawnOn} onChange={(e) => setDrawnOn(e.target.checked)} /> Drawn model (2023 plans)
+                  <input type="checkbox" checked={drawnOn} onChange={(e) => setDrawnOn(e.target.checked)} /> Building model (IFC)
                 </label>
                 <label>
                   <input type="checkbox" checked={mkOn} onChange={(e) => setMkOn(e.target.checked)} /> Connection markers ({ig.conn_markers.length})
                 </label>
-                <label title="The 2021 RISAFloor gravity model from the calc records - not registered to the drawings">
-                  <input type="checkbox" checked={calcOn} onChange={(e) => setCalcOn(e.target.checked)} /> Calc model (RISAFloor 2021)
-                </label>
-                {calcOn && (
+                {hasCalcModel && (
+                  <label title="The calc model's geometry from the calc records - not registered to the drawings">
+                    <input type="checkbox" checked={calcOn} onChange={(e) => setCalcOn(e.target.checked)} /> Calc model (from the calc records)
+                  </label>
+                )}
+                {calcOn && hasCalcModel && (
                   <div className="set-place" role="radiogroup" aria-label="Calc model placement">
                     <label>
                       <input type="radio" name="set-place" value="beside" checked={place === "beside"} onChange={() => setPlace("beside")} /> Beside - no alignment
@@ -270,9 +273,9 @@ export function Set3D({ x, sel, onSelect, onDiff }: Set3DProps) {
                 )}
               </fieldset>
             )}
-            {calcOn && o && (
+            {calcOn && hasCalcModel && o && (
               <div className="set-ban3d">
-                <b>2021 calc model - NOT registered to the drawings.</b>{" "}
+                <b>Calc model - NOT registered to the drawings.</b>{" "}
                 {place === "extents" ? "Overlaid by centring the two plan extents: a visual approximation, not a match." : "Placed beside the drawn model, no alignment."}
                 <div>
                   Differences, with evidence <InfoTip id="evidence.set3d-differences" />:{" "}
@@ -284,9 +287,12 @@ export function Set3D({ x, sel, onSelect, onDiff }: Set3DProps) {
                 </div>
                 <details>
                   <summary>What this shows</summary>
-                  Drawn from the RISAFloor tables in its own plan coordinates and its own storeys (Level 2 {o.levels["Level 2"]} ft, roof {o.levels["Roof"]} ft), oriented
-                  only so its grid numbering runs the same way as the drawings'. Members that look aligned are not the same members. A column-position fit was tried and
-                  dropped ({o.transform_dropped}). Click a calc member for its record rows.
+                  Drawn from the calc record tables in its own plan coordinates and its own storeys (
+                  {Object.entries(o.levels)
+                    .map(([k, v]) => `${k} ${v} ft`)
+                    .join(", ")}
+                  ). Members that look aligned are not the same members. A column-position fit was tried and dropped ({o.transform_dropped}). Click a calc member for its
+                  record rows.
                 </details>
               </div>
             )}

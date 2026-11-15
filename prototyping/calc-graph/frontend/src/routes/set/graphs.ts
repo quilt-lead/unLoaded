@@ -21,8 +21,6 @@ import type {
 import {
   CAT_COL,
   CONN_COL,
-  PARAPET_DETAIL,
-  PARAPET_REC,
   SEC_COL,
   SEC_ORDER,
   TONE_COL,
@@ -605,25 +603,6 @@ export function recGraph(x: SetIndex, id: string, a: Actions): Built | null {
       ),
     );
   const conn: GN[] = [];
-  if (r.type === "connection_design") {
-    const t = x.ctypes.get(PARAPET_DETAIL);
-    if (t) {
-      conn.push({
-        ...typeNode(t, a),
-        dashed: true,
-        sub: "candidate by title only",
-      });
-      edges.push({
-        id: `cand:${t.id}`,
-        source: k("rec", r.id),
-        target: k("ctype", t.id),
-        style: "inferred",
-        color: CONN_COL,
-        title: "candidate detail by title only - not a link",
-        data: { run: () => a.select({ kind: "ctype", id: t.id }) },
-      });
-    }
-  }
   const { lanes, nodes } = lanesOf([
     [
       {
@@ -714,31 +693,15 @@ export function connGraph(
         data: { run: () => a.select({ kind: "ctype", id: t!.id }) },
       });
   const col3: GN[] = [];
-  const par = x.recs.get(PARAPET_REC);
-  if (t?.id === PARAPET_DETAIL && par) {
-    col3.push({
-      ...recNode(par, a),
-      dashed: true,
-      sub: "candidate by title only",
-    });
-    edges.push({
-      id: `cand:${par.id}`,
-      source: k("ctype", t.id),
-      target: k("rec", par.id),
-      style: "inferred",
-      color: CONN_COL,
-      title: "candidate design by title only - the calc cites no detail",
-      data: { run: () => a.select({ kind: "rec", id: par.id }) },
-    });
-  } else if (t) {
+  if (t && !(t.calc_refs ?? []).length) {
     const gid = `nocalc:${t.id}`;
     col3.push({
       id: gid,
       kind: "gap",
       label: "no connection calc",
-      sub: "no calc page designs this detail",
+      sub: "no calc page cites this detail",
       data: {
-        run: () => a.openFindingKind("no connection calcs in the main package"),
+        run: () => a.openFindingKind("no connection calcs in the package"),
       },
     });
     edges.push({
@@ -746,9 +709,9 @@ export function connGraph(
       source: k("ctype", t.id),
       target: gid,
       style: "absent",
-      title: "no calc page designs this detail",
+      title: "no calc page cites this detail",
       data: {
-        run: () => a.openFindingKind("no connection calcs in the main package"),
+        run: () => a.openFindingKind("no connection calcs in the package"),
       },
     });
   }

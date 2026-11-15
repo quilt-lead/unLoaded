@@ -1,26 +1,33 @@
-"""Drawing-set project: plans PDF (element source) + calc package PDF(s) -> one graph JSON.
+"""Drawing-set project: plans PDF (element source) + calc package PDF(s) [+ the building's IFC model]
+-> one graph JSON.
 
 Every build is a REVISION in the revision store (revstore / store.py, data/store - gitignored):
-ingest_set -> kind 'set' (graph.json + meta.json + model.ifc), build_records -> 'records',
+ingest_set -> kind 'set' (graph.json + meta.json + model.ifc when the set has a model), build_records -> 'records',
 build_connections -> 'connections', finish_set -> 'integrated'. The output files become
 content-addressed artifacts of that revision, the source PDFs content-addressed documents, and
 the schema facts of each output are stored with their provenance. The API reads the head
-revisions. The same files are still written to data/sets/<sid>/ (gitignored: derived from
-copyrighted PDFs) as a working copy for scripts; revstore.import_sets() picks up any file there
+revisions. The same files are still written to data/sets/<sid>/ (gitignored: derived data)
+as a working copy for scripts; revstore.import_sets() picks up any file there
 that changed outside a build.
-graph.json holds elements, element_edges, calcs, calc_edges, links, findings, coverage;
+graph.json holds elements, element_edges, calcs, calc_edges, links, findings, coverage, model;
 meta.json maps doc keys to the LOCAL source paths the server streams / renders from.
+
+3D: the set's model.ifc IS the building's IFC (copied as the set's artifact), and each drawing tag
+is tied to its model element by the registry's resolver (registry_ingest: plan / elevation tags and
+schedule rows -> the IFC element, with its rule and confidence) - the same resolution the element
+registry is scored on. A set without a model has no 3D view.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+import shutil
 import time
 
 from collections import Counter
 
-from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, plans_to_ifc, revstore, set_graph
+from . import calcpkg_ingest, drawing_ingest, drawing_loadpath, revstore, set_graph
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SETS_DIR = os.environ.get("CALCGRAPH_SETS", os.path.join(ROOT, "data", "sets"))
@@ -33,12 +40,73 @@ def _slim_page(p: dict) -> dict:
         "role": set_graph.page_role(p)}
 
 
-def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str | None]]) -> dict:
+# registry occurrence kinds that place a drawn tag on one model element
+_TAG_OCCURRENCES = ("plan_tag", "elevation_tag", "schedule_row")
+
+
+def _overlap(a, b) -> float:
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    m = min((a[2] - a[0]) * (a[3] - a[1]), (b[2] - b[0]) * (b[3] - b[1]))
+    return ix * iy / m if m > 0 else 0.0
+
+
+def link_model(sid: str, plans: str, model: str, elements: list[dict], links: list[dict], findings: list[dict]) -> dict:
+    """Tie each drawing element to its element in the building's IFC through the registry resolver,
+    sets element["model"] in place and returns graph["model"]. A tag resolves when a registry occurrence
+    of an IFC element (plan / elevation tag, schedule row) on the same page overlaps it by half."""
+    from . import ifc_ingest, registry_ingest
+    reg = registry_ingest.build({"ifc": model, "drawings": plans})
+    by_page: dict[int, list[tuple[dict, dict]]] = {}
+    for n in reg["nodes"]:
+        if not n.get("global_id"):
+            continue
+        for o in n["occurrences"]:
+            if o["doc"] == "drawings" and o.get("how") in _TAG_OCCURRENCES and o.get("bbox"):
+                by_page.setdefault(o["page"], []).append((n, o))
+    geom = {e["global_id"]: e for e in ifc_ingest.read_ifc(model)["elements"]}
+    linked = {l["el"] for l in links}
+    mism = [f["text"] for f in findings if f["kind"] == "size mismatch"]
+    placed, skipped = Counter(), Counter()
+    for e in elements:
+        rects = e.get("rects") or [e["bbox"]]
+        best = max(((max(_overlap(r, o["bbox"]) for r in rects), n, o) for n, o in by_page.get(e["page"], [])),
+                   key=lambda t: t[0], default=(0.0, None, None))
+        if best[0] < 0.5:
+            reason = ("the registry resolved no model element for this tag" if by_page.get(e["page"])
+                      else f"no tag on {e['sheet']} resolved to the model")
+            e["model"] = {"in3d": False, "reason": reason}
+            skipped[reason] += 1
+            continue
+        _, n, o = best
+        g = geom.get(n["global_id"], {})
+        status = ("linked" if e["id"] in linked else
+                  "size mismatch" if e.get("size_norm") and any(e["size_norm"] in t for t in mism) else "no calc found")
+        mn, mx = (g.get("geom") or {}).get("min"), (g.get("geom") or {}).get("max")
+        e["model"] = {"in3d": True, "gid": n["global_id"], "node": n["id"], "rule": o["rule"], "confidence": o.get("confidence"),
+                      "position": f"model element {n['id']} ({g.get('ifc_type', '')}, {g.get('storey', '')})",
+                      "elevation": f"from the model ({g.get('storey', '')})", "assumed": [],
+                      "profile": g.get("profile") or n.get("type") or "", "status3d": status, "grid3d": e.get("grid", ""),
+                      # three.js metres, IFC Y-up (x = east, y = up, z = -north): the element's box centre
+                      "center": [round((mn[0] + mx[0]) / 2, 3), round((mn[2] + mx[2]) / 2, 3), round(-(mn[1] + mx[1]) / 2, 3)]
+                      if mn and mx else None}
+        placed[e["type"]] += 1
+    shutil.copyfile(model, os.path.join(SETS_DIR, sid, "model.ifc"))
+    return {"url": f"/api/sets/{sid}/model.ifc", "source": os.path.basename(model),
+            "elements_in_3d": sum(placed.values()), "elements_total": len(elements),
+            "counts_by_type": dict(placed.most_common()), "skipped": dict(skipped.most_common()),
+            "rule": "drawing tag -> registry occurrence (same page, overlap >= 0.5) -> its IFC element",
+            "storeys": sorted({g["storey"] for g in geom.values() if g.get("storey")})}
+
+
+def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str | None]], model: str | None = None) -> dict:
     t0 = time.time()
     dr = drawing_ingest.read_plans(plans)
     edges, lp_stats = drawing_loadpath.infer(plans, dr["sheets"], dr["elements"])
     pages = []
     docs = {"plans": {"name": os.path.basename(plans), "path": os.path.abspath(plans), "role": "Drawing set"}}
+    if model:
+        docs["model"] = {"name": os.path.basename(model), "path": os.path.abspath(model), "role": "BIM model"}
     for path, key, prefix in calcs:
         r = calcpkg_ingest.read_package(path, key, prefix)
         pages += r["pages"]
@@ -50,15 +118,18 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
     cov = set_graph.coverage(dr["elements"], edges, pages, cedges, links, lp_stats, ce_stats, link_stats, None)
     out = os.path.join(SETS_DIR, sid)
     os.makedirs(out, exist_ok=True)
-    model = plans_to_ifc.build(sid, plans, dr["sheets"], dr["elements"], edges, links, finds, os.path.join(out, "model.ifc"))
-    cov["model_3d"] = {"elements_in_3d": model["elements_in_3d"], "counts_by_type": model["counts_by_type"]}
+    if os.path.exists(os.path.join(out, "model.ifc")):
+        os.unlink(os.path.join(out, "model.ifc"))   # never pair a new graph with another build's model
+    m3d = link_model(sid, plans, model, dr["elements"], links, finds) if model else None
+    if m3d:
+        cov["model_3d"] = {"elements_in_3d": m3d["elements_in_3d"], "counts_by_type": m3d["counts_by_type"]}
     sheets = [{k: v for k, v in s.items()} for s in dr["sheets"]]
     graph = {
         "id": sid, "name": name, "built_at": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "build_seconds": round(time.time() - t0, 1),
         "docs": {k: {kk: vv for kk, vv in v.items() if kk != "path"} for k, v in docs.items()},
         "sheets": sheets, "elements": dr["elements"], "element_edges": edges,
         "calcs": [_slim_page(p) for p in pages], "calc_edges": cedges, "links": links,
-        "findings": finds, "coverage": cov, "model": model,
+        "findings": finds, "coverage": cov, "model": m3d,
     }
     with open(os.path.join(out, "graph.json"), "w") as fh:
         json.dump(graph, fh)

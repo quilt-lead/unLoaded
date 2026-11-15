@@ -24,9 +24,22 @@ export interface SetListItem {
   docs: Record<string, { name: string; role: string; pages?: number }>;
 }
 
-// ---- IFC path (v1 project API)
-export const useProjectState = (pid = 1) =>
-  useQuery({ queryKey: ["projects", pid, "state"], queryFn: ({ signal }) => get<ProjectState>(`/api/projects/${pid}/state`, signal) });
+// ---- IFC path (project API). /ifc reads the Harbor View (synthetic v2) project: GET /api/projects/v2.
+export interface V2Project {
+  id: number;
+  name: string;
+  head_model_rev: number | null;
+  head_calc_rev: number | null;
+}
+export const useV2Project = () =>
+  useQuery({ queryKey: ["projects", "v2"], queryFn: ({ signal }) => get<V2Project>("/api/projects/v2", signal) });
+
+export const useProjectState = (pid: number | undefined) =>
+  useQuery({
+    queryKey: ["projects", pid, "state"],
+    enabled: pid != null,
+    queryFn: ({ signal }) => get<ProjectState>(`/api/projects/${pid}/state`, signal),
+  });
 
 export const useImpact = (pid: number, gid: string | null, mode: "change" | "remove") =>
   useQuery({
@@ -35,7 +48,7 @@ export const useImpact = (pid: number, gid: string | null, mode: "change" | "rem
     queryFn: ({ signal }) => get<IfcImpact>(`/api/projects/${pid}/impact?gid=${enc(gid!)}&mode=${mode}`, signal),
   });
 
-export function useDecide(pid = 1) {
+export function useDecide(pid: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { global_id: string; calc_key: string; action: "confirm" | "reject" | "manual" | "undo" }) =>
@@ -44,15 +57,16 @@ export function useDecide(pid = 1) {
   });
 }
 
-export function useLoadSample(pid = 1) {
+/** ingest what the Harbor View project lacks from data/synthetic_v2 (base model.ifc, calc_package.pdf) */
+export function useLoadV2Documents() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (modelRev: number) => post(`/api/projects/${pid}/sample?model_rev=${modelRev}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects", pid] }),
+    mutationFn: () => post("/api/projects/v2/documents"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
   });
 }
 
-export function useUpload(pid = 1) {
+export function useUpload(pid: number) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ kind, file }: { kind: "model" | "calcs"; file: File }) => {

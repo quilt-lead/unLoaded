@@ -16,9 +16,15 @@ def el(gid, cat, mark, profile="", storey="Level 2"):
     return {"global_id": gid, "cat": cat, "mark": mark, "profile": profile, "storey": storey}
 
 
+def head(n, title, group="calcs:B1-1", software=""):
+    """A calcpkg_ingest page head (the fields segment reads)."""
+    return {"page": n, "title": title, "group": group, "software": software, "toc": False, "tables": [],
+            "sheet_rect": [500, 20, 540, 30], "title_rect": [72, 40, 300, 52]}
+
+
 def test_tiers():
     pages = [page(1, "HEADER LINE\nBEAM DESIGN - RAM STEEL\nbeams 2B1 - 2B3 and SL2\n2B9 W18X35\nCB1 see hand calc")]
-    calcs = segment(pages)
+    calcs = segment(pages, [head(1, "BEAM DESIGN - RAM STEEL")])
     els = [el("a", "Beam", "2B1"), el("b", "Beam", "2B2"), el("c", "Beam", "2B9"), el("s", "Slab", "SL-2"),
            el("k", "Beam", "2CB1"), el("u", "Beam", "", "W18X35")]
     got = {(l["global_id"], l["tier"]) for l in run_mapping(els, calcs, pages)}

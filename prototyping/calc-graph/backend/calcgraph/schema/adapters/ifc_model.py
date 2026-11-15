@@ -1,12 +1,9 @@
 """An IFC model's elements + property sets -> schema Bundle.
 
-Two cases, decided per element by its psets:
-- written from the drawings (plans_to_ifc, pset CalcGraph_Drawing.ElementId): the IFC element
-  IS a drawing-set element, so it becomes an `ifc` Occurrence of that element (no second
-  Element). Rule = its PlacementRule; Assumed=yes lowers the declared confidence.
-- an authored model (synthetic / customer IFC): an Element per GlobalId with its psets as
-  attrs (strings like "7.0 m" become Quantities; a bare number with no unit stays Unitless)
-  and an `ifc` Occurrence.
+An Element per GlobalId with its psets as attrs (strings like "7.0 m" become Quantities; a bare
+number with no unit stays Unitless) and an `ifc` Occurrence. A drawing set's model.ifc is the
+building's authored IFC; its drawing tags are tied to these elements in graph.json (element.model,
+set_pipeline.link_model), not here.
 Geometry is not read here (ifc_ingest does that); positions would be ModelM.
 """
 from __future__ import annotations
@@ -63,23 +60,6 @@ def convert(path: str, set_id: str, strict: bool = False) -> tuple[Bundle, Tally
 
     for el in f.by_type("IfcElement"):
         psets = ue.get_psets(el)
-        drawing = psets.get("CalcGraph_Drawing")
-        if drawing and drawing.get("ElementId"):
-            def make_occ(el=el, d=drawing):
-                assumed = str(d.get("Assumed", "")).lower() not in ("", "no", "false")
-                ev = ModelEvidence(doc_sha=sha, global_id=el.GlobalId, entity=el.is_a(),
-                                   pset_path="CalcGraph_Drawing.PositionSource", text=str(d.get("PositionSource", "")))
-                return {"id": f"occ:{set_id}:ifc:{el.GlobalId}", "kind": OccurrenceKind.ifc,
-                        "subject_id": f"el:{set_id}:{d['ElementId']}", "at": ev,
-                        "label": f"{el.is_a()} {el.Name or ''} ({d.get('Sheet', '')})",
-                        "provenance": prov([ev], f"plans_to_ifc.{re.sub(r'[^a-z0-9]+', '_', str(d.get('PlacementRule', '')).lower()).strip('_')}"
-                                           if d.get("PlacementRule") else None,
-                                           Rule(engine=engine or "plans_to_ifc", confidence=0.5 if assumed else 1.0),
-                                           rule_text=f"{d.get('PlacementRule', '')}; elevation: {d.get('ElevationSource', '')}"
-                                                     + ("; ASSUMED" if assumed else ""),
-                                           engine=engine, at=fn.time_stamp)}
-            build(t, b, "occurrences", Occurrence, el.GlobalId, make_occ, strict)
-            continue
 
         def make_el(el=el, psets=psets):
             uc = Counter()

@@ -129,7 +129,7 @@ export function Inspector(p: InspectorProps) {
   let body: ReactNode;
   if (!ix || (!ix.st.elements.length && !ix.st.calcs.length)) {
     title = "Nothing loaded";
-    body = <p className="muted">Upload an IFC model and a calc package PDF, or load the sample.</p>;
+    body = <p className="muted">Upload an IFC model and a calc package PDF, or load the Harbor View documents.</p>;
   } else if (!sel) {
     const st = ix.st;
     const els = [...ix.els.values()];

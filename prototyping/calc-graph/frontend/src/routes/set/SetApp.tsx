@@ -472,7 +472,7 @@ export default function SetApp() {
               onChange={(t) => set3d(t === "3d")}
               items={[
                 { id: "graph", label: "Graph", info: "tab.set-graph" },
-                { id: "3d", label: "3D model (from plans)", info: "tab.set-3d" },
+                { id: "3d", label: "3D model", info: "tab.set-3d" },
               ]}
             />
           </div>

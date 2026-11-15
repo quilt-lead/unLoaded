@@ -32,7 +32,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 # drawing-set revision kind -> the output files it owns (first = the primary artifact)
 SET_FILES = {"set": ["graph.json", "meta.json", "model.ifc"], "records": ["calc_records.json"],
              "connections": ["connections.json"], "integrated": ["integrated.json"]}
-SET_PRODUCERS = {"set": ["drawing_ingest", "drawing_loadpath", "calcpkg_ingest", "set_graph", "plans_to_ifc"],
+SET_PRODUCERS = {"set": ["drawing_ingest", "drawing_loadpath", "calcpkg_ingest", "set_graph", "registry_ingest"],
                  "records": ["calc_records"], "connections": ["connections"], "integrated": ["set_integrate"]}
 DOC_KIND = {"Drawing set": "drawing", "Calc package": "calc"}
 

@@ -5,8 +5,8 @@ import "./shell.css";
 
 /** The viewers the switch offers. */
 const VIEWS = [
-  { to: "/ifc", label: "Synthetic IFC", title: "Synthetic BIM model + synthetic calc package (3D IFC viewer)" },
-  { to: "/set", label: "Drawing set", title: "A drawing set and calc package read as documents; every node opens the original PDF" },
+  { to: "/ifc", label: "IFC model", title: "Harbor View (synthetic v2): BIM model + calc package mapping (3D IFC viewer)" },
+  { to: "/set", label: "Drawing set", title: "Harbor View (synthetic v2): drawing set and calc package read as documents; every node opens the original PDF" },
   { to: "/v2", label: "Move a column", title: "Synthetic v2: move or remove a column, see the impact" },
 ] as const;
 

@@ -25,7 +25,6 @@ export const SEC_COL: Record<string, string> = {
   C: "#e15759",
   D: "#9c755f",
   E: "#59a14f",
-  STAIR: "#b07aa1",
 };
 export const CAT_COL: Record<string, string> = {
   Beam: "#4e79a7",
@@ -37,7 +36,7 @@ export const CAT_COL: Record<string, string> = {
   Other: "#8a94a3",
 };
 export const CONN_COL = "#e8590c";
-export const SEC_ORDER = ["CALCS", "A", "B", "C", "D", "E", "STAIR"];
+export const SEC_ORDER = ["CALCS", "A", "B", "C", "D", "E"];
 export const nat = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true });
 export type Tone = "good" | "warn" | "bad";
@@ -51,19 +50,14 @@ export const TONE_COL: Record<Tone, string> = {
 export const secName = (s: string) =>
   ({
     A: "A - Loading criteria",
-    B: "B - Gravity framing (RISAFloor)",
-    C: "C - Lateral framing (RISA-3D)",
+    B: "B - Gravity framing",
+    C: "C - Lateral framing",
     D: "D - Foundation design",
-    E: "E - Exterior metal studs",
-    STAIR: "Stair calcs",
+    E: "E - Connections",
     CALCS: "Front matter",
   })[s] ?? s;
-export const calcSec = (c: SetCalc) =>
-  c.doc === "stair" ? "STAIR" : c.section;
+export const calcSec = (c: SetCalc) => c.section;
 export const recColor = (r: Rec) => SEC_COL[r.section] ?? "#888";
-/** the connection detail a stair connection-design record is a title-only candidate for (and back) */
-export const PARAPET_DETAIL = "2/S8.2.7";
-export const PARAPET_REC = "stair:connection_design:PARAPET";
 
 export type SelKind = "el" | "calc" | "rec" | "ctype" | "cinst";
 export type Sel = { kind: SelKind; id: string } | null;
@@ -273,7 +267,7 @@ export function docLabel(x: SetIndex, ev: Ev): string {
   const c = [...x.calcs.values()].find(
     (y) => y.doc === ev.doc && y.page === ev.page,
   );
-  return `${ev.doc === "stair" ? "Stair calcs" : "Calc package"} · ${c ? `${c.sheet_id} ${ev.table || c.title}` : ""} · PDF p${ev.page}`;
+  return `Calc package · ${c ? `${c.sheet_id} ${ev.table || c.title}` : ""} · PDF p${ev.page}`;
 }
 
 export function fmtVal(v: unknown): string {

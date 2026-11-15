@@ -1,8 +1,9 @@
-// Synthetic IFC app: a BIM model (IFC) mapped to a calc package (PDF). Calc list on the left, 3D model
+// IFC app: the Harbor View (synthetic v2) BIM model (IFC) mapped to its calc package (PDF), read from the
+// revision store's Harbor View project (the same project /v2 applies moves to). Calc list on the left, 3D model
 // or load-path graph in the middle, impact + inspector on the right, original calc pages in a dialog.
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { urls } from "../../api/client";
-import { useDecide, useImpact, useLoadSample, useProjectState, useUpload } from "../../api/hooks";
+import { useDecide, useImpact, useLoadV2Documents, useProjectState, useUpload, useV2Project } from "../../api/hooks";
 import type { IfcLink } from "../../api/types";
 import { Legend, type LegendItem } from "../../components/Legend";
 import { Panel } from "../../components/Panel";
@@ -31,12 +32,14 @@ import {
 } from "./model";
 import "./ifc.css";
 
-const PID = 1;
+const LEGEND_CALCS = 8;
 
 export default function IfcApp() {
-  const state = useProjectState(PID);
+  const project = useV2Project();
+  const PID = project.data?.id ?? 0;
+  const state = useProjectState(project.data?.id);
   const decide = useDecide(PID);
-  const sample = useLoadSample(PID);
+  const loadV2 = useLoadV2Documents();
   const upload = useUpload(PID);
   const ix = useMemo(() => (state.data ? indexState(state.data) : null), [state.data]);
 
@@ -64,6 +67,9 @@ export default function IfcApp() {
   useEffect(() => {
     if (state.error) showError(state.error);
   }, [state.error, showError]);
+  useEffect(() => {
+    if (project.error) showError(project.error);
+  }, [project.error, showError]);
   useEffect(() => {
     if (impactQ.error) showError(impactQ.error);
   }, [impactQ.error, showError]);
@@ -107,8 +113,7 @@ export default function IfcApp() {
     },
     [showError],
   );
-  const loadSample = () => run("Ingesting the synthetic building and calc package…", () => sample.mutateAsync(1));
-  const loadRev2 = () => run("Ingesting model revision 2 (column C8 removed)…", () => sample.mutateAsync(2));
+  const loadDocs = () => run("Ingesting the Harbor View model and calc package…", () => loadV2.mutateAsync());
   const onFile = (kind: "model" | "calcs") => (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     e.target.value = "";
@@ -166,10 +171,18 @@ export default function IfcApp() {
           ]
         : colorBy === "cat"
           ? [...new Set([...ix.els.values()].map((e) => e.cat))].map((c) => ({ label: c, color: CAT_COLORS[c] ?? CAT_COLORS.Other, info: "legend.ifc-type-item" as const }))
-          : [
-              ...[...ix.calcs.values()].filter((c) => linksOfCalc(ix, c.key).length).map((c) => ({ label: c.title, color: c.color, info: "legend.ifc-calc-item" as const })),
-              { label: "No calc found", color: GREY, info: "legend.ifc-no-calc" },
-            ];
+          : (() => {
+              // at most LEGEND_CALCS calc colours over the viewer (a long legend covered the model); the
+              // calc list on the left carries every calc's swatch
+              const linked = [...ix.calcs.values()].filter((c) => linksOfCalc(ix, c.key).length);
+              return [
+                ...linked.slice(0, LEGEND_CALCS).map((c) => ({ label: c.title, color: c.color, info: "legend.ifc-calc-item" as const })),
+                ...(linked.length > LEGEND_CALCS
+                  ? [{ label: `+ ${linked.length - LEGEND_CALCS} more calcs (swatches in the calc list)`, color: "transparent", info: "legend.ifc-calc-item" as const }]
+                  : []),
+                { label: "No calc found", color: GREY, info: "legend.ifc-no-calc" },
+              ];
+            })();
 
   const busy = !!busyText || decide.isPending;
   const stale = impact?.stale ?? {};
@@ -179,13 +192,13 @@ export default function IfcApp() {
     <div className="ifc-app">
       <div className="ifc-toolbar">
         <span className="ifc-tool ifc-title">
-          <b>Synthetic IFC</b>
+          <b>Harbor View IFC</b>
           <InfoTip id="page.ifc" />
         </span>
         <span className="ifc-tool">
           <label className="btn">
             ⬆ BIM model (.ifc)
-            <input type="file" accept=".ifc" onChange={onFile("model")} disabled={busy} />
+            <input type="file" accept=".ifc" onChange={onFile("model")} disabled={busy || !PID} />
           </label>
           <InfoTip id="tool.ifc-upload-model" />
           <span className="ifc-src" title={st?.model_rev?.source_name}>
@@ -195,7 +208,7 @@ export default function IfcApp() {
         <span className="ifc-tool">
           <label className="btn">
             ⬆ Calc package (.pdf)
-            <input type="file" accept=".pdf,application/pdf" onChange={onFile("calcs")} disabled={busy} />
+            <input type="file" accept=".pdf,application/pdf" onChange={onFile("calcs")} disabled={busy || !PID} />
           </label>
           <InfoTip id="tool.ifc-upload-calcs" />
           <span className="ifc-src" title={st?.calc_rev?.source_name}>
@@ -203,16 +216,10 @@ export default function IfcApp() {
           </span>
         </span>
         <span className="ifc-tool">
-          <button type="button" className="btn primary" onClick={loadSample} disabled={busy}>
-            Load sample
+          <button type="button" className="btn primary" onClick={loadDocs} disabled={busy || !PID}>
+            Load Harbor View documents
           </button>
-          <InfoTip id="tool.ifc-sample" />
-        </span>
-        <span className="ifc-tool">
-          <button type="button" className="btn" onClick={loadRev2} disabled={busy || !st?.model_rev} title="Ingest the synthetic model revision 2 (column C8 removed)">
-            Ingest sample rev 2
-          </button>
-          <InfoTip id="tool.ifc-rev2" />
+          <InfoTip id="tool.ifc-load-v2" />
         </span>
         <span className="spacer" />
         <span className="ifc-tool">
@@ -250,7 +257,7 @@ export default function IfcApp() {
         >
           {!ix || !ix.calcs.size ? (
             <p className="muted">
-              Upload a calc package PDF, or press <b>Load sample</b>.
+              Upload a calc package PDF, or press <b>Load Harbor View documents</b>.
             </p>
           ) : (
             <ul className="ifc-calcs">
@@ -403,8 +410,8 @@ export default function IfcApp() {
                     </div>
                     {!busyText && (
                       <div className="ifc-acts" style={{ justifyContent: "center", marginTop: 14 }}>
-                        <button type="button" className="btn primary" onClick={loadSample}>
-                          Load sample building
+                        <button type="button" className="btn primary" onClick={loadDocs} disabled={!PID}>
+                          Load Harbor View documents
                         </button>
                       </div>
                     )}
@@ -444,7 +451,8 @@ export default function IfcApp() {
       </div>
       <p className="ifc-foot muted">
         Mapping is deterministic (marks, mark ranges, mark families, section sizes, element type) and every link shows the text it came from. Every upload is
-        stored as a revision. Sample building and calc package are synthetic.
+        stored as a revision. The Harbor View building and its calc package are synthetic (fictional); moves applied in Move a column
+        become new model revisions here.
       </p>
 
       <dialog ref={dlg} className="ifc-dlg" onClose={() => setPage(null)} aria-label="Calc package page">
@@ -472,10 +480,10 @@ export default function IfcApp() {
                 url: urls.revisionFile(st.calc_rev.id),
                 page: page.n,
                 rects: page.n === page.rectPage ? page.rects : [],
-                // keep the page's context around the matched words (the synthetic calc pages are US letter, 612 x 792 pt)
+                // keep the page's context around the matched words (the Harbor View calc pages are US letter, portrait or landscape)
                 focus: (() => {
                   const u = page.n === page.rectPage ? unionBox(page.rects) : null;
-                  return u ? [Math.max(0, u[0] - 300), Math.max(0, u[1] - 220), Math.min(612, u[2] + 300), Math.min(792, u[3] + 260)] : null;
+                  return u ? [Math.max(0, u[0] - 300), Math.max(0, u[1] - 220), Math.min(792, u[2] + 300), Math.min(792, u[3] + 260)] : null;
                 })(),
                 label: pageCalc?.title ?? `Page ${page.n}`,
                 sub: `Calc package ${st.calc_rev.source_name} (rev ${st.calc_rev.seq})${page.n === page.rectPage && page.rects.length ? " - the matched words are highlighted" : ""}`,

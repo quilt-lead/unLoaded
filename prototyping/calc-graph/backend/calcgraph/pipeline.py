@@ -4,14 +4,14 @@ from __future__ import annotations
 import json
 import os
 
-from . import ENGINE_VERSION, calcdeps, ifc_ingest, impact, loadpath, matcher, pdf_ingest, revstore, segment
+from . import ENGINE_VERSION, calcdeps, calcpkg_ingest, ifc_ingest, impact, loadpath, matcher, pdf_ingest, revstore, segment
 from .store import HEAD, Store
 
 # what each IFC-path producer declares about its facts, recorded with every revision / run it
 # builds (revstore.producer adds module@source-hash as engine + version)
 MODEL_PRODUCER = {"ifc_ingest": {"rule_id": "ifc_ingest.read_ifc", "confidence": 1.0},
                   "loadpath": {"confidence": 1.0, "note": "deterministic contact rules; rule id = the edge's rule text"}}
-CALC_PRODUCER = {"segment": {"rule_id": segment.TITLE_BOX_RULE, "confidence": 1.0}, "pdf_ingest": {}}
+CALC_PRODUCER = {"segment": {"rule_id": segment.SEGMENT_RULE, "confidence": 1.0}, "calcpkg_ingest": {}, "pdf_ingest": {}}
 RUN_PRODUCER = {"matcher": {"note": "rule id = matcher.<tier>, confidence = the tier score"},
                 "calcdeps": {"confidence": 1.0, "note": "deterministic page-reference / cross-reference rules"}}
 
@@ -38,7 +38,8 @@ def ingest_model(st: Store, pid: int, path: str, source_name: str | None = None,
 
 def ingest_calcs(st: Store, pid: int, path: str, source_name: str | None = None, label: str | None = None) -> int:
     data = pdf_ingest.read_pdf(path)
-    calcs = segment.segment(data["pages"])
+    # page heads (sheet ids, titles, sub-calc groups) from the one profile-driven calc-package reader
+    calcs = segment.segment(data["pages"], calcpkg_ingest.read_package(path, "calcs")["pages"])
     rid = st.add_revision(pid, "calcs", path, source_name or os.path.basename(path), label,
                           {**data["meta"], "calcs": len(calcs)}, producer=revstore.producer(*CALC_PRODUCER, **CALC_PRODUCER))
     st.put_calcs(rid, data["pages"], calcs)

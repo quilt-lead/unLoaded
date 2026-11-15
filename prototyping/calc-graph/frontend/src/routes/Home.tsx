@@ -14,23 +14,23 @@ export function Home() {
       <div className="home-cards">
         <article className="home-card">
           <h2>
-            Synthetic IFC app <InfoTip id="home.ifc" />
+            IFC model <InfoTip id="home.ifc" />
           </h2>
-          <p>3D model, load-path graph, element to calc links with evidence, and the impact of a change.</p>
+          <p>The Harbor View building's IFC: 3D model, load-path graph, element to calc links with evidence, and the impact of a change.</p>
           <Link className="btn primary" to="/ifc">Open</Link>
         </article>
         <article className="home-card">
           <h2>
             Drawing-set view <InfoTip id="home.set" />
           </h2>
-          <p>Elements read off the plans, calc records, connections and findings, each opening the original page.</p>
+          <p>Harbor View's drawings and calc package read as documents: elements off the plans, calc records, connections and findings, each opening the original page.</p>
           <Link className="btn primary" to="/set">Open</Link>
         </article>
         <article className="home-card">
           <h2>
             Move a column <InfoTip id="home.v2" />
           </h2>
-          <p>Move or remove a column in the synthetic v2 building and see the calcs to redo and the potential change order.</p>
+          <p>Move or remove a column in the Harbor View building and see the calcs to redo and the potential change order.</p>
           <Link className="btn primary" to="/v2">Open</Link>
         </article>
       </div>

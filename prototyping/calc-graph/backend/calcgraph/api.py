@@ -19,12 +19,11 @@ from . import pipeline, revstore, set_pipeline
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 STORE_DIR = revstore.store_dir()   # THE store root (store_root.py: CALCGRAPH_STORE)
-SYNTH_DIR = os.path.join(ROOT, "data", "synthetic")
+V2_DIR = os.path.join(ROOT, "data", "synthetic_v2")  # the Harbor View building's documents (read only)
 DIST = os.path.join(ROOT, "frontend", "dist")
 
 app = FastAPI(title="calc-graph", version="0.1.0")
 st = revstore.open_store(STORE_DIR)  # one revision store for both paths (migrates a v1 store on open)
-st.ensure_project()
 
 
 def _pid(pid: int) -> int:
@@ -85,26 +84,41 @@ async def upload_calcs(pid: int, file: UploadFile = File(...), label: str | None
     return {"revision": rid}
 
 
-@app.post("/api/projects/{pid}/sample")
-def load_sample(pid: int, model_rev: int = 1):
-    """Ingest the synthetic package (generated on first use). model_rev=2 loads the
-    'column C8 removed' model revision on top of whatever is loaded."""
-    _pid(pid)
-    if not os.path.exists(os.path.join(SYNTH_DIR, "ground_truth.json")):
-        from synth.generate import generate
-        generate(SYNTH_DIR)
-    p = st.project(pid)
-    out = {}
-    if model_rev == 1 or not p["head_model_rev"]:
-        out["model"] = pipeline.ingest_model(st, pid, os.path.join(SYNTH_DIR, "model_rev1.ifc"), "model_rev1.ifc",
-                                             "Sample - Rev 1 issued for permit")
-    if model_rev == 2:
-        out["model"] = pipeline.ingest_model(st, pid, os.path.join(SYNTH_DIR, "model_rev2.ifc"), "model_rev2.ifc",
-                                             "Sample - Rev 2 column C8 removed")
-    if not st.project(pid)["head_calc_rev"] or model_rev == 1:
-        out["calcs"] = pipeline.ingest_calcs(st, pid, os.path.join(SYNTH_DIR, "calc_package.pdf"), "calc_package.pdf",
-                                             "Sample calc package")
-    return out
+def _v2_pid() -> int:
+    """THE Harbor View (synthetic v2) project: the one move_api applies moves to (one project per building)."""
+    from .move_api import _v2_project
+    return _v2_project(st)
+
+
+@app.get("/api/projects/v2")
+def v2_project():
+    """The IFC-path project of the Harbor View building (/ifc reads this one; its head model follows
+    /v2's applied moves)."""
+    return dict(st.project(_v2_pid()))
+
+
+@app.post("/api/projects/v2/documents")
+def load_v2_documents():
+    """Ingest what the Harbor View project lacks, from data/synthetic_v2 (read only): the current base
+    model.ifc when the store has no copy of it (first load, or the generator was re-run: it becomes the
+    head, superseding moves made on an older building; found by content hash, never ingested twice) and
+    calc_package.pdf when the head calc revision is not that file. Returns the project's heads."""
+    from .move_api import _base_rev
+    from .store import sha256_file
+    for f in ("model.ifc", "calc_package.pdf"):
+        if not os.path.exists(os.path.join(V2_DIR, f)):
+            raise HTTPException(404, f"data/synthetic_v2/{f} missing - run: uv run python -m synth.v2.generate")
+    pid = _v2_pid()
+    out = {"project": pid, "model": None, "calcs": None}
+    before = st.project(pid)["head_model_rev"]
+    base = _base_rev(st, pid)
+    if st.project(pid)["head_model_rev"] != before:
+        out["model"] = base
+    pdf = os.path.join(V2_DIR, "calc_package.pdf")
+    head_calc = st.project(pid)["head_calc_rev"]
+    if not head_calc or st.revision(head_calc)["sha256"] != sha256_file(pdf):
+        out["calcs"] = pipeline.ingest_calcs(st, pid, pdf, "calc_package.pdf", "Harbor View calc package")
+    return out | {"heads": dict(st.project(pid))}
 
 
 @app.get("/api/projects/{pid}/revisions")
