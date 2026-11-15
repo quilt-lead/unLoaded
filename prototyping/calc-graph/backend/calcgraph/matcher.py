@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-from .ifc_ingest import norm_profile, profile_from
+from .ifc_ingest import PROFILE_DIM, norm_profile, profile_from
 from .pdf_ingest import rects_for_span
 from .segment import CAT_WORDS
 
@@ -26,7 +26,8 @@ CONF = {"exact": 0.97, "range": 0.9, "loose": 0.88, "family": 0.85, "size": 0.62
 _DASHES = re.compile("[‐-―]")
 _RANGE = re.compile(r"\b([A-Z]{0,3}\d{0,2}[A-Z]{1,3})(\d{1,4})\s*(?:-|–|—|TO|THRU|THROUGH)\s*(?:\1)?(\d{1,4})\b")
 _TOK = re.compile(r"[A-Z0-9]+(?:[-./][A-Z0-9]+)*")
-_PROF = re.compile(r"\b(?:W|HSS|WT|MC|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:/\d+)?(?:\.\d+)?)?\b"
+# same dimension grammar as ifc_ingest (fractional walls); C / L left out here: in drawing text they are grid labels
+_PROF = re.compile(rf"\b(?:W|HSS|WT|MC|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?{PROFILE_DIM}X{PROFILE_DIM}(?:X{PROFILE_DIM})?(?![\d/])"
                    r"|\b\d{3,4}X\d{3,4}\b")
 
 

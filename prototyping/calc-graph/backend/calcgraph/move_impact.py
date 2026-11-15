@@ -449,6 +449,9 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
                     "mu_old": old_rec["values"].get("Mu_kft") if old_rec else None, "mu_new": round(r["mu"], 1),
                     "uc_old": old_rec["uc"] if old_rec else None, "uc_new": round(r["uc"], 3), "governs": r["governs"],
                     "method": "estimate - local PyNite re-solve at current size", "record": old_rec["id"] if old_rec else None}
+        fx = _scbf_girder_frame_uc(g, mid, est[mid])
+        if fx:
+            est[mid].update(fx)   # the gravity UC stays uc_new; the frame check is reported beside it
         if r["uc"] > 1.0:
             est[mid]["size_est"] = _size_up(e["size"], r)
         b0 = before.get(mid)
@@ -558,7 +561,7 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
         if not crec:
             continue
         pu0 = crec["values"].get("Pu_k") or crec["demand"] or 1.0
-        dpu = _fac(dv, "LC2")
+        dpu = _gravity_increment(g, dv, crec.get("lc"))
         if abs(dpu) / max(pu0, 1e-6) > 0.001 or c == column:
             mark_el(c, f"axial changes by {dpu:+.1f} k (reactions of re-spanned members)", [column])
         pu1 = pu0 + dpu
@@ -628,13 +631,23 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
         e0 = est.get(mid, {})
         change = abs((e0.get("mu_new") or 0) - (e0.get("mu_old") or 0)) / max(e0.get("mu_old") or 1, 1e-6)
         if "scbf_beam" in roles and change > CHANGE:
+            # the braces under a chevron beam carry only the share of its gravity change that reaches
+            # the work point; whether that moves a brace's governing (seismic) demand > 5 % is
+            # estimated per brace, not assumed from the beam's own change
             fr = g.el[mid].get("frame")
-            lateral.append(f"{mid} is a chevron SCBF beam: its gravity load reaches the braces - brace forces change")
-            for rid in g.designed.get(f"FRAME:{fr}", []):
-                mark(rid, f"gravity on {mid} changes the {fr} brace forces", [column, mid])
-            for eid, e in g.el.items():
-                if e["type"] == "brace" and e.get("frame") == fr:
-                    mark_el(eid, f"gravity on chevron beam {mid} changes", [column, mid])
+            moved = []
+            for br, rid, x in _chevron_brace_estimates(g, mid, e0):
+                if x is None:
+                    mark_el(br, f"gravity on chevron beam {mid} changes (no brace estimate: geometry or record missing)", [column, mid])
+                    moved.append(br)
+                    continue
+                est[br] = x   # on the load path (topological); the screen reads this estimate
+                mark(rid, f"gravity on chevron beam {mid} reaches the {fr} brace work point", [column, mid])
+                if abs(x["p_new"] - x["p_old"]) / max(abs(x["p_old"]), 1e-6) > CHANGE:
+                    moved.append(br)
+            if moved:
+                lateral.append(f"{mid} is a chevron SCBF beam: its gravity change moves brace force(s) "
+                               f"{', '.join(moved[:3])} by > {CHANGE:.0%} (estimate) - brace forces change")
         if "collector" in roles:
             for rid in g.designed.get(mid, []):
                 if g.rec[rid]["kind"] == "collector":
@@ -644,11 +657,14 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
     def screened(rid):
         r = g.rec[rid]
         els = r["elements"]
+        # a girder's in-frame record (scbf_girder) moves with the frame estimate, not the gravity re-solve
+        pairs = ((("mu_frame_old", "mu_frame_new"),) if r["kind"] == "scbf_girder" else ()) + \
+            (("mu_old", "mu_new"), ("pu_old", "pu_new"), ("p_old", "p_new"), ("ru_old", "ru_new"))
         for e in els:
             x = est.get(e)
             if not x:
                 continue
-            for a, b in (("mu_old", "mu_new"), ("pu_old", "pu_new"), ("p_old", "p_new"), ("ru_old", "ru_new")):
+            for a, b in pairs:
                 if x.get(a) and x.get(b) is not None:
                     return abs(x[b] - x[a]) / abs(x[a]) > CHANGE
         return True   # no estimate: keep it (topology says it is on the path)
@@ -668,6 +684,110 @@ def impact(exp: dict, column: str, dx: float = 0.0, dy: float = 0.0, remove: boo
             "labels": {"stale": "topological (load path + connections + lateral + foundations)",
                        "screened": f"estimate: demand change > {CHANGE:.0%}",
                        "estimates": "estimate - not a re-design"}}
+
+
+def _sds_lower_bound(g: Graph) -> float | None:
+    """SDS >= Cs R / Ie, read from the braced (else any) direction's ELF record: Cs = SDS Ie / R unless
+    a cap lowers it. None when no ELF record prints Cs and R."""
+    elfs = [r["values"] for r in g.rec.values() if r["kind"] == "seismic" and r["values"].get("Cs") and r["values"].get("R")]
+    v = next((x for x in elfs if "braced" in str(x.get("system", "")).lower()), elfs[0] if elfs else None)
+    return v["Cs"] * v["R"] / (v.get("Ie") or 1.0) if v else None
+
+
+SEISMIC_GRAVITY_COMBOS = ("OM", "S1", "S2", "S3", "S4")   # (1.2 + 0.2 SDS) D + 0.5 L (+ E) (12.4.2.3 / 12.4.3.2)
+
+
+def _gravity_increment(g: Graph, dv: list[float], lc: str | None) -> float:
+    """A gravity reaction change [D, L, Lr] factored by the combo that governs the record it lands on:
+    a column checked under a seismic combo (SMF S1-S4, SCBF Omega0 'OM') sees (1.2 + 0.2 SDS) D +
+    0.5 L + 0.5 Lr, not 1.2 D + 1.6 L. Unknown combo, or no SDS in the records: LC2 (the larger)."""
+    if lc in COMBOS:
+        return _fac(dv, lc)
+    sds = _sds_lower_bound(g) if lc in SEISMIC_GRAVITY_COMBOS else None
+    if sds is None:
+        return _fac(dv, "LC2")
+    return (1.2 + 0.2 * sds) * dv[0] + 0.5 * dv[1] + 0.5 * dv[2]
+
+
+def _chevron_brace_estimates(g: Graph, mid: str, e0: dict) -> list[tuple[str, str, dict | None]]:
+    """Brace force change from a gravity change on the chevron beam `mid` the braces frame into.
+
+    The beam (pinned, span L, EI) and the brace pair (axial EA / Lb, angle theta) share the work-point
+    deflection: the change in the beam's free mid-span deflection d0 ~ dM L^2 / (9.5 EI) (third-point /
+    uniform loads) is resisted by the springs in series, R = d0 / (1 / k_beam + 1 / k_pair), with
+    k_beam = 48 EI / L^3, k_pair = 2 EA sin^2(theta) / Lb; each brace takes R / (2 sin theta).
+    dM is the beam's factored gravity change (1.2 D + 1.6 L); the brace's governing combo carries
+    dead load only, at (0.9 - 0.2 SDS) (12.4.2.3), so dM x (0.9 - 0.2 SDS) / 1.2 bounds it (all of the
+    change taken as dead load). SDS >= Cs R / Ie from the braced direction's ELF record (Cs is
+    SDS Ie / R unless a cap lowers it, so this is a lower bound on SDS - the conservative side);
+    without an ELF record SDS is taken as 0. Returns (brace, brace record, estimate or None when the
+    geometry or the record is missing)."""
+    out = []
+    d_fac = max(0.0, 0.9 - 0.2 * (_sds_lower_bound(g) or 0.0)) / 1.2
+    beam = g.el[mid]
+    bs = _shape(beam.get("size") or "")
+    L_ft = e0.get("span_new") or beam.get("span_ft")
+    dM = (e0.get("mu_new") or 0) - (e0.get("mu_old") or 0)
+    for br, _end in g.carried.get(mid, []):
+        b = g.el.get(br, {})
+        if b.get("type") != "brace":
+            continue
+        rid = next((r for r in g.designed.get(br, []) if g.rec[r]["kind"] == "brace"), None)
+        sh = _shape(b.get("size") or "")
+        p1, p2 = b.get("p1"), b.get("p2")
+        rec = g.rec.get(rid) if rid else None
+        if not (rid and rec and rec.get("demand") and sh and bs and p1 and p2 and L_ft):
+            out.append((br, rid, None))
+            continue
+        lb = math.dist(p1, p2) * 12.0
+        sin = abs(p2[2] - p1[2]) * 12.0 / lb if lb else 0.0
+        if sin <= 0:
+            out.append((br, rid, None))
+            continue
+        E, L = 29000.0, L_ft * 12.0
+        k_beam = 48 * E * bs["Ix"] / L ** 3
+        k_pair = 2 * E * sh["A"] * sin ** 2 / lb
+        d0 = abs(dM) * 12.0 * d_fac * L ** 2 / (9.5 * E * bs["Ix"])
+        dF = d0 / (1 / k_beam + 1 / k_pair) / (2 * sin)
+        p_old = rec["demand"]
+        p_new = p_old + dF
+        cap = rec.get("capacity")
+        out.append((br, rid, {"element": br, "size": b.get("size"), "p_old": round(p_old, 1), "p_new": round(p_new, 1),
+                              "uc_old": rec.get("uc"), "uc_new": round(p_new / cap, 3) if cap else None,
+                              "method": f"estimate - share of the {mid} gravity change reaching the brace work point",
+                              "record": rid}))
+    return out
+
+
+def _scbf_girder_frame_uc(g: Graph, mid: str, e0: dict) -> dict | None:
+    """In-frame check of an SCBF-line girder (record kind scbf_girder) at its current size in the moved
+    geometry, from the printed check. Braced-bay girders governed by the AISC 341 F2.3 chevron check
+    carry the unbalanced brace force Pv at mid-span, Mu = Pv L / 4 + M_gravity: the Pv term scales with
+    the new span, the gravity term with the local re-solve's gravity ratio, the axial force is held, and
+    the H1 equation the record printed is re-evaluated with phiMn at the new unbraced length (Lb scales
+    with the span). Girders governed by a frame combo scale with the gravity ratio and the same phiMn."""
+    rid = next((r for r in g.designed.get(mid, []) if g.rec[r]["kind"] == "scbf_girder"), None)
+    if not rid or g.rec[rid].get("uc") is None:
+        return None
+    rec, v = g.rec[rid], g.rec[rid]["values"]
+    gr = (e0.get("mu_new") or 0) / e0["mu_old"] if e0.get("mu_old") else 1.0
+    L0 = v.get("span_ft") or e0.get("span_old")
+    L1 = e0.get("span_new") or L0
+    mn_ratio = 1.0
+    if v.get("Lb_ft") and L0 and L1:
+        a, b = _phi_mn(g.el[mid].get("size") or "", v["Lb_ft"]), _phi_mn(g.el[mid].get("size") or "", v["Lb_ft"] * L1 / L0)
+        mn_ratio = b / a if a and b else 1.0
+    f = v.get("F2_3") if v.get("governs_combo") == "F2.3" else None
+    if f and f.get("Pv_unbalanced") is not None and v.get("phiMn_kft") and v.get("phiPn_k") and L1:
+        m0, m = f.get("Mu") or rec["demand"], f["Pv_unbalanced"] * L1 / 4 + (f.get("M_gravity") or 0) * gr
+        pr, mr = (f.get("P_axial") or 0) / v["phiPn_k"], m / (v["phiMn_kft"] * mn_ratio)
+        uc = pr + 8 / 9 * mr if f.get("eq") == "H1-1a" else pr / 2 + mr
+    else:
+        m0 = v.get("Mu_kft") or rec["demand"]
+        m = m0 * gr if m0 is not None else None
+        uc = rec["uc"] * gr / mn_ratio
+    return {"uc_frame_old": rec["uc"], "uc_frame_new": round(float(uc), 3), "frame_record": rid,
+            "mu_frame_old": m0, "mu_frame_new": round(float(m), 1) if m is not None else None}
 
 
 def _size_up(size: str, r: dict) -> str | None:
@@ -714,12 +834,15 @@ def health_of(g: Graph, column: str, remove: bool, est: dict, stale: dict, clash
     ftg_over = [k for k in over if g.el.get(k, {}).get("type") == "footing"]
     cx_over = [k for k in over if k.startswith("CX-")]
     special = [k for k in cx_over if est[k].get("special")]
-    sfrs_over = [k for k in over if g.el.get(k, {}).get("sfrs")]
+    sfrs_over = sorted({k for k in over if g.el.get(k, {}).get("sfrs")}
+                       | {k for k, v in est.items() if g.el.get(k, {}).get("sfrs") and (v.get("uc_frame_new") or 0) > 1.0})
     if frames:
         reasons.append((2, f"part of the lateral system ({', '.join(frames)}): moving it changes frame geometry - frame re-analysis and re-detailing", "SFRS role"))
         # the screen does not re-run the frame analysis, so a frame member within 5 % of its
         # capacity is treated as having no reserve for the geometry change
-        near = [k for k, v in est.items() if g.el.get(k, {}).get("sfrs") and (v.get("uc_new") or 0) > 0.95]
+        # (a member with an in-frame estimate, uc_frame_new, is judged on that estimate against 1.0 above)
+        near = [k for k, v in est.items() if g.el.get(k, {}).get("sfrs") and "uc_frame_new" not in v
+                and (v.get("uc_new") or 0) > 0.95]
         sfrs_over = sorted(set(sfrs_over) | set(near))
         if sfrs_over:
             reasons.append((3, f"frame member(s) {', '.join(sfrs_over[:3])} at or over capacity at current size (estimate) - frame must be re-designed", "SFRS reserve"))

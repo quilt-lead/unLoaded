@@ -27,13 +27,18 @@ Rules, each recorded on the record it produced:
   at or right of the anchor x) until the next anchor or a gap of more than 1.8 line pitches; when
   another table column sits to the right on the same rows, the record stops short of it
 - block: any other anchor (an Enercalc page title, a hand-calc heading, a worked example) owns
-  the rows from it down to the next anchor row or the end of the page body
+  the rows from it down to the next anchor row, the next section heading of the same rank (a row
+  printed at the anchor row's heading size, when that is larger than the page's body text: a RISA
+  "Load Combinations" table after the "SCBF-1 Story Drift" section is not part of it; the subject
+  field "DESCRIPTION: <member>" is not a heading and keeps its page) or the end of the page body
 - no anchor on a page: a page with >= 5 lines carrying an assignment (" = ", ":=") is one record (a calc sheet, its tables
   included); else rows of a numeric table (>= 5 cells, >= 50 % numeric, text first cell; a
   spreadsheet's row-number gutter dropped) are one record each; else the page holds no record
   (cover, contents, model sketch)
 - page body excludes the header / footer bands (top 12 %, bottom 7 %) and rows that start with a
   header field of the profile's boilerplate ("Model Name", "Job Number" ...)
+- one record per subject per page: rows of several tables / blocks on one page that name the same
+  subject are occurrences of ONE record (same id; the caller adds an occurrence per row)
 - a page with no text layer is reported unreadable (no OCR here), never guessed
 """
 from __future__ import annotations
@@ -96,6 +101,12 @@ def _cell_x(page: dict, row: dict, token: str) -> float:
     return row["rect"][0]
 
 
+def _row_size(page: dict, row: dict) -> float:
+    """Largest font size of the page lines on a row's band."""
+    y = (row["rect"][1] + row["rect"][3]) / 2
+    return max((ln.get("size") or 0.0 for ln in page["lines"] if ln["rect"][1] <= y <= ln["rect"][3]), default=0.0)
+
+
 def read_records(pages: list[dict], known: dict[str, str], boiler: re.Pattern | None = None,
                  subject_field: str = "DESCRIPTION") -> dict:
     """boiler: the profile's header-line regex (calcs.boilerplate_rx); a row that starts with a header
@@ -152,8 +163,15 @@ def read_records(pages: list[dict], known: dict[str, str], boiler: re.Pattern | 
             also = {k for a in anchors for k in a.get("also", [])}
             pitch = sorted(rows[i + 1]["rect"][1] - rows[i]["rect"][1] for i in range(len(rows) - 1)) or [12.0]
             pitch = pitch[len(pitch) // 2] or 12.0
+            sizes = sorted(_row_size(p, r) for r in rows)
+            body_size = sizes[len(sizes) // 2] if sizes else 0.0
             for a in anchors:
                 is_table = any(abs(a["x"] - x) <= 6 for x in table_x)
+                head_size = _row_size(p, rows[a["row"]])
+                # a heading anchor ("SCBF-1 Story Drift ..."), not the subject field (Enercalc's
+                # "DESCRIPTION: <member>" owns its whole page)
+                is_heading = (not is_table and head_size > body_size + 0.5
+                              and not rows[a["row"]]["cells"][0].upper().startswith(subject_field.upper()))
 
                 def xr_of(k):   # another table column's anchor further right on the same row bounds this record:
                     xs = [b["x"] for b in anchors if b["row"] == k and b["x"] > a["x"] + 6 and any(abs(b["x"] - x) <= 6 for x in table_x)]
@@ -179,6 +197,8 @@ def read_records(pages: list[dict], known: dict[str, str], boiler: re.Pattern | 
                         break
                     if k in arow:
                         break
+                    if is_heading and k not in a.get("also", []) and abs(_row_size(p, r) - head_size) <= 0.05:
+                        break   # the next section heading of the same rank ends the block
                     rects.append([r["rect"][0] if k in a.get("also", []) else max(a["x"] if is_table else r["rect"][0], r["rect"][0]),
                                   r["rect"][1], min(xr_of(k), r["rect"][2]),
                                   r["rect"][3]])
@@ -212,6 +232,19 @@ def read_records(pages: list[dict], known: dict[str, str], boiler: re.Pattern | 
                         "how": "calc_block", "text": p["title"][:120],
                         "rule": "calc sheet with no identifier: the page body is one record"})
             stats["page_records"] += 1
-    for n, r in enumerate(out):
-        r["id"] = f"REC:{r['sheet']}#{sum(1 for q in out[:n] if q['sheet'] == r['sheet']) + 1}"
+    # one record per subject per page: a page that prints the same member in several tables (RISA's
+    # girder check, its F2.3 table and its governing-combination table; a worked example and its summary
+    # row) prints ONE design record of it - each row is an occurrence of that record, sharing its id
+    seen: dict[tuple, str] = {}
+    per_sheet: dict[str, int] = defaultdict(int)
+    for r in out:
+        k = (r["page"], r["subject"]) if r["subject"] else None
+        if k in seen:
+            r["id"] = seen[k]
+            stats["same_subject_rows_merged"] += 1
+            continue
+        per_sheet[r["sheet"]] += 1
+        r["id"] = f"REC:{r['sheet']}#{per_sheet[r['sheet']]}"
+        if k:
+            seen[k] = r["id"]
     return {"records": out, "unreadable_pages": unreadable, "stats": dict(stats)}

@@ -21,8 +21,11 @@ TYPES = ["IfcBeam", "IfcColumn", "IfcSlab", "IfcFooting", "IfcPile", "IfcWall", 
 MARK_KEYS = ["Mark", "Type Mark", "Reference Mark", "Piece Mark"]
 PROFILE_KEYS = ["MemberSection", "Section", "Profile", "Section Name"]
 
+# One section dimension: 6, 6.625, 1/4, 1-1/2, .25 (HSS / angle walls are fractions of an inch:
+# "HSS6X6X1/4" must not read as "HSS6X6X1"). Shared with matcher._PROF so the two cannot drift.
+PROFILE_DIM = r"(?:\d+(?:\.\d+)?(?:-\d+/\d+|/\d+)?|\.\d+)"
 _PROFILE_RE = re.compile(
-    r"\b(?:W|HSS|WT|MC|C|L|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?\d+(?:\.\d+)?X\d+(?:\.\d+)?(?:X\d+(?:\.\d+)?)?\b"
+    rf"\b(?:W|HSS|WT|MC|C|L|UB|UC|PFC|SHS|RHS|CHS|IPE|HEA|HEB)\s?{PROFILE_DIM}X{PROFILE_DIM}(?:X{PROFILE_DIM})?(?![\d/])"
     r"|\b\d{3,4}X\d{3,4}\b")
 
 
