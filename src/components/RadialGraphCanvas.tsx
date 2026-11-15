@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Minus, Layers, Move, ZoomIn } from 'lucide-react';
-import type { BimLink, BimNode, ColorMode, HighlightOverlay, LoadPathEdge, NodeGroup } from '../types/bim';
+import { Plus, Minus, Layers, Move, ZoomIn, MessageSquarePlus } from 'lucide-react';
+import type { BimLink, BimNode, ColorMode, GraphComment, HighlightOverlay, LoadPathEdge, NodeGroup } from '../types/bim';
 import {
   computeArcPath,
   computeCenterToCenterSplinePath,
@@ -11,9 +11,10 @@ import {
   getCalcBubbleLayout,
   loadPathKey,
 } from '../utils/graphEngine';
-import { selectNodesInBox } from '../utils/graphSelection';
+import { selectNodesInBox, selectRectsInBox } from '../utils/graphSelection';
 import { DIFF_PALETTE, TONE_COLORS, getContrastingTextStyle, getEffectiveNodeColor, linkStrokeStyle, STATUS_COLORS } from '../utils/colors';
 import { useEscapeLayer } from './escapeStack';
+import { COMMENT_MIN_HEIGHT, COMMENT_WIDTH, GraphCommentNote } from './GraphCommentNote';
 
 interface RadialGraphCanvasProps {
   nodes: BimNode[];
@@ -42,7 +43,20 @@ interface RadialGraphCanvasProps {
   onGroupSelection: () => void;
   /** Ctrl / Cmd + click: jump to the node's calculation (PDF) */
   onOpenNode?: (node: BimNode) => void;
+  /** free text comments on this graph workspace; comments are off unless onAddComment is given */
+  comments?: GraphComment[];
+  selectedCommentIds?: Set<string>;
+  /** additive adds to the comment selection; otherwise it replaces the comment selection */
+  onSelectComments?: (ids: string[], opts?: { additive?: boolean }) => void;
+  /** adds an empty comment with its top-left at (x, y) in graph coordinates and returns its id */
+  onAddComment?: (x: number, y: number) => string;
+  onMoveComments?: (ids: Set<string>, dx: number, dy: number) => void;
+  onEditComment?: (id: string, text: string) => void;
+  onDeleteComments?: (ids: string[]) => void;
 }
+
+const NO_COMMENTS: GraphComment[] = [];
+const NO_IDS = new Set<string>();
 
 function getFittedFontSize(label: string, radius: number): string {
   const innerDiameter = Math.max(radius * 1.72, 4);
@@ -78,7 +92,25 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   onMoveNodes,
   onGroupSelection,
   onOpenNode,
+  comments = NO_COMMENTS,
+  selectedCommentIds = NO_IDS,
+  onSelectComments,
+  onAddComment,
+  onMoveComments,
+  onEditComment,
+  onDeleteComments,
 }) => {
+  const commentsEnabled = Boolean(onAddComment);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  // the textarea's blur can fire after Escape already ended the edit; the ref lets commit ignore it
+  const editingCommentRef = useRef<string | null>(null);
+  editingCommentRef.current = editingCommentId;
+  const commentHeights = useRef(new Map<string, number>());
+  const handleMeasureComment = useCallback((id: string, h: number) => {
+    commentHeights.current.set(id, h);
+  }, []);
+  /** last pointer position over the canvas in container pixels: where the C shortcut drops a comment */
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState<string>('');
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number; crossing: boolean } | null>(null);
@@ -100,6 +132,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     startX: number;
     startY: number;
     draggedNodeId: string | null;
+    draggedCommentId: string | null;
     lastDragGraphX: number;
     lastDragGraphY: number;
   }>({
@@ -114,6 +147,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     startX: 0,
     startY: 0,
     draggedNodeId: null,
+    draggedCommentId: null,
     lastDragGraphX: 0,
     lastDragGraphY: 0,
   });
@@ -148,9 +182,82 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     ix.isSelecting = false;
     ix.panMoved = false;
     ix.draggedNodeId = null;
+    ix.draggedCommentId = null;
     setSelectionActive(false);
     setSelectionBox(null);
   }, []);
+
+  const graphPointAt = useCallback((clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const cam = cameraRef.current;
+    return { x: (clientX - (rect?.left ?? 0) - cam.panX) / cam.scale, y: (clientY - (rect?.top ?? 0) - cam.panY) / cam.scale };
+  }, []);
+
+  /** adds a comment centred on a container-pixel point (default: the view centre) and opens it for editing */
+  const addCommentAt = useCallback(
+    (px?: { x: number; y: number }) => {
+      if (!onAddComment) return;
+      const el = containerRef.current;
+      const p = px ?? { x: (el?.clientWidth || 600) / 2, y: (el?.clientHeight || 400) / 2 };
+      const cam = cameraRef.current;
+      const gx = (p.x - cam.panX) / cam.scale - COMMENT_WIDTH / 2;
+      const gy = (p.y - cam.panY) / cam.scale - COMMENT_MIN_HEIGHT / 2;
+      const id = onAddComment(gx, gy);
+      onSelectComments?.([id]);
+      setEditingCommentId(id);
+    },
+    [onAddComment, onSelectComments],
+  );
+
+  const commitComment = useCallback(
+    (id: string, text: string) => {
+      if (editingCommentRef.current !== id) return;
+      setEditingCommentId(null);
+      const trimmed = text.trim();
+      if (trimmed) onEditComment?.(id, trimmed);
+      else onDeleteComments?.([id]);
+    },
+    [onEditComment, onDeleteComments],
+  );
+
+  const cancelCommentEdit = useCallback(
+    (id: string) => {
+      if (editingCommentRef.current !== id) return;
+      setEditingCommentId(null);
+      // a new comment cancelled before it had any text is discarded
+      if (!comments.find((c) => c.id === id)?.text) onDeleteComments?.([id]);
+    },
+    [comments, onDeleteComments],
+  );
+
+  // C adds a comment under the pointer; Delete / Backspace removes the selected comments
+  useEffect(() => {
+    if (!commentsEnabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (target && (target.isContentEditable || target.closest('input, textarea, select'))) return;
+      if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        addCommentAt(lastPointerRef.current ?? undefined);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedCommentIds.size > 0) {
+        const ids = comments.filter((c) => selectedCommentIds.has(c.id)).map((c) => c.id);
+        if (ids.length === 0) return;
+        e.preventDefault();
+        onDeleteComments?.(ids);
+      } else if (e.key.startsWith('Arrow') && selectedCommentIds.size > 0) {
+        // keyboard alternative to dragging: arrows nudge the selected comments, Shift for bigger steps
+        const step = e.shiftKey ? 40 : 8;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        if (!dx && !dy) return;
+        e.preventDefault();
+        onMoveComments?.(selectedCommentIds, dx, dy);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [commentsEnabled, addCommentAt, comments, selectedCommentIds, onDeleteComments, onMoveComments]);
 
   useEscapeLayer(selectionActive, () => {
     cancelInteraction();
@@ -283,6 +390,10 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
 
   const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const ix = interactionRef.current;
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      lastPointerRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
     if (ix.isSelecting && containerRef.current) {
       if (Math.hypot(e.clientX - ix.pointerStartX, e.clientY - ix.pointerStartY) > 2) {
         ix.panMoved = true;
@@ -305,19 +416,24 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         ix.panMoved = true;
       }
       setCamera((prev) => ({ ...prev, panX: nextPanX, panY: nextPanY }));
-    } else if (ix.draggedNodeId && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const cam = cameraRef.current;
-      const currX = (e.clientX - rect.left - cam.panX) / cam.scale;
-      const currY = (e.clientY - rect.top - cam.panY) / cam.scale;
+    } else if ((ix.draggedNodeId || ix.draggedCommentId) && containerRef.current) {
+      const { x: currX, y: currY } = graphPointAt(e.clientX, e.clientY);
       const dx = currX - ix.lastDragGraphX;
       const dy = currY - ix.lastDragGraphY;
       ix.lastDragGraphX = currX;
       ix.lastDragGraphY = currY;
 
-      const movedSet = new Set<string>([ix.draggedNodeId]);
-      if (selectedNodeIds.has(ix.draggedNodeId)) {
+      // dragging a selected item drags the whole selection, nodes and comments alike
+      const movedSet = new Set<string>();
+      const movedComments = new Set<string>();
+      const draggedIsSelected = ix.draggedNodeId
+        ? selectedNodeIds.has(ix.draggedNodeId)
+        : selectedCommentIds.has(ix.draggedCommentId!);
+      if (ix.draggedNodeId) movedSet.add(ix.draggedNodeId);
+      if (ix.draggedCommentId) movedComments.add(ix.draggedCommentId);
+      if (draggedIsSelected) {
         selectedNodeIds.forEach((sid) => movedSet.add(sid));
+        selectedCommentIds.forEach((cid) => movedComments.add(cid));
       }
       groups.forEach((grp) => {
         if (grp.nodeIds.some((nid) => movedSet.has(nid))) {
@@ -325,7 +441,8 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         }
       });
 
-      onMoveNodes(movedSet, dx, dy);
+      if (movedSet.size > 0) onMoveNodes(movedSet, dx, dy);
+      if (movedComments.size > 0) onMoveComments?.(movedComments, dx, dy);
     }
   };
 
@@ -339,9 +456,20 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
           x: (e.clientX - rect.left - cam.panX) / cam.scale,
           y: (e.clientY - rect.top - cam.panY) / cam.scale,
         };
-        const ids = selectNodesInBox(nodes, { x: ix.selectionStartX, y: ix.selectionStartY }, end);
+        const start = { x: ix.selectionStartX, y: ix.selectionStartY };
+        const ids = selectNodesInBox(nodes, start, end);
         onSelectNodes(ids, { additive: ix.selectionAdditive });
-      } else if (!ix.selectionAdditive && selectedNodeId) {
+        if (commentsEnabled) {
+          const rects = comments.map((c) => ({
+            id: c.id,
+            x: c.x,
+            y: c.y,
+            width: COMMENT_WIDTH,
+            height: commentHeights.current.get(c.id) ?? COMMENT_MIN_HEIGHT,
+          }));
+          onSelectComments?.(selectRectsInBox(rects, start, end), { additive: ix.selectionAdditive });
+        }
+      } else if (!ix.selectionAdditive && (selectedNodeId || selectedCommentIds.size > 0)) {
         onClearSelection();
       }
       ix.isSelecting = false;
@@ -353,6 +481,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
 
     ix.isPanning = false;
     ix.draggedNodeId = null;
+    ix.draggedCommentId = null;
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -393,10 +522,38 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
     ix.lastDragGraphX = (e.clientX - rect.left - cam.panX) / cam.scale;
     ix.lastDragGraphY = (e.clientY - rect.top - cam.panY) / cam.scale;
 
-    if (!e.shiftKey && selectedNodeIds.size > 1 && selectedNodeIds.has(node.id)) {
+    if (!e.shiftKey && selectedNodeIds.size + selectedCommentIds.size > 1 && selectedNodeIds.has(node.id)) {
       onSelectNode(node.id, { preserveMulti: true, skipZoomFit: true });
     } else {
+      // a plain click on a node starts a new selection, so drop the selected comments
+      if (!e.shiftKey && selectedCommentIds.size > 0) onSelectComments?.([]);
       onSelectNode(node.id, { toggleMulti: e.shiftKey });
+    }
+  };
+
+  const handleCommentPointerDown = (e: React.PointerEvent, comment: GraphComment) => {
+    if (e.button === 1 || e.button === 2) return;
+    e.stopPropagation();
+    if (!containerRef.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const ix = interactionRef.current;
+    const p = graphPointAt(e.clientX, e.clientY);
+    ix.draggedCommentId = comment.id;
+    ix.draggedNodeId = null;
+    ix.lastDragGraphX = p.x;
+    ix.lastDragGraphY = p.y;
+
+    const isSelected = selectedCommentIds.has(comment.id);
+    if (e.shiftKey) {
+      // Shift toggles this comment and keeps everything else selected
+      const next = comments.filter((c) => selectedCommentIds.has(c.id) && c.id !== comment.id).map((c) => c.id);
+      onSelectComments?.(isSelected ? next : [...next, comment.id]);
+    } else if (isSelected && selectedNodeIds.size + selectedCommentIds.size > 1) {
+      // pressing on part of a multi-selection keeps it, so the whole selection drags together
+    } else {
+      onClearSelection();
+      onSelectComments?.([comment.id]);
     }
   };
 
@@ -431,6 +588,22 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
         >
           <Minus className="w-3.5 h-3.5" />
         </button>
+
+        {commentsEnabled && (
+          <>
+            <div className="h-4 w-px bg-white/[0.1] mx-0.5" />
+            <button
+              type="button"
+              title="Add comment (C)"
+              aria-label="Add comment"
+              onClick={() => addCommentAt()}
+              className="h-7 px-2 rounded-lg bg-white/[0.04] hover:bg-amber-300/15 text-zinc-300 hover:text-amber-100 flex items-center gap-1.5 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70"
+            >
+              <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
+              Comment
+            </button>
+          </>
+        )}
 
         {selectedNodeIds.size > 1 && (
           <>
@@ -542,6 +715,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                     ix.lastDragGraphX = (e.clientX - rect.left - camera.panX) / camera.scale;
                     ix.lastDragGraphY = (e.clientY - rect.top - camera.panY) / camera.scale;
                   }
+                  if (!e.shiftKey && selectedCommentIds.size > 0) onSelectComments?.([]);
                   if (onSelectGroup) {
                     onSelectGroup(grp.id, { toggleMulti: e.shiftKey });
                   } else {
@@ -811,6 +985,27 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 );
               })}
             </g>
+
+            {/* Comments: above nodes, never dimmed by selection or filters */}
+            {commentsEnabled && comments.length > 0 && (
+              <g>
+                {comments.map((c) => (
+                  <GraphCommentNote
+                    key={c.id}
+                    comment={c}
+                    selected={selectedCommentIds.has(c.id)}
+                    primary={selectedCommentIds.size + selectedNodeIds.size === 1 && selectedCommentIds.has(c.id)}
+                    editing={editingCommentId === c.id}
+                    onPointerDown={handleCommentPointerDown}
+                    onStartEdit={setEditingCommentId}
+                    onCommit={commitComment}
+                    onCancelEdit={cancelCommentEdit}
+                    onMeasure={handleMeasureComment}
+                  />
+                ))}
+              </g>
+            )}
+
             {selectionBox && (
               <rect
                 aria-hidden="true"
@@ -850,6 +1045,15 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
           <>
             <span className="text-zinc-700">|</span>
             <span>Ctrl+Click: open calc • Alt+←/→: back/forward</span>
+          </>
+        )}
+        {commentsEnabled && (
+          <>
+            <span className="text-zinc-700">|</span>
+            <span className="flex items-center gap-1.5">
+              <MessageSquarePlus className="w-3 h-3 text-amber-300" />
+              C: Comment • Del: remove
+            </span>
           </>
         )}
       </div>

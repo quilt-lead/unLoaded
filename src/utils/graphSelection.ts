@@ -34,3 +34,31 @@ export function selectNodesInBox(
     })
     .map((node) => node.id);
 }
+
+export interface GraphRect {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Box selection for rectangular items (graph comments), with the same rule as nodes:
+ * left to right selects fully enclosed items, right to left selects any item the box touches.
+ */
+export function selectRectsInBox(rects: readonly GraphRect[], start: GraphPoint, end: GraphPoint): string[] {
+  const left = Math.min(start.x, end.x);
+  const right = Math.max(start.x, end.x);
+  const top = Math.min(start.y, end.y);
+  const bottom = Math.max(start.y, end.y);
+  const crossing = end.x < start.x;
+
+  return rects
+    .filter((r) =>
+      crossing
+        ? r.x <= right && r.x + r.width >= left && r.y <= bottom && r.y + r.height >= top
+        : r.x >= left && r.x + r.width <= right && r.y >= top && r.y + r.height <= bottom,
+    )
+    .map((r) => r.id);
+}
