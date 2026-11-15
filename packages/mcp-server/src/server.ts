@@ -98,7 +98,8 @@ export function createServer(source: ProjectSource): McpServer {
     description: "One calc from the calc package (key from project_summary, or its exact title): title, software, element type, " +
       "pages, spans of page regions, title box, provenance; the elements it links to (with confidence, band, role, caveats, evidence, " +
       "provenance), its typical-group links, findings, and calc -> calc edges (feeds / fed_by, with the evidence text). " +
-      "include_text returns the calc's own text from the PDF (its regions only).",
+      "include_text returns the calc's own text from the PDF (its regions only). Calc keys are calc refs \"<docId>#<key>\" " +
+      "(a project's calcs can be many PDFs); a bare key works when only one document has it.",
     inputSchema: {
       key: z.string(),
       include_text: z.boolean().optional(),
@@ -162,7 +163,9 @@ export function createServer(source: ProjectSource): McpServer {
     title: "Calc page image",
     description: "A page of the calc package PDF as a PNG, rendered locally. rect crops to [x0, y0, x1, y1] and highlight outlines " +
       "boxes, both in PDF points with the origin top-left - the frame of every rects / rect / title_box in the other results, so " +
-      "copy them straight in. width is the image width in pixels (200-3000, default 1200).",
+      "copy them straight in. width is the image width in pixels (200-3000, default 1200). page is a page of ONE PDF: when the " +
+      "project has several calc documents, name it with calc_revision and give that PDF's own page (a page number in the other " +
+      "results is a SET page: subtract that document's page_offset from source.calc_documents).",
     inputSchema: {
       page: z.number().int().min(1),
       rect: rect.optional(),

@@ -13,7 +13,10 @@ interface DocumentBrowserProps {
   calcs: CalcPackage[];
   calcPackageName: string | null;
   /** URL of the calc package PDF (null when there is no calc revision) */
+  /** The calc PDF (one document), or the first document's when the calcs are a set of PDFs. */
   pdfUrl: string | null;
+  /** Calc sets: each calc document's PDF by docId (a calc's `docId`); a calc whose document is missing falls back to pdfUrl. */
+  pdfUrls?: Record<string, string>;
   elementNodes: BimNode[];
   calcToElementIds: Map<string, string[]>;
   calcDependencies: CalcDependency[];
@@ -75,6 +78,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   calcs,
   calcPackageName,
   pdfUrl,
+  pdfUrls,
   elementNodes,
   calcToElementIds,
   calcDependencies,
@@ -98,6 +102,13 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   const hasTabs = groups.length > 0 || findings.length > 0;
   const tab = hasTabs ? tabPick : 'calcs';
   const calcByKey = useMemo(() => new Map(calcs.map((c) => [c.key, c])), [calcs]);
+  // several calc PDFs: each row says which document it is in
+  const multiDoc = useMemo(() => new Set(calcs.map((c) => c.docId)).size > 1, [calcs]);
+  /** The PDF a calc's pages are pages of: its document's, else the one package's. */
+  const urlOf = (calcKey: string | null | undefined): string | null => {
+    const doc = calcKey ? calcByKey.get(calcKey)?.docId : null;
+    return (doc && pdfUrls?.[doc]) || pdfUrl;
+  };
   const nodeById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
 
   const elementLinks = filterBySelectedElement && selectedElement?.kind === 'element' ? selectedElement.calcLinks ?? [] : null;
@@ -130,12 +141,13 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
     const key = side === 'source' ? d.source : d.target;
     const ev = d.evidence.find((e) => e.calcKey === key) ?? null;
     const c = calcByKey.get(key);
-    if (!pdfUrl || !c) return null;
+    const url = urlOf(key);
+    if (!url || !c) return null;
     const page = ev?.page ?? c.pages[0] ?? 1;
     const rects = ev ? ev.rects : [];
     const u = unionBox(rects);
     return {
-      url: pdfUrl,
+      url,
       page,
       rects,
       focus: u ? [Math.max(0, u[0] - 240), Math.max(0, u[1] - 160), u[2] + 240, u[3] + 200] : null,
@@ -185,7 +197,10 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           </div>
         ) : (
           <div className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400 gap-2">
-            <span className="truncate">{c.software || (c.frontMatter ? 'Front matter' : 'No software named')}</span>
+            <span className="truncate">
+              {multiDoc && c.docName && <span className="text-rose-300/80" title="Calc document (PDF)">{c.docName} · </span>}
+              {c.software || (c.frontMatter ? 'Front matter' : 'No software named')}
+            </span>
             <span className="flex items-center gap-1 flex-shrink-0">
               {c.scanned && <Chip tone="warn" title="No text layer: nothing could be read">scanned</Chip>}
               {c.frontMatter && <Chip title="Front matter / contents: never mapped">front</Chip>}
@@ -203,10 +218,11 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
     return c && matchCalc(c);
   });
 
+  const targetUrl = target ? urlOf(target.calcKey) : null;
   const pdfSource =
-    pdfUrl && target
+    targetUrl && target
       ? {
-          url: pdfUrl,
+          url: targetUrl,
           page: target.page,
           rects: target.rects,
           regions: target.region ? [target.region] : [],

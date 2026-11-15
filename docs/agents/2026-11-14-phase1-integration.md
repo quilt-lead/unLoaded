@@ -1,6 +1,6 @@
 # Phase 1: integrate PR #4 (calc engine) with prod
 
-- **Status:** active (PR open to `prod`, awaiting Carl's merge)
+- **Status:** done (merged to `prod` as PR #9, 2026-11-15)
 - **Branch:** `cs/phase1-calc-engine`, cut from `issy/integrate-calc-graph-engine` (PR #4). Supersedes PR #4 as the
   merge vehicle: per D31 in the calc-engine note, Issy stopped merging `prod` and handed integration to Carl.
 - **Owned files:** merge resolutions only (`.gitignore`, `scripts/copy-assets.mjs`, the `data/` path updates),

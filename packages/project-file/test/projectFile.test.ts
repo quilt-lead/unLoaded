@@ -4,7 +4,7 @@ import type { SerializedElementGraph } from "@unloaded/element-graph";
 import { segmentCalcs } from "@unloaded/calc-mapper";
 import {
   PROJECT_FILE_FORMAT, PROJECT_FILE_VERSION, ProjectFileError, decodeBase64, encodeBase64, headOf, isProjectFileFormat,
-  parseProjectFile, storedExtractionFor, type ProjectFile,
+  parseProjectFile, storedExtractionFor, type ProjectFile, LEGACY_DOC_ID, documentHeads, documentName, nextDocId, projectDocuments, legacyCalcRef,
 } from "../src/index.ts";
 
 const graph = (): SerializedElementGraph => ({
@@ -23,14 +23,15 @@ const bytes = (n = 70_000) => Uint8Array.from({ length: n }, (_, i) => (i * 7 + 
 const base = (): ProjectFile => ({
   format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: "2026-11-14T21:00:00-05:00",
   project: { name: "P", createdAt: "2026-11-14T21:00:00-05:00" },
+  documents: [{ docId: "d1", name: "c", removed: false }],
   revisions: [
     { id: 4, kind: "model", seq: 2, label: "b", sourceName: "b.ifc", mediaType: "application/x-step", createdAt: "t", meta: { elements: 2, project: null }, blob: encodeBase64(bytes(10)), graph: graph() },
     { id: 1, kind: "model", seq: 1, label: "a", sourceName: "a.ifc", mediaType: "application/x-step", createdAt: "t", meta: {}, blob: encodeBase64(bytes(3)), graph: graph() },
-    { id: 2, kind: "calcs", seq: 1, label: "c", sourceName: "c.pdf", mediaType: "application/pdf", createdAt: "t", meta: { pages: 3 }, blob: encodeBase64(bytes()), extraction: { calcs: [] } },
+    { id: 2, kind: "calcs", seq: 1, label: "c", sourceName: "c.pdf", mediaType: "application/pdf", createdAt: "t", meta: { pages: 3 }, blob: encodeBase64(bytes()), extraction: { calcs: [] }, docId: "d1" },
   ],
   decisions: [
-    { globalId: "G", calcKey: "k", action: "confirm", actor: "r", note: null, at: "t1", modelRev: 1, calcRev: 2 },
-    { globalId: "G", calcKey: "k", action: "reject", actor: "r", note: "no", at: "t2", modelRev: 4, calcRev: null },
+    { globalId: "G", calcKey: "d1#k", action: "confirm", actor: "r", note: null, at: "t1", modelRev: 1, calcRev: 2 },
+    { globalId: "G", calcKey: "d1#k", action: "reject", actor: "r", note: "no", at: "t2", modelRev: 4, calcRev: null },
   ],
 });
 
@@ -64,7 +65,7 @@ describe("parseProjectFile rejects what a reader can't use, naming the field", (
     expect(isProjectFileFormat(base())).toBe(true);
     expect(isProjectFileFormat({ format: "unloaded.element-graph" })).toBe(false);
     expect(() => parseProjectFile({ ...base(), format: "unloaded.calc-graph-export" })).toThrow(/not a calc-graph project file/);
-    expect(() => parseProjectFile({ ...base(), version: 2 })).toThrow(/version 2 is not supported/);
+    expect(() => parseProjectFile({ ...base(), version: 3 })).toThrow(/version 3 is not supported/);
     expect(() => parseProjectFile([])).toThrow(ProjectFileError);
   });
 
@@ -167,5 +168,51 @@ describe("headOf", () => {
     expect(headOf(f.revisions, "model")?.id).toBe(4);
     expect(headOf(f.revisions, "calcs")?.id).toBe(2);
     expect(headOf([], "calcs")).toBeNull();
+  });
+});
+
+describe("calc documents (version 2) and version-1 files", () => {
+  it("a version-1 file opens: its calc revisions are one legacy document, its bare calc keys refs into it", () => {
+    const v1 = broken((f) => {
+      f.version = 1;
+      delete f.documents;
+      for (const r of f.revisions) delete r.docId;
+      for (const d of f.decisions) d.calcKey = "k";
+    });
+    const p = parseProjectFile(v1);
+    expect(p.version).toBe(PROJECT_FILE_VERSION);
+    expect(p.documents).toEqual([{ docId: LEGACY_DOC_ID, name: "c", removed: false }]);
+    expect(p.revisions.find((r) => r.kind === "calcs")!.docId).toBe(LEGACY_DOC_ID);
+    expect(p.revisions.filter((r) => r.kind === "model").every((r) => r.docId === undefined)).toBe(true);
+    expect(p.decisions.map((d) => d.calcKey)).toEqual(["d1#k", "d1#k"]);
+  });
+
+  it("refuses documents and refs that do not hang together", () => {
+    expect(() => parseProjectFile(broken((f) => delete f.documents))).toThrow(/documents must be a list/);
+    expect(() => parseProjectFile(broken((f) => (f.documents[0].docId = "a#b")))).toThrow(/docId must be a non-empty string/);
+    expect(() => parseProjectFile(broken((f) => f.documents.push({ ...f.documents[0] })))).toThrow(/duplicate docId d1/);
+    expect(() => parseProjectFile(broken((f) => f.documents.push({ docId: "d2", name: "x", removed: false })))).toThrow(/document d2 has no calc revision/);
+    expect(() => parseProjectFile(broken((f) => (f.revisions[2].docId = "d9")))).toThrow(/revisions\[2\]\.docId must name one of documents/);
+    expect(() => parseProjectFile(broken((f) => (f.revisions[0].docId = "d1")))).toThrow(/model revision 4 must not name a calc document/);
+    expect(() => parseProjectFile(broken((f) => (f.decisions[0].calcKey = "k")))).toThrow(/decisions\[0\]\.calcKey must be a calc ref/);
+  });
+
+  it("documents of a project, heads per document, next id, legacy refs", () => {
+    const revs = [
+      { id: 1, kind: "calcs" as const, sourceName: "Beams.pdf" },
+      { id: 2, kind: "model" as const, sourceName: "m.ifc" },
+      { id: 3, kind: "calcs" as const, sourceName: "Cols.pdf", docId: "d2" },
+      { id: 5, kind: "calcs" as const, sourceName: "Beams rev B.pdf", docId: "d1" },
+      { id: 6, kind: "calcs" as const, sourceName: "Stairs.pdf", docId: "d3" },
+    ];
+    const docs = projectDocuments(null, revs);
+    expect(docs.map((d) => [d.docId, d.name])).toEqual([["d1", "Beams"], ["d2", "Cols"], ["d3", "Stairs"]]);
+    const removed = docs.map((d) => (d.docId === "d3" ? { ...d, removed: true } : d));
+    expect(documentHeads(removed, revs).map((h) => [h.doc.docId, h.rev.id])).toEqual([["d1", 5], ["d2", 3]]);
+    expect(nextDocId(docs)).toBe("d4");
+    expect(nextDocId([])).toBe("d1");
+    expect(legacyCalcRef("k")).toBe("d1#k");
+    expect(legacyCalcRef("d2#k")).toBe("d2#k");
+    expect(documentName("calc package.pdf")).toBe("calc package");
   });
 });

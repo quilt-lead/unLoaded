@@ -144,6 +144,9 @@ export interface CalcPackage {
   color: string;
   /** the calc as ordered regions of pages (a calc can start half way down a sheet); [] when unknown */
   regions: CalcRegionView[];
+  /** The calc document (PDF) it is in, when the calcs are a set of PDFs; every page above is a page of that PDF. */
+  docId: string | null;
+  docName: string | null;
 }
 
 /** calc -> calc: the source calc's output feeds the target calc's input. */
@@ -238,6 +241,26 @@ export interface RevisionInfo {
   isHead: boolean;
   /** model revisions: the source file is an IFC (real meshes) rather than a JSON model (boxes) */
   isIfc: boolean;
+}
+
+/** A calc document (one logical PDF) and its revisions, newest first; the head is what the calc set maps. */
+export interface CalcDocumentInfo {
+  docId: string;
+  name: string;
+  /** Withdrawn from the calc set: kept, not mapped. */
+  removed: boolean;
+  revisions: RevisionInfo[];
+}
+
+/** Calcs added / removed / changed / moved between two revisions of a calc document. */
+export interface CalcRevisionDiffView {
+  a: number;
+  b: number;
+  added: { key: string; title: string }[];
+  removed: { key: string; title: string }[];
+  changed: { key: string; title: string; beforeTitle: string }[];
+  moved: { key: string; title: string; beforePages: number[]; afterPages: number[] }[];
+  unchanged: number;
 }
 
 /** physical connectivity between two elements (element-graph `connects` / `part_of`), undirected */

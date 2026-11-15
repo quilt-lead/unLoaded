@@ -32,7 +32,12 @@ export { addDecision, applyDecisions, decisionFrom, effectiveDecisions, decision
 export {
   parseGraph, graphElements, loadPath, connectivity, elementContentHash, diffFields, type DiffFields, GraphFormatError, GRAPH_FORMAT, GRAPH_VERSION,
 } from "./elements.ts";
-export { mapCalcs, runProducers, buildState, buildExport, impactOf, statusOf, PALETTE } from "./project.ts";
+export { mapCalcs, runProducers, buildState, buildExport, impactOf, statusOf, packageOf, PALETTE, type CalcInput } from "./project.ts";
+export {
+  buildCalcSet, calcRef, parseCalcRef, isCalcSet, setPageOf, docPageOf, documentShas, documentStem, resolveRevisionTarget, diffCalcSets,
+  CALC_REF_SEP, KEY_OVERLAP_MIN,
+  type CalcSet, type CalcSetDoc, type CalcSetDocument, type KnownDocument, type RevisionTarget, type CalcSetDiff, type CalcDiffEntry,
+} from "./calcset.ts";
 export { sha1, sha1Json, sha256, sha256Json, SHA256_HEX, canonicalJson } from "./hash.ts";
 export {
   PACKAGE_NAME, PACKAGE_VERSION, RULES, producerOf, inputList, ruleProvenance, estimateProvenance, humanProvenance,

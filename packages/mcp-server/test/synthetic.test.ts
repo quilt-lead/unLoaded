@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildExport, diffGraphs, impactOf, mapCalcs, parseGraph, type CalcPackage } from "@unloaded/calc-mapper";
+import { buildCalcSet, buildExport, diffGraphs, impactOf, mapCalcs, parseGraph, type CalcPackage } from "@unloaded/calc-mapper";
 import { makeProjectFile } from "../src/makeProjectFile.ts";
 import { loadProject } from "../src/project.ts";
 import { decisionsOf } from "../src/decisionLog.ts";
@@ -32,7 +32,7 @@ describe.skipIf(!present)("synthetic package as a project file", () => {
     });
     const p = await loadProject(writeTemp(file, "sample.calcgraph.json"));
     const g1 = parseGraph(file.revisions[0]!.graph), g2 = parseGraph(file.revisions[2]!.graph);
-    const pkg = file.revisions[1]!.extraction as CalcPackage;
+    const pkg = buildCalcSet([{ doc_id: "d1", name: "calc_package", revision: 2, package: file.revisions[1]!.extraction as CalcPackage }]);
     const run = await mapCalcs(g2, pkg);
     const exp = buildExport(g2, pkg, run, decisionsOf(file), { model: files[2], model_revision: 3, calc_package: files[1], calc_revision: 2 });
 

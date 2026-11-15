@@ -5,8 +5,8 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import {
-  buildExport, buildState, diffGraphs, impactOf, mapCalcs, sha256, sha256Json,
-  type CalcPackage, type DecisionFields, type Export, type MappingRun, type ProjectState, type SerializedElementGraph,
+  buildCalcSet, buildExport, buildState, diffGraphs, impactOf, mapCalcs, sha256, sha256Json,
+  type CalcPackage, type CalcSet, type DecisionFields, type Export, type MappingRun, type ProjectState, type SerializedElementGraph,
 } from "@unloaded/calc-mapper";
 import { impact as moveImpact } from "@unloaded/move-impact";
 import { loadProject, type LoadedProject } from "../src/project.ts";
@@ -20,7 +20,7 @@ const wire = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 interface Direct {
   graph: SerializedElementGraph;
-  pkg: CalcPackage;
+  pkg: CalcSet;
   run: MappingRun;
   decisions: DecisionFields[];
   state: ProjectState;
@@ -29,7 +29,9 @@ interface Direct {
 
 async function direct(file: ProjectFile): Promise<Direct> {
   const m = file.revisions.find((r) => r.id === 3)!, c = file.revisions.find((r) => r.id === 2)!;
-  const graph = m.graph!, pkg = c.extraction as CalcPackage;
+  const graph = m.graph!;
+  // the calc set the server maps: the head of each calc document (here one document, revision 2)
+  const pkg = buildCalcSet([{ doc_id: c.docId!, name: file.documents[0]!.name, revision: 2, package: c.extraction as CalcPackage }]);
   const decisions = decisionsOf(file);
   const run = await mapCalcs(graph, pkg);
   return {
@@ -184,8 +186,8 @@ describe("calc package source", () => {
     c.extraction = { ...pkg, source_sha256: other, pages: pkg.pages.map((pg) => ({ ...pg, doc_sha256: other })) };
     const p = await loadProject(writeTemp(file));
     const v = await p.view();
-    expect(v.calcs?.extraction).toBe("re-extracted");
-    expect(v.run?.producers.calc_package.sha256).toBe(await sha256(pdf));
+    expect(v.calcRevs[0]?.extraction).toBe("re-extracted");
+    expect(v.run?.producers.calc_package?.sha256).toBe(await sha256(pdf));
   });
 
   // through the shared rule (storedExtractionFor): a malformed extraction is re-extracted, with the reason
@@ -194,8 +196,8 @@ describe("calc package source", () => {
     const c = file.revisions.find((r) => r.kind === "calcs")!;
     c.extraction = { source_sha256: await sha256(pdf), calcs: [] };
     const v = await (await loadProject(writeTemp(file))).view();
-    expect([v.calcs?.extraction, v.calcs?.extractionNote]).toEqual(["re-extracted", expect.stringMatching(/malformed \(pages/)]);
-    expect(v.run?.producers.calc_package.sha256).toBe(await sha256(pdf));
+    expect([v.calcRevs[0]?.extraction, v.calcRevs[0]?.extractionNote]).toEqual(["re-extracted", expect.stringMatching(/malformed \(pages/)]);
+    expect(v.run?.producers.calc_package?.sha256).toBe(await sha256(pdf));
   });
 
   it("revision arguments select other revisions; a project with no calcs still answers model questions", async () => {
@@ -203,7 +205,7 @@ describe("calc package source", () => {
     const p = await loadProject(writeTemp(file));
     const s1 = await tools.projectSummary(p, { model_revision: 1 });
     expect(s1.counts.elements).toBe(7);
-    const noCalcs = await loadProject(writeTemp({ ...file, revisions: file.revisions.filter((r) => r.kind === "model") }));
+    const noCalcs = await loadProject(writeTemp({ ...file, documents: [], revisions: file.revisions.filter((r) => r.kind === "model") }));
     const s = await tools.projectSummary(noCalcs);
     expect([s.counts.elements, s.counts.calcs, s.counts.links, s.source.calc_revision]).toEqual([6, 0, 0, null]);
     await expect(tools.getCalc(noCalcs, { key: "x" })).rejects.toThrow(/no calc package/);

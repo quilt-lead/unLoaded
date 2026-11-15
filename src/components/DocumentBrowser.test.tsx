@@ -12,6 +12,8 @@ import { DocumentBrowser, calcMatchesQuery } from './DocumentBrowser';
 // says why the list is empty.
 const calc: CalcPackage = {
   key: 'beam-checks',
+  docId: null,
+  docName: null,
   title: 'Beam checks',
   software: 'RAM',
   elementType: 'beam',

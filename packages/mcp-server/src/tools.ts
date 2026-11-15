@@ -187,12 +187,18 @@ export type GetCalcArgs = { key: string; include_text?: boolean | null; max_char
 
 export async function getCalc(p: LoadedProject, a: GetCalcArgs) {
   const v = await p.view(a.model_revision, a.calc_revision);
-  if (!v.calcs) throw new ToolInputError("this project has no calc package yet");
+  if (!v.set) throw new ToolInputError("this project has no calc package yet");
   const want = a.key.trim();
-  const calc = v.exp.calcs.find((c) => c.key === want) ?? v.exp.calcs.find((c) => lc(c.title) === lc(want));
+  // a calc ref ("d1#beam-design"), else a bare key when exactly one document has it, else a title
+  const bare = v.exp.calcs.filter((c) => c.key.slice(c.key.indexOf("#") + 1) === want);
+  const calc = v.exp.calcs.find((c) => c.key === want) ?? (bare.length === 1 ? bare[0] : undefined)
+    ?? v.exp.calcs.find((c) => lc(c.title) === lc(want));
+  if (!calc && bare.length > 1) {
+    throw new ToolInputError(`calc key ${JSON.stringify(want)} is in ${bare.length} calc documents: name one (${bare.map((c) => c.key).join(", ")})`);
+  }
   if (!calc) {
     const keys = v.exp.calcs.slice(0, 60).map((c) => c.key).join(", ");
-    throw new ToolInputError(`no calc ${JSON.stringify(want)} in calc revision ${v.calcs.rev.id}; calc keys: ${keys}`);
+    throw new ToolInputError(`no calc ${JSON.stringify(want)} in calc revisions ${v.calcRevs.map((c) => c.rev.id).join(", ")}; calc keys: ${keys}`);
   }
   const idx = elementIndex(v);
   const titles = new Map(v.exp.calcs.map((c) => [c.key, c.title]));
@@ -203,7 +209,7 @@ export async function getCalc(p: LoadedProject, a: GetCalcArgs) {
   })).sort((p1, p2) => p2.confidence - p1.confidence);
   let text: { text: string; chars: number; truncated: boolean } | null = null;
   if (a.include_text) {
-    const full = calcText(v.calcs.pkg, calc);
+    const full = calcText(v.set.combined, calc);
     const max = Math.max(500, Math.min(200_000, Math.trunc(a.max_chars ?? 20_000)));
     text = { text: full.slice(0, max), chars: full.length, truncated: full.length > max };
   }
@@ -233,7 +239,7 @@ export async function impactOfChange(p: LoadedProject, a: ImpactArgs) {
   const e = resolveElement(v, a.id);
   const mode: ImpactMode = a.mode ?? "change";
   // the same call, on the same inputs, as the app's projectService.impactOf
-  const imp = await impactOf(v.model.graph, v.calcs?.pkg ?? null, v.run, v.decisions, e.global_id, mode);
+  const imp = await impactOf(v.model.graph, v.set, v.run, v.decisions, e.global_id, mode);
   const idx = elementIndex(v);
   const titles = new Map(v.exp.calcs.map((c) => [c.key, c.title]));
   return {
@@ -331,7 +337,11 @@ export async function listTypicalGroups(p: LoadedProject, a: GroupsArgs = {}) {
 export type PageImageArgs = { page: number; calc_revision?: number | null; rect?: number[] | null; highlight?: number[][] | null; width?: number | null };
 
 export async function getPageImage(p: LoadedProject, a: PageImageArgs): Promise<{ image: PageImage; meta: Record<string, unknown> }> {
-  const cid = a.calc_revision ?? p.head("calcs")?.id ?? null;
+  const heads = p.headSet();
+  if (a.calc_revision == null && heads.length > 1) {
+    throw new ToolInputError(`this project has ${heads.length} calc documents: name one with calc_revision (${heads.map((r) => `${r.id} = ${r.sourceName}`).join(", ")}); page is that PDF's own page`);
+  }
+  const cid = a.calc_revision ?? heads[0]?.id ?? null;
   if (cid == null) throw new ToolInputError("this project has no calc package yet");
   const c = await p.calcRevision(cid);
   const image = await renderPage(c.bytes, a.page, { rect: a.rect ?? null, highlight: a.highlight ?? null, width: a.width ?? null });

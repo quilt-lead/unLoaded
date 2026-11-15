@@ -14,11 +14,15 @@
 // buildGraph -> elementGraphToBim path as an IFC.
 import { buildGraph, type ElementKind, type ModelInput, type ElementGraph } from '@unloaded/element-graph';
 import type { Compare, Export, ExportProducers, Impact, Provenance } from '@unloaded/calc-mapper/types';
+import type { CalcSetDiff } from '@unloaded/calc-mapper';
+import { docIdOf, type ProjectFileDocument } from '@unloaded/project-file';
 import type { RevisionRecord } from './projectStore';
 import type {
   BimLink,
   BimNode,
   CalcData,
+  CalcDocumentInfo,
+  CalcRevisionDiffView,
   CalcDependency,
   CalcLink,
   CalcPackage,
@@ -44,28 +48,48 @@ function shortCalcLabel(title: string): string {
   return head.length > 26 ? `${head.slice(0, 25)}…` : head;
 }
 
+/**
+ * The calc document a calc ref names ("d2#beam-design" -> "d2"); null for a bare key (an export of one package).
+ * Every page number in the view belongs to a calc, so its document comes from that calc's ref.
+ */
+export const docIdOfCalc = (calcKey: string | null | undefined): string | null => {
+  const i = calcKey ? calcKey.indexOf('#') : -1;
+  return i > 0 ? calcKey!.slice(0, i) : null;
+};
+
 /** Calc engine output -> CalcData: calcs, the calc graph, and every element's links by GlobalId. */
 export function toCalcData(exp: Export, info: { projectName?: string | null; modelRevisionId?: number | null; calcRevisionId?: number | null } = {}): CalcData {
+  // A calc-set export numbers pages across its PDFs (set page = PDF page + the document's offset). The
+  // view shows each PDF's OWN page numbers: every page below is converted here, by the document of the
+  // calc it belongs to, so no component ever sees a set page.
+  const docs = new Map((exp.documents ?? []).map((d) => [d.doc_id, d]));
+  const own = (calcKey: string | null | undefined, page: number): number => page - (docs.get(docIdOfCalc(calcKey) ?? '')?.page_offset ?? 0);
+  const ownOrNull = (calcKey: string | null | undefined, page: number | null | undefined): number | null => (page == null ? null : own(calcKey, page));
 
-  const calcs: CalcPackage[] = exp.calcs.map((c, i) => ({
-    key: c.key,
-    title: c.title || c.key,
-    software: c.software || '',
-    elementType: c.element_type || '',
-    pages: Array.isArray(c.pages) ? c.pages : [],
-    scanned: Boolean(c.scanned),
-    frontMatter: Boolean(c.front_matter),
-    titleBox: c.title_box ? { page: c.title_box.page, rects: c.title_box.rects ?? [] } : null,
-    color: CALC_PALETTE[i % CALC_PALETTE.length],
-    regions: (c.spans ?? []).flatMap((sp) => sp.regions.map((r) => ({ page: r.page, rect: [...r.rect] }))),
-  }));
+  const calcs: CalcPackage[] = exp.calcs.map((c, i) => {
+    const doc = docs.get(docIdOfCalc(c.key) ?? '');
+    return {
+      key: c.key,
+      title: c.title || c.key,
+      software: c.software || '',
+      elementType: c.element_type || '',
+      pages: Array.isArray(c.pages) ? c.pages.map((p) => own(c.key, p)) : [],
+      scanned: Boolean(c.scanned),
+      frontMatter: Boolean(c.front_matter),
+      titleBox: c.title_box ? { page: own(c.key, c.title_box.page), rects: c.title_box.rects ?? [] } : null,
+      color: CALC_PALETTE[i % CALC_PALETTE.length],
+      regions: (c.spans ?? []).flatMap((sp) => sp.regions.map((r) => ({ page: own(c.key, r.page), rect: [...r.rect] }))),
+      docId: doc?.doc_id ?? null,
+      docName: doc?.name ?? null,
+    };
+  });
   const calcByKey = new Map(calcs.map((c) => [c.key, c]));
 
   const calcDependencies: CalcDependency[] = exp.calc_edges.map((e) => ({
     source: e.src,
     target: e.dst,
     rules: e.rules ?? [],
-    evidence: (e.evidence ?? []).map((ev) => ({ calcKey: ev.calc, page: ev.page, text: ev.text, line: ev.line ?? null, rects: ev.rects ?? [] })),
+    evidence: (e.evidence ?? []).map((ev) => ({ calcKey: ev.calc, page: own(ev.calc, ev.page), text: ev.text, line: ev.line ?? null, rects: ev.rects ?? [] })),
   }));
 
   const linksByElement = new Map<string, CalcLink[]>();
@@ -81,11 +105,11 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
         rule: l.rule,
         matchedText: l.matched_text ?? '',
         review: l.review,
-        evidence: { page: l.evidence?.page ?? l.page ?? null, rects: l.evidence?.rects ?? [], snippet: l.evidence?.snippet ?? null },
+        evidence: { page: ownOrNull(l.calc, l.evidence?.page ?? l.page), rects: l.evidence?.rects ?? [], snippet: l.evidence?.snippet ?? null },
         // exports written before roles existed: treat as design links, banded by confidence
         role: l.role ?? 'design',
         band: l.band ?? (l.confidence >= 0.8 ? 'high' : l.confidence >= 0.5 ? 'medium' : 'low'),
-        reasons: (l.reasons ?? []).map((r) => ({ kind: r.kind, weight: r.weight, note: r.note, page: r.page, rects: r.rects ?? [] })),
+        reasons: (l.reasons ?? []).map((r) => ({ kind: r.kind, weight: r.weight, note: r.note, page: ownOrNull(l.calc, r.page), rects: r.rects ?? [] })),
         caveats: l.caveats ?? [],
         viaGroup: l.via_group,
         provenance: toProvenance(l.provenance),
@@ -106,7 +130,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
   const calcNodes: BimNode[] = [
     {
       id: CALC_ROOT_ID,
-      label: 'Calc package',
+      label: docs.size > 1 ? 'Calc set' : 'Calc package',
       kind: 'calc-root',
       level: 0,
       r: 36,
@@ -148,7 +172,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
       r: linked > 40 ? 17 : linked > 0 ? 14 : 11,
       x: 0,
       y: 0,
-      desc: `${c.title}${c.software ? ` · ${c.software}` : ''} · ${linked} linked element${linked === 1 ? '' : 's'}`,
+      desc: `${c.title}${c.software ? ` · ${c.software}` : ''}${docs.size > 1 && c.docName ? ` · ${c.docName}` : ''} · ${linked} linked element${linked === 1 ? '' : 's'}`,
     });
     calcLinks.push({ source: cid, target: calcNodeId(c.key), relation: 'hierarchy' });
   }
@@ -167,7 +191,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
     members: g.members,
     links: groupLinks
       .filter((gl) => gl.group === g.id && calcByKey.has(gl.calc_key))
-      .map((gl) => ({ calcKey: gl.calc_key, confidence: gl.conf, band: gl.band, role: gl.role, rule: gl.rule, page: gl.page, rects: gl.rects ?? [], caveats: gl.caveats ?? [] }))
+      .map((gl) => ({ calcKey: gl.calc_key, confidence: gl.conf, band: gl.band, role: gl.role, rule: gl.rule, page: ownOrNull(gl.calc_key, gl.page), rects: gl.rects ?? [], caveats: gl.caveats ?? [] }))
       .sort((a, b) => b.confidence - a.confidence),
   }));
   const findings: FindingView[] = (exp.findings ?? []).map((f) => ({
@@ -176,7 +200,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
     calcKey: f.calc_key,
     modelSize: f.model_size,
     calcSize: f.calc_size,
-    page: f.page,
+    page: own(f.calc_key, f.page),
     rects: f.rects ?? [],
     snippet: f.snippet ?? null,
     note: f.note,
@@ -394,4 +418,26 @@ export function toRevisionList(revs: RevisionRecord[], heads: { model: number | 
       isIfc: x.mediaType === 'application/x-step',
     }))
     .sort((a, b) => b.id - a.id);
+}
+
+/** Calc documents with their revisions (newest first; `isHead` = the document's head, the revision the set maps). */
+export function toCalcDocuments(documents: ProjectFileDocument[], revs: RevisionRecord[], counts: Map<number, number>): CalcDocumentInfo[] {
+  const list = toRevisionList(revs, { model: null, calcs: null }, counts);
+  return documents.map((d) => {
+    const mine = list.filter((r) => r.kind === 'calcs' && docIdOf(revs.find((x) => x.id === r.id)!) === d.docId);
+    return { docId: d.docId, name: d.name, removed: d.removed, revisions: mine.map((r, i) => ({ ...r, isHead: i === 0 })) };
+  });
+}
+
+/** The engine's calc diff of two revisions of one document, as view data (keys bare: both are the same document). */
+export function toCalcRevisionDiff(d: CalcSetDiff, a: number, b: number): CalcRevisionDiffView {
+  return {
+    a,
+    b,
+    added: d.added.map((x) => ({ key: x.key, title: x.title })),
+    removed: d.removed.map((x) => ({ key: x.key, title: x.title })),
+    changed: d.changed.map((x) => ({ key: x.key, title: x.title, beforeTitle: x.before_title })),
+    moved: d.moved.map((x) => ({ key: x.key, title: x.title, beforePages: x.before_pages, afterPages: x.after_pages })),
+    unchanged: d.unchanged,
+  };
 }

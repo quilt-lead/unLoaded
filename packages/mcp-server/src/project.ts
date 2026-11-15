@@ -1,17 +1,19 @@
 /**
- * A project file loaded for querying: the revisions decoded, and, per (model revision, calc
- * revision) pair, the engine's output computed in-process by @unloaded/calc-mapper - the same
- * package, the same calls and the same order the app's worker makes (src/engine/ops.ts,
- * src/engine/projectService.ts):
+ * A project file loaded for querying: the revisions decoded, and, per (model revision, calc set)
+ * pair, the engine's output computed in-process by @unloaded/calc-mapper - the same package, the
+ * same calls and the same order the app's worker makes (src/engine/ops.ts,
+ * src/engine/projectService.ts). The calc SET is every calc document's head revision (what the app
+ * maps); a tool that names a calc_revision gets that one revision as a set of its own document.
  *
  *   graph   = the model revision's stored element graph (parseGraph; never re-parsed from the IFC)
  *   pkg     = the calc revision's stored extraction when `storedExtractionFor` (@unloaded/project-file,
  *             the rule the app uses too) accepts it against the sha256 of the PDF in the file;
  *             otherwise extractPdf + segmentCalcs on that PDF, so every provenance hash names the PDF
  *             actually in the file
- *   run     = mapCalcs(graph, pkg)
- *   state   = buildState(graph, pkg, run, decisions)
- *   exp     = buildExport(graph, pkg, run, decisions, info)   (info: the labels the app passes)
+ *   set     = buildCalcSet(each document's { doc_id, name, revision, package: pkg })
+ *   run     = mapCalcs(graph, set)
+ *   state   = buildState(graph, set, run, decisions)
+ *   exp     = buildExport(graph, set, run, decisions, info)   (info: the labels the app passes)
  *
  * Nothing here writes: the file is read, hashed and decoded; all results live in memory.
  * `ProjectSource` caches a loaded project per sha256 of the file's bytes and re-reads the file only
@@ -20,12 +22,12 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename } from "node:path";
 import {
-  ENGINE_VERSION, buildExport, buildState, extractPdf, mapCalcs, parseGraph, segmentCalcs, sha256, sha256Json,
-  type CalcPackage, type DecisionFields, type Export, type MappingRun, type PdfjsLike, type ProjectState,
+  ENGINE_VERSION, buildCalcSet, buildExport, buildState, extractPdf, mapCalcs, parseGraph, segmentCalcs, sha256, sha256Json,
+  type CalcPackage, type CalcSet, type DecisionFields, type Export, type MappingRun, type PdfjsLike, type ProjectState,
   type SerializedElementGraph,
 } from "@unloaded/calc-mapper";
 import {
-  ProjectFileError, decodeBase64, headOf, parseProjectFile, storedExtractionFor, type ProjectFile, type ProjectFileRevision,
+  ProjectFileError, decodeBase64, docIdOf, documentHeads, headOf, parseProjectFile, storedExtractionFor, type ProjectFile, type ProjectFileRevision,
 } from "@unloaded/project-file";
 import { decisionsOf } from "./decisionLog.ts";
 
@@ -52,10 +54,13 @@ export interface ModelRevision {
   graph: SerializedElementGraph;
 }
 
-/** The engine's view of one (model revision, calc revision) pair. */
+/** The engine's view of one (model revision, calc set) pair. */
 export interface View {
   model: ModelRevision;
-  calcs: CalcRevision | null;
+  /** The calc revisions of the set, in set order (empty: no calcs yet). */
+  calcRevs: CalcRevision[];
+  /** The calc set mapped (null: no calcs yet). Page numbers in the run / export are its SET pages. */
+  set: CalcSet | null;
   graphSha256: string;
   run: MappingRun | null;
   state: ProjectState;
@@ -132,32 +137,41 @@ export class LoadedProject {
     return p;
   }
 
-  /** Resolve the (model, calc) pair a tool asked for, defaulting to the heads (what the app shows). */
-  pair(modelRev?: number | null, calcRev?: number | null): { model: number; calcs: number | null } {
+  /** The calc revisions of the set the app maps: every live document's head, in set order. */
+  headSet(): ProjectFileRevision[] {
+    return documentHeads(this.file.documents, this.file.revisions).map((h) => h.rev);
+  }
+
+  /** Resolve the (model, calcs) pair a tool asked for, defaulting to the heads (what the app shows). */
+  pair(modelRev?: number | null, calcRev?: number | null): { model: number; calcs: number[] } {
     const m = modelRev ?? this.head("model")?.id ?? null;
     if (m == null) throw new ProjectFileError("this project has no model revision yet (add an IFC in the app, then save the project again)");
-    const c = calcRev ?? this.head("calcs")?.id ?? null;
-    return { model: m, calcs: c };
+    return { model: m, calcs: calcRev != null ? [calcRev] : this.headSet().map((r) => r.id) };
   }
 
   view(modelRev?: number | null, calcRev?: number | null): Promise<View> {
-    const { model: m, calcs: c } = this.pair(modelRev, calcRev);
-    const key = `${m}:${c ?? "-"}`;
+    const { model: m, calcs: cs } = this.pair(modelRev, calcRev);
+    const key = `${m}:${cs.join(",") || "-"}`;
     let p = this.views.get(key);
     if (!p) {
       p = (async () => {
         const model = await this.model(m);
-        const calcs = c == null ? null : await this.calcRevision(c);
+        const calcRevs = await Promise.all(cs.map((c) => this.calcRevision(c)));
+        const docName = (id: string) => this.file.documents.find((d) => d.docId === id)?.name ?? id;
+        const set = calcRevs.length
+          ? buildCalcSet(calcRevs.map((c) => ({ doc_id: docIdOf(c.rev), name: docName(docIdOf(c.rev)), revision: c.rev.id, package: c.pkg })))
+          : null;
         const graphSha256 = await sha256Json(model.graph);
-        const run = calcs ? await mapCalcs(model.graph, calcs.pkg) : null;
-        const pkg = calcs?.pkg ?? null;
-        const state = buildState(model.graph, pkg, run, this.decisions);
+        const run = set ? await mapCalcs(model.graph, set) : null;
+        const state = buildState(model.graph, set, run, this.decisions);
         // the same header labels the app's projectSnapshot passes
-        const exp = buildExport(model.graph, pkg, run, this.decisions, {
+        const one = calcRevs.length === 1 ? calcRevs[0]! : null;
+        const exp = buildExport(model.graph, set, run, this.decisions, {
           model: model.rev.sourceName, model_revision: model.rev.id,
-          calc_package: calcs?.rev.sourceName ?? null, calc_revision: calcs?.rev.id ?? null,
+          calc_package: one ? one.rev.sourceName : calcRevs.length ? `${calcRevs.length} calc documents` : null,
+          calc_revision: one ? one.rev.id : null,
         });
-        return { model, calcs, graphSha256, run, state, exp, decisions: this.decisions };
+        return { model, calcRevs, set, graphSha256, run, state, exp, decisions: this.decisions };
       })();
       p.catch(() => this.views.delete(key));
       this.views.set(key, p);
@@ -171,17 +185,21 @@ export class LoadedProject {
       project_file: basename(this.path),
       project_file_sha256: this.sha256,
       model_revision: { id: v.model.rev.id, label: v.model.rev.label, source_name: v.model.rev.sourceName, graph_sha256: v.graphSha256 },
-      calc_revision: v.calcs
-        ? {
-          id: v.calcs.rev.id, label: v.calcs.rev.label, source_name: v.calcs.rev.sourceName, pdf_sha256: v.calcs.pkg.source_sha256,
-          extraction: v.calcs.extraction, ...(v.calcs.extractionNote ? { extraction_note: v.calcs.extractionNote } : {}),
-        }
-        : null,
+      calc_revision: v.calcRevs.length === 1 ? calcRevisionSource(v.calcRevs[0]!) : null,
+      /** every calc document of the set, in set order: set page = document page + page_offset */
+      calc_documents: v.calcRevs.map((c, i) => ({
+        doc_id: docIdOf(c.rev), page_offset: v.set!.docs[i]!.page_offset, ...calcRevisionSource(c),
+      })),
       engine: ENGINE_VERSION,
       producers: v.exp.producers,
     };
   }
 }
+
+const calcRevisionSource = (c: CalcRevision) => ({
+  id: c.rev.id, label: c.rev.label, source_name: c.rev.sourceName, pdf_sha256: c.pkg.source_sha256,
+  extraction: c.extraction, ...(c.extractionNote ? { extraction_note: c.extractionNote } : {}),
+});
 
 /** Read and validate a project file into a LoadedProject (no engine work yet: views compute lazily). */
 export async function loadProject(path: string, bytes?: Uint8Array): Promise<LoadedProject> {

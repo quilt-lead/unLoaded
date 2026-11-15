@@ -102,7 +102,7 @@ export const FileDropOverlay: React.FC<FileDropOverlayProps> = ({
             )}
           </div>
           <p className="mono text-[10px] text-zinc-400 text-center uppercase tracking-wider">
-            Accepts {extList} · one file at a time
+            Accepts {extList} · calc PDFs several at once, anything else one file at a time
           </p>
         </div>
       )}
