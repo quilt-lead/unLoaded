@@ -267,9 +267,19 @@ def _change_order_input(d: dict, res: dict) -> dict:
     touched = sorted({e for s in res["stale"] for e in d_rec(d, s["record"])["elements"]} | {res["column"]})
     sheets = sorted({o.get("sheet") for e in touched for o in res["occurrences"].get(e, []) if o.get("doc") == "drawings" and o.get("sheet")})
     reg = _registry()   # the ONE derivation of what governs an element (registry_view.governing_specs)
-    specs = sorted({a for e in touched for a in reg.governing_specs(e)})
+    arts: dict[str, set] = {}                 # article -> the registry links (via) that bring it in
+    links: dict[str, dict[str, set]] = {}     # link -> the touched elements it reaches and the articles it brings
+    for e in touched:
+        for a, via in reg.governing_specs(e).items():
+            arts.setdefault(a, set()).update(via)
+            for v in via:
+                ln = links.setdefault(v, {"elements": set(), "articles": set()})
+                ln["elements"].add(e)
+                ln["articles"].add(a)
     return {"elements": touched, "resized": resized, "connections_changed": conns, "footings_changed": ftgs,
-            "records": [s["record"] for s in res["stale"] if s["screened"]], "sheets": sheets, "spec_articles": specs}
+            "records": [s["record"] for s in res["stale"] if s["screened"]], "sheets": sheets,
+            "spec_articles": sorted(arts), "spec_via": {a: sorted(v) for a, v in sorted(arts.items())},
+            "spec_links": {v: {"elements": sorted(x["elements"]), "articles": sorted(x["articles"])} for v, x in sorted(links.items())}}
 
 
 def d_rec(d: dict, rid: str) -> dict:

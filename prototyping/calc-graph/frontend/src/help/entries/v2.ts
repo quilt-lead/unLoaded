@@ -465,7 +465,9 @@ export const V2_HELP = {
   "panel.co-specs": {
     title: "Spec articles",
     short:
-      "Spec articles governing the types and materials of affected elements (for example W-shape steel, fireproofing). Open article shows it highlighted.",
+      "Spec articles governing the touched elements, grouped by the registry link that brings each in (lateral frame, member type, material, detail, affected submittal), collapsed. Open a group to see its articles and how many touched elements the link reaches.",
+    read: "An article brought in by several links is listed under each; the badge on the section counts distinct articles.",
+    source: "registry_view.governing_specs for every touched element (change order spec_links).",
   },
   "panel.co-records": {
     title: "Calc records",

@@ -8,7 +8,9 @@ estimate(impact, adapters, design) -> dict
      "resized": [{"id", "old_size", "new_size", "length_ft"}],
      "connections_changed": [{"id", "old_type", "new_type"}],
      "footings_changed": [{"id", "old_B_ft", "new_B_ft", "old_h_in", "new_h_in"}],
-     "records": [calc record ids to redo], "sheets": [...], "spec_articles": [...]}
+     "records": [calc record ids to redo], "sheets": [...], "spec_articles": [...],
+     "spec_via": {article: [registry links that bring it in: element, type, material, frame, detail]},
+     "spec_links": {link: {"elements": [touched elements it reaches], "articles": [articles it brings in]}}}
 
 Output (every number is a figure {"value", "unit", "estimate": true, "basis"}; every item that
 lives on a platform carries "platform", "link" (mock deep link) and "sources" (all platforms):
@@ -16,7 +18,8 @@ lives on a platform carries "platform", "link" (mock deep link) and "sources" (a
      "submittals": [{ref, number, title, status, stage, action, flag, element_ids, platform, link, sources}],
      "rfis": [{ref, number, title, status, action, element_ids, platform, link, sources}],
      "sheets": [{number, title, source, platform?, link?, sources?}],
-     "spec_articles": [{article, source}],
+     "spec_articles": [{article, source, via}],   (via from impact spec_via; an affected submittal's article: via [its ref])
+     "spec_links": {link: {elements, articles}},   (impact spec_links, plus one per affected submittal)
      "calc_records": [ids],
      "cost": {"lines": [{category, element_id, description, figure, platform, link}],
               "by_category": {category: figure}, "total": figure, "range": {low, high}},
@@ -148,12 +151,15 @@ def estimate(impact: dict, adapters: list[PlatformAdapter], design: dict) -> dic
             next(s for s in sheets_out if s["number"] == d["number"]).update({k: v for k, v in entry.items() if k != "source"})
         else:
             sheets_out.append(entry)
-    specs = [{"article": s, "source": "impact"} for s in (impact.get("spec_articles") or [])]
+    via = impact.get("spec_via") or {}
+    spec_links = {k: {"elements": list(v["elements"]), "articles": list(v["articles"])} for k, v in (impact.get("spec_links") or {}).items()}
+    specs = [{"article": s, "source": "impact", "via": via.get(s, [])} for s in (impact.get("spec_articles") or [])]
     for s in subs_out:
         sec = next((r.fields["spec_section"] for r, _ in sub_recs if r.ref == s["ref"]), None)
         if sec and not any(x["article"].startswith(sec) for x in specs):
             specs.append({"article": f"{sec} {next(r.fields['spec_title'] for r, _ in sub_recs if r.ref == s['ref'])} - 1.4 Submittals",
-                          "source": "affected submittal"})
+                          "source": "affected submittal", "via": [s["ref"]]})
+            spec_links[s["ref"]] = {"elements": sorted(s.get("element_ids") or []), "articles": [specs[-1]["article"]]}
 
     # ---------------------------------------------------------------- cost
     budget = []
@@ -378,7 +384,7 @@ def estimate(impact: dict, adapters: list[PlatformAdapter], design: dict) -> dic
                      f"{len(subs_out)} submittals ({len(flagged)} approved or later), {len(rfis_out)} RFIs, "
                      f"forecast slip {project_slip} wd, {finish_delay} wd past contract; worst element stage: {worst}"),
     }
-    return {"summary": summary, "submittals": subs_out, "rfis": rfis_out, "sheets": sheets_out, "spec_articles": specs,
+    return {"summary": summary, "submittals": subs_out, "rfis": rfis_out, "sheets": sheets_out, "spec_articles": specs, "spec_links": spec_links,
             "calc_records": records, "cost": cost, "schedule": schedule,
             "assumptions": {"as_of": st.as_of if st is not None else None, "rates": rates, "schedule_rules": rules,
                             "note": "synthetic project; unit rates are stated assumptions, not quotes"},

@@ -160,7 +160,10 @@ export interface ChangeOrder {
   submittals?: CoItem[];
   rfis?: CoItem[];
   sheets?: CoItem[];
-  spec_articles?: { article: string; source?: string }[];
+  /** via = the registry links that bring the article in (element, type, material, frame, detail, or an affected submittal) */
+  spec_articles?: { article: string; source?: string; via?: string[] }[];
+  /** per registry link: the touched elements it reaches and the articles it brings in (group the spec list by this) */
+  spec_links?: Record<string, { elements: string[]; articles: string[] }>;
   calc_records?: string[];
   cost?: { lines: CostLine[]; [k: string]: unknown };
   schedule?: { activities: ScheduleActivity[]; [k: string]: unknown };

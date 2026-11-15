@@ -170,31 +170,7 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
       </Section>
 
       <Section title="Spec articles" info="panel.co-specs" count={co.spec_articles?.length}>
-        <ul className="v2-co-list">
-          {co.spec_articles?.map((a) => {
-            const sa = idx.specArticles.get(a.article);
-            return (
-              <li key={a.article} className="v2-co-item">
-                <div>
-                  <span className="mono">{a.article.replace("SPEC:", "")}</span> {sa ? `${sa.section_title ?? ""} - ${sa.title}` : ""}
-                </div>
-                {sa && (
-                  <div className="v2-co-links">
-                    <button
-                      type="button"
-                      className="btn sm"
-                      onClick={() =>
-                        openPdf({ url: urls.v2DocFile("specs"), page: sa.page, rects: [sa.bbox], label: a.article.replace("SPEC:", ""), sub: sa.text.slice(0, 140) })
-                      }
-                    >
-                      Open article
-                    </button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <SpecGroups co={co} idx={idx} openPdf={openPdf} />
       </Section>
 
       <Section title="Calc records" info="panel.co-records" count={co.calc_records?.length}>
@@ -291,6 +267,83 @@ export function ChangeOrderPanel({ idx, co, openPdf, openMock, showCalcs }: Chan
           </p>
           {showRates && <pre className="v2-pre">{JSON.stringify({ rates: co.assumptions.rates, schedule_rules: co.assumptions.schedule_rules }, null, 2)}</pre>}
         </Section>
+      )}
+    </div>
+  );
+}
+
+/** The kind of registry link that brings a spec article in, by its id prefix (registry_view.governing_specs). */
+const LINK_KINDS: { prefix: string; label: string }[] = [
+  { prefix: "FRAME:", label: "Lateral frames" },
+  { prefix: "TYPE:", label: "Member and pile types" },
+  { prefix: "MAT:", label: "Materials" },
+  { prefix: "DETAIL:", label: "Details" },
+  { prefix: "SUB-", label: "Affected submittals" },
+];
+const linkKind = (link: string) => LINK_KINDS.find((k) => link.startsWith(k.prefix))?.label ?? "Elements";
+
+/** Spec articles grouped by the registry link that brings them in (which frame / type / material / detail /
+ * submittal, and how many touched elements it reaches), collapsed by default, with counts. An article that
+ * several links bring in is listed under each; the section badge counts distinct articles. */
+function SpecGroups({ co, idx, openPdf }: { co: ChangeOrder; idx: DesignIndex; openPdf: (s: PdfSource) => void }) {
+  const links = co.spec_links ?? {};
+  const kinds = new Map<string, string[]>();
+  for (const l of Object.keys(links).sort()) {
+    const k = linkKind(l);
+    kinds.set(k, [...(kinds.get(k) ?? []), l]);
+  }
+  const order = [...LINK_KINDS.map((k) => k.label), "Elements"].filter((k) => kinds.has(k));
+  const unlinked = (co.spec_articles ?? []).filter((a) => !a.via?.length);
+  if (!order.length && !unlinked.length) return <p className="v2-small muted">No spec article governs the touched elements.</p>;
+  const article = (id: string) => {
+    const sa = idx.specArticles.get(id);
+    return (
+      <li key={id} className="v2-co-item">
+        <span className="mono">{id.replace("SPEC:", "")}</span> {sa ? `${sa.section_title ?? ""} - ${sa.title}` : ""}{" "}
+        {sa && (
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => openPdf({ url: urls.v2DocFile("specs"), page: sa.page, rects: [sa.bbox], label: id.replace("SPEC:", ""), sub: sa.text.slice(0, 140) })}
+          >
+            Open article
+          </button>
+        )}
+      </li>
+    );
+  };
+  return (
+    <div className="v2-spec-groups" data-testid="spec-groups">
+      {order.map((k) => {
+        const ls = kinds.get(k)!;
+        const arts = new Set(ls.flatMap((l) => links[l].articles));
+        return (
+          <details key={k} className="v2-spec-kind">
+            <summary>
+              {k} <span className="cg-tab-badge">{ls.length}</span> <span className="muted v2-small">{arts.size} articles</span>
+            </summary>
+            {ls.map((l) => (
+              <details key={l} className="v2-spec-link">
+                <summary>
+                  <span className="mono">{l}</span>{" "}
+                  <span className="muted v2-small">
+                    {links[l].articles.length} articles - governs {links[l].elements.length} touched element{links[l].elements.length === 1 ? "" : "s"}
+                  </span>
+                </summary>
+                <p className="v2-small muted">Touched: {links[l].elements.slice(0, 12).join(", ")}{links[l].elements.length > 12 ? ` and ${links[l].elements.length - 12} more` : ""}</p>
+                <ul className="v2-co-list">{links[l].articles.map(article)}</ul>
+              </details>
+            ))}
+          </details>
+        );
+      })}
+      {!!unlinked.length && (
+        <details className="v2-spec-kind">
+          <summary>
+            Other <span className="cg-tab-badge">{unlinked.length}</span>
+          </summary>
+          <ul className="v2-co-list">{unlinked.map((a) => article(a.article))}</ul>
+        </details>
       )}
     </div>
   );
