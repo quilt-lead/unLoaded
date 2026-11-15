@@ -1,10 +1,10 @@
 """Run every evaluation, print one scorecard, exit non-zero on a regression vs the stored baseline.
 
   uv run python scripts/evaluate_all.py                    # every stage (from tools/calcgraph-reference/)
-  uv run python scripts/evaluate_all.py --synthetic-only   # CI (today the same stages: all are synthetic)
+  uv run python scripts/evaluate_all.py --synthetic-only   # CI: a LOCAL_ONLY stage may skip (loudly)
   uv run python scripts/evaluate_all.py --update-baseline  # accept the current numbers as the baseline
 
-Stages (a stage whose inputs are missing is SKIPPED, never failed):
+Stages (a stage whose inputs are missing reports SKIPPED; see Gating for what a skip means):
   synthetic_check  python -m synth.generate --check: the synthetic generator is byte-stable (pass/fail)
   synthetic_v1     scripts/evaluate.py: the TypeScript calc engine (packages/calc-mapper, run through its
                    Node CLI on the element graphs scripts/build_graph.mjs builds) scored on the synthetic
@@ -20,11 +20,22 @@ Stages (a stage whose inputs are missing is SKIPPED, never failed):
                    scripts/build_graph.mjs). Needs Node.
   copyright        scripts/check_no_copyrighted.py --tracked (pass/fail)
 
-Gating: a metric is compared with the baseline when it is listed as gated; a drop larger than
---tolerance (default 0.005 absolute) is a regression; a metric listed as exact (link counts per tier,
-xref, calc-edge tp/fp/fn, diff and impact counts) must equal the baseline; a pass/fail check that passed in the baseline
-and fails now is a regression, and any failing check exits 1. Metrics of skipped stages are not
-compared. The baseline file (eval/baseline.json) holds numbers only - no drawing text - and is committed.
+Gating (compare(), over the UNION of the baseline's and the run's keys):
+  - gated metric (higher is better): a drop larger than --tolerance (default 0.005 absolute) is a
+    regression; gated_lower metric (an error, e.g. uc_abs_err_p90): a RISE larger than it is
+  - exact metric (link counts per tier, xref, calc-edge tp/fp/fn, diff and impact counts): must
+    equal the baseline
+  - a baseline metric or check the run no longer emits (a tier or metric that disappeared) is a
+    regression; a gated / exact metric the run emits with no baseline value (a new tier) fails
+    too, telling you to add it with --update-baseline
+  - a pass/fail check that passed in the baseline and fails now is a regression, and any failing
+    check exits 1; a crashed stage is a regression
+  - a stage with a baseline that did not run is a regression, except a stage in LOCAL_ONLY under
+    --synthetic-only (CI): that is printed as a LOCAL-ONLY banner at the top and bottom of the
+    scorecard, naming the metrics left unchecked. Without --synthetic-only (the full local run)
+    a skipped LOCAL_ONLY stage is a regression too. A stage left out with --only is reported as
+    not selected. A stage in the baseline that no longer exists is a regression.
+The baseline file (eval/baseline.json) holds numbers only - no drawing text - and is committed.
 """
 from __future__ import annotations
 
@@ -134,7 +145,7 @@ def st_move_answer_key(a) -> dict:
         if p.returncode:
             raise RuntimeError(f"scripts/evaluate_move.py exit {p.returncode}: {p.stderr[-600:]}")
         r = json.load(open(out))
-    return {"metrics": r["metrics"], "gated": r["gated"],
+    return {"metrics": r["metrics"], "gated": r["gated"], "gated_lower": r.get("gated_lower", []),
             "notes": ["calc facts are printed calc-row values from the generator's calc-sheet data (stand-in for matcher output)"]}
 
 
@@ -145,6 +156,88 @@ def st_copyright(a) -> dict:
 
 STAGES = [("synthetic_check", st_synthetic_check), ("synthetic_v1", st_synthetic_v1), ("move_answer_key", st_move_answer_key),
           ("copyright", st_copyright)]
+
+# Stages CI cannot run, with why. Only these may skip under --synthetic-only, and never silently.
+LOCAL_ONLY = {
+    "move_answer_key": "needs data/synthetic_v2, whose generator designs with the AISC shapes table - gitignored, "
+                       "not committed while its licence is undecided (decision D22). Run it locally before merging "
+                       "a change to packages/move-impact.",
+}
+
+
+# ----------------------------------------------------------------------------- gate
+
+def compare(res: dict, base_stages: dict, tolerance: float, synthetic_only: bool,
+            selected: set[str] | None = None, known: set[str] | None = None) -> tuple[list[str], list[str], list[str]]:
+    """(regressions, improvements, local_only notices) of a run against the baseline's stages."""
+    known = known if known is not None else {n for n, _ in STAGES}
+    regressions, improvements, local_only = [], [], []
+    for name in sorted(base_stages):
+        if name not in known:
+            regressions.append(f"{name}: stage is in the baseline but no longer exists (remove it with --update-baseline "
+                               f"only if that is intended)")
+        elif name not in res and not (selected and name not in selected):
+            regressions.append(f"{name}: has a baseline but did not run")
+    for name, r in res.items():
+        b = base_stages.get(name)
+        if r["status"] == "error":
+            regressions.append(f"{name}: stage crashed - {r['reason']}")
+            continue
+        if r["status"] != "ok":
+            if b:
+                unchecked = len(b.get("metrics", {})) + len(b.get("checks", {}))
+                if synthetic_only and name in LOCAL_ONLY:
+                    local_only.append(f"{name}: SKIPPED, {unchecked} baseline metric(s)/check(s) NOT compared in this "
+                                      f"run - {LOCAL_ONLY[name]} (skip reason: {r.get('reason', '')})")
+                else:
+                    why = "run it" if name in LOCAL_ONLY else "a stage with a baseline may not skip"
+                    regressions.append(f"{name}: SKIPPED but has a baseline ({unchecked} metric(s)/check(s) unchecked; "
+                                       f"{why}) - {r.get('reason', '')}")
+            continue
+        if b is None:
+            if r.get("metrics") or r.get("checks"):
+                regressions.append(f"{name}: no baseline for this stage - add it with --update-baseline")
+            continue
+        bm, cm = b.get("metrics", {}), r.get("metrics", {})
+        gated, lower, exact = set(r.get("gated", [])), set(r.get("gated_lower", [])), set(r.get("exact", []))
+        for k in sorted(set(bm) | set(cm)):
+            v, bv = cm.get(k), bm.get(k)
+            if bv is None and v is None:
+                continue
+            if v is None:
+                regressions.append(f"{name}.{k}: missing from this run (baseline {fmt(bv)})")
+            elif bv is None:
+                if k in gated | lower | exact:
+                    regressions.append(f"{name}.{k}: {fmt(v)} has no baseline value - add it with --update-baseline")
+            elif k in exact:
+                if v != bv:
+                    regressions.append(f"{name}.{k}: {fmt(v)} != baseline {fmt(bv)} (must match exactly)")
+            elif k in lower:
+                if v > bv + tolerance:
+                    regressions.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)} (lower is better)")
+                elif v < bv - tolerance:
+                    improvements.append(f"{name}.{k}: {fmt(v)} < baseline {fmt(bv)} (lower is better)")
+            elif k in gated:
+                if v < bv - tolerance:
+                    regressions.append(f"{name}.{k}: {fmt(v)} < baseline {fmt(bv)}")
+                elif v > bv + tolerance:
+                    improvements.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)}")
+        bc, cc = b.get("checks", {}), r.get("checks", {})
+        for k in sorted(set(bc) | set(cc)):
+            if bc.get(k) and k not in cc:
+                regressions.append(f"{name}.{k}: missing from this run (passed in baseline)")
+            elif bc.get(k) and not cc[k]:
+                regressions.append(f"{name}.{k}: FAIL (passed in baseline)")
+    return regressions, improvements, local_only
+
+
+def banner(local_only: list[str]) -> None:
+    if not local_only:
+        return
+    print("!" * 100)
+    for x in local_only:
+        print(f"LOCAL-ONLY, NOT GATED HERE: {x}")
+    print("!" * 100)
 
 
 # ----------------------------------------------------------------------------- scorecard
@@ -162,7 +255,7 @@ def fmt(v) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--synthetic-only", action="store_true",
-                    help="skip stages that need local, non-synthetic inputs (none remain; kept for CI)")
+                    help="CI mode: a LOCAL_ONLY stage whose inputs are missing is reported loudly instead of failing")
     ap.add_argument("--only", default="", help="comma-separated stage names")
     ap.add_argument("--update-baseline", action="store_true")
     ap.add_argument("--tolerance", type=float, default=0.005)
@@ -182,33 +275,15 @@ def main() -> None:
             res[name] = {"status": "error", "reason": f"{type(e).__name__}: {e}"}
 
     base = json.load(open(a.baseline)) if os.path.exists(a.baseline) else {"stages": {}}
-    regressions, improvements = [], []
-    for name, r in res.items():
-        b = base["stages"].get(name, {})
-        if r["status"] == "error":
-            regressions.append(f"{name}: stage crashed - {r['reason']}")
-            continue
-        if r["status"] != "ok" or not b:
-            continue
-        for k in r.get("gated", []):
-            v, bv = r["metrics"].get(k), b.get("metrics", {}).get(k)
-            if bv is None:
-                continue
-            if v is None or v < bv - a.tolerance:
-                regressions.append(f"{name}.{k}: {fmt(v)} < baseline {fmt(bv)}")
-            elif v > bv + a.tolerance:
-                improvements.append(f"{name}.{k}: {fmt(v)} > baseline {fmt(bv)}")
-        for k in r.get("exact", []):
-            v, bv = r["metrics"].get(k), b.get("metrics", {}).get(k)
-            if bv is not None and v != bv:
-                regressions.append(f"{name}.{k}: {fmt(v)} != baseline {fmt(bv)} (must match exactly)")
-        for k, v in r.get("checks", {}).items():
-            if b.get("checks", {}).get(k) and not v:
-                regressions.append(f"{name}.{k}: FAIL (passed in baseline)")
+    regressions, improvements, local_only = compare(res, base["stages"], a.tolerance, a.synthetic_only, only or None)
 
     now = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d %H:%M %Z")
     print(f"calc-graph scorecard - {now} (Eastern){'  [synthetic only]' if a.synthetic_only else ''}")
     print(f"baseline: {os.path.relpath(a.baseline, ROOT)} ({base.get('updated', 'none')})\n")
+    banner(local_only)
+    for name in sorted(set(base["stages"]) - set(res)):
+        if only and name not in only:
+            print(f"{name:<16} NOT SELECTED (--only): its baseline was not compared")
     for name, r in res.items():
         dep = ""
         if r["status"] != "ok":
@@ -220,7 +295,8 @@ def main() -> None:
             print(f"  {k:<36} {fmt(v)}")
         for k, v in r.get("metrics", {}).items():
             bv = b.get("metrics", {}).get(k)
-            mark = "" if k in r.get("gated", []) else "   (exact)" if k in r.get("exact", []) else "   (info)"
+            mark = "" if k in r.get("gated", []) else "   (lower is better)" if k in r.get("gated_lower", []) \
+                else "   (exact)" if k in r.get("exact", []) else "   (info)"
             print(f"  {k:<36} {fmt(v):>8}   baseline {fmt(bv):>8}{mark}")
         for n in r.get("notes", []):
             print(f"  - {n}")
@@ -232,9 +308,11 @@ def main() -> None:
         print(f"improved   {x}")
     for x in regressions:
         print(f"REGRESSION {x}")
+    banner(local_only)
 
     os.makedirs(os.path.dirname(a.json_out), exist_ok=True)
-    json.dump({"run_at": now, "synthetic_only": a.synthetic_only, "stages": res, "regressions": regressions},
+    json.dump({"run_at": now, "synthetic_only": a.synthetic_only, "stages": res, "regressions": regressions,
+               "local_only_not_gated": local_only},
               open(a.json_out, "w"), indent=1, default=str)
 
     if a.update_baseline:

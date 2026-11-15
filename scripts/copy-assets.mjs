@@ -8,8 +8,11 @@
 //                                                    tools/calcgraph-reference (never committed: the repo's
 //                                                    copyright guard blocks PDFs)
 //   public/samples/demo/harborview-*.json          - Noah's legacy A/B diff demo (sample-data/)
-// Runs on postinstall / predev / prebuild. Never fails the install; a missing synthetic sample is
-// reported here and in the app ("sample not generated").
+// Runs on postinstall / predev / prebuild (and `npm run assets`). The REQUIRED assets (web-ifc.wasm and
+// the tracked fixtures, the first block below) fail predev / prebuild / assets with exit 1, so a build
+// can never ship without the IFC runtime; on postinstall they only warn, so an install can finish and
+// be repaired. The synthetic sample is optional everywhere: a missing one is reported here and in the
+// app ("sample not generated").
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
@@ -46,12 +49,16 @@ function copy(from, rel) {
   console.log(`[assets] ${rel}`);
 }
 
-for (const [from, rel] of copies) {
-  if (!existsSync(from)) {
-    console.warn(`[assets] missing source: ${from}`);
-    continue;
+const missingRequired = copies.filter(([from]) => !existsSync(from));
+for (const [from, rel] of copies) if (existsSync(from)) copy(from, rel);
+if (missingRequired.length) {
+  const list = missingRequired.map(([from]) => `  ${from}`).join("\n");
+  if (process.env.npm_lifecycle_event === "postinstall") {
+    console.warn(`[assets] WARNING: required asset(s) missing - dev and build will fail until fixed:\n${list}`);
+  } else {
+    console.error(`[assets] required asset(s) missing (run npm ci at the repo root):\n${list}`);
+    process.exitCode = 1;
   }
-  copy(from, rel);
 }
 
 const missing = sample.filter(([from]) => !existsSync(from));

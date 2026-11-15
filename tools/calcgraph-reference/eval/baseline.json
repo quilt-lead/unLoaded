@@ -19,6 +19,11 @@
     "uc_within_0_05": 0.998
    }
   },
+  "synthetic_check": {
+   "checks": {
+    "generator_byte_stable": true
+   }
+  },
   "synthetic_v1": {
    "metrics": {
     "calc_edges_fn": 1,

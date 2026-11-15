@@ -122,7 +122,9 @@ def main() -> None:
          "health_band_exact": agree / max(1, len(rows)), "health_band_within_one": within / max(1, len(rows)),
          "uc_abs_err_p90": summary["uc_error"]["p90"]}
     if a.json_out:
-        json.dump({"metrics": m, "gated": [k for k in m if k != "uc_abs_err_p90"]}, open(a.json_out, "w"), indent=1)
+        # uc_abs_err_p90 is an error: lower is better, so it is gated in that direction
+        json.dump({"metrics": m, "gated": [k for k in m if k != "uc_abs_err_p90"], "gated_lower": ["uc_abs_err_p90"]},
+                  open(a.json_out, "w"), indent=1)
     for r in rows:
         print(f"{r['id']} P/R topo {r['P_topo']:.2f}/{r['R_topo']:.2f}  scr {r['P_scr']:.2f}/{r['R_scr']:.2f}  "
               f"uc err {r['uc_med_err']}  band {r['band']:<11} truth {r['truth_band']:<11} {r['label'][:48]}")

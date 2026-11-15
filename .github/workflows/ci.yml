@@ -2,7 +2,7 @@
 # engine packages/calc-mapper) plus offline Python tooling in tools/calcgraph-reference/ that scores the engine.
 # Actions pinned to commit SHAs (tag in the comment) - same pins as the calc-graph hackathon CI.
 # The copyrighted drawing-set PDFs and hand labels are never in CI: evaluate_all runs --synthetic-only,
-# and the copyright guard runs over HEAD and over the PR's commits.
+# and the copyright guard runs over HEAD and over the new commits (a PR's, or a push's), merges included.
 name: CI
 
 on:
@@ -25,14 +25,27 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
-          fetch-depth: 0  # the guard walks the PR's commits
-      - name: Copyright guard (self-test, every tracked file, PR commits)
-        # stdlib only, so the runner's python3 is enough; it scans the whole repo
+          fetch-depth: 0  # the guard walks the new commits
+      - name: Copyright guard (self-test, every tracked file, the new commits)
+        # stdlib only, so the runner's python3 is enough; it scans the whole repo. A push is scanned
+        # over before..sha; a new branch (all-zero before) or a force-push whose old head is not in
+        # the clone falls back to the whole history of the pushed commit.
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
-          python3 tools/calcgraph-reference/scripts/check_no_copyrighted.py --self-test
-          python3 tools/calcgraph-reference/scripts/check_no_copyrighted.py --tracked
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            python3 tools/calcgraph-reference/scripts/check_no_copyrighted.py --range "origin/${{ github.base_ref }}..HEAD"
+          guard=tools/calcgraph-reference/scripts/check_no_copyrighted.py
+          python3 "$guard" --self-test
+          python3 "$guard" --tracked
+          if [ "$EVENT" = "pull_request" ]; then
+            python3 "$guard" --range "origin/$BASE_REF..HEAD"
+          elif [ "$EVENT" = "push" ]; then
+            if [ -n "$BEFORE" ] && ! printf '%s' "$BEFORE" | grep -qE '^0+$' && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+              python3 "$guard" --range "$BEFORE..$GITHUB_SHA"
+            else
+              python3 "$guard" --history "$GITHUB_SHA"
+            fi
           fi
 
   tooling:
@@ -76,17 +89,19 @@ jobs:
             --calcs tools/calcgraph-reference/data/synthetic/calc_package.pdf \
             --model tools/calcgraph-reference/data/synthetic/model_rev2.graph.json
           node packages/mcp-server/scripts/mcp-parity.ts "$RUNNER_TEMP/synthetic.calcgraph.json"
-      - name: Calc engine (TypeScript) on the synthetic package
+      - name: Calc engine CLI smoke run (the gate below runs the engine itself, through scripts/evaluate.py)
+        # proves run-pipeline.ts runs end to end on the synthetic package; its output is not read by
+        # anything, so it goes to the runner's temp dir
         working-directory: .
         run: >-
           node packages/calc-mapper/scripts/run-pipeline.ts
           --graph tools/calcgraph-reference/data/synthetic/model_rev1.graph.json
           --pdf tools/calcgraph-reference/data/synthetic/calc_package.pdf
           --compare-to tools/calcgraph-reference/data/synthetic/model_rev2.graph.json
-          --out tools/calcgraph-reference/data/synthetic/engine_rev1.json
+          --out "$RUNNER_TEMP/engine_rev1.json"
       - name: Tooling tests
         run: uv run --extra dev pytest tests -q
-      - name: Evaluate (synthetic only, gated on eval/baseline.json)
+      - name: Evaluate (synthetic only, gated on eval/baseline.json; move_answer_key is local-only, see the README)
         run: uv run python scripts/evaluate_all.py --synthetic-only
       - name: Scorecard artifact
         if: always()
