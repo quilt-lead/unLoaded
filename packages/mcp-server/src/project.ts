@@ -215,6 +215,8 @@ export class Project {
   log: DecisionFields[] = [];
   /** Each entry of `log` -> its origin and its id there. */
   private refs = new Map<DecisionFields, DecisionRef>();
+  /** Decisions-file entries written with a bare calc key (resolved to d1), so a warning can say so only for those. */
+  private readonly bareKeyed = new WeakSet<DecisionFields>();
   /** Decisions whose element or calc is not in this project (carried, but not applied). */
   unappliedDecisions = 0;
   /** Warnings about the decision logs as they stand (recomputed with them). */
@@ -295,6 +297,7 @@ export class Project {
     for (const d of fileLog) {
       const calc_key = legacyCalcRef(d.calc_key);
       const e = n || calc_key !== d.calc_key ? { ...d, id: d.id + n, calc_key } : d;
+      if (calc_key !== d.calc_key) this.bareKeyed.add(e); // written as a bare key, read as a calc of d1
       log.push(e);
       ref?.(e, { origin: "decisions_file", id: d.id });
     }
@@ -363,7 +366,13 @@ export class Project {
   private checkDecisionKeys(): string[] {
     const out: string[] = [];
     const missing = new Map<string, number>();
-    for (const d of this.log) if (!this.calcKeys.has(d.calc_key)) missing.set(d.calc_key, (missing.get(d.calc_key) ?? 0) + 1);
+    const bare = new Set<string>(); // refs that some entry wrote as a bare key
+    for (const d of this.log) {
+      if (this.calcKeys.has(d.calc_key)) continue;
+      missing.set(d.calc_key, (missing.get(d.calc_key) ?? 0) + 1);
+      if (this.bareKeyed.has(d)) bare.add(d.calc_key);
+    }
+    const order = this.projectFile ? "the project file's documents" : "the --calcs order";
     if (missing.size) {
       const docs = this.pdfs.map((p) => `${p.docId} = ${p.name}`).join(", ");
       const lines = [...missing].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 20).map(([ref, n]) => {
@@ -374,11 +383,13 @@ export class Project {
         const elsewhere = this.pdfs.filter((p) => p !== pdf && this.calcKeys.has(`${p.prefix}${key}`)).map((p) => `${p.prefix}${key}`);
         let why: string;
         if (!pdf) {
-          why = `no loaded calc document is "${docId}" (documents: ${docs}): was a PDF dropped, or the --calcs order changed?`;
+          why = `no loaded calc document is "${docId}" (documents: ${docs}): was a PDF dropped, or did ${order} change?`;
         } else {
-          why = `${pdf.name} (${pdf.docId}) has no calc "${key}": did that PDF change (calcs renamed, split or reordered), or the --calcs order?`;
+          why = `${pdf.name} (${pdf.docId}) has no calc "${key}": did that PDF change (calcs renamed, split or reordered), or ${order}?`;
         }
-        if (elsewhere.length) why += ` A calc with this key is in ${elsewhere.join(", ")} (a bare key is read as a calc of ${LEGACY_DOC_ID}).`;
+        if (elsewhere.length) {
+          why += ` A calc with this key is in ${elsewhere.join(", ")}` + (bare.has(ref) ? ` (the decision names a bare key, which is read as a calc of ${LEGACY_DOC_ID}).` : ".");
+        }
         return `"${ref}" (${n} decision${n === 1 ? "" : "s"}): ${why}`;
       });
       out.push(

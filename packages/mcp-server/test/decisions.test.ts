@@ -475,8 +475,18 @@ describe("the decisions file over MCP: external writers, a malformed file, calc 
     const p = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
     expect(p.unappliedDecisions).toBe(1);
     expect(tools.projectSummary(p).warnings.join("\n")).toMatch(
-      /"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check \(a bare key is read as a calc of d1\)/,
+      /"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check \(the decision names a bare key, which is read as a calc of d1\)/,
     );
+  }, 120_000);
+
+  it("an explicit ref to the wrong document is not called a bare key", async () => {
+    const path = join(tempDir(), "decisions.json");
+    writeFileSync(path, JSON.stringify([{ id: 1, global_id: "K1", calc_key: "d1#connection-design-check", action: "confirm", at, actor: "x", note: null }]));
+    const p = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
+    const w = tools.projectSummary(p).warnings.join("\n");
+    expect(w).toMatch(/"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check\./);
+    expect(w).not.toMatch(/bare key/);
+    expect(w).toMatch(/or the --calcs order\?/);
   }, 120_000);
 });
 

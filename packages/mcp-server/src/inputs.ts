@@ -55,8 +55,9 @@ MCP stdio. Local only: no port is opened and nothing is sent anywhere.
   --model       the model: .ifc, a serialized element graph .json, or a ModelInput .json. Repeat it to
                 give older revisions too, oldest first: the LAST --model is the current model (the calcs
                 are mapped onto it); compare_revisions diffs any two of them.
-  --calcs       a calc-package PDF; repeat for several. The first is the main package: its calc keys are
-                the engine's plain keys. Keys of every further PDF are prefixed "<file-stem>/".
+  --calcs       a calc-package PDF; repeat for several. All of them are mapped as ONE calc set; calcs are
+                named by calc ref "<doc>#<key>", the doc being d1, d2, ... in --calcs order (keep the
+                order stable: decisions name calcs by these refs).
   --decisions   review decisions file (calc-mapper decision log, JSON array, append-only). Created on the
                 first recorded decision. Without it the server is read-only and record_decision explains
                 how to enable it.
