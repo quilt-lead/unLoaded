@@ -2,6 +2,8 @@
 
 The repo is public (Apache-2.0). The Dana Point permit set (plans + calcs) carries copyright
 notices, so no PDF, page render, extracted text, derived JSON or screenshot of it may enter git.
+The set was retired from the app on 2026-11-14 (the app runs on the synthetic Harbor View building);
+local copies of its PDFs and derived data may still exist outside the repo, so the guard stays.
 Rules (config in scripts/copyright_guard.json):
   1. any *.pdf, or any file whose bytes start with %PDF
   2. any image (png/jpg/jpeg/gif/webp/tif/tiff/bmp) not on the image allowlist, which pins

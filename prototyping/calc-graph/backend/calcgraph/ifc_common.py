@@ -1,6 +1,6 @@
 """Shared IFC4 writing helpers on the IfcOpenShell API (ifcopenshell.api), used by every IFC
-calc-graph writes: the v2 generator (synth/v2/ifc_v2.py), the plans-to-IFC builder
-(plans_to_ifc.py) and the v1 generator (synth/ifc_writer.py).
+calc-graph writes: the v2 generator (synth/v2/ifc_v2.py, also behind /api/v2/apply) and its
+analytical model (ifc_structural.py).
 
 Every entity is made through ifcopenshell.api (root / project / unit / context / aggregate /
 spatial / geometry / profile / material / pset / structural) - nothing here hand-assembles

@@ -299,7 +299,7 @@ export const HELP = {
   "tool.ifc-export": {
     title: "Export mapping JSON",
     short: "Downloads the current mapping (elements, calcs, links with their evidence and status, decisions, load-path and calc edges) as one JSON file.",
-    source: "GET /api/projects/1/export for the head model and calc revisions.",
+    source: "GET /api/projects/{pid}/export (the Harbor View project) for the head model and calc revisions.",
   },
   "stat.ifc-elements": { title: "Model elements", short: "Structural elements read from the IFC model: beams, columns, braces, slabs, footings, connections and walls." },
   "stat.ifc-edges": {
@@ -382,7 +382,7 @@ export const HELP = {
     title: "Impact",
     short: "What changing or removing the selected member reaches: removed or orphaned members, members on the load path below it (by wave), and the calcs that go stale.",
     read: "A wave is one step down the load path from the change. Hand calcs and scanned calcs are flagged for an engineer rather than re-run.",
-    source: "GET /api/projects/1/impact: a walk of the model's load-path graph from the member, then every calc linked to a reached member and every calc downstream of those.",
+    source: "GET /api/projects/{pid}/impact (the Harbor View project): a walk of the model's load-path graph from the member, then every calc linked to a reached member and every calc downstream of those.",
     terms: ["term.load-path"],
   },
   "panel.ifc-rerun": { title: "Re-run queue", short: "Calcs that depend on a reached member, each with why. These are the calcs to redo after the change." },

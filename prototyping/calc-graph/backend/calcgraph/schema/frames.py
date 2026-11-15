@@ -5,14 +5,14 @@ Frames
                        (origin top-left, y down, unrotated page box). Two pages are two frames.
   BuildingFt(building) plan feet of a building read off its drawings: x east from the first
                        numbered grid line, y north from the last lettered one, z up from the
-                       finish-floor datum (the convention plans_to_ifc.py writes the 3D model in)
+                       finish-floor datum
   ModelM(doc)          world metres of one IFC model file
-  CalcModelFt(model)   an analysis model's own coordinates in feet (e.g. RISA plan Z/X). The
-                       2021 calc model and the 2023 drawings do NOT share a frame; there is no
-                       registration between them, and asking for one raises NoRegistration.
+  CalcModelFt(model)   an analysis model's own coordinates in feet (e.g. RISA plan Z/X). A calc
+                       model and the drawings need not share a frame; there is no registration
+                       between them, and asking for one raises NoRegistration.
 
 Converters exist only where a measured relation exists: SheetCalibration (sheet -> building,
-piecewise linear between the sheet's own grid bubbles, as plans_to_ifc.Frame.mapper does) and
+piecewise linear between the sheet's own grid bubbles) and
 ModelRegistration (building feet -> IFC metres for a model written from that building frame).
 Mixing frames in any operation raises FrameMismatch.
 """

@@ -4,8 +4,7 @@
     uv run python scripts/schema_audit.py --strict   # fail on the first fact whose provenance
                                                      # is not fully carried by its source
 
-Sources: data/sets/*/{graph,calc_records,connections}.json, data/sets/*/model.ifc,
-data/synthetic/model_rev1.ifc, the IFC-path store (data/store, read from a copy) as
+Sources: data/sets/*/{graph,calc_records,connections}.json, data/sets/*/model.ifc, the IFC-path store (data/store, read from a copy) as
 both the /export view and the full state view, and the revision store's own stored facts
 (store/<project>: the head snapshots of every project, both paths, as served by
 GET /api/store/projects/{pid}/bundle - read from a copy, which migrates / backfills itself).
@@ -173,9 +172,6 @@ def main() -> int:
             results.append((sid, connections.convert(set_dir, a.strict)))
         if os.path.exists(os.path.join(set_dir, "model.ifc")):
             results.append((sid, ifc_model.convert(os.path.join(set_dir, "model.ifc"), sid, a.strict)))
-    syn = os.path.join(ROOT, "data", "synthetic", "model_rev1.ifc")
-    if os.path.exists(syn):
-        results.append(("synthetic", ifc_model.convert(syn, "synthetic", a.strict)))
     store = os.environ.get("CALCGRAPH_STORE", os.path.join(ROOT, "data", "store"))
     if os.path.exists(os.path.join(store, "calcgraph.sqlite")):
         with tempfile.TemporaryDirectory() as tmp:

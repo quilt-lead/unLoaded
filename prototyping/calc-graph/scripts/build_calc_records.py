@@ -1,7 +1,7 @@
 """Break a calc package into design records -> data/sets/<sid>/calc_records.json (gitignored),
 then re-integrate the set (integrated.json) so the app shows them.
 
-    uv run python scripts/build_calc_records.py [--set dana-point-bldg12]
+    uv run python scripts/build_calc_records.py [--set synthetic-v2]
 
 Reads the set's meta.json for the local PDF paths and its graph.json (read-only) for the
 drawing-set elements used by the positional match. Prints the counts the report needs.
@@ -22,7 +22,7 @@ from calcgraph import set_pipeline  # noqa: E402
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="dana-point-bldg12")
+    ap.add_argument("--set", default="synthetic-v2")
     a = ap.parse_args()
     out = set_pipeline.build_records(a.set)
     print(json.dumps(out["stats"], indent=1))

@@ -9,8 +9,6 @@ cannot express.
 
 Which contract applies is read from the file header (originating system), never guessed from the path:
   calc-graph synth v2 generator -> backend/calcgraph/ids/calc-graph-v2.ids
-  calc-graph plans_to_ifc       -> backend/calcgraph/ids/calc-graph-plans.ids
-  calc-graph synth generator    -> (v1, deprecated) schema validation only
   anything else                 -> skipped (not ours)
 Besides the IDS, every one of our files gets IfcOpenShell schema validation, and v2 files get:
   - GlobalId stability by construction: GlobalId == uuid5(v2 namespace, Pset_CalcGraph.ElementId)
@@ -41,8 +39,7 @@ from ifctester import ids
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path[:0] = [ROOT, os.path.join(ROOT, "backend")]
 IDS_DIR = os.path.join(ROOT, "backend", "calcgraph", "ids")
-CONTRACTS = {"calc-graph synth v2 generator": "calc-graph-v2.ids", "calc-graph plans_to_ifc": "calc-graph-plans.ids",
-             "calc-graph synth generator": None}
+CONTRACTS = {"calc-graph synth v2 generator": "calc-graph-v2.ids"}
 LINEAR = ("IfcBeam", "IfcColumn", "IfcMember")
 
 
@@ -143,7 +140,7 @@ def fresh_pair(tmp: str) -> tuple[list[str], list[str]]:
 def on_disk(include_store: bool) -> list[str]:
     """The current working outputs. Revision-store blobs are immutable history (an old revision was
     written by the writer of its day), so they are only checked on request."""
-    pats = ["data/synthetic_v2/model.ifc", "data/sets/*/model.ifc", "data/synthetic/*.ifc"]
+    pats = ["data/synthetic_v2/model.ifc", "data/sets/*/model.ifc"]
     pats += ["data/store/blobs/*.ifc"] if include_store else []
     return sorted({p for pat in pats for p in glob.glob(os.path.join(ROOT, pat), recursive=True)})
 

@@ -5,12 +5,7 @@ No customer file (OneDrive or elsewhere) is in this repo.
 
 ## Downloaded
 
-| File | Source | Licence | Fetched |
-|---|---|---|---|
-| `data/open/Building-Structural-IFC4.ifc` | buildingSMART Sample-Test-Files, `IFC 4.0.2.1 (IFC 4 ADD2 TC1)/Simple-Scene/Building-Structural.ifc`, commit `8832bddc04d8597d69e6a414e5f67a65e8b3b626` - https://github.com/buildingSMART/Sample-Test-Files | CC BY 4.0, (C) buildingSMART International Ltd. (repo LICENSE file) | 2026-11-14 12:39 PM ET, sha256 `903b5a005901397aa2b235daf6a60f46c099eae286cb01c815abf0a341707432` |
-
-Used as a smoke test that the backend ingests a third-party IFC (14 elements, 10 load-path
-edges inferred). It has no marks and no matching calc package, so it is not scored.
+(none - the buildingSMART sample IFC that was here was removed with the v2 cleanup, 2026-11-14: nothing used it)
 
 ### AISC shapes subset (committed, not MIT)
 
@@ -20,8 +15,9 @@ edges inferred). It has no marks and no matching calc package, so it is not scor
 
 ## Generated (not downloaded)
 
-`data/synthetic/` is produced by `uv run python -m synth.generate` (gitignored, byte-stable for
-a given seed). Everything in it - model, calc package, numbers, ground truth - is synthetic.
+`data/synthetic_v2/` (the Harbor View building) is produced by `uv run python -m synth.v2.generate`
+(gitignored, byte-stable: `--check`). Everything in it - model, drawings, specs, calc package, numbers,
+ground truth - is synthetic.
 
 ## Libraries (installed, not vendored)
 
