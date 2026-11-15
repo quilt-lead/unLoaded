@@ -7,7 +7,7 @@ import type { ElementInput, ModelInput } from "@unloaded/element-graph/input";
 import { ifcParser, parseIfc } from "../src/index.ts";
 import { validateModelInput } from "./validate.ts";
 
-const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
+const fixture = (name: string) => fileURLToPath(new URL(`../../../data/${name}`, import.meta.url));
 const tinyText = readFileSync(fixture("tiny-frame-mm.ifc"), "utf8");
 const enc = (s: string) => new TextEncoder().encode(s);
 

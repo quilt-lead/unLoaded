@@ -13,7 +13,7 @@ Visualizes **structural engineering calculations (PDFs)** and maps them bidirect
 ## Decoupled Data Architecture
 - The application starts with an **empty workspace**—no demo model is auto-loaded at runtime.
 - Click **Import IFC / DB** in the top-right header to load any `.ifc` (`ISO-10303-21` STEP) model or `.json` structural graph.
-- Sample files to upload manually: `sample-data/bim-database.json` (legacy BIM graph), and after `npm install`, `public/samples/Building-Structural-IFC4.ifc` and `public/samples/simple-frame.json`.
+- All IFC and JSON data lives in one folder, [`data/`](data/README.md). Import any file there manually; the same files back the tests.
 
 ## Data pipeline
 
@@ -25,13 +25,13 @@ Visualizes **structural engineering calculations (PDFs)** and maps them bidirect
 - `packages/ifc-parser` reads what the IFC states: elements, marks, profiles, materials, levels, bbox/axis geometry and explicit relations.
 - `packages/element-graph` is the topology source of truth. Elements and connections are nodes. Edges are `connects` (physical), `supports` (directed load path: `a` is supported by `b`) and `part_of`. Missing connectivity is inferred from geometry and recorded as evidence.
 - `src/loaders/elementGraphToBim.ts` maps it onto the UI view model: kinds become categories, column-on-column chains become column stacks, bboxes become 3D boxes (feet, Y-up), `supports` edges become directed `load-path` links that the load-path trace follows exactly, and node `links` of kind `calc` become documents.
-- Legacy hand-authored BIM graphs (`{ projectName, nodes, links }`, e.g. `sample-data/bim-database.json`) are loaded directly into the view model.
+- Legacy hand-authored BIM graphs (`{ projectName, nodes, links }`, e.g. `data/bim-database.json`) are loaded directly into the view model.
 
 A new format (Revit, Tekla, ETABS, ...) only needs to emit a `ModelInput`. See `packages/*/README.md`.
 
 ## Quick Start
 ```bash
-npm install      # npm workspaces; postinstall copies web-ifc.wasm + samples into public/
+npm install      # npm workspaces; postinstall copies web-ifc.wasm into public/
 npm run dev
 npm test         # app adapter tests + package tests
 npm run smoke    # IFC -> element graph summary in Node

@@ -6,7 +6,7 @@ import { parseIfc } from "../src/index.ts";
 import { summariseModel } from "../scripts/dump.ts";
 import { validateModelInput } from "./validate.ts";
 
-const file = fileURLToPath(new URL("./fixtures/Building-Structural-IFC4.ifc", import.meta.url));
+const file = fileURLToPath(new URL("../../../data/Building-Structural-IFC4.ifc", import.meta.url));
 const bytes = () => new Uint8Array(readFileSync(file));
 const GLOBAL_ID = /^[0-9A-Za-z_$]{22}$/;
 

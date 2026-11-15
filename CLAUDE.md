@@ -25,8 +25,8 @@ Before starting work, read [docs/agents/](docs/agents/README.md): findings, deci
 - **PDF Calculation & Revision Browser (`src/components/DocumentBrowser.tsx`):** Supports 1:1 calculation PDFs, multi-element PDF packages, multi-version revision tabs (`Rev A`, `Rev B`, etc.), and one-click jumps back to mapped elements in the graphs and 3D model.
 
 ### 2. Decoupled Manual Data Ingestion (`src/loaders/parsers.ts`)
-- Removed auto-loaded demo JSON from `public/data/` so the workspace starts clean (`No Model Loaded`) until the user manually imports a file.
-- Async `BIM_PARSERS` registry: `.ifc` goes through `packages/ifc-parser` (web-ifc) → `packages/element-graph` → `src/loaders/elementGraphToBim.ts`; `.json` is dispatched on content (serialized element graph, ModelInput, or legacy BIM graph via `src/loaders/legacyBimJson.ts`). Reference sample datasets are stored outside the app bundle in `sample-data/`. Details: `docs/agents/2026-11-14-parser-graph-merge.md`.
+- Removed auto-loaded demo JSON (previously in `public/data/`) so the workspace starts clean (`No Model Loaded`) until the user manually imports a file.
+- Async `BIM_PARSERS` registry: `.ifc` goes through `packages/ifc-parser` (web-ifc) → `packages/element-graph` → `src/loaders/elementGraphToBim.ts`; `.json` is dispatched on content (serialized element graph, ModelInput, or legacy BIM graph via `src/loaders/legacyBimJson.ts`). All IFC and JSON data (samples and test fixtures) lives in one folder, `data/` (see `data/README.md`), outside the app bundle. Details: `docs/agents/2026-11-14-parser-graph-merge.md`.
 
 ### 3. Namable Groups & Whole-Group Selection (`RadialGraphCanvas.tsx`, `PropertyInspector.tsx`)
 - Multi-selected nodes (`Shift + Click`) can be clustered into visual groups (`Ctrl+G` / `Cmd+G`).
