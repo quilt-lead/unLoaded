@@ -589,7 +589,9 @@ def registry_links(elements: list[dict], pages: list[dict], reg: dict, node_of: 
         nid = node_of.get(el["id"])
         for rid in designs.get(nid or "", []):
             occ = _record_occ(recs[rid])
-            p = page_at.get(occ["page"]) if occ else None
+            if occ is None:
+                continue
+            p = page_at.get(occ["page"])
             if not p or (el["id"], p["id"]) in out:
                 continue
             out[(el["id"], p["id"])] = {
@@ -619,7 +621,9 @@ def registry_calc_edges(pages: list[dict], reg: dict, calc_doc: str) -> list[dic
         if r["kind"] != "feeds" or r["src"] not in recs or r["dst"] not in recs:
             continue
         a, b = _record_occ(recs[r["src"]]), _record_occ(recs[r["dst"]])
-        pa, pb = (page_at.get(a["page"]) if a else None), (page_at.get(b["page"]) if b else None)
+        if a is None or b is None:
+            continue
+        pa, pb = page_at.get(a["page"]), page_at.get(b["page"])
         if not pa or not pb or pa["id"] == pb["id"]:
             continue
         e = edges.get((pa["id"], pb["id"]))

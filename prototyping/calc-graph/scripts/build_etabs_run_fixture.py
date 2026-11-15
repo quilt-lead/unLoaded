@@ -47,6 +47,13 @@ def _num(s: str) -> float | None:
     return None if s in ("", "-") else float(s)
 
 
+def _num_req(s: str) -> float:
+    v = _num(s)
+    if v is None:
+        raise SystemExit(f"report has an empty cell where a number is required: {s!r}")
+    return v
+
+
 def _find(secs: dict, prefix: str) -> tuple[str, list[str]]:
     k = next((k for k in secs if k.startswith(prefix)), None)
     if k is None:
@@ -65,10 +72,12 @@ def parse(md: str) -> dict:
     shear = [{"case": r[0], "etabs_kip": _num(r[1]), "design_kip": _num(r[2])} for r in _table(_find(secs, "Base shear")[1])]
     mk, ml = _find(secs, "Modes")
     ta = re.search(r"X ([\d.]+) s, Y ([\d.]+) s", mk)
+    if not ta:
+        raise SystemExit(f"modes heading has no 'X <n> s, Y <n> s' code period: {mk!r}")
     modes = [{"mode": int(r[0]), "period_s": _num(r[1]), "ux": _num(r[2]), "uy": _num(r[3]), "rz": _num(r[4]),
               "sum_ux": _num(r[5]), "sum_uy": _num(r[6]), "sum_rz": _num(r[7])} for r in _table(ml)]
     lines = [{"line": r[0], "etabs_pos_ecc_kip": _num(r[1]), "etabs_neg_ecc_kip": _num(r[2]), "design_kip": _num(r[3]),
-              "design_share_of_v": _num(r[4]) / 100, "etabs_wind_kip": _num(r[5]), "design_wind_kip": _num(r[6])}
+              "design_share_of_v": _num_req(r[4]) / 100, "etabs_wind_kip": _num(r[5]), "design_wind_kip": _num(r[6])}
              for r in _table(_find(secs, "Lateral force")[1])]
     drift = [{"line": r[0], "level": r[1], "etabs_in": _num(r[2]), "design_in": _num(r[3]), "pct": _num(r[4]),
               "allow_in": _num(r[5]), "etabs_ratio": _num(r[6])} for r in _table(_find(secs, "Story drift")[1])]
@@ -117,7 +126,7 @@ def agreement(rows: list[dict]) -> list[dict]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     ap.add_argument("--report", required=True, help="compare_etabs_pynite.py report markdown of the run")
     ap.add_argument("--design", required=True, help="'current' (data/synthetic_v2/model.e2k) or a design scenario id (answer_key)")
     ap.add_argument("--e2k", required=True, help="the e2k ETABS opened (its sha1 keys the run to the design)")

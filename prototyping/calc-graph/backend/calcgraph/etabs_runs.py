@@ -105,7 +105,7 @@ def finding(r: dict) -> dict:
     (ETABS ratio > 1), with the design's own ratio at the same line and level (design in / allow in)."""
     m1 = r["modes"][0]
     parts = {"X translation": m1["ux"], "Y translation": m1["uy"], "torsional": m1["rz"]}
-    shape = max(parts, key=parts.get)
+    shape = max(parts, key=lambda k: parts[k])
     systems = _line_systems(r)
     ng = [{"line": d["line"], "system": systems.get(d["line"], "?"), "level": d["level"], "etabs_ratio": d["etabs_ratio"],
            "design_ratio": round(d["design_in"] / d["allow_in"], 3)} for d in r["drift"] if d["etabs_ratio"] > 1.0]

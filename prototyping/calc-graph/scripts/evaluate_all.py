@@ -367,7 +367,7 @@ def st_set_coverage(a) -> dict:
             if r["kind"] == "designed-by" and gid.get(r["src"]) and r["dst"] in page:
                 truth[gid[r["src"]]].add(page[r["dst"]])
         cpage = {x["id"]: x["page"] for x in g["calcs"] if x["doc"] == "calcs"}
-        el_gid = {e["id"]: (e.get("model") or {}).get("gid") for e in g["elements"] if isinstance(e.get("model"), dict)}
+        el_gid = {e["id"]: gid for e in g["elements"] if isinstance(e.get("model"), dict) and (gid := e["model"].get("gid"))}
         scored = [l for l in g["links"] if el_gid.get(l["el"]) in truth]
         ok = [l for l in scored if cpage.get(l["calc"]) in truth[el_gid[l["el"]]]]
         resolved = {k for k, v in el_gid.items() if v in truth}

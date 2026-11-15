@@ -84,10 +84,12 @@ def resolve_tags(elements: list[dict], reg: dict) -> dict[str, tuple[dict, dict 
                 out[e["id"]] = (hits[0], None)
             continue
         rects = e.get("rects") or [e["bbox"]]
-        best = max(((max(_overlap(r, o["bbox"]) for r in rects), n, o) for n, o in by_page.get(e["page"], [])),
-                   key=lambda t: t[0], default=(0.0, None, None))
-        if best[0] >= 0.5:
-            out[e["id"]] = (best[1], best[2])
+        cands = [(max(_overlap(r, o["bbox"]) for r in rects), n, o) for n, o in by_page.get(e["page"], [])]
+        if not cands:
+            continue
+        score, node, occ = max(cands, key=lambda t: t[0])
+        if score >= 0.5:
+            out[e["id"]] = (node, occ)
     return out
 
 
