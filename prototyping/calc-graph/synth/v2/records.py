@@ -322,8 +322,9 @@ def export(d: dict) -> dict:
             rel(bid, f"FRAME:{b['frame']}", "member-of")
             rel(bid, f"COL-{b['base']}", "frames-into", via=f"CX-{bid}-i", end="i")
             rel(bid, b["beam"], "frames-into", via=f"CX-{bid}-j", end="j")
-            for end in ("i", "j"):
+            for end, sup in (("i", f"COL-{b['base']}"), ("j", b["beam"])):   # member -> connection -> support, as beams
                 rel(bid, f"CX-{bid}-{end}", "connected-by")
+                rel(f"CX-{bid}-{end}", sup, "connected-by")
             # PyNite brace name: BR_<level>_<bay idx>_<side>
             if sc.get("basis") == "etabs-reviewed":   # this brace's own frame member
                 bi = line_cols.index(f"{xl}{b['bay'][0]}") if f"{xl}{b['bay'][0]}" in line_cols else -1

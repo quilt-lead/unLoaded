@@ -1469,7 +1469,10 @@ def _calc_C5_girders(pkg, ctx, xl, deco, npages):
     y += 8
     y = risa_title(pg, y, "Governing combination per girder")
     rows = [[r["elements"][0], r["values"]["governs_combo"], r["lc"]] for r in gr]
-    table(pg, 40, y, [("Label", 64, "l"), ("LC", 30, "c"), ("Combination", 380, "l")], rows, **RISA_TBL)
+    _, rects = table(pg, 40, y, [("Label", 64, "l"), ("LC", 30, "c"), ("Combination", 380, "l")], rows, **RISA_TBL)
+    for r, rect in zip(gr, rects):   # every printed girder row is an occurrence of its record
+        pkg.place(r["id"], rect, f"{r['elements'][0]} governs {r['values']['governs_combo']}", r["elements"],
+                  how="calc_block")
     deco(pg, 3, npages)
 
 
