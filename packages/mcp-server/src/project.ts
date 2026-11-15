@@ -5,10 +5,10 @@
  * src/engine/projectService.ts):
  *
  *   graph   = the model revision's stored element graph (parseGraph; never re-parsed from the IFC)
- *   pkg     = the calc revision's stored extraction, when it carries document hashes that match the
- *             PDF in the file; otherwise extractPdf + segmentCalcs on that PDF (the app re-extracts
- *             in the first case too, and trusts the stored extraction otherwise; checking the hash
- *             against the bytes is stricter, so every provenance hash names the PDF actually in the file)
+ *   pkg     = the calc revision's stored extraction when `storedExtractionFor` (@unloaded/project-file,
+ *             the rule the app uses too) accepts it against the sha256 of the PDF in the file;
+ *             otherwise extractPdf + segmentCalcs on that PDF, so every provenance hash names the PDF
+ *             actually in the file
  *   run     = mapCalcs(graph, pkg)
  *   state   = buildState(graph, pkg, run, decisions)
  *   exp     = buildExport(graph, pkg, run, decisions, info)   (info: the labels the app passes)
@@ -25,7 +25,7 @@ import {
   type SerializedElementGraph,
 } from "@unloaded/calc-mapper";
 import {
-  ProjectFileError, decodeBase64, headOf, parseProjectFile, type ProjectFile, type ProjectFileRevision,
+  ProjectFileError, decodeBase64, headOf, parseProjectFile, storedExtractionFor, type ProjectFile, type ProjectFileRevision,
 } from "@unloaded/project-file";
 import { decisionsOf } from "./decisionLog.ts";
 
@@ -61,12 +61,6 @@ export interface View {
   state: ProjectState;
   exp: Export;
   decisions: DecisionFields[];
-}
-
-function isHashedPackage(x: unknown): x is CalcPackage {
-  const p = x as CalcPackage | null | undefined;
-  return Boolean(p && typeof p === "object" && Array.isArray(p.pages) && Array.isArray(p.calcs) && p.source_sha256 &&
-    p.pages.every((pg) => typeof pg?.doc_sha256 === "string" && pg.doc_sha256));
 }
 
 export class LoadedProject {
@@ -125,21 +119,13 @@ export class LoadedProject {
       p = (async () => {
         const rev = this.revision(id);
         if (rev.kind !== "calcs") throw new ProjectFileError(`revision ${id} is a model revision, not a calc package`);
+        // parseProjectFile refuses an empty blob, so this is the PDF
         const bytes = decodeBase64(rev.blob);
-        if (!bytes.length) throw new ProjectFileError(`calc revision ${id} (${rev.sourceName}) has no PDF in the project file`);
-        const pdfSha = await sha256(bytes);
-        let note: string | null = null;
-        if (isHashedPackage(rev.extraction)) {
-          if (rev.extraction.source_sha256 === pdfSha) {
-            return { rev, bytes, pkg: rev.extraction, extraction: "stored" as const, extractionNote: null };
-          }
-          note = "the stored extraction's document hash does not match the PDF in the file";
-        } else {
-          note = rev.extraction ? "the stored extraction predates document hashes" : "the file has no stored extraction";
-        }
+        const stored = storedExtractionFor(rev.extraction, await sha256(bytes));
+        if (stored.pkg) return { rev, bytes, pkg: stored.pkg, extraction: "stored" as const, extractionNote: null };
         const text = await extractPdf(bytes, { pdfjs: await nodePdfjs() });
         const pkg = segmentCalcs(text.pages, rev.sourceName);
-        return { rev, bytes, pkg, extraction: "re-extracted" as const, extractionNote: note };
+        return { rev, bytes, pkg, extraction: "re-extracted" as const, extractionNote: stored.reason };
       })();
       this.calcRevs.set(id, p);
     }

@@ -8,8 +8,10 @@ import type { ProjectFile } from "@unloaded/project-file";
 
 /**
  * The decision log as calc-mapper DecisionFields, oldest first. The file keeps the log in order and
- * without ids; ids are re-assigned 1..n in that order, exactly as the app's importer's auto-increment
- * does, so "the latest decision per pair wins" resolves the same way. The engine states each
+ * without ids; here they are numbered 1..n in that order. The app's ids differ (its store's
+ * auto-increment is one counter across all projects, so an imported log gets ids like 41, 42, ...),
+ * but the ORDER is the same, and order is all the engine reads from an id: effectiveDecisions sorts
+ * by id and lets the latest decision per (global_id, calc_key) win. The engine states each
  * decision's provenance from these fields (decisionFrom).
  */
 export function decisionsOf(file: ProjectFile): DecisionFields[] {

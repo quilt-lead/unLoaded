@@ -1,7 +1,7 @@
 // THE ONE PLACE the two halves of the view model meet, by GlobalId:
 //   ElementTopology (src/loaders/elementGraphToBim.ts, from the element graph)
 //   CalcData        (src/data/loadProject.ts, from the calc engine)
-// plus applyModelDiff, which lays the engine's revision diff (diffGraphs) over a merged view.
+// plus applyModelDiff, which lays the engine's revision diff (diffGraphs) over revision B's merged view.
 import type {
   BimLink,
   BimNode,
@@ -71,16 +71,18 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
 const GHOST_CATEGORY_ID = 'cat:not-in-head';
 
 /**
- * Lay a revision diff over the head-model view: every element gets its diff status and field
- * changes, and elements of the diff that the head model does not have (removed ones when B is the
- * head, added ones when A is) become ghost nodes placed in their mark family, with their geometry
- * to be drawn from the revision that has them.
+ * Lay the revision diff A -> B over revision B's view (useProjectView with modelRev = B): every
+ * element gets its diff status and field changes, and the elements only A has (the removed ones)
+ * become ghost nodes, placed in the mark family of their own kind, with their geometry to be drawn
+ * from revision A. Returns null when `view` is not revision B's (e.g. while B's view is still
+ * loading): statuses laid over another revision would be wrong.
  */
 export function applyModelDiff(
   view: ProjectViewModel,
   diff: ModelDiff,
   names: { base: string; compare: string },
-): { view: ProjectViewModel; summary: DatabaseDiffSummary; ghosts: GhostSource[] } {
+): { view: ProjectViewModel; summary: DatabaseDiffSummary; ghosts: GhostSource[] } | null {
+  if (view.modelRevisionId !== diff.b) return null;
   const present = new Set(view.elementNodes.filter((n) => n.kind === 'element').map((n) => n.id));
   const families = view.elementNodes.filter((n) => n.kind === 'family');
   const categories = new Set(view.elementNodes.filter((n) => n.kind === 'category').map((n) => n.id));
@@ -90,45 +92,44 @@ export function applyModelDiff(
     return { ...n, diffStatus: m?.status ?? 'unchanged', diffChanges: m?.changes ?? [] };
   });
   const links = [...view.hierarchyLinks];
-  const ghostIds = new Map<number, string[]>();
+  const ghostIds: string[] = [];
   let needGhostCategory = false;
 
-  const addGhost = (g: { elementId: string; mark: string; category: string }, status: DiffStatus, rid: number) => {
-    if (present.has(g.elementId)) return;
-    // its mark family if the head has it, else its kind's category (the engine's `cat` is the
-    // element-graph kind), else a "Not in head" category
+  for (const g of diff.onlyInA) {
+    if (present.has(g.elementId)) continue;
+    // `category` is the element-graph kind (toModelDiff): its mark family of the same kind if B has
+    // one (a removed brace B3 never lands under beam family B), else its kind's category, else "Not in B"
+    const kind = g.category || 'other';
+    const cat = categoryFor(kind);
     const fam = markFamily(g.mark);
-    const famNode = fam ? families.find((f) => f.label === fam && f.kind === 'family') : undefined;
-    const catId = categoryFor(g.category.toLowerCase() || 'other').id;
-    const catNode = categories.has(catId) ? catId : null;
+    const famNode = fam ? families.find((f) => f.label === fam && f.elementKind === kind) : undefined;
+    const catNode = categories.has(cat.id) ? cat.id : null;
     const parent = famNode?.id ?? catNode ?? GHOST_CATEGORY_ID;
     if (parent === GHOST_CATEGORY_ID) needGhostCategory = true;
     nodes.push({
       id: g.elementId,
-      label: g.mark || g.category || 'Element',
+      label: g.mark || cat.singular,
       kind: 'element',
       level: 2,
       parent,
       categoryParent: famNode?.categoryParent ?? catNode ?? GHOST_CATEGORY_ID,
-      elementKind: famNode?.elementKind ?? (catNode ? g.category.toLowerCase() : undefined),
+      elementKind: kind,
       mark: g.mark || undefined,
       calcLinks: [],
       r: 8,
       x: 0,
       y: 0,
-      desc: `${g.category || 'Element'} · only in revision ${rid}`,
-      diffStatus: status,
+      desc: `${cat.singular} · only in revision ${diff.a}`,
+      diffStatus: 'removed',
       diffChanges: diff.meta.get(g.elementId)?.changes ?? [],
       bbox: diff.ghostBoxes?.get(g.elementId),
       isGhost: true,
     });
     links.push({ source: parent, target: g.elementId, relation: 'hierarchy' });
-    (ghostIds.get(rid) ?? ghostIds.set(rid, []).get(rid)!).push(g.elementId);
-  };
-  diff.onlyInA.forEach((g) => addGhost(g, 'removed', diff.a));
-  diff.onlyInB.forEach((g) => addGhost(g, 'added', diff.b));
+    ghostIds.push(g.elementId);
+  }
   if (needGhostCategory) {
-    nodes.push({ id: GHOST_CATEGORY_ID, label: 'Not in head', kind: 'category', level: 1, parent: PROJECT_NODE_ID, r: 26, x: 0, y: 0, desc: 'Diff elements whose mark family is not in the head model' });
+    nodes.push({ id: GHOST_CATEGORY_ID, label: `Not in revision ${diff.b}`, kind: 'category', level: 1, parent: PROJECT_NODE_ID, r: 26, x: 0, y: 0, desc: 'Removed elements whose kind is not in the compared revision' });
     links.push({ source: PROJECT_NODE_ID, target: GHOST_CATEGORY_ID, relation: 'hierarchy' });
   }
 
@@ -149,6 +150,6 @@ export function applyModelDiff(
   return {
     view: { ...view, elementNodes: computeRadialLayout(nodes), hierarchyLinks: links },
     summary,
-    ghosts: [...ghostIds.entries()].map(([revisionId, elementIds]) => ({ revisionId, elementIds })),
+    ghosts: ghostIds.length ? [{ revisionId: diff.a, elementIds: ghostIds }] : [],
   };
 }

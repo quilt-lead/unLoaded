@@ -33,50 +33,57 @@ export const useProjectList = () => useQuery({ queryKey: ['projects'], queryFn: 
 /** The active project id: the last one used, else the newest, else a new empty one. */
 export const useInitialProject = () => useQuery({ queryKey: ['initial-project'], queryFn: openActiveProject, staleTime: Infinity });
 
-/**
- * The project as view data: head model revision's element graph (topology) merged with the calc
- * engine's export (links, evidence, decisions applied). Also the revision list for the panel.
- */
-export const useProjectView = (projectId: string | null, onProgress: Progress) =>
-  useQuery({
-    queryKey: ['projects', projectId, 'view'],
-    enabled: projectId != null,
-    queryFn: async () => {
-      const snap = await projectSnapshot(projectId!, onProgress);
-      const counts = await revisionCounts(snap.revisions);
-      const revisions = toRevisionList(snap.revisions, { model: snap.project.headModelRev, calcs: snap.project.headCalcRev }, counts);
-      let view: ProjectViewModel | null = null;
-      if (snap.graph || snap.exp) {
-        const topology = snap.graph
-          ? elementGraphToBim(ElementGraph.deserialize(snap.graph), { projectName: snap.project.name })
-          : { projectName: snap.project.name, elementNodes: [], hierarchyLinks: [], loadPath: [], connectivity: [] };
-        const calc = snap.exp
-          ? toCalcData(snap.exp, { projectName: snap.project.name, modelRevisionId: snap.modelRev?.id ?? null, calcRevisionId: snap.calcRev?.id ?? null })
-          : null;
-        view = mergeProject(topology, calc, {
-          source: 'project',
-          projectId: snap.project.id,
-          modelFileUrl: snap.modelRev && snap.modelRev.mediaType === 'application/x-step' ? await revisionFileUrl(snap.modelRev.id) : null,
-        });
-        if (!calc) {
-          // a model without a calc package (or a calc package without a model): still show what exists
-          view = {
-            ...view,
-            modelName: snap.modelRev?.sourceName ?? null,
-            modelRevisionId: snap.modelRev?.id ?? null,
-            calcPackageName: snap.calcRev?.sourceName ?? null,
-            calcRevisionId: snap.calcRev?.id ?? null,
-          };
-        }
-      }
-      return {
-        project: { id: snap.project.id, name: snap.project.name },
-        revisions,
-        hasCalcPackage: Boolean(snap.calcRev),
-        view,
-        pdfUrl: snap.calcRev ? await revisionFileUrl(snap.calcRev.id) : null,
+/** The project as view data for one model revision (default: the head). */
+async function projectView(projectId: string, onProgress: Progress, modelRev: number | null) {
+  const snap = await projectSnapshot(projectId, onProgress, modelRev);
+  const counts = await revisionCounts(snap.revisions);
+  const revisions = toRevisionList(snap.revisions, { model: snap.project.headModelRev, calcs: snap.project.headCalcRev }, counts);
+  let view: ProjectViewModel | null = null;
+  // the engine's export needs the model's graph, so there is a view exactly when there is a graph
+  // (a calc package without a model shows no element view; `hasCalcPackage` still says it exists)
+  if (snap.graph) {
+    const topology = elementGraphToBim(ElementGraph.deserialize(snap.graph), { projectName: snap.project.name });
+    const calc = snap.exp
+      ? toCalcData(snap.exp, { projectName: snap.project.name, modelRevisionId: snap.modelRev?.id ?? null, calcRevisionId: snap.calcRev?.id ?? null })
+      : null;
+    view = mergeProject(topology, calc, {
+      source: 'project',
+      projectId: snap.project.id,
+      modelFileUrl: snap.modelRev && snap.modelRev.mediaType === 'application/x-step' ? await revisionFileUrl(snap.modelRev.id) : null,
+    });
+    if (!calc) {
+      // a model without a calc package: name the revisions shown (the export would have)
+      view = {
+        ...view,
+        modelName: snap.modelRev?.sourceName ?? null,
+        modelRevisionId: snap.modelRev?.id ?? null,
+        calcPackageName: snap.calcRev?.sourceName ?? null,
+        calcRevisionId: snap.calcRev?.id ?? null,
       };
-    },
+    }
+  }
+  return {
+    project: { id: snap.project.id, name: snap.project.name },
+    revisions,
+    hasCalcPackage: Boolean(snap.calcRev),
+    view,
+    pdfUrl: snap.calcRev ? await revisionFileUrl(snap.calcRev.id) : null,
+  };
+}
+
+/**
+ * The project as view data: a model revision's element graph (topology; `modelRev`, default the
+ * head) merged with the calc engine's export against the head calc package (links, evidence,
+ * decisions applied). Also the revision list for the panel. A `modelRev` that is not a model
+ * revision of this project fails the query. While another revision of the SAME project loads, the
+ * previous view stays on screen (never another project's).
+ */
+export const useProjectView = (projectId: string | null, onProgress: Progress, modelRev?: number | null) =>
+  useQuery({
+    queryKey: ['projects', projectId, 'view', modelRev ?? null],
+    enabled: projectId != null,
+    queryFn: () => projectView(projectId!, onProgress, modelRev ?? null),
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[1] === projectId ? previous : undefined),
   });
 
 /** Object URLs for revisions' files (ghost geometry of a diff, opening a calc revision's PDF). */
@@ -95,11 +102,12 @@ export const useRevisionUrls = (rids: number[]) =>
     },
   });
 
-export const useImpact = (projectId: string | null, gid: string | null, mode: 'change' | 'remove') =>
+/** Impact in a model revision (`modelRev`, default the head: pass the revision on screen). */
+export const useImpact = (projectId: string | null, gid: string | null, mode: 'change' | 'remove', modelRev?: number | null) =>
   useQuery({
-    queryKey: ['projects', projectId, 'impact', gid, mode],
+    queryKey: ['projects', projectId, 'impact', gid, mode, modelRev ?? null],
     enabled: projectId != null && !!gid,
-    queryFn: async () => toImpactView(await impactOf(projectId!, gid!, mode)),
+    queryFn: async () => toImpactView(await impactOf(projectId!, gid!, mode, modelRev)),
   });
 
 export const useCompare = (projectId: string | null, a: number | null, b: number | null) =>
@@ -107,15 +115,16 @@ export const useCompare = (projectId: string | null, a: number | null, b: number
     queryKey: ['projects', projectId, 'compare', a, b],
     enabled: projectId != null && a != null && b != null && a !== b,
     queryFn: async () => {
-      const { compare, boxes } = await compareRevisions(a!, b!);
-      return { ...toModelDiff(compare), ghostBoxes: boxes };
+      const { compare, boxes, kinds } = await compareRevisions(projectId!, a!, b!);
+      return { ...toModelDiff(compare, kinds), ghostBoxes: boxes };
     },
   });
 
-export function useDecide(projectId: string | null) {
+/** Review decisions, recorded against `modelRev` (default the head: pass the revision on screen). */
+export function useDecide(projectId: string | null, modelRev?: number | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { elementId: string; calcKey: string; action: DecisionAction }) => decide(projectId!, v.elementId, v.calcKey, v.action),
+    mutationFn: (v: { elementId: string; calcKey: string; action: DecisionAction }) => decide(projectId!, v.elementId, v.calcKey, v.action, modelRev),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects', projectId] }),
   });
 }

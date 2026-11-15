@@ -24,9 +24,11 @@ extraction, and the decision log. The server reads exactly that file:
   in-process: `mapCalcs`, then `buildState` and `buildExport` with the decision log, then `impactOf` and
   `diffGraphs`. These are the same calls the app's worker makes, with the same arguments. There is no
   second implementation.
-- **Stored extraction.** It is used when its document hash matches the PDF in the file. Otherwise the
-  PDF is re-read with `extractPdf` + `segmentCalcs`, so every provenance hash names the PDF that is
-  actually there. `source.calc_revision.extraction` says which happened.
+- **Stored extraction.** It is used when `storedExtractionFor` (`@unloaded/project-file`, the same rule
+  the app applies) accepts it: the shape the engine reads, with every document hash matching the PDF in
+  the file. Otherwise the PDF is re-read with `extractPdf` + `segmentCalcs`, so every provenance hash names
+  the PDF that is actually there. `source.calc_revision.extraction` says which happened, and
+  `extraction_note` why.
 - **Caching.** Results are cached in memory per sha256 of the file's bytes. Save a new version from the
   app over the same path and the next call picks it up.
 

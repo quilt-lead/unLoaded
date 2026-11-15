@@ -343,8 +343,14 @@ const FIELD_LABELS: Record<string, string> = {
   geometry: 'Geometry',
 };
 
-/** GET /compare -> the diff view model (per element status + before/after field changes). */
-export function toModelDiff(c: Compare): ModelDiff {
+/**
+ * The engine's revision diff -> the diff view model (per element status + before/after field changes).
+ * `kinds`: the element-graph kind of each element only one side has (compareRevisions); the
+ * onlyInA / onlyInB `category` is that kind, so a ghost lands in its own kind's family and category
+ * (the engine's `cat` folds kinds together, e.g. fastener into Connection, so it is only the fallback).
+ */
+export function toModelDiff(c: Compare, kinds: ReadonlyMap<string, string> = new Map()): ModelDiff {
+  const kindOf = (x: Compare['removed'][number]) => kinds.get(x.global_id) ?? (x.cat || 'other').toLowerCase();
   const meta = new Map<string, NodeDiffMeta>();
   for (const x of c.added) {
     meta.set(x.global_id, { status: 'added', changes: [{ field: 'Presence', before: `Not in rev A`, after: `Added in rev B` }] });
@@ -366,8 +372,8 @@ export function toModelDiff(c: Compare): ModelDiff {
     a: Number(c.a),
     b: Number(c.b),
     meta,
-    onlyInA: c.removed.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: x.cat || '' })),
-    onlyInB: c.added.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: x.cat || '' })),
+    onlyInA: c.removed.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: kindOf(x) })),
+    onlyInB: c.added.map((x) => ({ elementId: x.global_id, mark: x.mark || '', category: kindOf(x) })),
     edgesAdded: c.edges_added.length,
     edgesRemoved: c.edges_removed.length,
   };

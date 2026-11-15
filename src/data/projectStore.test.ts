@@ -2,10 +2,23 @@
 // (exportProject), the shared reader (parseProjectFile, what the MCP server also reads with) and the
 // app's importer (importProject) agree, payloads and the decision log included. Runs on the store's
 // memory backend (no IndexedDB in Node).
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { SerializedElementGraph } from '@unloaded/element-graph';
 import { decodeBase64, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
-import { addDecision, addRevision, createProject, exportProject, getBlob, getGraph, importProject, listRevisions } from './projectStore';
+import {
+  __testing,
+  addDecision,
+  addRevision,
+  createProject,
+  decisionLog,
+  exportProject,
+  getBlob,
+  getGraph,
+  getProject,
+  importProject,
+  listProjects,
+  listRevisions,
+} from './projectStore';
 
 const graph = (mark: string): SerializedElementGraph =>
   ({
@@ -63,5 +76,96 @@ describe('project file: app writer -> shared reader -> app importer', () => {
     const p = await createProject('No graph');
     await addRevision(p.id, { kind: 'model', label: 'x', sourceName: 'x.ifc', mediaType: 'application/x-step', meta: {} }, new Blob(['x']), {});
     await expect(exportProject(p.id)).rejects.toThrow(/has no stored element graph/);
+  });
+});
+
+const model = (label: string) => ({ kind: 'model' as const, label, sourceName: `${label}.ifc`, mediaType: 'application/x-step', meta: {} });
+const calcs = (label: string) => ({ kind: 'calcs' as const, label, sourceName: `${label}.pdf`, mediaType: 'application/pdf', meta: {} });
+
+describe('the store keeps the backend it opened with', () => {
+  afterEach(() => __testing.useBackend(new __testing.MemoryBackend()));
+
+  // the old withStore caught every error on a persistent backend, swapped the session onto a new
+  // EMPTY memory store and re-ran the call there: the quota error became "project not found" and
+  // every saved project vanished until reload
+  it('a failing call rejects with its own error, and saved projects stay', async () => {
+    type Run = InstanceType<typeof __testing.MemoryBackend>['run'];
+    class Flaky extends __testing.MemoryBackend {
+      persistent = true;
+      fail = false;
+      override run<T>(stores: Parameters<Run>[0], mode: Parameters<Run>[1], fn: (tx: Parameters<Parameters<Run>[2]>[0]) => Promise<T>): Promise<T> {
+        if (this.fail) return Promise.reject(new DOMException('disk full', 'QuotaExceededError'));
+        return super.run(stores, mode, fn);
+      }
+    }
+    const b = new Flaky();
+    __testing.useBackend(b);
+    const p = await createProject('Kept');
+    b.fail = true;
+    await expect(addRevision(p.id, model('m'), new Blob(['x']), { graph: graph('C-1') })).rejects.toThrow(/disk full/);
+    b.fail = false;
+    expect((await listProjects()).map((x) => x.id)).toEqual([p.id]);
+  });
+});
+
+describe('adding a revision is one transaction', () => {
+  afterEach(() => __testing.useBackend(new __testing.MemoryBackend()));
+
+  // the old addRevision wrote revision, blob, graph, extraction and head in separate transactions:
+  // a failure at the extraction left an orphan revision that made every later Save project fail
+  it('a failure part-way stores nothing', async () => {
+    const p = await createProject('Atomic');
+    const unclonable = { calcs: [], pages: [], f: () => 1 };
+    await expect(addRevision(p.id, calcs('c'), new Blob([pdfBytes]), { extraction: unclonable })).rejects.toThrow();
+    expect(await listRevisions(p.id)).toEqual([]);
+    expect((await getProject(p.id))?.headCalcRev).toBeNull();
+    const ok = await addRevision(p.id, calcs('c'), new Blob([pdfBytes]), { extraction: { calcs: [], pages: [] } });
+    expect(ok.seq).toBe(1);
+    await expect(exportProject(p.id)).resolves.toBeTruthy();
+  });
+
+  // the old addRevision read the project row first and wrote it back whole at the end, with seq
+  // counted outside any transaction: overlapping adds lost a head and took the same seq
+  it('overlapping adds keep both heads and distinct seqs', async () => {
+    const p = await createProject('Overlap');
+    const [m, c] = await Promise.all([
+      addRevision(p.id, model('m1'), new Blob(['a']), { graph: graph('C-1') }),
+      addRevision(p.id, calcs('c1'), new Blob([pdfBytes]), { extraction: { calcs: [], pages: [] } }),
+    ]);
+    const head = await getProject(p.id);
+    expect([head?.headModelRev, head?.headCalcRev]).toEqual([m.id, c.id]);
+    const [m2, m3] = await Promise.all([
+      addRevision(p.id, model('m2'), new Blob(['b']), { graph: graph('C-2') }),
+      addRevision(p.id, model('m3'), new Blob(['c']), { graph: graph('C-3') }),
+    ]);
+    expect([m.seq, m2.seq, m3.seq].sort()).toEqual([1, 2, 3]);
+    expect((await getProject(p.id))?.headModelRev).toBe(Math.max(m2.id, m3.id));
+  });
+});
+
+describe('save / open refuse what they cannot round-trip', () => {
+  afterEach(() => __testing.useBackend(new __testing.MemoryBackend()));
+
+  // the old exportProject wrote blob: '' for a missing file, saving a project that reopened with an empty file
+  it('refuses to save a revision whose file is missing', async () => {
+    const mem = new __testing.MemoryBackend();
+    __testing.useBackend(mem);
+    const p = await createProject('No file');
+    const r = await addRevision(p.id, calcs('c'), new Blob([pdfBytes]), {});
+    await mem.run(['blobs'], 'readwrite', (t) => t.remove('blobs', r.id));
+    await expect(exportProject(p.id)).rejects.toThrow(/has no stored file/);
+  });
+
+  // the old importer spread each file decision into the store, so an `id` key in the file (IndexedDB
+  // keeps explicit keys) overwrote another project's decision
+  it("an imported decision never takes another record's id", async () => {
+    const other = await createProject('Other');
+    const m = await addRevision(other.id, model('m'), new Blob(['a']), { graph: graph('C-1') });
+    const mine = await addDecision({ projectId: other.id, globalId: 'C1', calcKey: 'k', action: 'confirm', actor: 'me', note: null, modelRev: m.id, calcRev: null });
+    const file = await exportProject(other.id);
+    const hostile = { ...file, decisions: file.decisions.map((d) => ({ ...d, id: mine.id, projectId: other.id, action: 'reject' as const })) };
+    const q = await importProject(hostile as ProjectFile);
+    expect(await decisionLog(other.id)).toEqual([mine]);
+    expect((await decisionLog(q.id)).map((d) => [d.action, d.id !== mine.id])).toEqual([['reject', true]]);
   });
 });

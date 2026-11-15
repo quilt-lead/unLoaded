@@ -2,11 +2,13 @@
 // (src/engine/engineClient.ts). This is what the old HTTP routes did, now in the browser:
 //   upload model     -> parse IFC / JSON into an element graph (main thread, web-ifc), store file + graph
 //   upload calcs     -> extract + segment the PDF in the worker, store file + extraction
-//   project export   -> head graph x head package -> mapping run (cached per revision pair) ->
-//                       export with the decision log applied (worker)
+//   project export   -> a model revision's graph (default the head) x head package -> mapping run
+//                       (cached per revision pair) -> export with the decision log applied (worker)
 //   decide / impact / compare / revision files
 // Results are handed back as engine types; src/data/loadProject.ts converts them to view data.
 import { ENGINE_VERSION } from '@unloaded/calc-mapper/types';
+import { sha256 } from '@unloaded/calc-mapper';
+import { storedExtractionFor } from '@unloaded/project-file';
 import type { CalcPackage, Compare, DecisionFields, Export, Impact, ImpactMode, MappingRun, SerializedElementGraph } from '@unloaded/calc-mapper/types';
 import type { DecisionAction } from '../types/bim';
 import { importModel, type ImportResult } from '../loaders/parsers';
@@ -64,9 +66,12 @@ export function rememberActiveProject(id: string) {
 }
 
 // ---------------------------------------------------------------- caches (revisions never change)
+// Keyed by revision id. The store keeps one backend for the whole session and its revision ids come
+// from one auto-increment that never reuses an id (not even after a project is deleted), so an entry
+// can never answer for a different revision.
 
 const graphCache = new Map<number, Promise<SerializedElementGraph | undefined>>();
-const pkgCache = new Map<number, Promise<CalcPackage | undefined>>();
+const pkgCache = new Map<number, Promise<CalcPackage>>();
 const urlCache = new Map<number, Promise<string | null>>();
 
 function revisionGraph(rid: number) {
@@ -74,18 +79,22 @@ function revisionGraph(rid: number) {
   if (!p) graphCache.set(rid, (p = getGraph(rid)));
   return p;
 }
+
+/**
+ * A calc revision's calc package: the stored extraction when `storedExtractionFor` (the rule the MCP
+ * server applies too) accepts it against the sha256 of the stored PDF; otherwise re-extracted from
+ * that PDF once, and the new extraction kept.
+ */
 function revisionPackage(rid: number) {
   let p = pkgCache.get(rid);
   if (!p) {
     p = (async () => {
-      const pkg = await getExtraction<CalcPackage>(rid);
-      // extractions stored before the provenance contract carry no document hash, which the engine
-      // requires: re-read them once from the stored PDF and keep the new extraction
-      if (pkg && pkg.source_sha256 && pkg.pages.every((pg) => pg.doc_sha256)) return pkg;
-      const blob = await getBlob(rid);
-      if (!blob) return pkg;
-      const rev = await getRevision(rid);
-      const fresh = await runEngine('extract', { bytes: new Uint8Array(await blob.arrayBuffer()), sourceName: rev?.sourceName ?? 'calcs.pdf' });
+      const [blob, stored, rev] = await Promise.all([getBlob(rid), getExtraction<unknown>(rid), getRevision(rid)]);
+      if (!blob) throw new Error(`Calc revision #${rid} has no stored PDF.`);
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const use = storedExtractionFor(stored, await sha256(bytes));
+      if (use.pkg) return use.pkg;
+      const fresh = await runEngine('extract', { bytes, sourceName: rev?.sourceName ?? 'calcs.pdf' });
       await replaceExtraction(rid, fresh);
       return fresh;
     })();
@@ -200,8 +209,8 @@ const toDecision = (d: DecisionRecord): DecisionFields => ({
   calc_rev: d.calcRev,
 });
 
-/** The head mapping run of a (model, calcs) pair: from the store, else computed once in the worker and stored. */
-async function headRun(projectId: string, modelRev: number, calcRev: number, graph: SerializedElementGraph, pkg: CalcPackage, onProgress: Progress): Promise<MappingRun> {
+/** The mapping run of a (model, calcs) revision pair: from the store, else computed once in the worker and stored. */
+async function pairRun(projectId: string, modelRev: number, calcRev: number, graph: SerializedElementGraph, pkg: CalcPackage, onProgress: Progress): Promise<MappingRun> {
   const stored = await findRun<MappingRun>(projectId, modelRev, calcRev, ENGINE_VERSION);
   // runs stored before typical groups / findings existed are recomputed rather than read half-empty
   if (stored && Array.isArray(stored.data.groups) && Array.isArray(stored.data.findings)) return stored.data;
@@ -221,62 +230,91 @@ export interface ProjectSnapshot {
   exp: Export | null;
 }
 
-export async function projectSnapshot(projectId: string, onProgress: Progress = () => {}): Promise<ProjectSnapshot> {
+/** A model revision of this project, or throw: a stale id (another project's, a deleted one) must fail, not answer. */
+async function modelRevisionOf(projectId: string, rid: number): Promise<RevisionRecord> {
+  const r = await getRevision(rid);
+  if (!r || r.projectId !== projectId || r.kind !== 'model') throw new Error(`Revision #${rid} is not a model revision of this project.`);
+  return r;
+}
+
+/** The model revision to show: the one asked for (checked to be this project's), else the head. */
+async function chosenModelRev(project: ProjectRecord, modelRev: number | null | undefined): Promise<RevisionRecord | null> {
+  if (modelRev != null) return modelRevisionOf(project.id, modelRev);
+  return project.headModelRev != null ? ((await getRevision(project.headModelRev)) ?? null) : null;
+}
+
+/** The project as the engine sees it, for one model revision (default: the head) and the head calc package. */
+export async function projectSnapshot(projectId: string, onProgress: Progress = () => {}, modelRev?: number | null): Promise<ProjectSnapshot> {
   const project = await getProject(projectId);
   if (!project) throw new Error('This project no longer exists.');
-  const m = project.headModelRev;
   const k = project.headCalcRev;
-  const [revisions, modelRev, calcRev, graph, pkg] = await Promise.all([
+  const [revisions, model, calcRev, pkg] = await Promise.all([
     listRevisions(projectId),
-    m != null ? getRevision(m).then((r) => r ?? null) : null,
+    chosenModelRev(project, modelRev),
     k != null ? getRevision(k).then((r) => r ?? null) : null,
-    m != null ? revisionGraph(m).then((g) => g ?? null) : null,
-    k != null ? revisionPackage(k).then((x) => x ?? null) : null,
+    k != null ? revisionPackage(k) : null,
   ]);
+  const graph = model ? ((await revisionGraph(model.id)) ?? null) : null;
   let exp: Export | null = null;
-  if (modelRev && calcRev && graph && pkg) {
-    const run = await headRun(projectId, modelRev.id, calcRev.id, graph, pkg, onProgress);
+  if (model && calcRev && graph && pkg) {
+    const run = await pairRun(projectId, model.id, calcRev.id, graph, pkg, onProgress);
     const decisions = (await decisionLog(projectId)).map(toDecision);
     exp = await runEngine('export', {
       graph,
       pkg,
       run,
       decisions,
-      info: { model: modelRev.sourceName, model_revision: modelRev.id, calc_package: calcRev.sourceName, calc_revision: calcRev.id },
+      info: { model: model.sourceName, model_revision: model.id, calc_package: calcRev.sourceName, calc_revision: calcRev.id },
     });
   }
-  return { project, revisions, modelRev, calcRev, graph, exp };
+  return { project, revisions, modelRev: model, calcRev, graph, exp };
 }
 
-export async function decide(projectId: string, elementId: string, calcKey: string, action: DecisionAction): Promise<void> {
+/** Record a review decision against the model revision on screen (default: the head) and the head calc package. */
+export async function decide(projectId: string, elementId: string, calcKey: string, action: DecisionAction, modelRev?: number | null): Promise<void> {
   const p = await getProject(projectId);
-  await addDecision({ projectId, globalId: elementId, calcKey, action, actor: 'reviewer', note: null, modelRev: p?.headModelRev ?? null, calcRev: p?.headCalcRev ?? null });
+  if (!p) throw new Error('This project no longer exists.');
+  const m = await chosenModelRev(p, modelRev);
+  await addDecision({ projectId, globalId: elementId, calcKey, action, actor: 'reviewer', note: null, modelRev: m?.id ?? null, calcRev: p.headCalcRev });
 }
 
-export async function impactOf(projectId: string, globalId: string, mode: ImpactMode): Promise<Impact> {
+/** Impact of changing / removing an element in a model revision (default: the head) with the head calc package. */
+export async function impactOf(projectId: string, globalId: string, mode: ImpactMode, modelRev?: number | null): Promise<Impact> {
   const project = await getProject(projectId);
-  if (!project?.headModelRev) throw new Error('No model in this project.');
-  const graph = await revisionGraph(project.headModelRev);
-  if (!graph) throw new Error('The head model revision has no element graph.');
-  const pkg = project.headCalcRev != null ? ((await revisionPackage(project.headCalcRev)) ?? null) : null;
-  const run = pkg && project.headCalcRev != null ? await headRun(projectId, project.headModelRev, project.headCalcRev, graph, pkg, () => {}) : null;
+  if (!project) throw new Error('This project no longer exists.');
+  const m = await chosenModelRev(project, modelRev);
+  if (!m) throw new Error('No model in this project.');
+  const graph = await revisionGraph(m.id);
+  if (!graph) throw new Error(`Model revision #${m.id} has no element graph.`);
+  const pkg = project.headCalcRev != null ? await revisionPackage(project.headCalcRev) : null;
+  const run = pkg && project.headCalcRev != null ? await pairRun(projectId, m.id, project.headCalcRev, graph, pkg, () => {}) : null;
   const decisions = (await decisionLog(projectId)).map(toDecision);
   return runEngine('impact', { graph, pkg, run, decisions, globalId, mode });
 }
 
-/** The one revision diff (`diffGraphs`): the element graphs of two model revisions. */
-export async function compareRevisions(a: number, b: number): Promise<{ compare: Compare; boxes: Map<string, { min: [number, number, number]; max: [number, number, number] }> }> {
+type Box = { min: [number, number, number]; max: [number, number, number] };
+
+/**
+ * The one revision diff (`diffGraphs`): the element graphs of two model revisions of this project
+ * (a or b from elsewhere is refused). Also, for the elements only one side has, their element-graph
+ * box (ghost geometry when a revision has no IFC to mesh) and element-graph kind (the engine's `cat`
+ * folds kinds together, e.g. fastener into Connection).
+ */
+export async function compareRevisions(projectId: string, a: number, b: number): Promise<{ compare: Compare; boxes: Map<string, Box>; kinds: Map<string, string> }> {
+  await Promise.all([modelRevisionOf(projectId, a), modelRevisionOf(projectId, b)]);
   const [ga, gb] = await Promise.all([revisionGraph(a), revisionGraph(b)]);
   if (!ga || !gb) throw new Error(`Revision #${!ga ? a : b} has no element graph to compare.`);
   const compare = await runEngine('diff', { a: ga, b: gb, labelA: a, labelB: b });
-  // boxes of the elements only one side has, for ghosts when a revision has no IFC to mesh
-  const boxes = new Map<string, { min: [number, number, number]; max: [number, number, number] }>();
+  const boxes = new Map<string, Box>();
+  const kinds = new Map<string, string>();
   const want = new Set([...compare.removed, ...compare.added].map((x) => x.global_id));
   for (const n of [...ga.nodes, ...gb.nodes]) {
+    if (!want.has(n.id)) continue;
+    kinds.set(n.id, n.kind);
     const bb = n.geometry?.bbox;
-    if (bb && want.has(n.id)) boxes.set(n.id, { min: [bb.min[0], bb.min[1], bb.min[2]], max: [bb.max[0], bb.max[1], bb.max[2]] });
+    if (bb) boxes.set(n.id, { min: [bb.min[0], bb.min[1], bb.min[2]], max: [bb.max[0], bb.max[1], bb.max[2]] });
   }
-  return { compare, boxes };
+  return { compare, boxes, kinds };
 }
 
 /** Element counts per revision, for the revision panel. */

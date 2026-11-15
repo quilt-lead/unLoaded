@@ -8,15 +8,15 @@
  *
  * One JSON document: every revision's original file base64-encoded (`blob`), each model revision's
  * element graph (`graph`, built once at import and never re-parsed from the IFC), each calc revision's
- * extraction (`extraction`, the calc-mapper `CalcPackage`, optional: both readers re-extract from the
- * PDF when it is missing or its hash does not match), plus the append-only decision log. Chosen over a
+ * extraction (`extraction`, the calc-mapper `CalcPackage`, optional: both readers decide whether to use
+ * it with `storedExtractionFor` and re-extract from the PDF otherwise), plus the append-only decision log. Chosen over a
  * zip because it needs no dependency, stays inspectable, and the ~33 % base64 overhead is small next
  * to the IFC and PDF it carries.
  *
  * Head revisions are not stored: importing re-adds revisions in id order and each add becomes the head
  * of its kind, so the head of a kind is the revision with the highest id (`headOf`).
  */
-import { DECISION_ACTIONS, parseGraph, type DecisionAction } from "@unloaded/calc-mapper";
+import { DECISION_ACTIONS, parseGraph, type CalcPackage, type DecisionAction } from "@unloaded/calc-mapper";
 import type { SerializedElementGraph } from "@unloaded/element-graph";
 
 export const PROJECT_FILE_FORMAT = "unloaded.calc-graph-project" as const;
@@ -50,7 +50,8 @@ export interface ProjectFileRevision extends ProjectFileRevisionFields {
 
 /**
  * One decision as the file stores it: the app's decision record without its store id / projectId.
- * The log is kept in order (oldest first); readers re-number it 1..n in that order.
+ * The log is kept in order (oldest first). Readers give it ids that keep that order (the app's
+ * auto-increment, the MCP server's 1..n): "latest decision per pair wins" depends only on the order.
  */
 export interface ProjectFileDecision {
   globalId: string;
@@ -91,7 +92,8 @@ export function isProjectFileFormat(data: unknown): boolean {
 
 /**
  * Validate a parsed project file, field by field, against what every reader relies on. Throws
- * ProjectFileError naming the first thing wrong. Returns the same object, typed.
+ * ProjectFileError naming the first thing wrong. Returns a NEW object holding only the declared
+ * fields, so an extra key in a hand-edited file (an `id` on a decision, say) never reaches a reader.
  */
 export function parseProjectFile(data: unknown): ProjectFile {
   if (!isObj(data)) fail("project file must be a JSON object");
@@ -107,41 +109,53 @@ export function parseProjectFile(data: unknown): ProjectFile {
   }
   if (typeof d.exportedAt !== "string") fail("exportedAt must be a string");
   if (!isObj(d.project) || typeof d.project.name !== "string") fail("project.name must be a string");
-  if (typeof (d.project as Record<string, unknown>).createdAt !== "string") fail("project.createdAt must be a string");
+  const project = d.project as Record<string, unknown>;
+  if (typeof project.createdAt !== "string") fail("project.createdAt must be a string");
   if (!Array.isArray(d.revisions)) fail("revisions must be a list");
   if (!Array.isArray(d.decisions)) fail("decisions must be a list");
 
   const kinds = new Map<number, RevisionKind>();
-  (d.revisions as unknown[]).forEach((r, i) => {
+  const revisions = (d.revisions as unknown[]).map((r, i): ProjectFileRevision => {
     const at = `revisions[${i}]`;
     if (!isObj(r)) return fail(`${at} must be an object`);
     if (!isInt(r.id)) fail(`${at}.id must be an integer`);
     const id = r.id as number;
     if (kinds.has(id)) fail(`${at}: duplicate revision id ${id}`);
     if (r.kind !== "model" && r.kind !== "calcs") fail(`${at}.kind must be "model" or "calcs"`);
-    kinds.set(id, r.kind as RevisionKind);
+    const kind = r.kind as RevisionKind;
+    kinds.set(id, kind);
     if (!isInt(r.seq) || r.seq < 1) fail(`${at}.seq must be a positive integer`);
     for (const k of ["label", "sourceName", "mediaType", "createdAt"] as const) {
       if (typeof r[k] !== "string") fail(`${at}.${k} must be a string`);
     }
     if (!isObj(r.meta)) fail(`${at}.meta must be an object`);
+    const meta: RevisionMeta = {};
     for (const [k, v] of Object.entries(r.meta as Record<string, unknown>)) {
       if (v !== null && !["string", "number", "boolean"].includes(typeof v)) fail(`${at}.meta.${k} must be a string, number, boolean or null`);
+      meta[k] = v as RevisionMeta[string];
     }
-    if (typeof r.blob !== "string" || r.blob.length % 4 !== 0 || !BASE64.test(r.blob)) fail(`${at}.blob must be a base64 string`);
-    if (r.kind === "model") {
+    // every revision is its original file: an empty one is a file that lost its payload
+    if (typeof r.blob !== "string" || !r.blob || r.blob.length % 4 !== 0 || !BASE64.test(r.blob)) fail(`${at}.blob must be a non-empty base64 string`);
+    const out: ProjectFileRevision = {
+      id, kind, seq: r.seq as number, label: r.label as string, sourceName: r.sourceName as string, mediaType: r.mediaType as string,
+      createdAt: r.createdAt as string, meta, blob: r.blob as string,
+    };
+    if (kind === "model") {
       if (r.graph === undefined) fail(`${at}: model revision ${id} has no element graph`);
       try {
-        parseGraph(r.graph);
+        out.graph = parseGraph(r.graph);
       } catch (e) {
         fail(`${at}.graph: ${(e as Error).message}`);
       }
     } else if (r.graph !== undefined) {
       fail(`${at}: calc revision ${id} must not carry an element graph`);
     }
+    // checked against the PDF by storedExtractionFor when it is used
+    if (r.extraction !== undefined) out.extraction = r.extraction;
+    return out;
   });
 
-  (d.decisions as unknown[]).forEach((x, i) => {
+  const decisions = (d.decisions as unknown[]).map((x, i): ProjectFileDecision => {
     const at = `decisions[${i}]`;
     if (!isObj(x)) return fail(`${at} must be an object`);
     for (const k of ["globalId", "calcKey", "actor", "at"] as const) {
@@ -155,8 +169,36 @@ export function parseProjectFile(data: unknown): ProjectFile {
       if (!isInt(v)) fail(`${at}.${k} must be a revision id or null`);
       if (kinds.get(v as number) !== kind) fail(`${at}.${k} = ${String(v)} is not a ${kind} revision in this file`);
     }
+    return {
+      globalId: x.globalId as string, calcKey: x.calcKey as string, action: x.action as DecisionAction, actor: x.actor as string,
+      note: x.note as string | null, at: x.at as string, modelRev: x.modelRev as number | null, calcRev: x.calcRev as number | null,
+    };
   });
-  return data as unknown as ProjectFile;
+
+  return {
+    format: PROJECT_FILE_FORMAT, version: PROJECT_FILE_VERSION, exportedAt: d.exportedAt as string,
+    project: { name: project.name as string, createdAt: project.createdAt as string }, revisions, decisions,
+  };
+}
+
+/**
+ * Whether a calc revision's stored extraction can be used as its calc package, given the sha256 of
+ * the PDF it was extracted from (calc-mapper `sha256` of the stored bytes). Usable only when it has
+ * the shape the engine reads (pages and calcs lists, at least one page) and every document hash in
+ * it names that PDF; otherwise `reason` says why, and the reader re-extracts from the PDF. The one
+ * rule for the app (src/engine/projectService.ts) and the MCP server (packages/mcp-server/src/project.ts).
+ */
+export function storedExtractionFor(extraction: unknown, pdfSha256: string): { pkg: CalcPackage; reason: null } | { pkg: null; reason: string } {
+  const no = (reason: string) => ({ pkg: null, reason });
+  if (extraction === undefined || extraction === null) return no("there is no stored extraction");
+  if (!isObj(extraction)) return no("the stored extraction is malformed (not an object)");
+  const { pages, calcs, source_sha256: src } = extraction;
+  if (!Array.isArray(pages) || !pages.length || !pages.every(isObj)) return no("the stored extraction is malformed (pages must be a non-empty list of pages)");
+  if (!Array.isArray(calcs) || !calcs.every(isObj)) return no("the stored extraction is malformed (calcs must be a list of calcs)");
+  if (src !== undefined && src !== null && typeof src !== "string") return no("the stored extraction is malformed (source_sha256 must be a string)");
+  if (!src || !pages.every((pg) => typeof pg.doc_sha256 === "string" && pg.doc_sha256)) return no("the stored extraction predates document hashes");
+  if (src !== pdfSha256 || !pages.every((pg) => pg.doc_sha256 === pdfSha256)) return no("the stored extraction's document hash does not match the PDF");
+  return { pkg: extraction as unknown as CalcPackage, reason: null };
 }
 
 /** The head revision of a kind: the highest id (what importing leaves as head). */
