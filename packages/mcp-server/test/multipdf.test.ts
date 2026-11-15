@@ -16,7 +16,7 @@ import {
 } from "@unloaded/calc-mapper";
 import type { Project } from "../src/project.ts";
 import * as tools from "../src/tools.ts";
-import { MODEL, PDF, SUPPLEMENT, inputs, loadProject, plain, tempDir } from "./helpers.ts";
+import { CROSS_MAIN, CROSS_SUPPLEMENT, MODEL, PDF, SUPPLEMENT, inputs, loadProject, plain, tempDir } from "./helpers.ts";
 
 let single: Project;
 let p: Project;
@@ -105,5 +105,81 @@ describe("two calc PDFs", () => {
     const t = await loadProject(inputs({ calcs: [PDF, SUPPLEMENT, twin] }));
     expect(t.pdfs.map((d) => d.name)).toEqual(["test_calcs.pdf", "Supplement A.pdf"]);
     expect(t.warnings.some((w) => /Copy of Supplement.pdf has the same content as Supplement A.pdf/.test(w))).toBe(true);
+  });
+});
+
+/**
+ * The cross-PDF pair (fixtures.ts CROSS_*) on the calc set: B-101 designed in both PDFs, a "see page 2"
+ * in the supplement, and a "carried to shear tab ST-2" in the main PDF naming a connection the
+ * supplement designs on ITS page 2. The engine resolves all three on the set; these pin that the
+ * server's page translation (set page - page_offset) keeps every evidence page in its own PDF.
+ */
+describe("cross-PDF cases on the calc set", () => {
+  let x: Project;
+  const MAIN_BEAM = "d1#beam-design-check";
+  const SUP_BEAM = "d2#beam-design-check";
+  const SUP_CONN = "d2#connection-design-check";
+  const COLUMN = "d1#column-design-check";
+  const edge = (src: string, dst: string) => x.calcEdges.find((e) => e.src === src && e.dst === dst);
+  beforeAll(async () => {
+    x = await loadProject(inputs({ calcs: [CROSS_MAIN, CROSS_SUPPLEMENT] }));
+  }, 120_000);
+
+  it("one designer per element across the set; page references and cue words stay in their own PDF", () => {
+    const design = x.links.filter((l) => l.global_id === "B1" && l.role === "design" && l.status !== "rejected");
+    expect(design.map((l) => l.calc_key).sort()).toEqual([MAIN_BEAM, SUP_BEAM]);
+    // the supplement's mention of B-101 is fed by ONE designer (the main beam calc), not by both
+    expect(edge(SUP_BEAM, SUP_CONN)).toBeUndefined();
+    expect(edge(MAIN_BEAM, SUP_CONN)).toMatchObject({ cross_pdf: true });
+    // "see page 2" in the supplement is the supplement's own page 2
+    expect(edge(SUP_CONN, SUP_BEAM)).toMatchObject({ cross_pdf: false, rules: ["page reference (input from)"] });
+    expect(edge(SUP_CONN, SUP_BEAM)!.evidence.map((ev) => [ev.calc, ev.page])).toEqual([[SUP_BEAM, 1]]);
+    // "carried to shear tab ST-2" is read on the main PDF's page 2: the column calc feeds the connection calc
+    expect(edge(COLUMN, SUP_CONN)!.evidence.map((ev) => [ev.calc, ev.page, ev.global_id])).toEqual([[COLUMN, 2, "K2"]]);
+    expect(edge(SUP_CONN, COLUMN)).toBeUndefined();
+    for (const e of x.calcEdges) for (const ev of e.evidence) expect(ev.page).toBeLessThanOrEqual(x.pdfOfCalc.get(ev.calc)!.pages.length);
+  });
+
+  it("every tool's source block names the PDF of every calc its result mentions, and of every sha256 its provenance cites", async () => {
+    const reads: [string, () => unknown][] = [
+      ["project_summary", () => tools.projectSummary(x)],
+      ["search_elements", () => tools.searchElements(x, { limit: 500 })],
+      ["get_element B1", () => tools.getElement(x, { id: "B1" })],
+      ["get_element K2", () => tools.getElement(x, { id: "K2" })],
+      ["list_calcs", () => tools.listCalcs(x, {})],
+      ["get_calc", () => tools.getCalc(x, { key: SUP_CONN, include_text: true })],
+      ["search_calc_text", () => tools.searchCalcText(x, { query: "B-101", limit: 500 })],
+      ["trace_load_path", () => tools.traceLoadPath(x, { id: "B1", direction: "both" })],
+      ["calc_dependencies", () => tools.calcDependencies(x, {})],
+      ["calc_dependencies key", () => tools.calcDependencies(x, { key: COLUMN, depth: 3 })],
+      ["impact_of_change", () => tools.impactOfChange(x, { id: "C-1", mode: "remove" })],
+      ["impact_of_change B1", () => tools.impactOfChange(x, { id: "B1", mode: "change" })],
+      ["review_status", () => tools.reviewStatus(x, { limit: 500 })],
+      ["list_findings", () => tools.listFindings(x, {})],
+      ["list_typical_groups", () => tools.listTypicalGroups(x, {})],
+      ["move_column", () => tools.moveColumn(x, { column: "C-2", remove: true })],
+      ["export_mapping", () => tools.exportMappingTool(x, {})],
+    ];
+    const CALC_FIELDS = new Set(["calc_key", "calc", "src", "dst", "key", "calcKey", "center"]);
+    const shaToPdf = new Map(x.pdfs.map((d) => [d.sha256, d.name]));
+    for (const [name, fn] of reads) {
+      const r = plain(fn()) as { source: { calc_pdfs: { file: string }[] } };
+      const listed = new Set(r.source.calc_pdfs.map((d) => d.file));
+      const need = new Set<string>();
+      const walk = (v: unknown, k: string | null): void => {
+        if (Array.isArray(v)) v.forEach((y) => walk(y, k));
+        else if (v && typeof v === "object") {
+          for (const [kk, vv] of Object.entries(v)) if (kk !== "source") walk(vv, kk);
+        }
+        else if (typeof v === "string") {
+          if (k !== null && CALC_FIELDS.has(k) && x.pdfOfCalc.has(v)) need.add(x.pdfOfCalc.get(v)!.name);
+          if (shaToPdf.has(v)) need.add(shaToPdf.get(v)!);
+        }
+      };
+      walk(r, null);
+      expect([...need].filter((f) => !listed.has(f)), name).toEqual([]);
+    }
+    // trace_load_path names the PDFs of the best calcs it returns (it used to name none)
+    expect((tools.traceLoadPath(x, { id: "B1", direction: "both" }).source as { calc_pdfs: unknown[] }).calc_pdfs.length).toBeGreaterThan(0);
   });
 });

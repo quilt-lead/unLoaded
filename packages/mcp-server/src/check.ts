@@ -54,10 +54,11 @@ export function checkReport(p: Project, opts: { serverName: string; version: str
   if (p.projectFile) L.push(`Decisions   ${p.baseLog.length} in the project file (read-only; applied first)`);
   if (p.decisions) {
     L.push(
-      `${p.projectFile ? "  file      " : "Decisions   "}${p.decisions.path}: ${s.decisions.exists ? `${s.decisions.entries} entries` : "does not exist yet (created on the first recorded decision)"}; ${s.decisions.effective} effective, ${s.decisions.not_applied} not applied`,
+      `${p.projectFile ? "  file      " : "Decisions   "}${p.decisions.path}: ${p.decisions.problem ? "CANNOT BE READ (see below)" : s.decisions.exists ? `${s.decisions.entries} entries` : "does not exist yet (created on the first recorded decision)"}; ${s.decisions.effective} effective, ${s.decisions.not_applied} not applied`,
     );
+    if (p.decisions.isSymlink) L.push(`  real file ${p.decisions.realPath} (the path is a symbolic link; the real file is written)`);
     if (p.decisions.sha256) L.push(`  sha256    ${p.decisions.sha256}`);
-    L.push(`  writable  yes, as actor "${p.actor}"`);
+    L.push(`  writable  ${p.decisions.problem ? "NO, until the file is fixed" : `yes, as actor "${p.actor}"`}`);
   } else {
     L.push(`${p.projectFile ? "  file      " : "Decisions   "}none (read-only: add --decisions <file> to let your AI record review decisions)`);
   }
@@ -70,6 +71,11 @@ export function checkReport(p: Project, opts: { serverName: string; version: str
   const pdfT = `${p.pdfs.map((d) => `${d.name} read ${d.readMs} ms`).join(", ")}, map ${t.map_ms} ms`;
   L.push(`Timings     model${p.models.length > 1 ? "s" : ""} ${t.model_ms} ms, ${pdfT}, review ${t.review_ms} ms, total ${t.total_ms} ms`);
   L.push("");
-  L.push("OK: ready to serve. Add the same arguments (without --check) to your MCP client config.");
+  if (p.decisions?.problem) {
+    L.push(`NOT READY: ${p.decisions.problem}`);
+    L.push(`Fix ${p.decisions.path} (or point --decisions at a new file), then run --check again.`);
+  } else {
+    L.push("OK: ready to serve. Add the same arguments (without --check) to your MCP client config.");
+  }
   return L.join("\n");
 }

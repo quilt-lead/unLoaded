@@ -20,6 +20,9 @@ export const MODEL = FIX.rev1;
 export const MODEL_REV2 = FIX.rev2;
 export const PDF = FIX.main;
 export const SUPPLEMENT = FIX.supplement;
+/** The cross-PDF pair (fixtures.ts CROSS_*): B-101 designed in both, a "see page 2" and a "carried to" across PDFs. */
+export const CROSS_MAIN = FIX.crossMain;
+export const CROSS_SUPPLEMENT = FIX.crossSupplement;
 
 export const tempDir = () => mkdtempSync(join(tmpdir(), "unloaded-mcp-test-"));
 

@@ -35,7 +35,11 @@ highlighted words. impact_of_change, move_column and compare_revisions are what-
 
 Writing: record_decision / record_decisions append review decisions (confirm, reject, manual, undo) to the decisions \
 file, as the engineer. Only record a decision the user has asked for or clearly agreed to; tell them what you recorded. \
-Nothing else is ever modified.`;
+Nothing else is ever modified. undo clears the element-calc pair back to its automatic state (the engine applies only the \
+latest decision per pair, and an undo drops the pair): earlier decisions on that pair are NOT restored, and a hand link \
+is removed. Decisions are named by origin + id: "decisions_file" ids are the decisions file's own, "project_file" ids \
+number a project file's log 1..n. If a result's source carries "decisions_warning", the decisions file cannot be read: \
+tell the user; answers use the last good log and writes are refused until it is fixed.`;
 
 const RO = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } as const;
 const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
@@ -47,7 +51,8 @@ const decisionShape = {
   global_id: z.string().describe("Exact IFC GlobalId of the element (not a mark)."),
   calc_key: z.string().describe("Exact calc key (from list_calcs / get_element)."),
   action: z.enum(["confirm", "reject", "manual", "undo"]).describe(
-    "confirm / reject an automatic link; manual = link by hand (any element + calc); undo = clear the latest decision on this pair.",
+    "confirm / reject an automatic link; manual = link by hand (any element + calc); undo = clear this pair back to its automatic " +
+      "state (earlier decisions on the pair are not restored; a hand link is removed).",
   ),
   note: z.string().max(2000).optional().describe("Why (recorded in the file)."),
 };
@@ -64,11 +69,13 @@ function failure(e: unknown): CallToolResult {
 export function createServer(project: Project): McpServer {
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION }, { instructions: INSTRUCTIONS });
 
+  // reads first pick up decisions written by someone else; a write does not: it re-reads the file
+  // under the lock itself, and reports whether it found changes this server had not seen
   const run =
-    <A>(fn: (p: Project, a: A) => unknown | Promise<unknown>) =>
+    <A>(fn: (p: Project, a: A) => unknown | Promise<unknown>, opts: { write?: boolean } = {}) =>
     async (a: A): Promise<CallToolResult> => {
       try {
-        await project.refresh();
+        if (!opts.write) await project.refresh();
         return json(await fn(project, a));
       } catch (e) {
         return failure(e);
@@ -384,12 +391,15 @@ export function createServer(project: Project): McpServer {
       title: "Record a review decision",
       description:
         "WRITES: append one review decision to the decisions file (append-only; nothing is deleted or rewritten): confirm or reject an " +
-        "automatic element-calc link, manual = link an element to a calc by hand, undo = clear the latest decision on that pair. Recorded " +
-        "with the time and the configured actor. Only on the user's request. Returns the link and element status before and after.",
+        "automatic element-calc link, manual = link an element to a calc by hand, undo = clear that pair back to its automatic state " +
+        "(earlier decisions on the pair are not restored; a hand link is removed). Recorded with the time and the configured actor. Only " +
+        "on the user's request. Returns the decision (origin decisions_file + its id in the file), the link and element status before and " +
+        "after, and reloaded_external_changes (true when the file held decisions written elsewhere since this server last read it; they " +
+        "are kept).",
       inputSchema: decisionShape,
       annotations: WRITE,
     },
-    run((p, a: tools.DecisionInput) => tools.recordDecisions(p, { decisions: [a] })),
+    run((p, a: tools.DecisionInput) => tools.recordDecisions(p, { decisions: [a] }), { write: true }),
   );
 
   server.registerTool(
@@ -402,7 +412,7 @@ export function createServer(project: Project): McpServer {
       inputSchema: { decisions: z.array(z.object(decisionShape)).min(1).max(500) },
       annotations: WRITE,
     },
-    run((p, a: { decisions: tools.DecisionInput[] }) => tools.recordDecisions(p, a)),
+    run((p, a: { decisions: tools.DecisionInput[] }) => tools.recordDecisions(p, a), { write: true }),
   );
 
   // resources: cheap read-only views

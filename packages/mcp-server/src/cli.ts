@@ -44,7 +44,8 @@ try {
 
 if (opts.check) {
   log(checkReport(project, { serverName: SERVER_NAME, version: SERVER_VERSION, suppressedWebIfc: suppressedWebIfcMessages(), suppressedPdfjs: suppressedPdfjsWarnings() }));
-  process.exit(0);
+  // a decisions file that cannot be read is not "ready": the server would serve, but refuse every write
+  process.exit(project.decisions?.problem ? 1 : 0);
 }
 
 const c = project.counts;
@@ -55,5 +56,5 @@ log(
     (project.decisions ? `decisions -> ${project.decisions.path} as "${project.actor}"` : "read-only (no --decisions)") +
     " on stdio",
 );
-for (const w of project.warnings) log(`warning: ${w}`);
+for (const w of project.allWarnings) log(`warning: ${w}`);
 await createServer(project).connect(new StdioServerTransport());

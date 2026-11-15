@@ -23,13 +23,16 @@
  *
  * Decisions: the decisions file (calc-mapper's decision log, written by the server) and, with a
  * project file, the file's own log (read-only here) before it. Calc edges, statuses and findings are
- * recomputed from the effective links whenever the log changes.
+ * recomputed from the effective links whenever the log changes. Decision ids are per origin (see
+ * `DecisionRef`): the engine is handed one log with the decisions file's ids shifted past the project
+ * file's, but no tool ever shows a shifted id.
  */
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { userInfo } from "node:os";
 import {
   CALC_REF_SEP,
+  LEGACY_DOC_ID,
   ENGINE_VERSION,
   buildCalcSet,
   buildState,
@@ -123,6 +126,30 @@ export interface CalcEdgeView extends CalcEdge {
   cross_pdf: boolean;
 }
 
+/**
+ * Where a decision is recorded, and its id THERE: "decisions_file" = the --decisions file (its own
+ * ids, the ids record_decision returns), "project_file" = the project file's decision log (numbered
+ * 1..n in file order). Every tool and the decisions resource name decisions this way.
+ */
+export type DecisionOrigin = "decisions_file" | "project_file";
+export interface DecisionRef {
+  origin: DecisionOrigin;
+  id: number;
+}
+
+/** The largest of `xs` (and `init`), without spreading them into Math.max's arguments (a RangeError past ~100k). */
+export function maxOf(xs: Iterable<number>, init = -Infinity): number {
+  let m = init;
+  for (const x of xs) if (x > m) m = x;
+  return m;
+}
+/** The smallest of `xs` (and `init`), without spreading. */
+export function minOf(xs: Iterable<number>, init = Infinity): number {
+  let m = init;
+  for (const x of xs) if (x < m) m = x;
+  return m;
+}
+
 const pairKey = (gid: string, key: string) => `${gid}\u0000${key}`;
 
 export class ProjectError extends Error {
@@ -181,9 +208,23 @@ export class Project {
   findings: Finding[] = [];
   groupLinks: GroupLink[] = [];
   effective = new Map<string, DecisionFields>();
+  /**
+   * The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's,
+   * ids shifted past them.
+   */
+  log: DecisionFields[] = [];
+  /** Each entry of `log` -> its origin and its id there. */
+  private refs = new Map<DecisionFields, DecisionRef>();
+  /** Decisions-file entries written with a bare calc key (resolved to d1), so a warning can say so only for those. */
+  private readonly bareKeyed = new WeakSet<DecisionFields>();
   /** Decisions whose element or calc is not in this project (carried, but not applied). */
   unappliedDecisions = 0;
-  /** The decisions file log the derived state was computed from (identity), to tell when it is stale. */
+  /** Warnings about the decision logs as they stand (recomputed with them). */
+  decisionWarnings: string[] = [];
+  /**
+   * The decisions file log the derived state was computed from (identity: DecisionsFile keeps the same
+   * array while the file is unchanged), to tell when it is stale.
+   */
   computedLog: readonly DecisionFields[] | null = null;
 
   constructor(init: {
@@ -228,18 +269,52 @@ export class Project {
     return this.decisions?.log ?? [];
   }
 
+  /** A decision of `log` (or of `effective`) as its origin and its id there. */
+  decisionRef(d: DecisionFields): DecisionRef {
+    const r = this.refs.get(d);
+    if (!r) throw new ProjectError(`internal: decision ${d.id} is not in the applied log`);
+    return r;
+  }
+
+  /** Every warning as things stand: the load-time ones, then the decision logs' (they change when the files do). */
+  get allWarnings(): string[] {
+    return [...this.warnings, ...this.decisionWarnings, ...(this.decisions?.problem ? [`decisions: ${this.decisions.problem}`] : [])];
+  }
+
   /**
-   * The log the engine applies: the project file's decisions (ids 1..n), then the decisions file's,
-   * ids shifted past them so they come later (an id only orders decisions; the latest per pair wins).
-   * A bare calc key (no "<docId>#") names a calc of the first document, as in the app.
+   * Build the log the engine applies: the project file's decisions (ids 1..n), then the decisions
+   * file's, ids shifted past them so they come later (an id only orders decisions; the latest per
+   * pair wins). A bare calc key (no "<docId>#") names a calc of the first document, as in the app.
+   * The shifted ids live only here: `decisionRef` maps every entry back.
    */
-  get log(): DecisionFields[] {
+  private combinedLog(fileLog: readonly DecisionFields[], ref?: (e: DecisionFields, r: DecisionRef) => void): DecisionFields[] {
     const n = this.baseLog.length;
-    const file = this.fileLog.map((d) => {
+    const log: DecisionFields[] = [];
+    for (const d of this.baseLog) {
+      log.push(d);
+      ref?.(d, { origin: "project_file", id: d.id });
+    }
+    for (const d of fileLog) {
       const calc_key = legacyCalcRef(d.calc_key);
-      return n || calc_key !== d.calc_key ? { ...d, id: d.id + n, calc_key } : d;
-    });
-    return n ? [...this.baseLog, ...file] : file;
+      const e = n || calc_key !== d.calc_key ? { ...d, id: d.id + n, calc_key } : d;
+      if (calc_key !== d.calc_key) this.bareKeyed.add(e); // written as a bare key, read as a calc of d1
+      log.push(e);
+      ref?.(e, { origin: "decisions_file", id: d.id });
+    }
+    return log;
+  }
+
+  private buildLog(fileLog: readonly DecisionFields[]): void {
+    this.refs = new Map();
+    this.log = this.combinedLog(fileLog, (e, r) => this.refs.set(e, r));
+  }
+
+  /**
+   * The effective decision per (global_id, calc_key) over the project file's log + `fileLog`, without
+   * applying anything (no buildState): cheap enough to run under the decisions file's lock.
+   */
+  effectiveOver(fileLog: readonly DecisionFields[]): Map<string, DecisionFields> {
+    return effectiveDecisions(this.combinedLog(fileLog));
   }
 
   /** A set page of a calc's record -> the page of that calc's own PDF. */
@@ -253,9 +328,13 @@ export class Project {
     return { ...l, page: pg(l.page), evidence: l.evidence.map((e) => ({ ...e, page: pg(e.page) })) };
   }
 
-  /** Apply the decision log: one buildState on the set, then page numbers per PDF. */
-  recompute(): void {
-    this.computedLog = this.fileLog;
+  /**
+   * Apply the decision log: one buildState on the set, then page numbers per PDF. `fileLog` is the
+   * decisions file's log to apply (default: as last read).
+   */
+  recompute(fileLog: readonly DecisionFields[] = this.fileLog): void {
+    this.computedLog = fileLog;
+    this.buildLog(fileLog);
     const log = this.log;
     this.state = buildState(this.graph.graph, this.set, this.run, log);
     this.links = this.state.links.map((l) => this.linkPages(l));
@@ -271,6 +350,7 @@ export class Project {
     this.groupLinks = this.state.group_links.map((g) => this.linkPages(g));
     this.effective = effectiveDecisions(log);
     this.unappliedDecisions = log.filter((d) => !this.gids.has(d.global_id) || !this.calcKeys.has(d.calc_key)).length;
+    this.decisionWarnings = this.checkDecisionKeys();
     this.calcEdges = this.state.calc_edges.map((e) => ({
       ...e,
       evidence: e.evidence.map((ev) => ({ ...ev, page: this.docPage(ev.calc, ev.page) })),
@@ -278,9 +358,55 @@ export class Project {
     }));
   }
 
+  /**
+   * Decisions that name a calc or element this project does not have: kept, not applied, and said
+   * loudly with the likely cause (a calc ref names a document of the calc set: d1, d2, ... in --calcs
+   * order, or the project file's documents).
+   */
+  private checkDecisionKeys(): string[] {
+    const out: string[] = [];
+    const missing = new Map<string, number>();
+    const bare = new Set<string>(); // refs that some entry wrote as a bare key
+    for (const d of this.log) {
+      if (this.calcKeys.has(d.calc_key)) continue;
+      missing.set(d.calc_key, (missing.get(d.calc_key) ?? 0) + 1);
+      if (this.bareKeyed.has(d)) bare.add(d.calc_key);
+    }
+    const order = this.projectFile ? "the project file's documents" : "the --calcs order";
+    if (missing.size) {
+      const docs = this.pdfs.map((p) => `${p.docId} = ${p.name}`).join(", ");
+      const lines = [...missing].sort((a, b) => (a[0] < b[0] ? -1 : 1)).slice(0, 20).map(([ref, n]) => {
+        const sep = ref.indexOf(CALC_REF_SEP);
+        const docId = sep >= 0 ? ref.slice(0, sep) : "";
+        const key = sep >= 0 ? ref.slice(sep + 1) : ref;
+        const pdf = this.pdfs.find((p) => p.docId === docId);
+        const elsewhere = this.pdfs.filter((p) => p !== pdf && this.calcKeys.has(`${p.prefix}${key}`)).map((p) => `${p.prefix}${key}`);
+        let why: string;
+        if (!pdf) {
+          why = `no loaded calc document is "${docId}" (documents: ${docs}): was a PDF dropped, or did ${order} change?`;
+        } else {
+          why = `${pdf.name} (${pdf.docId}) has no calc "${key}": did that PDF change (calcs renamed, split or reordered), or ${order}?`;
+        }
+        if (elsewhere.length) {
+          why += ` A calc with this key is in ${elsewhere.join(", ")}` + (bare.has(ref) ? ` (the decision names a bare key, which is read as a calc of ${LEGACY_DOC_ID}).` : ".");
+        }
+        return `"${ref}" (${n} decision${n === 1 ? "" : "s"}): ${why}`;
+      });
+      out.push(
+        `decisions: ${[...missing.values()].reduce((a, b) => a + b, 0)} decision(s) name ${missing.size} calc ref(s) that are not in this project; they are kept but NOT applied. ` +
+          lines.join("; ") + (missing.size > 20 ? `; and ${missing.size - 20} more` : ""),
+      );
+    }
+    const noEl = this.log.filter((d) => this.calcKeys.has(d.calc_key) && !this.gids.has(d.global_id)).length;
+    if (noEl) out.push(`decisions: ${noEl} decision(s) name an element that is not in the current model; they are kept but not applied`);
+    return out;
+  }
+
   /** Pick up decisions written by someone else since the last read. */
   async refresh(): Promise<boolean> {
-    if (this.decisions && (await this.decisions.refresh())) {
+    // also when the file turned malformed (the warnings change), and whenever the log is not the one
+    // last applied (e.g. an append re-read the file but then wrote nothing)
+    if (this.decisions && ((await this.decisions.refresh()) || this.computedLog !== this.fileLog)) {
       this.recompute();
       return true;
     }
@@ -351,6 +477,7 @@ export class Project {
         revision: this.current.revision,
       },
       calc_pdfs: pdfs.map((p) => ({ file: p.name, sha256: p.sha256, doc_id: p.docId, key_prefix: p.prefix })),
+      ...(this.decisions?.problem ? { decisions_warning: this.decisions.problem } : {}),
       ...(opts.decisions
         ? {
             decisions: this.decisions
@@ -530,11 +657,6 @@ export async function loadProject(inputs: ProjectInputs): Promise<Project> {
   const project = new Project({ inputs, models, pdfs, set, run, projectFile, baseLog, decisions, warnings, timings });
   timings.review_ms = Math.round(performance.now() - t3);
   timings.total_ms = Math.round(performance.now() - t0);
-  if (project.unappliedDecisions) {
-    warnings.push(
-      `decisions: ${project.unappliedDecisions} decision(s) name an element or calc that is not in this project; they are kept but not applied`,
-    );
-  }
   return project;
 }
 

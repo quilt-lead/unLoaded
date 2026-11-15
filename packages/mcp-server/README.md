@@ -29,7 +29,7 @@ node packages/mcp-server/bin/unloaded-mcp-server.mjs \
 `--check` loads everything, prints a summary to stderr and exits. The summary covers elements by kind, connections,
 supports edges, model revisions, the calcs in each PDF, links by tier / role / band, confirmed / review / unmapped
 counts, calc edges, typical groups, findings, decisions, the sha256 of each input, timings and warnings. It exits 0 on
-success and non-zero on failure. Run it once before you add the server to a client: a bad input then fails in your
+success and non-zero on failure (including a decisions file that cannot be read: the report ends `NOT READY`). Run it once before you add the server to a client: a bad input then fails in your
 terminal instead of silently inside the client.
 
 On the synthetic package (generated, not committed: `cd tools/calcgraph-reference && uv run python -m synth.generate`):
@@ -135,7 +135,8 @@ unloaded-mcp-server --project <project.calcgraph.json | project.json> [--decisio
 
 Everything is validated before the server starts. The checks catch a missing file, a PDF passed as the model, a file
 that is not IFC or PDF, a Git LFS pointer in place of a PDF, the same model or PDF given twice, a project file passed as
-`--model`, a manifest with the wrong shape, a malformed decisions file and a missing directory for the decisions file.
+`--model`, a manifest with the wrong shape and a missing directory for the decisions file. A decisions file that cannot
+be read (not JSON, a bad entry, empty) does not stop the server: see [The decisions file](#the-decisions-file).
 A PDF with no text layer (scanned) produces a warning: the engine never maps those pages, so OCR the PDF first.
 
 ### A project file (`*.calcgraph.json`)
@@ -183,8 +184,8 @@ Keep the order of `--calcs` stable: it decides the doc ids, and the decisions fi
 | `get_element` | Node data, status, links sorted by confidence with every engine field (tier, conf, band, role, reasons = weighted evidence, caveats, rule, page, token, snippet, rects, provenance, review provenance, PDF, decision who / when / note), typical groups and their group links, findings, decisions, connectivity with edge evidence, one hop of the load path. |
 | `list_calcs` | Calcs across PDFs, filtered by PDF, category, software or text; paginated. |
 | `get_calc` | One calc: PDF, pages, page regions, title box, provenance, linked elements with tier / role / band / caveats, group links, findings, calc edges in and out with evidence, and optionally its page text with the ranges that belong to it, paginated by page. |
-| `search_calc_text` | Full-text search over every page of every PDF. Each hit has its pdf, page, calc (by region), span, snippet and rects. |
-| `trace_load_path` | Multi-hop `loadPathDown` / `loadPathUp` with depth and `max_depth`, plus the supports edges walked (with gap). |
+| `search_calc_text` | Full-text search over every page of every PDF. Each hit has its pdf, page, calc (the calc whose region holds the hit; null when none or more than one does), span (offsets in the page text as extracted), snippet and rects. |
+| `trace_load_path` | Multi-hop `loadPathDown` / `loadPathUp` with depth and `max_depth`, each element's best calc, plus the supports edges walked (with gap). |
 | `calc_dependencies` | The calc graph, or one calc's neighbourhood to a depth, with rules, evidence and provenance. Cross-PDF edges are flagged. |
 | `impact_of_change` | The engine's impact (change / remove): removed and hit elements with waves and reasons, stale calcs with reasons and PDFs, provenance. |
 | `review_status` | Status counts, elements needing review, unmapped elements (with loads-only links), unreviewed links under a confidence threshold (default 0.75, the high band); paginated. |
@@ -194,11 +195,15 @@ Keep the order of `--calcs` stable: it decides the doc ids, and the decisions fi
 | `move_column` | `@unloaded/move-impact` on the current model and the reviewed links: move a column by dx / dy metres or remove it. Elements on the path with reasons, the geometric screen, re-framing, clashes, notes, assumptions, stale calcs. No calc values are read yet, so no utilisation estimates or health band. |
 | `export_mapping` | calc-mapper's `buildExport` on the calc set, as the app exports it (set page numbers; `calc_documents` gives each PDF's `page_offset`; elements pageable). |
 | `get_page_image` | A PDF page as PNG (MCP image content). It can highlight a link's words, a text span (`rectsForSpan`), calc-edge evidence or raw rects, and crop to the evidence with padding. |
-| `record_decision` | **Writes.** Appends one decision (confirm / reject / manual / undo) to the decisions file. |
+| `record_decision` | **Writes.** Appends one decision (confirm / reject / manual / undo) to the decisions file. Returns the decision (`origin: "decisions_file"` and its id in the file), the link and status before / after, and `reloaded_external_changes`. |
 | `record_decisions` | **Writes.** Batch version, all or nothing. |
 
 Read tools are annotated `readOnlyHint: true`. The two write tools are `readOnlyHint: false`, `idempotentHint: false`.
 Resources: `unloaded://project/summary` and `unloaded://project/decisions`.
+
+Every result's `source` names the calc PDFs whose calcs it returns or whose sha256 its provenance cites (impact and
+`move_column` rest on every PDF's links, so they name all of them). When the decisions file cannot be read, every
+`source` also carries `decisions_warning`.
 
 Elements can be named by GlobalId or by a mark that names exactly one element. The write tools require the exact
 GlobalId; if you pass a mark, the error message names its GlobalId.
@@ -233,19 +238,61 @@ calc-mapper's decision log: a JSON array of `Decision`s, oldest first. It is the
 ```
 
 - `action` is one of: `confirm` or `reject` (an automatic link must exist), `manual` (link any element to any calc
-  by hand), `undo` (clear the latest decision on that pair; there must be one).
+  by hand), `undo` (clear the pair back to its automatic state; the pair must have a decision in effect).
 - `id` orders the log: the latest decision per (GlobalId, calc key) wins (`effectiveDecisions`), and `undo` clears the
-  pair. Decisions are keyed by GlobalId and calc key, not by revision, so they carry forward to a new model or calc
-  revision as long as both still exist. Decisions naming something that is not in the current project are kept and
-  reported, but not applied.
+  pair: the link goes back to its automatic state, a hand link is removed, and earlier decisions on the pair are NOT
+  restored (confirm, then reject, then undo leaves the link unreviewed, not confirmed). Decisions are keyed by GlobalId
+  and calc ref, not by revision, so they carry forward to a new model or calc revision as long as both still exist. A
+  bare calc key (no `<docId>#`, written by hand or before calc sets) names a calc of `d1`, as in the app.
+  Decisions naming something that is not in the current project are kept, not applied, and reported as a warning in
+  `project_summary` and `--check`. A missing calc ref gets its likely cause: a document id no loaded PDF has (a PDF
+  dropped, or the `--calcs` order changed), a document that no longer has that calc (calcs renamed, split or
+  reordered), and, when another document has a calc with that key, which one. Keep the `--calcs` order stable.
+- **Decision ids are per origin.** Every tool and the `unloaded://project/decisions` resource name a decision by
+  `origin` + `id`: `"decisions_file"` ids are the ids in this file (what `record_decision` returns), and
+  `"project_file"` ids number a project file's own decision log 1..n in file order. The engine is handed one log with
+  this file's ids shifted past the project file's (an id only orders decisions), but no tool shows a shifted id.
 - `model_rev` / `calc_rev` record what the decision was made against: file names, or the revision ids with a project
   file. `provenance.inputs` are the sha256 of the element graph and of the calc's PDF.
 - An entry without `provenance` (written by hand or by an older tool) is accepted: the engine states it from the
   entry's own fields (`decisionFrom`). The server never adds it to an existing entry.
-- **Append-only.** The server never rewrites or drops an entry. It re-reads the file whenever it changed on disk
-  (size / mtime, then sha256), so a colleague's or a script's edits show up in the next answer and are kept by the
-  next append. It writes the whole array to a temp file in the same directory and renames it over the original. A
-  batch is validated as a whole: one bad entry means nothing is written.
+- **Append-only.** The server never rewrites or drops an entry. Read tools re-read the file whenever it changed on
+  disk (size / mtime, then sha256), so a colleague's or a script's edits show up in the next answer. A batch is
+  validated as a whole: one bad entry means nothing is written.
+- **Several writers.** Two servers can share one file (Claude Desktop and Claude Code on the same `--decisions`).
+  Every append takes an exclusive lock, `<file>.lock` next to the real file (created with `O_EXCL`; it holds the
+  writer's pid, host, a token and the time). Under the lock it re-reads the file, validates the batch against what is
+  really there, numbers it after the last id in the file, writes the whole array to a temp file next to the real file,
+  fsyncs it, renames it over the original (atomic on POSIX file systems) and fsyncs the directory. The holder refreshes
+  the lock's mtime every second while it holds it. A lock is broken when its writer is on this machine (same hostname)
+  and no longer running, or when nothing about it has changed for 5 s as watched by the waiting server on its own
+  clock (clocks of different machines are never compared). A live lock is waited for up to 15 s, then the write fails
+  with a message naming the lock file; so does a lock file that cannot be read or removed. Removing a lock (breaking a
+  stale one, or releasing one's own) happens under a second short-lived file, `<file>.lock.guard`, and only while that
+  guard is still the server's own, so a server removes only the exact lock it judged stale, not one another writer has
+  just taken (short of the residual below). `reloaded_external_changes` is
+  true when the file held decisions this server had not seen; they are kept. Within one server, reads and appends go
+  through one queue, so a read can never land after an append and roll the answer back.
+- **What the file system has to provide.** On a local disk (APFS, ext4, NTFS) the above holds. On a network file
+  system, `O_EXCL` creation must be atomic: true on NFSv3 and later and on SMB, not on NFSv2, and not on folder-sync
+  tools (Dropbox, OneDrive, iCloud Drive), which can lose an append. Two machines with the same hostname are taken
+  to be one machine. No hard links are needed. Not prevented: staleness is judged by time, so a server that freezes
+  for more than 5 s (suspended process, long pause) while holding the lock or the guard can lose it to another writer
+  and, in a narrow window, write alongside it; two servers removing a guard file left by a crash at the same moment
+  can both proceed. A crash can leave `<file>.lock`, `<file>.lock.guard` or a `.<file>.<pid>.<hex>.tmp`
+  file: all are harmless (the lock and guard are cleared automatically; the temp file is never read and can be
+  deleted).
+- **Writes replace the file** (temp file + rename). The file's mode is kept, but its owner can change (to the user
+  the server runs as), a hard link to it stops seeing new entries, and ACLs and extended attributes are not carried
+  over. A file the server may not write (for example `chmod 444`) is refused with a message and left untouched, even
+  though its directory would allow the rename.
+- **A symlinked `--decisions` path** is resolved once: the real file is read, locked and written, so the link stays a
+  link. The file's mode is kept.
+- **A file that cannot be read** (not JSON, a bad entry, an empty or whitespace-only file) does not stop the server.
+  Answers use the last good copy of the log (none, if it was never readable), every result's `source` carries
+  `decisions_warning`, `project_summary` lists it under `warnings`, and `record_decision` is refused until the file is
+  fixed. The server never overwrites it. `--check` reports it as `NOT READY` and exits 1. An empty file is not read as
+  an empty log: write `[]` into it, or delete it and the server creates it on the first decision.
 - Writes go to this file only. The IFC, the PDFs and a project file are never modified.
 
 ## Architecture
@@ -256,7 +303,7 @@ src/cli.ts                    arguments -> loadProject -> --check report or stdi
 src/inputs.ts                 CLI + manifest parsing and up-front validation
 src/engine.ts                 THE ENGINE BOUNDARY (see below)
 src/project.ts                the loaded project: model revisions, the calc set mapped once, pages per PDF, decisions applied
-src/decisions.ts              the decisions file: validation, change detection, atomic append
+src/decisions.ts              the decisions file: validation, change detection, cross-process lock, atomic append
 src/tools.ts                  tool bodies (lookups, filters, pagination over engine output)
 src/server.ts                 MCP registration: schemas, descriptions, annotations, resources
 src/pageImage.ts              page PNG rendering (pdf.js legacy + @napi-rs/canvas)
@@ -270,9 +317,9 @@ scripts/mcp-parity.ts         end-to-end parity over stdio
 (`ifc-parser`, `element-graph`, `calc-mapper`, `project-file`, `move-impact`). It exposes a narrow interface:
 `loadModel` / `modelFromRevision` (a read-only `Model` with the serialized graph calc-mapper reads, its sha256, the
 element rows, load path, connectivity and the element-graph queries), `readCalcPackage`, `storedCalcPackage`,
-`buildCalcSet`, `mapCalcs`, `buildState`, `buildExport`, `statusOf`, `rectsForSpan`, `propagateImpact`,
+`buildCalcSet`, `mapCalcs`, `buildState`, `buildExport`, `calcRegions`, `statusOf`, `rectsForSpan`, `propagateImpact`,
 `diffGraphs`, `moveColumn`, `nextDecision`, `decisionFrom`, `effectiveDecisions`, the project-file readers
-(`isProjectFile`, `parseProjectFile`, `headRevision`, `calcDocumentHeads`, `calcDocIdOf`, `legacyCalcRef`,
+(`isProjectFile`, `parseProjectFile`, `headRevision`, `calcDocumentHeads`, `calcDocIdOf`, `legacyCalcRef`, `LEGACY_DOC_ID`,
 `revisionBytes`, `projectFileDecisions`), `ENGINE_VERSION`, `ENGINE_PRODUCERS`, `CONFIDENCE_BANDS` and
 `DECISION_ACTIONS`. The data types the rest of the server uses are re-exported from it. Each function is a direct
 engine call; the one thin composition (`projectFileDecisions`) is documented in the file. A test (`test/server.test.ts`, "engine boundary") fails if any
@@ -301,7 +348,11 @@ other file in `src/` imports an engine package, and checks `package.json` declar
 | `graph.meta.units must be "m"` | The element graph is not in metres; rebuild it from the IFC. |
 | `calc key "..." is in N calc PDFs` | A bare key two PDFs share: pass the calc ref (`d2#...`) instead. |
 | `has NO text layer` warning / calcs marked scanned | The PDF pages are images. OCR them, then run again. |
-| `decisions file must be a JSON array` / `entry N: ...` | Fix the named entry, or point `--decisions` at a new file. |
+| `decisions_warning` / `the decisions file cannot be read: ...` | Fix what it names (`must be a JSON array`, `entry N: ...`, `is not valid JSON`, `is empty`), or point `--decisions` at a new file. Answers meanwhile use the last good log; writes are refused. |
+| `is locked by another writer` | Another server or tool is writing the decisions file. If none is, delete the `.lock` file it names. |
+| `cannot be read` / `cannot be removed` (lock file) | The `.lock` path is not a regular file or its directory is not writable. Fix or delete the path it names. |
+| `is not writable by this server` | The decisions file's permissions forbid writing it. Make it writable (`chmod u+w`) to record decisions. |
+| `name N calc ref(s) that are not in this project` | Decisions recorded against PDFs that are not loaded, or loaded in another order. The warning names the likely cause; restore the `--calcs` order. |
 | `This server is read-only` from `record_decision` | Add `--decisions /abs/path/decisions.json` to the args and restart the server. |
 | `no automatic link ... use manual` | `confirm` and `reject` act on engine links only. Use `manual` to link by hand. |
 | `compare needs two model revisions` | Repeat `--model` with the older revision first, or use a project file with several. |
@@ -333,5 +384,9 @@ The vitest suites use committed fixtures only: `test/fixtures.ts` writes two ele
 PDFs byte by byte (the supplement cross-references a beam the main package designs), so nothing generated is needed.
 The parity script runs on the synthetic package (`cd tools/calcgraph-reference && uv run python -m synth.generate`;
 its output is gitignored). It writes decisions to a temp file only, and checks that the inputs' sha256 did not change.
+Its oracle is the engine called directly on the calc set and never a copy of the server's code. It also checks the
+decisions file end to end: decision ids per origin (a project file's seeded decisions are `project_file` 1..n, this
+file's keep their own ids), an append by someone else between two `record_decision` calls is kept and reported
+(`reloaded_external_changes`), and earlier entries stay byte for byte.
 CI (`.github/workflows/ci.yml`) runs the project-file parity in the `tooling` job and every workspace's typecheck and
 vitest in the `frontend` job.

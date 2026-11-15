@@ -1,15 +1,23 @@
 /**
  * The decisions file: calc-mapper's decision log (Decisions made by addDecision, read back through
- * decisionFrom), validated on load, append-only atomic writes, external changes picked up before
- * reads and before appending, and the write tools over MCP.
+ * decisionFrom), validated on load, append-only atomic writes under a cross-process lock, reads and
+ * appends serialised, a symlinked path written through, a malformed file served around (never
+ * overwritten), external changes picked up before reads and before appending, and the write tools
+ * over MCP.
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { addDecision, applyDecisions, type Decision } from "@unloaded/calc-mapper";
-import { DecisionsFile, parseDecisions } from "../src/decisions.ts";
+import { addDecision, applyDecisions, effectiveDecisions, type Decision } from "@unloaded/calc-mapper";
+import { DecisionsFile, observeLock, parseDecisions, removeLock, withFileLock } from "../src/decisions.ts";
+import { INSTRUCTIONS } from "../src/server.ts";
 import type { Project } from "../src/project.ts";
-import { call, connect, inputs, loadProject, tempDir } from "./helpers.ts";
+import { checkReport } from "../src/check.ts";
+import * as tools from "../src/tools.ts";
+import { PDF, SUPPLEMENT, call, connect, inputs, loadProject, tempDir } from "./helpers.ts";
 
 const at = "2026-11-14T10:00:00Z";
 
@@ -50,10 +58,262 @@ describe("DecisionsFile", () => {
     expect(file[1]).toEqual(other); // kept exactly as written: no provenance added
   });
 
-  it("rejects a malformed file with the reason", async () => {
+  const make = (log: readonly unknown[], actor: string): Decision =>
+    addDecision(log as Decision[], { global_id: "g", calc_key: "k", action: "confirm", actor }, { at: new Date().toISOString() }).at(-1)!;
+
+  it("a malformed file is a problem, not a crash: the last good log is kept, appends are refused, the file is never overwritten", async () => {
     const path = join(tempDir(), "d.json");
     writeFileSync(path, "{not json");
-    await expect(new DecisionsFile(path).load()).rejects.toThrow(/d.json is not valid JSON/);
+    const f = new DecisionsFile(path);
+    await f.load();
+    expect(f.problem).toMatch(/d.json is not valid JSON/);
+    expect(f.log).toEqual([]);
+    await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/nothing was written: the decisions file cannot be read/);
+    expect(readFileSync(path, "utf8")).toBe("{not json");
+    // fixed: one good entry; then broken again: the last good log (1 entry) stays in use
+    writeFileSync(path, JSON.stringify([make([], "colleague")]));
+    expect(await f.refresh()).toBe(true);
+    expect([f.problem, f.log.length]).toEqual([null, 1]);
+    writeFileSync(path, JSON.stringify([{ id: 1, global_id: "g", calc_key: "k", action: "approve", at: "2026-11-14T10:00:00Z" }]));
+    await f.refresh();
+    expect(f.problem).toMatch(/entry 0: "action" must be one of/);
+    expect(f.log.map((d) => d.actor)).toEqual(["colleague"]);
+    await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/nothing was written/);
+    expect(readFileSync(path, "utf8")).toMatch(/approve/);
+  });
+
+  it("an empty (0-byte or whitespace) file is refused with a message, not read as an empty log", async () => {
+    for (const body of ["", "  \n"]) {
+      const path = join(tempDir(), "d.json");
+      writeFileSync(path, body);
+      const f = new DecisionsFile(path);
+      await f.load();
+      expect(f.problem).toMatch(/d.json is empty .* write \[\] into it, or delete it/);
+      await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/nothing was written/);
+      expect(readFileSync(path, "utf8")).toBe(body);
+    }
+  });
+
+  it("two writers on one file (two DecisionsFile instances = two servers) keep every entry, with distinct ids", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const a = new DecisionsFile(path);
+    const b = new DecisionsFile(path);
+    await Promise.all([a.load(), b.load()]);
+    const writes: Promise<unknown>[] = [];
+    for (let i = 0; i < 10; i++) {
+      writes.push(a.append((cur) => [make(cur, "A")]));
+      writes.push(b.append((cur) => [make(cur, "B")]));
+    }
+    await Promise.all(writes);
+    const file = JSON.parse(readFileSync(path, "utf8")) as Decision[];
+    expect(file.map((d) => d.id)).toEqual(Array.from({ length: 20 }, (_, i) => i + 1));
+    expect(file.filter((d) => d.actor === "A")).toHaveLength(10);
+    expect(file.filter((d) => d.actor === "B")).toHaveLength(10);
+    expect(readdirSync(join(path, ".."))).toEqual(["decisions.json"]); // no lock or temp file left behind
+  });
+
+  it("two PROCESSES appending at once keep every entry, with distinct ids", { timeout: 120_000 }, async () => {
+    const path = join(tempDir(), "decisions.json");
+    const mod = pathToFileURL(new URL("../src/decisions.ts", import.meta.url).pathname).href;
+    const script = `
+      const { DecisionsFile } = await import(${JSON.stringify(mod)});
+      const { addDecision } = await import("@unloaded/calc-mapper");
+      const f = new DecisionsFile(process.argv[1]);
+      await f.load();
+      for (let i = 0; i < 15; i++) {
+        await f.append((cur) => [addDecision(cur, { global_id: "g", calc_key: "k", action: "confirm", actor: process.argv[2] }, {}).at(-1)]);
+      }`;
+    const run = (actor: string) =>
+      new Promise<void>((res, rej) => {
+        const c = spawn(process.execPath, ["--input-type=module", "-e", script, path, actor], { cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "ignore", "pipe"] });
+        let err = "";
+        c.stderr?.on("data", (d) => (err += d));
+        c.on("exit", (code) => (code === 0 ? res() : rej(new Error(`child ${actor} exited ${code}: ${err}`))));
+      });
+    await Promise.all([run("P1"), run("P2")]);
+    const file = JSON.parse(readFileSync(path, "utf8")) as Decision[];
+    expect(file.map((d) => d.id)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1));
+    expect(file.filter((d) => d.actor === "P1")).toHaveLength(15);
+    expect(file.filter((d) => d.actor === "P2")).toHaveLength(15);
+  });
+
+  it("waits for a live lock, gives up with the lock file named, and breaks a stale one", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const f = new DecisionsFile(path, { lockWaitMs: 300 });
+    await f.load();
+    // a live writer (this process's pid, another token) holds it
+    writeFileSync(`${path}.lock`, JSON.stringify({ pid: process.pid, host: hostname(), token: "someone-else", at: new Date().toISOString() }));
+    await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/locked by another writer .* delete .*decisions\.json\.lock/);
+    expect(existsSync(path)).toBe(false);
+    // its owner is gone (a pid that is not running): the lock is stale and broken
+    writeFileSync(`${path}.lock`, JSON.stringify({ pid: 2 ** 22 + 12345, host: hostname(), token: "crashed", at: new Date().toISOString() }));
+    await f.append((cur) => [make(cur, "me")]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toHaveLength(1);
+    expect(existsSync(`${path}.lock`)).toBe(false);
+  });
+
+  it("a lock file that cannot be read (a directory) fails the append within lockWaitMs, naming it; later calls still run", async () => {
+    const path = join(tempDir(), "decisions.json");
+    mkdirSync(`${path}.lock`);
+    const f = new DecisionsFile(path, { lockWaitMs: 300 });
+    await f.load();
+    const t0 = performance.now();
+    await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/lock file .*decisions\.json\.lock cannot be read .* delete .*decisions\.json\.lock/);
+    expect(performance.now() - t0).toBeLessThan(2_000);
+    expect(existsSync(path)).toBe(false);
+    // the in-process queue is not wedged: once the lock path is fixed, the next append runs
+    rmSync(`${path}.lock`, { recursive: true });
+    await f.append((cur) => [make(cur, "me")]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toHaveLength(1);
+  });
+
+  it("breaks a lock nothing has changed for lockStaleMs (watched on this process's clock): live pid on another host, mtime an hour ahead", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const lock = `${path}.lock`;
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, host: "another-host", token: "hung", at: new Date().toISOString() }));
+    const ahead = new Date(Date.now() + 3_600_000); // the other host's clock is skewed
+    utimesSync(lock, ahead, ahead);
+    const f = new DecisionsFile(path, { lockWaitMs: 2_000, lockStaleMs: 200 });
+    await f.load();
+    await f.append((cur) => [make(cur, "me")]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toHaveLength(1);
+    expect(readdirSync(join(path, ".."))).toEqual(["decisions.json"]); // no lock or guard left
+  });
+
+  it("does not break a live holder that holds longer than lockStaleMs (it heartbeats): the second writer waits, both entries survive", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const lock = `${path}.lock`;
+    writeFileSync(path, "[]\n");
+    const order: string[] = [];
+    let acquired!: () => void;
+    const holding = new Promise<void>((r) => (acquired = r));
+    // stale 600 ms vs a 50 ms heartbeat: a dozen beats of slack for a loaded CI runner
+    const holder = withFileLock(lock, { waitMs: 5_000, staleMs: 600, heartbeatMs: 50 }, async () => {
+      acquired(); // the waiter starts only once the lock is really held (no head-start race)
+      const cur = JSON.parse(readFileSync(path, "utf8")) as Decision[];
+      const mine = (await observeLock(lock))!.info!.token;
+      await new Promise((r) => setTimeout(r, 1_500)); // > 2 x staleMs
+      expect((await observeLock(lock))?.info?.token).toBe(mine); // still ours: nobody broke it
+      writeFileSync(path, JSON.stringify([...cur, make(cur, "holder")]));
+      order.push("holder");
+    });
+    await holding;
+    const f = new DecisionsFile(path, { lockWaitMs: 5_000, lockStaleMs: 600 });
+    await f.load();
+    await f.append((cur) => [make(cur, "waiter")]).then(() => order.push("waiter"));
+    await holder;
+    expect(order).toEqual(["holder", "waiter"]);
+    expect((JSON.parse(readFileSync(path, "utf8")) as Decision[]).map((d) => [d.id, d.actor])).toEqual([[1, "holder"], [2, "waiter"]]);
+  });
+
+  it("removes a lock only if it is still exactly the one judged: not after a heartbeat (mtime), a new holder (content), or while the guard is held", { timeout: 15_000 }, async () => {
+    const lock = join(tempDir(), "decisions.json.lock");
+    writeFileSync(lock, JSON.stringify({ pid: 1, host: "h", token: "a", at }));
+    const judged = (await observeLock(lock))!;
+    const later = new Date(Date.now() + 5_000);
+    utimesSync(lock, later, later); // the holder heartbeat: same content, new mtime
+    expect(await removeLock(lock, (o) => o.key === judged.key)).toBe("changed");
+    expect(readFileSync(lock, "utf8")).toBe(judged.raw);
+    const j2 = (await observeLock(lock))!;
+    writeFileSync(lock, JSON.stringify({ pid: 2, host: "h", token: "b", at })); // another writer's lock
+    expect(await removeLock(lock, (o) => o.key === j2.key)).toBe("changed");
+    expect(JSON.parse(readFileSync(lock, "utf8")).token).toBe("b");
+    // another process is breaking / releasing (holds the guard): nothing is done
+    const j3 = (await observeLock(lock))!;
+    writeFileSync(`${lock}.guard`, "");
+    expect(await removeLock(lock, (o) => o.key === j3.key, 5_000, 200)).toBe("busy"); // guard wait 200 ms < its 5 s stale window
+    expect(existsSync(lock)).toBe(true);
+    // a guard left by a crash is removed once unchanged for a few seconds; then the unchanged lock goes
+    expect(await removeLock(lock, (o) => o.key === j3.key)).toBe("removed");
+    expect(readdirSync(join(lock, ".."))).toEqual([]);
+    expect(await removeLock(lock, () => true)).toBe("gone");
+  });
+
+  it("clears a guard left by a crash on the lock's own stale window, so short custom timings still get through", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const lock = `${path}.lock`;
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, host: "another-host", token: "hung", at }));
+    writeFileSync(`${lock}.guard`, ""); // a breaker crashed inside the guard
+    const f = new DecisionsFile(path, { lockWaitMs: 2_000, lockStaleMs: 300 });
+    await f.load();
+    await f.append((cur) => [make(cur, "me")]);
+    expect(JSON.parse(readFileSync(path, "utf8"))).toHaveLength(1);
+    expect(readdirSync(join(path, ".."))).toEqual(["decisions.json"]);
+  });
+
+  it("never unlinks the lock once its guard was taken from it (a breaker that stalled inside the guard), nor the new guard", async () => {
+    const lock = join(tempDir(), "decisions.json.lock");
+    writeFileSync(lock, JSON.stringify({ pid: 1, host: "h", token: "a", at }));
+    const judged = (await observeLock(lock))!;
+    // while "we" hold the guard, another process judges it stale and takes its own (simulated: the guard file
+    // is replaced under us); our pending unlink must not act on the lock path any more
+    const r = await removeLock(lock, (o) => {
+      writeFileSync(`${lock}.guard`, "someone-else");
+      return o.key === judged.key;
+    });
+    expect(r).toBe("busy");
+    expect(readFileSync(lock, "utf8")).toBe(judged.raw);
+    expect(readFileSync(`${lock}.guard`, "utf8")).toBe("someone-else");
+  });
+
+  it.skipIf(process.getuid?.() === 0)("refuses to write a decisions file this process may not write (chmod 444); the file is untouched", async () => {
+    const dir = tempDir();
+    const path = join(dir, "decisions.json");
+    const body = JSON.stringify([make([], "colleague")]);
+    writeFileSync(path, body);
+    chmodSync(path, 0o444);
+    const f = new DecisionsFile(path);
+    await f.load();
+    await expect(f.append((cur) => [make(cur, "me")])).rejects.toThrow(/nothing was written: .*decisions\.json is not writable/);
+    expect(readFileSync(path, "utf8")).toBe(body);
+    expect(statSync(path).mode & 0o777).toBe(0o444);
+    expect(readdirSync(dir)).toEqual(["decisions.json"]);
+  });
+
+  it("serialises reads with appends: a refresh asked for during an append completes after it, never rolling the log back", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const f = new DecisionsFile(path);
+    await f.load();
+    const order: string[] = [];
+    let during: Promise<boolean> | null = null;
+    await f
+      .append((cur) => {
+        during = f.refresh().then((r) => (order.push("refresh"), r));
+        return [make(cur, "me")];
+      })
+      .then(() => order.push("append"));
+    await during;
+    expect(order).toEqual(["append", "refresh"]);
+    expect(f.log).toHaveLength(1);
+  });
+
+  it("writes through a symlinked path to the real file, keeping the link and the file's mode", async () => {
+    const dir = tempDir();
+    const real = join(dir, "real.json");
+    const linkPath = join(dir, "link.json");
+    writeFileSync(real, "[]\n");
+    chmodSync(real, 0o640);
+    symlinkSync(real, linkPath);
+    const f = new DecisionsFile(linkPath);
+    await f.load();
+    await f.append((cur) => [make(cur, "me")]);
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(readFileSync(real, "utf8"))).toHaveLength(1);
+    expect(statSync(real).mode & 0o777).toBe(0o640);
+    expect(readdirSync(dir).sort()).toEqual(["link.json", "real.json"]);
+  });
+});
+
+describe("undo, as the engine applies it", () => {
+  it("clears the pair back to its automatic state: an earlier decision on the pair is not restored", () => {
+    const log = [
+      { id: 1, global_id: "g", calc_key: "k", action: "confirm" as const, actor: null, note: null, at },
+      { id: 2, global_id: "g", calc_key: "k", action: "reject" as const, actor: null, note: null, at },
+      { id: 3, global_id: "g", calc_key: "k", action: "undo" as const, actor: null, note: null, at },
+    ];
+    expect(effectiveDecisions(log).size).toBe(0); // not the confirm (id 1)
+    expect(INSTRUCTIONS).toMatch(/earlier decisions on that pair are NOT restored/);
+    expect(INSTRUCTIONS).not.toMatch(/latest decision on/);
   });
 });
 
@@ -134,6 +394,137 @@ describe("record_decision / record_decisions over MCP", () => {
     expect(ge.json.links.find((x: { calc_key: string }) => x.calc_key === "d1#column-design-check").status).toBe("rejected");
     await client.close();
   });
+});
+
+describe("the decisions file over MCP: external writers, a malformed file, calc keys that are gone", () => {
+  it("a write reports and keeps a decision someone else appended since this server last read the file", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const p = await loadProject(inputs({ decisions: path }));
+    const client = await connect(p);
+    const r1 = await call(client, "record_decision", { global_id: "C1", calc_key: "column-design-check", action: "confirm" });
+    expect([r1.isError, r1.json.reloaded_external_changes, r1.json.recorded[0].decision]).toEqual([false, false, expect.objectContaining({ origin: "decisions_file", id: 1 })]);
+    // a colleague appends, formatted as the server writes; NO read in between
+    const ext = { id: 2, global_id: "C1", calc_key: "column-design-check", action: "reject", at: new Date().toISOString(), actor: "colleague", note: null };
+    const before = JSON.stringify([...JSON.parse(readFileSync(path, "utf8")), ext], null, 2) + "\n";
+    writeFileSync(path, before);
+    const r2 = await call(client, "record_decision", { global_id: "B1", calc_key: "beam-design-check", action: "confirm" });
+    expect(r2.isError, r2.text).toBe(false);
+    expect(r2.json.reloaded_external_changes).toBe(true);
+    expect(r2.json.recorded[0].decision).toMatchObject({ origin: "decisions_file", id: 3 });
+    const after = readFileSync(path, "utf8");
+    // every earlier entry written back byte for byte: the old file minus its closing bracket is a prefix of the new one
+    expect(after.startsWith(before.slice(0, before.lastIndexOf("\n]")))).toBe(true);
+    expect(JSON.parse(after)[1]).toEqual(ext);
+    expect((await call(client, "get_element", { id: "C1" })).json.links.find((l: { calc_key: string }) => l.calc_key === "d1#column-design-check").status).toBe("rejected");
+    await client.close();
+  }, 120_000);
+
+  it("reads keep working on the last good log with a warning when the file turns malformed; writes are refused; the file is never overwritten", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const p = await loadProject(inputs({ decisions: path }));
+    const client = await connect(p);
+    await call(client, "record_decision", { global_id: "B1", calc_key: "beam-design-check", action: "reject" });
+    writeFileSync(path, '[{"id": 1, "global_id": "B1"'); // a half-written edit
+    const s = await call(client, "project_summary");
+    expect(s.isError, s.text).toBe(false);
+    expect(s.json.decisions.problem).toMatch(/not valid JSON/);
+    expect(s.json.warnings.some((w: string) => /decisions file cannot be read/.test(w))).toBe(true);
+    const ge = await call(client, "get_element", { id: "B1" });
+    expect(ge.isError).toBe(false);
+    expect(ge.json.source.decisions_warning).toMatch(/last good copy of the log \(1 entry\)/);
+    expect(ge.json.links.find((l: { calc_key: string }) => l.calc_key === "d1#beam-design-check").status).toBe("rejected"); // the last good log
+    const w = await call(client, "record_decision", { global_id: "C1", calc_key: "column-design-check", action: "confirm" });
+    expect(w.isError).toBe(true);
+    expect(w.text).toMatch(/nothing was written: the decisions file cannot be read/);
+    expect(readFileSync(path, "utf8")).toBe('[{"id": 1, "global_id": "B1"');
+    // fixed: the warning goes, writes work again
+    writeFileSync(path, "[]");
+    const s2 = await call(client, "project_summary");
+    expect([s2.json.decisions.problem, s2.json.source.decisions_warning]).toEqual([null, undefined]);
+    expect((await call(client, "record_decision", { global_id: "C1", calc_key: "column-design-check", action: "confirm" })).isError).toBe(false);
+    await client.close();
+  }, 120_000);
+
+  it("starts on a malformed file (no good log yet) and says so in --check terms", async () => {
+    const path = join(tempDir(), "decisions.json");
+    writeFileSync(path, "");
+    const p = await loadProject(inputs({ decisions: path }));
+    expect(p.decisions!.problem).toMatch(/is empty/);
+    expect(checkReport(p, { serverName: "unloaded", version: "0" })).toMatch(/NOT READY: the decisions file cannot be read/);
+  }, 120_000);
+
+  it("warns loudly when decisions name calc refs this project does not have, naming the likely cause", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const d = (id: number, calc_key: string) => ({ id, global_id: "B1", calc_key, action: "confirm", at, actor: "x", note: null });
+    writeFileSync(path, JSON.stringify([d(1, "d2#connection-design-check"), d(2, "beam-design-chek"), d(3, "beam-design-check")]));
+    const p = await loadProject(inputs({ decisions: path })); // one PDF: there is no document d2
+    const w = tools.projectSummary(p).warnings.join("\n");
+    expect(w).toMatch(/2 decision\(s\) name 2 calc ref\(s\) that are not in this project; they are kept but NOT applied/);
+    expect(w).toMatch(/"d2#connection-design-check" .* no loaded calc document is "d2" \(documents: d1 = test_calcs\.pdf\)/);
+    // a bare key is read as a calc of d1, as in the app
+    expect(w).toMatch(/"d1#beam-design-chek" .* test_calcs\.pdf \(d1\) has no calc "beam-design-chek"/);
+    expect(checkReport(p, { serverName: "unloaded", version: "0" })).toMatch(/no loaded calc document is "d2"/);
+    // loaded with the supplement, that ref applies and its warning goes
+    const p2 = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
+    expect(tools.projectSummary(p2).warnings.join("\n")).not.toMatch(/d2#connection-design-check/);
+  }, 120_000);
+
+  it("says where a bare key's calc is when it is not in the first document", async () => {
+    const path = join(tempDir(), "decisions.json");
+    writeFileSync(path, JSON.stringify([{ id: 1, global_id: "K1", calc_key: "connection-design-check", action: "confirm", at, actor: "x", note: null }]));
+    const p = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
+    expect(p.unappliedDecisions).toBe(1);
+    expect(tools.projectSummary(p).warnings.join("\n")).toMatch(
+      /"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check \(the decision names a bare key, which is read as a calc of d1\)/,
+    );
+  }, 120_000);
+
+  it("an explicit ref to the wrong document is not called a bare key", async () => {
+    const path = join(tempDir(), "decisions.json");
+    writeFileSync(path, JSON.stringify([{ id: 1, global_id: "K1", calc_key: "d1#connection-design-check", action: "confirm", at, actor: "x", note: null }]));
+    const p = await loadProject(inputs({ decisions: path, calcs: [PDF, SUPPLEMENT] }));
+    const w = tools.projectSummary(p).warnings.join("\n");
+    expect(w).toMatch(/"d1#connection-design-check" .* A calc with this key is in d2#connection-design-check\./);
+    expect(w).not.toMatch(/bare key/);
+    expect(w).toMatch(/or the --calcs order\?/);
+  }, 120_000);
+});
+
+describe("record_decisions and the lock", () => {
+  it("never recomputes the project under the lock; applies the new log once (twice only when someone else appended)", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const p = await loadProject(inputs({ decisions: path }));
+    const lock = p.decisions!.lockPath;
+    const underLock: boolean[] = [];
+    const recompute = p.recompute.bind(p);
+    p.recompute = (...a: Parameters<Project["recompute"]>) => (underLock.push(existsSync(lock)), recompute(...a));
+    const r1 = await tools.recordDecisions(p, { decisions: [{ global_id: "B1", calc_key: "beam-design-check", action: "reject" }] });
+    expect(r1.reloaded_external_changes).toBe(false);
+    expect(underLock).toEqual([false]);
+    // a colleague appends; the next write applies the log it was built on (for "before"), then the new one
+    underLock.length = 0;
+    const cur = JSON.parse(readFileSync(path, "utf8"));
+    writeFileSync(path, JSON.stringify([...cur, { id: 2, global_id: "C1", calc_key: "column-design-check", action: "reject", at, actor: "colleague", note: null }]));
+    const r2 = await tools.recordDecisions(p, { decisions: [{ global_id: "C1", calc_key: "column-design-check", action: "undo" }] });
+    expect(r2.reloaded_external_changes).toBe(true);
+    expect(r2.recorded[0]).toMatchObject({ link_before: { status: "rejected" }, link_after: { status: "auto" } });
+    expect(underLock).toEqual([false, false]);
+  }, 120_000);
+});
+
+describe("record_decisions refused after a colleague appended", () => {
+  it("still applies the colleague's decision it re-read under the lock (no refresh needed)", async () => {
+    const path = join(tempDir(), "decisions.json");
+    const p = await loadProject(inputs({ decisions: path }));
+    await tools.recordDecisions(p, { decisions: [{ global_id: "B1", calc_key: "beam-design-check", action: "reject" }] });
+    const cur = JSON.parse(readFileSync(path, "utf8"));
+    writeFileSync(path, JSON.stringify([...cur, { id: 2, global_id: "C1", calc_key: "column-design-check", action: "reject", at, actor: "colleague", note: null }]));
+    // undo on a pair with no decision is refused, after the append re-read the file
+    await expect(tools.recordDecisions(p, { decisions: [{ global_id: "C1", calc_key: "beam-design-check", action: "undo" }] })).rejects.toThrow(/nothing was written/);
+    const link = (p.linksByElement.get("C1") ?? []).find((l) => l.calc_key === "d1#column-design-check");
+    expect(link?.status).toBe("rejected");
+    expect(p.computedLog).toBe(p.decisions!.log);
+  }, 120_000);
 });
 
 describe("read-only server", () => {

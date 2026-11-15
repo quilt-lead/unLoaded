@@ -98,8 +98,17 @@ describe("project file", () => {
     expect(written).toMatchObject([{ id: 1, global_id: "B1", calc_key: "d1#beam-design-check", action: "undo", model_rev: 3, calc_rev: 2 }]);
     // the project file itself is never written
     expect(readFileSync(p.projectFile!.path, "utf8")).toBe(JSON.stringify(file));
+    // one id scheme everywhere: origin + the id in that origin (never the engine's shifted id)
+    expect(r.json.recorded[0].decision).toMatchObject({ origin: "decisions_file", id: 1 });
     const log = (await call(client, "get_element", { id: "B1" })).json.decisions;
-    expect(log.map((d: { id: number; action: string }) => [d.id, d.action])).toEqual([[1, "reject"], [2, "undo"]]);
+    expect(log.map((d: { origin: string; id: number; action: string }) => [d.origin, d.id, d.action])).toEqual([["project_file", 1, "reject"], ["decisions_file", 1, "undo"]]);
+    const res = JSON.parse(((await client.readResource({ uri: "unloaded://project/decisions" })).contents[0] as { text: string }).text);
+    expect(res.entries.map((d: { id: number }) => d.id)).toEqual([1]);
+    expect(res.project_file_entries.map((d: { id: number }) => d.id)).toEqual([1]);
+    // a decision a link shows is named the same way
+    await call(client, "record_decision", { global_id: "B1", calc_key: "beam-design-check", action: "confirm" });
+    const link = (await call(client, "get_element", { id: "B1" })).json.links.find((l: { calc_key: string }) => l.calc_key === "d1#beam-design-check");
+    expect(link.decision).toMatchObject({ origin: "decisions_file", id: 2, action: "confirm" });
     await client.close();
   });
 });

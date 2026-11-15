@@ -313,6 +313,9 @@ export function calcDocIdOf(rev: pf.ProjectFileRevision): string {
   return pf.docIdOf(rev);
 }
 
+/** The document a bare calc key (no "<docId>#") names (`LEGACY_DOC_ID`: the first document). */
+export const LEGACY_DOC_ID: string = pf.LEGACY_DOC_ID;
+
 /** A calc key as a calc ref (`legacyCalcRef`): a bare key names a calc of the first document (LEGACY_DOC_ID). */
 export function legacyCalcRef(key: string): string {
   return pf.legacyCalcRef(key);
@@ -401,6 +404,11 @@ export function buildExport(
   info: cm.ExportInfo,
 ): cm.Export {
   return cm.buildExport(graph, pkg, run, decisions, info);
+}
+
+/** The [start, end) regions of a page's text that belong to a calc (`calcRegions`: its spans, else its whole pages). */
+export function calcRegions(calc: cm.Calc, pages: cm.CalcPage[]): { page: number; start: number; end: number }[] {
+  return cm.calcRegions(calc, pages);
 }
 
 /** Element status from its links (design links only; `statusOf`). */

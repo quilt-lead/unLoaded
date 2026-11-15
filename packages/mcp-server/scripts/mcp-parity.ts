@@ -12,7 +12,9 @@
  *
  * The reference is the calc set, as the app maps it: every PDF a document (d1, d2, ... in --calcs
  * order; a project file's live documents at their head revisions), buildCalcSet, one mapCalcs and
- * buildState on the set, page numbers turned into each PDF's own pages (what the tools give).
+ * buildState on the set, page numbers turned into each PDF's own pages (what the tools give). The
+ * oracle never re-implements the server's own code: every expectation is an engine call or a fact of
+ * the files (decision ids per origin, the decisions file's raw bytes).
  *
  * The synthetic package is generated, never committed: `cd tools/calcgraph-reference && uv run python
  * -m synth.generate`. Exit 1 on any mismatch. One line per check.
@@ -212,6 +214,18 @@ check("summary: calc edges (total, cross)", [sum.calc_edges.total, sum.calc_edge
 check("summary: typical groups / group links / findings", [sum.typical_groups.total, sum.typical_groups.group_links, sum.findings.total], [groups.length, S.groupLinks.length, S.findings.length]);
 check("summary: source (model sha, graph sha, engine)", [sum.source.model.sha256, sum.source.model.graph_sha256, sum.source.engine], [cur.sha, graphSha, ENGINE_VERSION]);
 if (projectPath) check("summary: source names the project file + sha256", sum.source.project_file, { file: basename(projectPath), sha256: projectSha0 });
+// decisions that name a calc ref or element this project does not have are warned about; none here
+const unapplied = S.log.filter((d) => !docOf.has(d.calc_key) || !elById.has(d.global_id)).length;
+check("summary: decisions not applied == entries naming an unknown calc ref / element, and a warning only then",
+  [sum.decisions.not_applied, sum.warnings.some((w: string) => w.startsWith("decisions:"))], [unapplied, unapplied > 0]);
+if (baseLog.length) {
+  // a project file's decisions are named by origin "project_file" and their place in its log (1..n)
+  const d0 = baseLog[0]!;
+  const ge0 = (await call("get_element", { id: d0.global_id })).json;
+  check(`seeded decision: get_element ${d0.global_id} names it origin project_file, id 1`,
+    ge0.decisions.filter((d: { origin: string }) => d.origin === "project_file").map((d: { id: number; action: string; calc_key: string }) => [d.id, d.action, d.calc_key]),
+    baseLog.map((d, i) => [i + 1, d.action, d.calc_key]).filter((_, i) => baseLog[i]!.global_id === d0.global_id));
+}
 
 // search_elements
 const cnt = async (a: Record<string, unknown>) => (await call("search_elements", { ...a, limit: 1 })).json.total;
@@ -291,8 +305,16 @@ check(`get_calc ${textCalc.key}: include_text page 2 equals the PDF page text`, 
 // search_calc_text
 const q = aProfile;
 const st = track("search_calc_text", (await call("search_calc_text", { query: q, limit: 500 })).json);
+// independent of the server's matcher: compare every window of the ORIGINAL text, case-insensitively, non-overlapping
 let want = 0;
-for (const d of docs) for (const p of d.pkg.pages) for (let i = p.text.toLowerCase().indexOf(q.toLowerCase()); i >= 0; i = p.text.toLowerCase().indexOf(q.toLowerCase(), i + q.length)) want++;
+for (const d of docs) for (const p of d.pkg.pages) {
+  for (let i = 0; i + q.length <= p.text.length; ) {
+    if (p.text.slice(i, i + q.length).localeCompare(q, "en", { sensitivity: "accent" }) === 0) {
+      want++;
+      i += q.length;
+    } else i++;
+  }
+}
 check(`search_calc_text "${q}": hit count`, st.total, want);
 const h0 = st.items[0];
 const hp = docs.find((d) => d.name === h0.pdf)!.pkg.pages.find((p) => p.n === h0.page)!;
@@ -408,6 +430,8 @@ const reviewEl = els.find((e) => S.byElement.get(e.global_id) === "review")!;
 const reviewLink = S.links.filter((l) => l.global_id === reviewEl.global_id && l.role === "design" && l.status !== "rejected").sort(byConf)[0]!;
 const rd = track("record_decision", (await call("record_decision", { global_id: reviewEl.global_id, calc_key: reviewLink.calc_key, action: "confirm", note: "checked" })).json);
 S = direct();
+check("record_decision: names the decision by origin + its id in the file (not shifted past a project file's log)",
+  [rd.recorded[0].decision.origin, rd.recorded[0].decision.id, rd.reloaded_external_changes], ["decisions_file", 1, false]);
 const rdoc = docOf.get(reviewLink.calc_key)!;
 check("record_decision confirm: the file holds one calc-mapper Decision (id, fields, revisions)",
   S.file.map((d) => [d.id, d.global_id, d.calc_key, d.action, d.actor, d.note, d.model_rev, d.calc_rev]),
@@ -437,6 +461,7 @@ const rb = track("record_decisions", (await call("record_decisions", { decisions
   { global_id: reviewEl.global_id, calc_key: reviewLink.calc_key, action: "undo" },
 ] })).json);
 S = direct();
+const afterBatch = readFileSync(decisionsPath, "utf8");
 check("record_decisions: 3 appended with ids 2, 3, 4", [rb.recorded.length, S.file.map((d) => d.id)], [3, [1, 2, 3, 4]]);
 check("record_decisions: reject / manual / undo reflected (get_element == buildState links)",
   [await checkElement(rej.global_id, "reject"), await checkElement(unm.global_id, "manual"), await checkElement(reviewEl.global_id, "undo")], [null, null, null]);
@@ -445,15 +470,21 @@ check("after writes: calc edges == buildState on the decision log", (await call(
 check("after writes: export_mapping == buildExport", (await call("export_mapping")).json.report, exportDirect());
 check("after writes: findings == buildState findings", (await call("list_findings", { limit: 500 })).json.total, S.findings.length);
 
-// someone else appends to the file: the server picks it up, and the next write keeps it
+// someone else appends to the file between two record_decision calls (no read in between): the next
+// write re-reads it under the lock, keeps it, and says so
 const ext: DecisionFields = { id: 5, global_id: rej.global_id, calc_key: rej.calc_key, action: "confirm", at: new Date(Date.now() + 1000).toISOString(), actor: "someone else", note: null };
-writeFileSync(decisionsPath, JSON.stringify([...S.file, ext], null, 2));
-S = direct();
-check("external edit: get_element reflects a decision written by someone else", await checkElement(rej.global_id, "external"), null);
+const extFile = JSON.stringify([...JSON.parse(afterBatch), ext], null, 2) + "\n";
+writeFileSync(decisionsPath, extFile);
+const head = (bytes: string) => bytes.slice(0, bytes.lastIndexOf("\n]")); // the file minus its closing bracket
+check("external edit: the server's file re-serialises byte for byte (entries 1-4 unchanged by a parse + write)", extFile.startsWith(head(afterBatch)), true);
 const rx = (await call("record_decision", { global_id: unm.global_id, calc_key: manualCalc.key, action: "undo" })).json;
+const afterExt = readFileSync(decisionsPath, "utf8");
 S = direct();
-check("external edit: next write keeps it (6 entries, external one intact, next id 6)", [S.file.length, S.file[4]!.actor, S.file[5]!.id, rx.reloaded_external_changes], [6, "someone else", 6, false]);
-check("external edit: entries 1-5 byte-identical after the append", S.file.slice(0, 5), [...JSON.parse(before).slice(0, 1), ...S.file.slice(1, 4), ext]);
+check("external edit: the next write reports it and keeps it (6 entries, external one intact, next id 6)",
+  [rx.reloaded_external_changes, S.file.length, S.file[4], S.file[5]!.id, rx.recorded[0].decision.id], [true, 6, ext, 6, 6]);
+check("external edit: entries 1-5 byte-identical after the append (raw bytes: the old file minus ']' is a prefix of the new one)",
+  [afterExt.startsWith(head(extFile)), afterExt.slice(head(extFile).length, head(extFile).length + 2)], [true, ",\n"]);
+check("external edit: get_element reflects the decision written by someone else", await checkElement(rej.global_id, "external"), null);
 
 // errors
 const e1 = await raw(client, "get_element", { id: "does-not-exist" });

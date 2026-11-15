@@ -12,6 +12,7 @@ import {
   ENGINE_PRODUCERS,
   ENGINE_VERSION,
   buildExport,
+  calcRegions,
   diffGraphs,
   moveColumn as engineMoveColumn,
   nextDecision,
@@ -28,7 +29,7 @@ import {
   type Rect,
 } from "./engine.ts";
 import { renderPage, type PageImage } from "./pageImage.ts";
-import type { CalcEdgeView, PdfDoc, Project } from "./project.ts";
+import { maxOf, minOf, type CalcEdgeView, type PdfDoc, type Project } from "./project.ts";
 
 export class ToolInputError extends Error {
   override name = "ToolInputError";
@@ -125,8 +126,11 @@ function pdfRef(pdf: PdfDoc | undefined) {
   return pdf ? { file: pdf.name, sha256: pdf.sha256, key_prefix: pdf.prefix } : null;
 }
 
-function decisionView(d: DecisionFields | undefined) {
-  return d ? { id: d.id, action: d.action, at: d.at, actor: d.actor ?? null, note: d.note ?? null } : null;
+/** A decision of the applied log, named by its origin and its id there (never the engine's shifted id). */
+function decisionView(p: Project, d: DecisionFields | undefined) {
+  if (!d) return null;
+  const { origin, id } = p.decisionRef(d);
+  return { origin, id, action: d.action, at: d.at, actor: d.actor ?? null, note: d.note ?? null };
 }
 
 /** An engine link with its calc title, PDF and effective decision. Every engine field is kept. */
@@ -153,7 +157,7 @@ function linkView(p: Project, l: Link) {
     ...(l.via_group ? { via_group: l.via_group } : {}),
     provenance: l.provenance,
     ...(l.review_provenance ? { review_provenance: l.review_provenance } : {}),
-    decision: d ? { ...decisionView(d)!, decided_at: l.decided_at ?? d.at, decided_by: l.decided_by ?? d.actor ?? null } : null,
+    decision: d ? { ...decisionView(p, d)!, decided_at: l.decided_at ?? d.at, decided_by: l.decided_by ?? d.actor ?? null } : null,
   };
 }
 
@@ -180,11 +184,31 @@ function edgePdfs(p: Project, edges: readonly CalcEdgeView[]): PdfDoc[] {
   return edges.flatMap((e) => [p.pdfOfCalc.get(e.src), p.pdfOfCalc.get(e.dst)]).filter((x): x is PdfDoc => !!x);
 }
 
-/** The calc whose region of `page` holds `offset` (any calc on the page when offset is null). */
+/**
+ * The calc whose region (the engine's `calcRegions`) of `page` holds `offset`; with offset null, the
+ * calc that starts the page, else the only calc on it. null when no calc, or more than one, fits:
+ * never a guess (text between two calcs' regions belongs to neither).
+ */
 export function calcAt(pdf: PdfDoc, page: number, offset: number | null): Calc | null {
-  const on = pdf.calcs.filter((c) => c.pages.includes(page));
-  if (offset === null) return on.find((c) => (c.spans ?? []).some((s) => s.regions.some((r) => r.page === page && r.start === 0))) ?? on[0] ?? null;
-  return on.find((c) => (c.spans ?? []).some((s) => s.regions.some((r) => r.page === page && r.start <= offset && offset < r.end))) ?? on[0] ?? null;
+  const fits = pdf.calcs.filter((c) =>
+    calcRegions(c, pdf.pages).some((r) => r.page === page && (offset === null ? r.start === 0 : r.start <= offset && offset < r.end)),
+  );
+  if (fits.length === 1) return fits[0]!;
+  if (offset === null && !fits.length) {
+    const on = pdf.calcs.filter((c) => c.pages.includes(page));
+    return on.length === 1 ? on[0]! : null;
+  }
+  return null;
+}
+
+/** Every PDF holding one of these calc keys (for a result's `source` block). */
+function pdfsOf(p: Project, keys: Iterable<string | null | undefined>): PdfDoc[] {
+  const out: PdfDoc[] = [];
+  for (const k of keys) {
+    const d = k ? p.pdfOfCalc.get(k) : undefined;
+    if (d) out.push(d);
+  }
+  return out;
 }
 
 function modelRevisions(p: Project) {
@@ -287,9 +311,13 @@ export function projectSummary(p: Project) {
       ...(p.projectFile ? { project_file_entries: p.baseLog.length } : {}),
       effective: p.effective.size,
       not_applied: p.unappliedDecisions,
+      problem: p.decisions?.problem ?? null,
+      id_scheme:
+        'decision ids are per origin: "decisions_file" ids are the ids in the decisions file (what record_decision returns), ' +
+        '"project_file" ids number the project file\'s decision log 1..n in file order',
       actor: p.actor,
     },
-    warnings: p.warnings,
+    warnings: p.allWarnings,
     source: p.source({ decisions: true }),
   };
 }
@@ -370,9 +398,12 @@ export function getElement(p: Project, a: { id: string }) {
   const node = p.node(gid)!;
   const row = p.elementById.get(gid)!;
   const links = (p.linksByElement.get(gid) ?? []).slice().sort(byConf);
-  const pdfs = links.map((l) => p.pdfOfCalc.get(l.calc_key)!).filter(Boolean);
   const groups = p.groups.filter((g) => g.members.includes(gid));
   const groupIds = new Set(groups.map((g) => g.id));
+  const groupLinks = p.groupLinks.filter((l) => groupIds.has(l.group));
+  const findings = p.findings.filter((f) => f.global_id === gid);
+  const decisions = p.log.filter((d) => d.global_id === gid);
+  const pdfs = pdfsOf(p, [...links, ...groupLinks, ...findings, ...decisions].map((x) => x.calc_key));
   return {
     element: {
       ...elSummary(p, gid),
@@ -388,9 +419,9 @@ export function getElement(p: Project, a: { id: string }) {
     status: p.status.get(gid),
     links: links.map((l) => linkView(p, l)),
     typical_groups: groups.map((g) => ({ id: g.id, category: g.cat, storey: g.storey, profile: g.profile, title: g.title, members: g.members.length })),
-    group_links: p.groupLinks.filter((l) => groupIds.has(l.group)),
-    findings: p.findings.filter((f) => f.global_id === gid),
-    decisions: p.log.filter((d) => d.global_id === gid).map((d) => ({ ...decisionView(d)!, calc_key: d.calc_key })),
+    group_links: groupLinks,
+    findings,
+    decisions: decisions.map((d) => ({ ...decisionView(p, d)!, calc_key: d.calc_key })),
     connectivity: {
       connections: related(p, gid, p.graph.connectionsOf(gid)),
       members: node.kind === "connection" ? related(p, gid, p.graph.membersOf(gid)) : [],
@@ -526,15 +557,16 @@ export function searchCalcText(p: Project, a: SearchTextArgs) {
   if (!a.query || !a.query.trim()) throw new ToolInputError("query is required");
   const pdfs = a.pdf ? [p.pdfByName(a.pdf)] : p.pdfs;
   const calcKey = a.calc ? resolveCalc(p, a.calc) : null;
-  const needle = a.case_sensitive ? a.query : a.query.toLowerCase();
+  // matched IN the page text itself (a regex, case-folded with the i flag), so every offset indexes the
+  // original text: lowercasing first would shift offsets wherever a character changes length ("İ")
+  const re = new RegExp(a.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), a.case_sensitive ? "gu" : "giu");
   const hits: Array<{ pdf: PdfDoc; page: number; calc: string | null; start: number; end: number; text: string }> = [];
   for (const pdf of pdfs) {
     for (const pg of pdf.pages) {
-      const hay = a.case_sensitive ? pg.text : pg.text.toLowerCase();
-      for (let i = hay.indexOf(needle); i >= 0; i = hay.indexOf(needle, i + Math.max(1, needle.length))) {
-        const owner = calcAt(pdf, pg.n, i)?.key ?? null;
+      for (const m of pg.text.matchAll(re)) {
+        const owner = calcAt(pdf, pg.n, m.index)?.key ?? null;
         if (calcKey && owner !== calcKey) continue;
-        hits.push({ pdf, page: pg.n, calc: owner, start: i, end: i + needle.length, text: pg.text });
+        hits.push({ pdf, page: pg.n, calc: owner, start: m.index, end: m.index + m[0].length, text: pg.text });
       }
     }
   }
@@ -584,7 +616,7 @@ export function traceLoadPath(p: Project, a: TraceArgs) {
         return { depth: d, ...elSummary(p, id), best_calc: best ? { calc_key: best.calc_key, tier: best.tier, conf: best.conf, role: best.role } : null };
       })
       .sort((x, y) => x.depth - y.depth || cmp(x.mark, y.mark) || cmp(x.global_id, y.global_id));
-    return { elements: kept, deepest: Math.max(0, ...all.map(([, d]) => d)), truncated: all.length > kept.length };
+    return { elements: kept, deepest: maxOf(all.map(([, d]) => d), 0), truncated: all.length > kept.length };
   };
   const down = dir !== "up" ? walk(p.graph.loadPathDown(gid)) : null;
   const up = dir !== "down" ? walk(p.graph.loadPathUp(gid)) : null;
@@ -598,7 +630,7 @@ export function traceLoadPath(p: Project, a: TraceArgs) {
     down,
     up,
     supports_edges: edges,
-    source: p.source({ pdfs: [] }),
+    source: p.source({ pdfs: pdfsOf(p, [...(down?.elements ?? []), ...(up?.elements ?? [])].map((e) => e.best_calc?.calc_key)) }),
   };
 }
 
@@ -683,7 +715,8 @@ export function impactOfChange(p: Project, a: { id: string; mode?: ImpactMode })
       .sort((x, y) => x.wave - y.wave || cmp(x.mark, y.mark) || cmp(x.global_id, y.global_id)),
     stale_calcs: stale,
     counts: { removed: impact.removed.length, hit: Object.keys(impact.hit).length, waves: impact.waves, stale_calcs: stale.length },
-    source: p.source({ pdfs: stale.map((s) => p.pdfOfCalc.get(s.calc_key)!).filter(Boolean), decisions: true }),
+    // the impact rests on every PDF's links and calc edges (its provenance inputs name every PDF)
+    source: p.source({ pdfs: "all", decisions: true }),
   };
 }
 
@@ -867,7 +900,6 @@ export function moveColumn(p: Project, a: MoveArgs) {
   if (!a.remove && dx === 0 && dy === 0) throw new ToolInputError("give dx and/or dy (metres, plan), or remove: true");
   const move: Move = a.remove ? { column: gid, remove: true } : { column: gid, dx, dy };
   const result = engineMoveColumn({ graph: p.graph.graph, graphSha256: p.graph.graphSha256, move, links: p.links });
-  const stalePdfs = (result.stale ?? []).map((s) => p.pdfOfCalc.get(s.calcKey)!).filter(Boolean);
   return {
     column: elSummary(p, gid),
     result,
@@ -875,7 +907,8 @@ export function moveColumn(p: Project, a: MoveArgs) {
       "What-if only: nothing is changed or saved. Topological and geometric screen on the current model, with the reviewed links " +
       "for stale calcs. No calc facts are given (calc-mapper does not read calc row values yet), so there are no utilisation " +
       "estimates and no health band.",
-    source: { ...p.source({ pdfs: stalePdfs, decisions: true }), move_impact: ENGINE_PRODUCERS.move_impact, move_impact_engine: result.engine },
+    // move-impact reads every PDF's reviewed links
+    source: { ...p.source({ pdfs: "all", decisions: true }), move_impact: ENGINE_PRODUCERS.move_impact, move_impact_engine: result.engine },
   };
 }
 
@@ -982,10 +1015,10 @@ export async function getPageImage(p: Project, a: PageImageArgs): Promise<{ imag
     // full-width band around the evidence (the whole line reads in context); tight = pad all four sides
     const pad = a.padding ?? 48;
     crop = [
-      a.tight ? Math.min(...rects.map((r) => r[0])) - pad : 0,
-      Math.min(...rects.map((r) => r[1])) - pad,
-      a.tight ? Math.max(...rects.map((r) => r[2])) + pad : pg.width,
-      Math.max(...rects.map((r) => r[3])) + pad,
+      a.tight ? minOf(rects.map((r) => r[0])) - pad : 0,
+      minOf(rects.map((r) => r[1])) - pad,
+      a.tight ? maxOf(rects.map((r) => r[2])) + pad : pg.width,
+      maxOf(rects.map((r) => r[3])) + pad,
     ];
   }
   const image = await renderPage(pdf.bytes, page, { rect: crop, highlight: rects as unknown as number[][], width: a.width ?? null });
@@ -1039,14 +1072,16 @@ export async function recordDecisions(p: Project, a: { decisions: DecisionInput[
   if (!store) throw new ToolInputError(READ_ONLY_MESSAGE);
   if (!Array.isArray(a.decisions) || !a.decisions.length) throw new ToolInputError("decisions must be a non-empty array");
   if (a.decisions.length > 500) throw new ToolInputError("at most 500 decisions per call");
-  const before = new Map<string, { link: ReturnType<typeof brief>; status: string | undefined }>();
   const rawPairs = new Set(p.rawLinks.map((l) => pk(l.global_id, l.calc_key)));
+  const built: { on: readonly DecisionFields[] | null } = { on: null };
 
-  const { appended, reloaded } = await store.append((current) => {
+  // build runs under the cross-process lock: only cheap work here (no recompute: it would block the event
+  // loop, and with it the lock's heartbeat)
+  const appending = store.append((current) => {
+    built.on = current;
     const errors: string[] = [];
     // effective decision per pair as the log stands (project file + this file), updated as the batch is simulated
-    if (current !== p.computedLog) p.recompute();
-    const eff = new Map(p.effective);
+    const eff = new Map(p.effectiveOver(current));
     const at = new Date().toISOString();
     const log: DecisionFields[] = [...current];
     const out: Decision[] = [];
@@ -1099,19 +1134,27 @@ export async function recordDecisions(p: Project, a: { decisions: DecisionInput[
       else eff.set(key, rec);
     });
     if (errors.length) throw new ToolInputError(`nothing was written:\n- ${errors.join("\n- ")}`);
-    for (const d of out) {
-      const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);
-      before.set(pk(d.global_id, d.calc_key), { link: brief(l), status: p.status.get(d.global_id) });
-    }
     return out;
   });
-  p.recompute();
+  const { appended, reloaded } = await appending.catch((e: unknown) => {
+    if (p.computedLog !== store.log) p.recompute(); // the append re-read the file, then wrote nothing
+    throw e;
+  });
+  // the lock is released: "before" is the state the batch was built on (applied again only when someone
+  // else had appended since the last applied read), then the new log is applied once
+  if (built.on && p.computedLog !== built.on) p.recompute(built.on);
+  const before = new Map<string, { link: ReturnType<typeof brief>; status: string | undefined }>();
+  for (const d of appended) {
+    const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);
+    before.set(pk(d.global_id, d.calc_key), { link: brief(l), status: p.status.get(d.global_id) });
+  }
+  if (p.computedLog !== store.log) p.recompute();
   return {
     recorded: appended.map((d) => {
       const l = (p.linksByElement.get(d.global_id) ?? []).find((x) => x.calc_key === d.calc_key);
       const b = before.get(pk(d.global_id, d.calc_key));
       return {
-        decision: d,
+        decision: { origin: "decisions_file" as const, ...d },
         element: elSummary(p, d.global_id),
         link_before: b?.link ?? null,
         link_after: brief(l),
@@ -1130,6 +1173,10 @@ export function decisionsLog(p: Project) {
     file: p.decisions?.path ?? null,
     writable: !!p.decisions,
     format: "calc-mapper decision log: [{id, global_id, calc_key, action, actor, note, at, model_rev, calc_rev, provenance}], oldest first",
+    id_scheme:
+      'ids are per origin: entries (origin "decisions_file") carry the decisions file\'s own ids; project_file_entries (origin ' +
+      '"project_file") are numbered 1..n in the project file\'s order. get_element and record_decision name decisions the same way.',
+    ...(p.decisions?.problem ? { problem: p.decisions.problem } : {}),
     entries: p.fileLog,
     ...(p.projectFile ? { project_file_entries: p.baseLog } : {}),
     source: p.source({ decisions: true, pdfs: [] }),

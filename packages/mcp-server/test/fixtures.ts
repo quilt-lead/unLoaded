@@ -80,6 +80,33 @@ export const SUPPLEMENT_PDF_PAGES: PdfLine[][] = [
   ],
 ];
 
+/**
+ * A two-PDF pair that exercises the cross-PDF cases of a calc set (test/multipdf.test.ts):
+ *   - B-101 is designed in BOTH PDFs ("d1#beam-design-check" and "d2#beam-design-check", same tier and
+ *     confidence): the engine picks ONE designer, so the supplement's mention of B-101 gets one fed-by
+ *     edge, not two;
+ *   - the supplement says "see page 2" (its own page 2): resolved in the supplement, never the main
+ *     PDF's page 2;
+ *   - the main column calc says "carried to shear tab ST-2" (designed only in the supplement, on ITS
+ *     page 2): the "to" cue is read from the main PDF's page 2, so the edge runs column -> connection.
+ */
+export const CROSS_MAIN_PDF_PAGES: PdfLine[][] = [
+  CALC_PDF_PAGES[0]!,
+  [...CALC_PDF_PAGES[1]!, { text: "Column C-2 reactions carried to shear tab ST-2", size: 10 }],
+];
+export const CROSS_SUPPLEMENT_PDF_PAGES: PdfLine[][] = [
+  [
+    { text: "BEAM DESIGN CHECK", size: 16 },
+    { text: "Beam B-101 W18X35 Level 2 design OK", size: 10 },
+    { text: "Shear tab loads, see page 2", size: 10 },
+  ],
+  [
+    { text: "CONNECTION DESIGN CHECK", size: 16 },
+    { text: "Shear tab ST-2 Level 2 design OK", size: 10 },
+    { text: "End reactions from beam B-101 per beam design", size: 10 },
+  ],
+];
+
 // ------------------------------------------------------------------ element graphs
 
 type Node = SerializedElementGraph["nodes"][number];
@@ -183,8 +210,8 @@ export function writeTemp(file: ProjectFile, name = "test.calcgraph.json"): stri
   return path;
 }
 
-/** The fixture project as files in a fresh temp directory: two graph revisions and the two calc PDFs. */
-export function writeFixtureFiles(): { dir: string; rev1: string; rev2: string; main: string; supplement: string } {
+/** The fixture project as files in a fresh temp directory: two graph revisions, the two calc PDFs and the cross-PDF pair. */
+export function writeFixtureFiles(): { dir: string; rev1: string; rev2: string; main: string; supplement: string; crossMain: string; crossSupplement: string } {
   const dir = mkdtempSync(join(tmpdir(), "unloaded-mcp-fixture-"));
   const put = (name: string, bytes: Uint8Array | string) => {
     const path = join(dir, name);
@@ -197,5 +224,7 @@ export function writeFixtureFiles(): { dir: string; rev1: string; rev2: string; 
     rev2: put("test_rev2.graph.json", JSON.stringify(graphRev2())),
     main: put("test_calcs.pdf", minimalPdf(CALC_PDF_PAGES)),
     supplement: put("Supplement A.pdf", minimalPdf(SUPPLEMENT_PDF_PAGES)),
+    crossMain: put("cross_calcs.pdf", minimalPdf(CROSS_MAIN_PDF_PAGES)),
+    crossSupplement: put("Supplement B.pdf", minimalPdf(CROSS_SUPPLEMENT_PDF_PAGES)),
   };
 }
