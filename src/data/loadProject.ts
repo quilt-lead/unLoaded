@@ -37,7 +37,7 @@ import type {
   ProvenanceView,
   RevisionInfo,
 } from '../types/bim';
-import { computeRadialLayout } from '../utils/graphEngine';
+import { computeRadialLayout, getCalcBubbleLayout } from '../utils/graphEngine';
 import { CALC_PALETTE } from '../utils/colors';
 
 export const CALC_ROOT_ID = 'calc-root';
@@ -136,7 +136,7 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
       label: calcOrigin === 'bundle-demo' ? 'Demo calcs' : docs.size > 1 ? 'Calc set' : 'Calc package',
       kind: 'calc-root',
       level: 0,
-      r: 36,
+      r: Math.max(36, getCalcBubbleLayout(calcOrigin === 'bundle-demo' ? 'Demo calcs' : docs.size > 1 ? 'Calc set' : 'Calc package').radius),
       x: 0,
       y: 0,
       desc: `${exp.calc_package ?? 'No calc package'} · ${calcs.length} calculation${calcs.length === 1 ? '' : 's'}`,
@@ -149,13 +149,14 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
     const cid = calcCategoryId(type);
     if (!seen.has(cid)) {
       seen.add(cid);
+      const label = type ? (type === 'Front matter' ? type : `${type} calcs`) : 'General';
       calcNodes.push({
         id: cid,
-        label: type ? (type === 'Front matter' ? type : `${type} calcs`) : 'General',
+        label,
         kind: 'calc-category',
         level: 1,
         parent: CALC_ROOT_ID,
-        r: 26,
+        r: Math.max(26, getCalcBubbleLayout(label).radius),
         x: 0,
         y: 0,
         desc: type ? `Calculations that design ${type.toLowerCase()} elements` : 'Calculations not tied to one element type',
@@ -163,16 +164,17 @@ export function toCalcData(exp: Export, info: { projectName?: string | null; mod
       calcLinks.push({ source: CALC_ROOT_ID, target: cid, relation: 'hierarchy' });
     }
     const linked = calcToElementIds.get(c.key)?.length ?? 0;
+    const label = shortCalcLabel(c.title);
     calcNodes.push({
       id: calcNodeId(c.key),
-      label: shortCalcLabel(c.title),
+      label,
       kind: 'calc',
       level: 2,
       parent: cid,
       categoryParent: cid,
       calcKey: c.key,
       color: c.color,
-      r: linked > 40 ? 17 : linked > 0 ? 14 : 11,
+      r: getCalcBubbleLayout(label).radius,
       x: 0,
       y: 0,
       desc: `${c.title}${c.software ? ` · ${c.software}` : ''}${docs.size > 1 && c.docName ? ` · ${c.docName}` : ''} · ${linked} linked element${linked === 1 ? '' : 's'}`,

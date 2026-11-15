@@ -1,8 +1,8 @@
 # data/
 
-The single home for all IFC and JSON model data: sample models you import into the app by hand
-(**Import IFC / DB**, **Compare DB**) and the fixtures the tests read. Nothing here is bundled or
-auto-loaded; the app starts with an empty workspace.
+The single home for IFC and JSON model data, plus selected sample calculation PDFs. Model samples can
+be imported into the app by hand (**Import IFC / DB**, **Compare DB**); nothing here is bundled or
+auto-loaded, and the app starts with an empty workspace.
 
 | File | Format | Used by |
 |---|---|---|
@@ -11,15 +11,23 @@ auto-loaded; the app starts with an empty workspace.
 | `simple-frame.json` | `ModelInput` | `packages/element-graph` tests, `src/loaders/elementGraphToBim.test.ts` |
 | `harborview-tower-rev1-base.bundle.json` | model bundle (`unloaded.model-bundle`): element graph + demo calc graph | **Harborview A/B demo** (rev A), `src/loaders/harborviewBundle.test.ts` |
 | `harborview-tower-rev2-compare.bundle.json` | model bundle | **Harborview A/B demo** (rev B), same test |
+| `harborview-demo-calcs-preview.pdf` | synthetic, five-page calc preview; marks match the rev 1 Harborview model | Upload with **Project > Add calc PDFs** to preview parsing and PDF evidence |
 
 Tests reference these files by path, so renaming or editing one can break them.
 
 The Harborview bundles are **demo data**: their calcs are invented (no PDF behind them) and the app labels
-them so. They were converted from Noah's legacy `{ projectName, nodes, links }` JSON with
+them so. The separate PDF is a four-calculation preview with matching model marks; whitespace in marks is
+removed in PDF tokens (for example `CapA1`) so the current matcher recognizes the full mark. Category
+differences can still lower a match to a cross-reference. The PDF deliberately
+contains no design loads, capacities, code checks, or engineering conclusions. It is not for design,
+construction, permitting, or reliance. Regenerate it with
+`python -m synth.harborview_preview` from `tools/calcgraph-reference/` (requires the declared PyMuPDF dependency).
+
+The bundles were converted from Noah's legacy `{ projectName, nodes, links }` JSON with
 `node scripts/convert-legacy-demo.ts <legacy.json> <out.bundle.json> "<revision label>"`; the legacy files are
 in git history (`git log --all -- data/harborview-tower-rev1-base.json`). The app no longer opens the legacy format.
 The bundle format is described in `packages/calc-mapper/src/bundle.ts`.
-Calculation PDFs are git-ignored (`*.pdf`) and are not kept here.
+All PDFs are managed by Git LFS (`.gitattributes`); only intentionally selected samples belong in this folder.
 
 ## Provenance
 

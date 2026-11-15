@@ -31,9 +31,21 @@ worker dispatch now reports that exact setup issue. Header sniffing also accommo
 PDF header anywhere in the first 1024 bytes. Both worker extraction operations transfer their byte
 buffer to avoid cloning large PDFs.
 
+Calc graph bubbles now size to wrapped labels, reserve separation based on each leaf's radius, and
+render white text with a dark outline on every calc graph node. This remains limited to calc graph
+labels; element graph text keeps its contrast-based color.
+
 ## Verification
 
-- Pending targeted tests and typecheck.
+- `npm run typecheck` passed across the app and workspaces.
+- `npm run build` passed.
+- `vitest run src`: 142 application tests passed.
+- `npm run test --workspace @unloaded/calc-mapper`: 190 tests passed, including the Harborview PDF
+  segmentation and mark-matching test.
+- `git diff --check` passed.
+
+The full workspace test command previously hit `Path2D`/PDF rendering failures in the MCP server under
+the available Node 20 runtime; the targeted calc-mapper and application suites pass.
 
 ## Working files
 

@@ -1,10 +1,32 @@
 # Harborview synthetic calc package
 
-- **Status:** active (planning; open questions below need an answer before step 1)
-- **Branch:** not cut yet (proposed `cs/harborview-calcs` from `prod`)
-- **Owned files (planned):** `tools/calcgraph-reference/synth/harborview/` (new), `tools/calcgraph-reference/data/harborview/`
-  (generated, gitignored), `scripts/copy-assets.mjs` (sample list), the **Load sample** entry point in the app.
-- **Working files:** none yet.
+- **Status:** active (the small preview is done; the full generated package remains planned)
+- **Branch:** `prod`
+- **Owned files:** `tools/calcgraph-reference/synth/harborview_preview.py`, `data/harborview-demo-calcs-preview.pdf`,
+  `data/README.md`
+- **Working files:** `tools/calcgraph-reference/synth/harborview_preview.py`, `data/harborview-demo-calcs-preview.pdf`
+
+## Preview delivered
+
+The five-page `data/harborview-demo-calcs-preview.pdf` contains a cover and four synthetic calc sheets:
+the A1 pile cap, L01 Grid Line 1 girders, the C-01 column stack, and the base-plate package. Sheet titles
+mirror the Rev 1 Harborview bundle; the base-plate title adds `Calc` so the segmenter recognizes it.
+Element marks are read from the bundle. Whitespace is removed from marks in the PDF (`CapA1`, `PileP-A1`):
+the matcher preserves hyphens in exact tokens, so replacing spaces with hyphens would only produce a
+lower-confidence loose match. A recognized `PileP-A1` mark is still an xref in the footing calc because
+the matcher correctly caps cross-category links.
+
+The PDF intentionally contains no demands, capacities, code checks, or engineering conclusions. Its purpose
+is to preview calc segmentation, mark links, and PDF evidence highlighting. It is not a substitute for the
+full package planned below. Regenerate and check it from `tools/calcgraph-reference/` with:
+
+```bash
+python -m synth.harborview_preview
+python -m synth.harborview_preview --check
+```
+
+The output is in Git LFS. This checkout does not have the Git LFS command installed, so the PDF cannot be
+staged as an LFS object here; install LFS before syncing the new PDF.
 
 ## Goal
 
@@ -31,8 +53,10 @@ PDF view empty, so it was rejected.
   (S-601) and braces (S-605).
 - Rev 2: adds L06 (70 elements), removes girder `G-B2C2-L02` and its connection, changes loads on 60 elements.
   Calc stubs: 6 go to Rev B (S-601, S-605, three S-302 grid-line-2 calcs, S-204) and 7 are new (L06 calcs).
-- Marks are unique, but 65 contain a space (`Cap A1`, `Pile P-A1`, `Slab L01`, `Core N-L01`, `Brace A-L01`). The matcher's
-  token regex (`[A-Z0-9]+(?:[-./][A-Z0-9]+)*`) splits these, so they never match exactly. See open question 1.
+- Marks are unique, but 65 contain a space (`Cap A1`, `Pile P-A1`, `Slab L01`, `Core N-L01`, `Brace A-L01`). The
+  preview removes whitespace in PDF tokens (`CapA1`, `PileP-A1`) so the current matcher can recognize the full
+  mark; replacing spaces with hyphens would only produce a loose match. Cross-category references can still be
+  capped as `xref`.
 - Sizes not in the v1 `synth/shapes.py` table: W14x132, W18x46, W21x62, HSS8x8x1/2. Add them as nominal values, the
   same as the existing table (the full AISC table is gitignored under D22).
 
@@ -72,8 +96,8 @@ PDF view empty, so it was rejected.
 
 ## Open questions
 
-1. Marks with spaces: rename to space-free marks in the IFC/PDFs (e.g. `PC-A1`, `P-A1`, `SL-L01`, `SW-N-L01`,
-   `BR-A-L01`, keeping the old label as the element Name), or teach the matcher multi-word marks?
+1. For the full package, keep model marks as-is and use whitespace-free PDF aliases, or teach the matcher to
+   recognize multi-word marks directly? The preview uses aliases without changing the model.
 2. Generate a Harborview IFC (real GlobalIds, 3D meshes, a full Load sample project), or PDFs only against the legacy JSON?
 3. Should the Harborview sample replace the v1 sample behind **Load sample**, or sit next to it?
 4. Rev 2 scope: generate the Rev B and L06 PDFs in the first pass, or Rev 1 only first?

@@ -8,6 +8,7 @@ import {
   isFamilyNode,
   isInstanceNode,
   isProjectNode,
+  getCalcBubbleLayout,
   loadPathKey,
 } from '../utils/graphEngine';
 import { selectNodesInBox } from '../utils/graphSelection';
@@ -176,6 +177,15 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
   }, [centerCanvas, zoomAtPoint]);
 
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
+  const isCalcGraph = nodes.some((n) => n.kind === 'calc-root');
+  const calcBubbleLayouts = useMemo(
+    () => new Map(
+      nodes
+        .filter((n) => n.kind === 'calc' || n.kind === 'calc-category' || n.kind === 'calc-root')
+        .map((n) => [n.id, getCalcBubbleLayout(n.label)]),
+    ),
+    [nodes],
+  );
 
   const { activeNodeSet, activeCategoryIds, activeStackIds } = useMemo(() => {
     const aNodes = new Set<string>();
@@ -711,6 +721,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                 const tone = overlay?.tones.get(node.id);
                 const fillHex = tone ? TONE_COLORS[tone] : getEffectiveNodeColor(node, colorMode, diffMode);
                 const textStyle = getContrastingTextStyle(fillHex);
+                const labelFill = '#ffffff';
                 const isRemovedDiff = diffMode && node.diffStatus === 'removed';
                 const ringColor =
                   diffMode && node.diffStatus && node.diffStatus !== 'unchanged'
@@ -718,7 +729,7 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                     : showStatusRings && node.kind === 'element' && node.mappingStatus && node.mappingStatus !== 'confirmed'
                     ? STATUS_COLORS[node.mappingStatus]
                     : null;
-                const labelOutside = node.kind === 'calc';
+                const calcBubble = calcBubbleLayouts.get(node.id);
 
                 return (
                   <g
@@ -753,24 +764,29 @@ export const RadialGraphCanvas: React.FC<RadialGraphCanvasProps> = ({
                       strokeWidth={isSelected ? 2.6 : isProj ? 2.2 : isCategory ? 1.75 : node.r < 6 ? 0.8 : 1.25}
                       strokeDasharray={isRemovedDiff || node.isGhost ? '3 2' : undefined}
                     />
-                    {labelOutside ? (
+                    {calcBubble ? (
                       <text
+                        x="0"
+                        y={-((calcBubble.lines.length - 1) * calcBubble.lineHeight) / 2 + calcBubble.fontSize / 2}
                         textAnchor="middle"
-                        y={node.r + 11}
-                        fill="#e4e4e7"
+                        fill={labelFill}
                         fontFamily="'Apercu Pro', 'Apercu', sans-serif"
-                        fontWeight={500}
-                        fontSize="9px"
+                        fontWeight={600}
+                        fontSize={`${calcBubble.fontSize}px`}
                         pointerEvents="none"
-                        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+                        style={{ textShadow: textStyle.shadow }}
                       >
-                        {node.label}
+                        {calcBubble.lines.map((line, index) => (
+                          <tspan key={`${node.id}-${index}`} x="0" dy={index === 0 ? 0 : calcBubble.lineHeight}>
+                            {line}
+                          </tspan>
+                        ))}
                       </text>
                     ) : (
                       <text
                         textAnchor="middle"
                         dy="0.34em"
-                        fill={textStyle.fill}
+                        fill={labelFill}
                         fontFamily="'Apercu Pro', 'Apercu', sans-serif"
                         fontWeight={isProj || isCategory || isFamily ? 600 : 500}
                         fontSize={getFittedFontSize(node.label, node.r)}

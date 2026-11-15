@@ -11,7 +11,7 @@ export default {
         'calcmap-highlight': '#D2F2DF',
       },
       fontFamily: {
-        sans: ['"Apercu Pro"', 'Apercu', 'Segoe UI', 'sans-serif'],
+        sans: ['Apercu', 'Segoe UI', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
     },
