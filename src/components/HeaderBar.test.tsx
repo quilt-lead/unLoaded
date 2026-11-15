@@ -55,4 +55,12 @@ describe('workspace header', () => {
   it('shows what is loaded (model ⇄ calc package) once there is a project', () => {
     expect(renderHeader('model_rev1.ifc ⇄ calc_package.pdf')).toContain('model_rev1.ifc ⇄ calc_package.pdf');
   });
+
+  it('uses a neutral indicator for the active workspace view', () => {
+    const markup = renderHeader();
+
+    expect(markup).toContain('workspace-view-indicator');
+    expect(markup).toContain('bg-white/[0.10]');
+    expect(markup).not.toContain('bg-indigo-600/25');
+  });
 });

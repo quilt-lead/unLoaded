@@ -169,9 +169,9 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           setCompareDep(null);
           onChangeTarget(extra ? linkTarget(extra.link, c) : calcTarget(c));
         }}
-        className={`block w-full text-left p-3 rounded-xl cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
+        className={`block w-full text-left p-3 rounded-xl cursor-pointer transition-colors border focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
           isActive
-            ? 'bg-indigo-500/15 border-indigo-400/40 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
+            ? 'bg-calcmap/15 border-calcmap/40'
             : 'bg-white/[0.02] hover:bg-white/[0.05] border-white/[0.06]'
         }`}
       >
@@ -287,14 +287,14 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search calcs, software, members…"
-              className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-indigo-400/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
+              className="bg-[#1e2127]/80 border border-white/[0.16] focus:border-calcmap/50 focus:outline-none rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-600 w-64 transition"
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden min-h-0">
-        <div className="lg:col-span-5 xl:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
+      <div className="flex-1 grid grid-cols-1 min-[900px]:grid-cols-12 overflow-hidden min-h-0">
+        <div className="min-w-0 min-h-0 min-[900px]:col-span-5 min-[1280px]:col-span-4 border-r border-white/[0.12] overflow-y-auto p-4 space-y-2 bg-[#262a32]">
           {!elementLinks && hasTabs && (
             <div role="tablist" aria-label="Calc package lists" className="flex items-center gap-1 bg-[#1e2127]/80 p-0.5 rounded-lg border border-white/[0.12] mb-1">
               {(
@@ -310,8 +310,8 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                   role="tab"
                   aria-selected={tab === t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 mono text-[10px] px-2 py-1 rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400 ${
-                    tab === t.id ? 'bg-indigo-500/25 text-indigo-100 border border-indigo-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  className={`flex-1 mono text-[10px] px-2 py-1 rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap ${
+                    tab === t.id ? 'bg-calcmap/15 text-calcmap border border-calcmap/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                   } ${t.id === 'findings' && findings.length > 0 && tab !== t.id ? 'text-rose-300' : ''}`}
                 >
                   {t.label}
@@ -335,7 +335,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                     <button
                       type="button"
                       onClick={() => onSelectElements(g.members)}
-                      className="mono text-[9px] px-1.5 py-0.5 rounded border border-white/[0.14] text-zinc-300 hover:text-white hover:border-indigo-400/40 flex items-center gap-1 flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                      className="mono text-[9px] px-1.5 py-0.5 rounded border border-white/[0.14] text-zinc-300 hover:text-white hover:border-calcmap/40 flex items-center gap-1 flex-shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                       title="Select the members in the graph and 3D"
                     >
                       <Users className="w-2.5 h-2.5" aria-hidden="true" />
@@ -353,7 +353,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                               setCompareDep(null);
                               onChangeTarget({ calcKey: gl.calcKey, page: gl.page ?? c?.pages[0] ?? 1, rects: gl.rects, caption: `Typical size ${g.profile}` });
                             }}
-                            className="w-full text-left flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/20 hover:bg-black/35 border border-white/[0.05] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                            className="w-full text-left flex items-center gap-1.5 px-2 py-1 rounded-lg bg-black/20 hover:bg-black/35 border border-white/[0.05] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                           >
                             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: c?.color ?? '#71717a' }} aria-hidden="true" />
                             <span className="text-[11px] text-zinc-200 truncate flex-1">{c?.title ?? gl.calcKey}</span>
@@ -383,7 +383,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       onChangeTarget({ calcKey: f.calcKey, page: f.page, rects: f.rects, caption: `Calc size ${f.calcSize} (model ${f.modelSize})` });
                       onSelectElements([f.elementId]);
                     }}
-                    className="block w-full text-left p-3 rounded-xl border bg-rose-500/[0.06] hover:bg-rose-500/[0.12] border-rose-400/25 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                    className="block w-full text-left p-3 rounded-xl border bg-rose-500/[0.06] hover:bg-rose-500/[0.12] border-rose-400/25 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
@@ -432,7 +432,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           )}
         </div>
 
-        <div className="lg:col-span-7 xl:col-span-8 overflow-hidden p-4 bg-[#24272d] flex flex-col min-h-0 gap-3">
+        <div className="min-w-0 min-h-0 min-[900px]:col-span-7 min-[1280px]:col-span-8 overflow-hidden p-4 bg-[#24272d] flex flex-col gap-3">
           {compareDep ? (
             <EvidenceCompare
               left={depSource(compareDep, 'source')}
@@ -471,7 +471,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           onClick={() => goRegion(Math.max(0, regionIdx - 1))}
                           disabled={regionIdx <= 0}
                           aria-label="Previous region"
-                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                         >
                           <ChevronLeft className="w-3 h-3" aria-hidden="true" />
                         </button>
@@ -483,7 +483,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                           onClick={() => goRegion(Math.min(regions.length - 1, regionIdx + 1))}
                           disabled={regionIdx >= regions.length - 1}
                           aria-label="Next region"
-                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
+                          className="w-5 h-5 rounded border border-white/[0.1] text-zinc-300 hover:text-white flex items-center justify-center disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-calcmap"
                         >
                           <ChevronRight className="w-3 h-3" aria-hidden="true" />
                         </button>
@@ -499,7 +499,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                             aria-pressed={p === target.page}
                             className={`mono text-[9px] px-1.5 py-0.5 rounded border transition-colors ${
                               p === target.page
-                                ? 'bg-indigo-500/25 text-indigo-200 border-indigo-400/45 font-semibold'
+                                ? 'bg-calcmap/15 text-calcmap border-calcmap/45 font-semibold'
                                 : 'bg-white/[0.03] text-zinc-400 border-white/[0.08] hover:text-zinc-200'
                             }`}
                           >
@@ -568,10 +568,10 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                             type="button"
                             onClick={() => setCompareDep(d)}
                             title="Compare the evidence on both pages"
-                            className="w-full text-left flex items-center gap-2 bg-indigo-500/[0.06] hover:bg-indigo-500/[0.14] border border-indigo-400/20 rounded-lg px-2 py-1.5 transition"
+                            className="w-full text-left flex items-center gap-2 bg-calcmap/[0.06] hover:bg-calcmap/[0.14] border border-calcmap/20 rounded-lg px-2 py-1.5 transition"
                           >
-                            <span className="mono text-[9px] text-indigo-300 flex-shrink-0">{dir === 'in' ? 'Input from' : 'Feeds'}</span>
-                            <ArrowRight className={`w-3 h-3 text-indigo-300 flex-shrink-0 ${dir === 'in' ? 'rotate-180' : ''}`} />
+                            <span className="mono text-[9px] text-calcmap flex-shrink-0">{dir === 'in' ? 'Input from' : 'Feeds'}</span>
+                            <ArrowRight className={`w-3 h-3 text-calcmap flex-shrink-0 ${dir === 'in' ? 'rotate-180' : ''}`} />
                             <span className="text-[11px] text-zinc-100 truncate">{other?.title ?? (dir === 'in' ? d.source : d.target)}</span>
                           </button>
                         );
@@ -587,7 +587,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                             key={el.id}
                             type="button"
                             onClick={() => onLocateElement(el.id, 'element-graph')}
-                            className="mono text-[10px] px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-indigo-500/20 text-zinc-200 border border-white/[0.12] hover:border-indigo-400/40 transition flex items-center gap-1.5"
+                            className="mono text-[10px] px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-calcmap/20 text-zinc-200 border border-white/[0.12] hover:border-calcmap/40 transition flex items-center gap-1.5"
                           >
                             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: getEffectiveNodeColor(el, 'type') }} />
                             {el.label}

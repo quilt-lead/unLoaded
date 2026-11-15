@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEscapeLayer } from './escapeStack';
 import {
   ArrowLeftRight,
@@ -61,14 +61,17 @@ interface HeaderBarProps {
 }
 
 const viewBtn = (active: boolean) =>
-  `flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+  `relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
     active
-      ? 'bg-indigo-600/25 text-white border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.25)]'
+      ? 'text-white border border-transparent'
       : 'text-zinc-400 hover:text-zinc-100 border border-transparent'
   }`;
 
 const chromeBtn =
   'bg-white/[0.04] hover:bg-white/[0.08] active:bg-white/[0.1] text-zinc-200 px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border border-white/[0.14] disabled:opacity-40 disabled:cursor-not-allowed';
+
+const WORKSPACE_VIEW_ORDER: WorkspaceView[] = ['element-graph', 'calculation-graph', '3d', 'docs'];
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const COLOR_MODES: { id: ColorMode; label: string; title: string }[] = [
   { id: 'type', label: 'Type', title: 'Colour elements by IFC type' },
@@ -79,9 +82,39 @@ const COLOR_MODES: { id: ColorMode; label: string; title: string }[] = [
 export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const viewNavRef = useRef<HTMLElement | null>(null);
+  const viewButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const modelInput = useRef<HTMLInputElement | null>(null);
   const calcInput = useRef<HTMLInputElement | null>(null);
   const openInput = useRef<HTMLInputElement | null>(null);
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const activeViewIndex = WORKSPACE_VIEW_ORDER.indexOf(p.activeView);
+
+  useIsomorphicLayoutEffect(() => {
+    const nav = viewNavRef.current;
+    const button = viewButtonRefs.current[activeViewIndex];
+    if (!nav || !button) return;
+
+    const updateIndicator = () => {
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      setIndicatorStyle({
+        left: buttonRect.left - navRect.left - nav.clientLeft,
+        width: buttonRect.width,
+      });
+    };
+
+    updateIndicator();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateIndicator);
+      return () => window.removeEventListener('resize', updateIndicator);
+    }
+
+    const observer = new ResizeObserver(updateIndicator);
+    observer.observe(nav);
+    viewButtonRefs.current.forEach((viewButton) => viewButton && observer.observe(viewButton));
+    return () => observer.disconnect();
+  }, [activeViewIndex]);
 
   useEscapeLayer(menuOpen, () => setMenuOpen(false));
   useEffect(() => {
@@ -171,21 +204,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         </div>
       </div>
 
-      <nav aria-label="Primary Workspace Views" className="flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0">
-        <button type="button" onClick={() => p.onChangeView('element-graph')} aria-pressed={p.activeView === 'element-graph'} className={viewBtn(p.activeView === 'element-graph')}>
+      <nav
+        ref={viewNavRef}
+        aria-label="Primary Workspace Views"
+        className="relative flex items-center bg-[#1e2127]/80 p-1 rounded-xl border border-white/[0.14] shadow-inner flex-shrink-0"
+      >
+        <span
+          aria-hidden="true"
+          className="workspace-view-indicator absolute top-1 bottom-1 z-0 rounded-lg bg-white/[0.10] border border-white/[0.22] pointer-events-none transition-[transform,width] duration-300"
+          style={{ width: indicatorStyle.width, transform: `translateX(${indicatorStyle.left}px)` }}
+        />
+        <button ref={(button) => { viewButtonRefs.current[0] = button; }} type="button" onClick={() => p.onChangeView('element-graph')} aria-pressed={p.activeView === 'element-graph'} className={viewBtn(p.activeView === 'element-graph')}>
           <CircleDot className="w-3.5 h-3.5 text-emerald-400" />
           <span>Element Graph</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('calculation-graph')} aria-pressed={p.activeView === 'calculation-graph'} className={viewBtn(p.activeView === 'calculation-graph')}>
+        <button ref={(button) => { viewButtonRefs.current[1] = button; }} type="button" onClick={() => p.onChangeView('calculation-graph')} aria-pressed={p.activeView === 'calculation-graph'} className={viewBtn(p.activeView === 'calculation-graph')}>
           <Calculator className="w-3.5 h-3.5 text-amber-400" />
           <span>Calculation Graph</span>
           <span className="mono text-[10px] px-1.5 rounded bg-white/[0.06] text-zinc-400">{p.calcCount}</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('3d')} aria-pressed={p.activeView === '3d'} className={viewBtn(p.activeView === '3d')}>
+        <button ref={(button) => { viewButtonRefs.current[2] = button; }} type="button" onClick={() => p.onChangeView('3d')} aria-pressed={p.activeView === '3d'} className={viewBtn(p.activeView === '3d')}>
           <Box className="w-3.5 h-3.5 text-cyan-400" />
           <span>3D Model</span>
         </button>
-        <button type="button" onClick={() => p.onChangeView('docs')} aria-pressed={p.activeView === 'docs'} className={viewBtn(p.activeView === 'docs')}>
+        <button ref={(button) => { viewButtonRefs.current[3] = button; }} type="button" onClick={() => p.onChangeView('docs')} aria-pressed={p.activeView === 'docs'} className={viewBtn(p.activeView === 'docs')}>
           <FileText className="w-3.5 h-3.5 text-rose-400" />
           <span>PDF Calcs</span>
         </button>
@@ -202,7 +244,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                 aria-pressed={p.colorMode === m.id}
                 onClick={() => p.onChangeColorMode(m.id)}
                 className={`mono text-[10px] px-2 py-1 rounded-md transition ${
-                  p.colorMode === m.id ? 'bg-indigo-500/25 text-indigo-100 border border-indigo-400/40' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
+                  p.colorMode === m.id ? 'bg-white/[0.12] text-white border border-white/[0.18]' : 'text-zinc-400 hover:text-zinc-200 border border-transparent'
                 }`}
               >
                 {m.label}
@@ -233,11 +275,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className={`${chromeBtn} hover:border-indigo-400/40 max-w-[220px]`}
+            className={`${chromeBtn} hover:border-calcmap/40 max-w-[220px]`}
             aria-expanded={menuOpen}
             aria-haspopup="menu"
           >
-            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-indigo-300 animate-spin" aria-hidden="true" /> : <Upload className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />}
+            {p.busy ? <Loader2 className="w-3.5 h-3.5 text-calcmap animate-spin" aria-hidden="true" /> : <Upload className="w-3.5 h-3.5 text-calcmap" aria-hidden="true" />}
             <span>Project</span>
             <ChevronDown className="w-3 h-3 text-zinc-500" aria-hidden="true" />
           </button>
@@ -258,7 +300,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
                           p.onSwitchProject(pr.id);
                         }}
                         className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs truncate transition ${
-                          pr.id === p.activeProjectId ? 'bg-indigo-500/20 text-white' : 'text-zinc-300 hover:bg-white/[0.06]'
+                          pr.id === p.activeProjectId ? 'bg-calcmap/15 text-white' : 'text-zinc-300 hover:bg-white/[0.06]'
                         }`}
                       >
                         {pr.name}
@@ -303,8 +345,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = (p) => {
         {fileInput(openInput, '.json,.ifc,.pdf,application/json,application/pdf', 'Open file', (fs) => p.onOpenFile(fs[0]!))}
 
         {p.diffRevs && (
-          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-indigo-400/35">
-            <ArrowLeftRight className="w-3.5 h-3.5 text-indigo-300" />
+          <button type="button" onClick={p.onSwapDatabases} title="Swap base revision (A) and compare revision (B)" aria-label="Swap base and compare revisions" className="bg-calcmap/15 hover:bg-calcmap/25 text-calcmap px-2 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1 border border-calcmap/35">
+            <ArrowLeftRight className="w-3.5 h-3.5 text-calcmap" />
             <span className="hidden xl:inline">Swap A↔B</span>
           </button>
         )}
