@@ -318,7 +318,8 @@ def project_bundle(st: Store, pid: int):
     if proj["kind"] == "ifc":
         mrev, crev = heads.get("model"), heads.get("calcs")
         scopes = [("revision", r) for r in (mrev, crev) if r]
-        run = st.latest_run(pid, mrev, crev) if (mrev and crev) else None
+        from . import pipeline  # lazy: pipeline imports revstore
+        run = pipeline.current_run(st, pid) if (mrev and crev) else None
         if run:
             scopes.append(("run", run["id"]))
         b, ifc_store = _bundle(st, f"store/project/{pid}", pid, scopes)

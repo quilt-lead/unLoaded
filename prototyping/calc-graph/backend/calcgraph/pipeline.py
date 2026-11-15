@@ -68,6 +68,41 @@ def remap(st: Store, pid: int) -> int | None:
     return run
 
 
+def _engines(prod: dict) -> dict:
+    return {k: (v or {}).get("engine") for k, v in prod.items()}
+
+
+def _stored_producer(st: Store, table: str, rid: int) -> dict:
+    row = st.db.execute(f"SELECT producer_json FROM {table} WHERE id=?", (rid,)).fetchone()
+    return json.loads(row["producer_json"] or "{}") if row else {}
+
+
+def run_is_current(st: Store, run_id: int) -> bool:
+    """A mapping run is derived data: it is current only while the matcher / calcdeps that made it are the code
+    running now (module@source hash). An older run is never served (state() remaps)."""
+    return _engines(_stored_producer(st, "mapping_run", run_id)) == _engines(revstore.producer(*RUN_PRODUCER))
+
+
+def calcs_are_current(st: Store, rid: int) -> bool:
+    """A calc revision's calcs (segment over calcpkg_ingest) were read by the readers running now."""
+    return _engines(_stored_producer(st, "revision", rid)) == _engines(revstore.producer(*CALC_PRODUCER))
+
+
+def current_run(st: Store, pid: int):
+    """THE mapping run of the project's head (model, calc) pair, for every reader: the latest one, re-mapped
+    first when it was made by an older matcher / calcdeps (decisions are keyed by element + calc, so they
+    carry forward). None when the project lacks a model or calc head."""
+    p = st.project(pid)
+    mrev, crev = p["head_model_rev"], p["head_calc_rev"]
+    if not (mrev and crev):
+        return None
+    run = st.latest_run(pid, mrev, crev)
+    if not run or not run_is_current(st, run["id"]):
+        remap(st, pid)
+        run = st.latest_run(pid, mrev, crev)
+    return run
+
+
 def effective_links(st: Store, pid: int, run_id: int, gids: set[str], calc_keys: set[str]) -> list[dict]:
     """Auto links of the run with the (carried-forward) human decisions applied."""
     links = st.links(run_id)
@@ -111,7 +146,7 @@ def state(st: Store, pid: int) -> dict:
     for i, c in enumerate(calcs):
         c["color"] = PALETTE[i % len(PALETTE)]
     pages = st.pages(crev) if crev else []
-    run = st.latest_run(pid, mrev, crev) if (mrev and crev) else None
+    run = current_run(st, pid)
     links = effective_links(st, pid, run["id"], {e["global_id"] for e in els}, {c["key"] for c in calcs}) if run else []
     cedges = calcdeps.infer([{**c, "text": ""} for c in calcs], pages, links) if run else []
     per_el: dict[str, list[dict]] = {}

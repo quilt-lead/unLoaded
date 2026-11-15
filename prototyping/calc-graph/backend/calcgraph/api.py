@@ -102,7 +102,8 @@ def load_v2_documents():
     """Ingest what the Harbor View project lacks, from data/synthetic_v2 (read only): the current base
     model.ifc when the store has no copy of it (first load, or the generator was re-run: it becomes the
     head, superseding moves made on an older building; found by content hash, never ingested twice) and
-    calc_package.pdf when the head calc revision is not that file. Returns the project's heads."""
+    calc_package.pdf when the head calc revision is not that file, or was read by an older calc-package reader
+    (pipeline.calcs_are_current: segment / calcpkg_ingest / pdf_ingest source hashes). Returns the project's heads."""
     from .move_api import _base_rev
     from .store import sha256_file
     for f in ("model.ifc", "calc_package.pdf"):
@@ -116,7 +117,7 @@ def load_v2_documents():
         out["model"] = base
     pdf = os.path.join(V2_DIR, "calc_package.pdf")
     head_calc = st.project(pid)["head_calc_rev"]
-    if not head_calc or st.revision(head_calc)["sha256"] != sha256_file(pdf):
+    if not head_calc or st.revision(head_calc)["sha256"] != sha256_file(pdf) or not pipeline.calcs_are_current(st, head_calc):
         out["calcs"] = pipeline.ingest_calcs(st, pid, pdf, "calc_package.pdf", "Harbor View calc package")
     return out | {"heads": dict(st.project(pid))}
 
