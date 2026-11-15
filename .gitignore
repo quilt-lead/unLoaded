@@ -9,7 +9,5 @@ coverage/
 public/wasm/
 public/samples/
 
-# Source documents (copyrighted / permit set) - keep out of git
-*.pdf
 # double-click viewer build: packed copies of the source PDFs
 prototyping/calc-viewer/viewers/assets/pdf-*.js
