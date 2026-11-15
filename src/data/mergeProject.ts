@@ -53,6 +53,7 @@ export function mergeProject(topology: ElementTopology, calc: CalcData | null, o
     hierarchyLinks: topology.hierarchyLinks,
     loadPath: topology.loadPath,
     connectivity: topology.connectivity,
+    levels: topology.levels ?? [],
     modelFileUrl: opts.modelFileUrl,
     calcs: calc?.calcs ?? [],
     calcDependencies: calc?.calcDependencies ?? [],

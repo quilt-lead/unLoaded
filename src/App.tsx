@@ -19,6 +19,7 @@ import type {
   DecisionAction,
   DockSide,
   FilterState,
+  GraphComment,
   HighlightOverlay,
   HighlightTone,
   NodeGroup,
@@ -68,6 +69,8 @@ import { HeaderBar } from './components/HeaderBar';
 import { FilterBar, type DiffFilter } from './components/FilterBar';
 import { RadialGraphCanvas } from './components/RadialGraphCanvas';
 import { Structural3DViewer } from './components/Structural3DViewer';
+import { countRoles, PlanView2D } from './components/PlanView2D';
+import { buildPlanIndex, formatElevation, levelForElement } from './utils/planSlice';
 import { PropertyInspector } from './components/PropertyInspector';
 import { DocumentBrowser, calcTarget, linkTarget } from './components/DocumentBrowser';
 import { DockableHudPanel } from './components/DockableHudPanel';
@@ -81,6 +84,11 @@ import { ACCEPTED_EXTENSIONS } from './loaders/parsers';
 const DROP_EXTENSIONS = [...new Set([...ACCEPTED_EXTENSIONS, '.pdf'])];
 
 const EMPTY_SET = new Set<string>();
+
+interface ToastAction {
+  label: string;
+  run: () => void;
+}
 const NO_FILTERS: FilterState = { search: '', type: 'ALL', level: 'ALL' };
 
 /**
@@ -180,6 +188,9 @@ export const App: React.FC = () => {
 
   // ---------------------------------------------------------------- UI state
   const [groups, setGroups] = useState<NodeGroup[]>([]);
+  // comments on the two graph workspaces; project-scoped like groups and moved nodes
+  const [comments, setComments] = useState<GraphComment[]>([]);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<Set<string>>(new Set());
   const [moved, setMoved] = useState<Map<string, { x: number; y: number }>>(new Map());
   // Calc graph drags are stored as cumulative offsets, not absolute positions: the mapped-element
   // satellites are laid out around their anchor calc, so an offset on the anchor carries its fan with it.
@@ -194,6 +205,11 @@ export const App: React.FC = () => {
   const [pdfTarget, setPdfTarget] = useState<PdfTarget | null>(null);
   const [fit3dTrigger, setFit3dTrigger] = useState(0);
   const [resetTrigger, setResetTrigger] = useState(0);
+  // the model panel's views: the 3D model and the 2D plan of one level
+  const [modelTab, setModelTab] = useState<'3d' | 'plan'>('3d');
+  const [planLevelPick, setPlanLevelPick] = useState<string | null>(null);
+  const [planFitTrigger, setPlanFitTrigger] = useState(0);
+  const [planResetTrigger, setPlanResetTrigger] = useState(0);
   const [viewer3dDock, setViewer3dDock] = useState<DockSide>('right');
   const [inspectorDock, setInspectorDock] = useState<DockSide>('left');
   const [leftDockWidth, setLeftDockWidth] = useState(340);
@@ -211,6 +227,8 @@ export const App: React.FC = () => {
     if ((activeViewRef.current === 'calculation-graph') !== (next === 'calculation-graph')) {
       setFilters((f) => (f.search || f.type !== 'ALL' ? { ...f, search: '', type: 'ALL' } : f));
     }
+    // each graph has its own comments; a selection on the hidden one must not be deletable
+    if (next !== activeViewRef.current) setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
     activeViewRef.current = next;
     setActiveView(next);
   }, []);
@@ -264,7 +282,39 @@ export const App: React.FC = () => {
     setSelectedCalcNodeId(null);
     setSelectedCalcNodeIds(new Set());
     setCalcAnchorKey(null);
+    setSelectedCommentIds((prev) => (prev.size ? new Set() : prev));
   }, []);
+
+  const handleSelectComments = useCallback((ids: string[], opts?: { additive?: boolean }) => {
+    setSelectedCommentIds((prev) => {
+      if (!opts?.additive) return new Set(ids);
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const makeAddComment = useCallback(
+    (graph: GraphComment['graph']) => (x: number, y: number) => {
+      const id = `cmt-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      setComments((prev) => [...prev, { id, graph, x, y, text: '' }]);
+      return id;
+    },
+    [],
+  );
+  const handleAddElementComment = useMemo(() => makeAddComment('element'), [makeAddComment]);
+  const handleAddCalcComment = useMemo(() => makeAddComment('calc'), [makeAddComment]);
+
+  const handleMoveComments = useCallback((ids: Set<string>, dx: number, dy: number) => {
+    setComments((prev) => prev.map((c) => (ids.has(c.id) ? { ...c, x: c.x + dx, y: c.y + dy } : c)));
+  }, []);
+
+  const handleEditComment = useCallback((id: string, text: string) => {
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, text } : c)));
+  }, []);
+
+  const elementComments = useMemo(() => comments.filter((c) => c.graph === 'element'), [comments]);
+  const calcComments = useMemo(() => comments.filter((c) => c.graph === 'calc'), [comments]);
 
   /**
    * The one way the open project changes (picker, sample, demo, new project, project or export
@@ -295,6 +345,7 @@ export const App: React.FC = () => {
         setCompareOpen(false);
         setDocFilterBySelected(false);
         setGroups([]);
+        setComments([]);
         setMoved(new Map());
         setCalcMoved(new Map());
         handleClearSelection();
@@ -311,15 +362,50 @@ export const App: React.FC = () => {
   );
   const switchProject = useCallback((id: string) => enterScope({ projectId: id }), [enterScope]);
 
-  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean }>({ message: '', isError: false, visible: false });
+  const [toast, setToast] = useState<{ message: string; isError: boolean; visible: boolean; action?: ToastAction }>({
+    message: '',
+    isError: false,
+    visible: false,
+  });
   // one timer: a newer toast restarts the countdown; cleared on unmount
   const toastTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
-  const showToast = useCallback((message: string, isError = false) => {
-    setToast({ message, isError, visible: true });
+  const showToast = useCallback((message: string, isError = false, action?: ToastAction) => {
+    setToast({ message, isError, visible: true, action });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast((prev) => (prev.message === message ? { ...prev, visible: false } : prev)), isError ? 7000 : 3400);
+    toastTimer.current = window.setTimeout(
+      () => setToast((prev) => (prev.message === message ? { ...prev, visible: false, action: undefined } : prev)),
+      isError ? 7000 : action ? 6000 : 3400,
+    );
   }, []);
+
+  /** Deleting comments that have text offers Undo; an empty new comment just disappears. */
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+  const handleDeleteComments = useCallback(
+    (ids: string[]) => {
+      const gone = new Set(ids);
+      const removed = commentsRef.current.filter((c) => gone.has(c.id));
+      setComments((prev) => prev.filter((c) => !gone.has(c.id)));
+      setSelectedCommentIds((prev) => {
+        if (![...prev].some((id) => gone.has(id))) return prev;
+        return new Set([...prev].filter((id) => !gone.has(id)));
+      });
+      const withText = removed.filter((c) => c.text);
+      if (withText.length === 0) return;
+      const scopeAtDelete = scopeRef.current.epoch;
+      showToast(withText.length === 1 ? 'Comment deleted' : `${withText.length} comments deleted`, false, {
+        label: 'Undo',
+        run: () => {
+          // a project change in between has its own comments; don't bring these back into it
+          if (scopeRef.current.epoch !== scopeAtDelete) return;
+          setComments((prev) => [...prev, ...withText.filter((c) => !prev.some((p) => p.id === c.id))]);
+          setSelectedCommentIds(new Set(withText.map((c) => c.id)));
+        },
+      });
+    },
+    [showToast],
+  );
 
   // In diff mode the view is revision B's: if B's view or the diff fails, diff mode is left (back to
   // the head, which has its own view) with the reason, rather than leaving an empty workspace.
@@ -383,6 +469,22 @@ export const App: React.FC = () => {
     });
   }, [view, moved]);
   const elementById = useMemo(() => new Map(elementNodes.map((n) => [n.id, n])), [elementNodes]);
+
+  // the 2D plan: every level sliced once per model (graph layout moves don't re-slice)
+  const planIndex = useMemo(() => buildPlanIndex(view?.elementNodes ?? [], view?.levels ?? []), [view]);
+  // the level picked, if the model still has it; else the lowest floor with a slab, else the lowest level
+  const planLevelId =
+    (planLevelPick && planIndex.plans.has(planLevelPick) ? planLevelPick : null) ??
+    planIndex.levels.find((l) => l.hasSlab)?.id ??
+    planIndex.levels[0]?.id ??
+    null;
+  // a selection elsewhere (graph, inspector, 3D) takes the plan to a level the element is drawn on
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const lv = levelForElement(planIndex, selectedNodeId, planLevelId);
+    if (lv && lv !== planLevelId) setPlanLevelPick(lv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId, planIndex]);
 
   const calcGraph = useMemo(() => {
     const offset = (n: BimNode): BimNode => {
@@ -1147,10 +1249,43 @@ export const App: React.FC = () => {
     ? 'Utilisation'
     : 'IFC Model';
 
+  const planView = (
+    <PlanView2D
+      nodes={elementNodes}
+      index={planIndex}
+      levelId={planLevelId}
+      onLevelChange={setPlanLevelPick}
+      selectedNodeId={selectedNodeId}
+      selectedNodeIds={selectedNodeIds}
+      activeLoadChainNodeIds={activeLoadChainNodeIds}
+      matchingNodeIds={matchingNodeIds}
+      isFilterActive={activeView !== 'calculation-graph' && isFilterActive}
+      colorMode={colorMode}
+      diffMode={diffMode}
+      overlay={overlay}
+      fitTrigger={planFitTrigger}
+      resetTrigger={planResetTrigger}
+      revealTrigger={fit3dTrigger}
+      emptyText={view?.source === 'file' ? 'An export JSON carries no geometry; open the project file or add the IFC to see the plan.' : undefined}
+      onSelectNode={handleSelectElementNode}
+    />
+  );
+  const shownPlan = planLevelId ? planIndex.plans.get(planLevelId) : undefined;
+  const statusPlan = shownPlan
+    ? `${shownPlan.level.name}  ${formatElevation(shownPlan.level.elevation)}  ·  ${countRoles(shownPlan.items)}`
+    : 'No levels';
+  const onPlanTab = modelTab === 'plan';
+
   const renderViewer3dPanel = () => (
     <DockableHudPanel
       id="viewer3dPanel"
-      title={diffMode ? '3D Diff Model (A vs B)' : '3D Structural Model'}
+      title={diffMode ? 'Diff A vs B' : 'Model'}
+      tabs={[
+        { id: '3d', label: '3D' },
+        { id: 'plan', label: 'Plan' },
+      ]}
+      activeTab={modelTab}
+      onTabChange={(t) => setModelTab(t === 'plan' ? 'plan' : '3d')}
       indicatorClassName={
         diffMode || impact
           ? 'bg-amber-400'
@@ -1168,7 +1303,7 @@ export const App: React.FC = () => {
         <>
           <button
             type="button"
-            onClick={() => setFit3dTrigger((c) => c + 1)}
+            onClick={() => (onPlanTab ? setPlanFitTrigger : setFit3dTrigger)((c) => c + 1)}
             title="Zoom to selection"
             className="mono text-[9px] px-1.5 py-0.5 rounded bg-calcmap/15 text-calcmap border border-calcmap/25 hover:bg-calcmap/25 transition mr-0.5"
           >
@@ -1176,9 +1311,9 @@ export const App: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setResetTrigger((c) => c + 1)}
-            title="Reset 3D camera"
-            aria-label="Reset 3D camera"
+            onClick={() => (onPlanTab ? setPlanResetTrigger : setResetTrigger)((c) => c + 1)}
+            title={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
+            aria-label={onPlanTab ? 'Show the whole plan' : 'Reset 3D camera'}
             className="text-zinc-500 hover:text-zinc-200 w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition"
           >
             <RotateCcw className="w-3 h-3" />
@@ -1187,10 +1322,20 @@ export const App: React.FC = () => {
       }
     >
       <div className="relative flex-1 w-full h-full overflow-hidden bg-[#2d3139]">
-        {viewer3d}
+        {/* both views stay mounted: switching tabs must not drop the WebGL context or reload the IFC */}
+        <div className="absolute inset-0" hidden={onPlanTab}>
+          {viewer3d}
+        </div>
+        <div className="absolute inset-0" hidden={!onPlanTab}>
+          {planView}
+        </div>
         <div className="absolute bottom-2 left-2.5 right-4 pointer-events-none flex items-center justify-between text-[10px] mono text-zinc-400 bg-black/65 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/[0.07]">
-          <span className="truncate text-zinc-200">{status3d}</span>
-          <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          <span className="truncate text-zinc-200">{onPlanTab ? statusPlan : status3d}</span>
+          {onPlanTab ? (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: pan · Wheel or + / −: zoom · Page Up / Page Down or [ ]: change level">Drag Pan • Wheel Zoom • PgUp/PgDn Level</span>
+          ) : (
+            <span className="text-zinc-500 ml-2 flex-shrink-0" title="Drag: orbit · Middle or Shift+right drag: pan · Ctrl+right drag or wheel: zoom">Drag Orbit • MMB Pan • Wheel Zoom</span>
+          )}
         </div>
       </div>
     </DockableHudPanel>
@@ -1486,6 +1631,13 @@ export const App: React.FC = () => {
               onMoveNodes={handleMoveNodes}
               onGroupSelection={handleGroupSelection}
               onOpenNode={handleOpenNode}
+              comments={elementComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddElementComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
@@ -1508,6 +1660,13 @@ export const App: React.FC = () => {
               onClearSelection={handleClearSelection}
               onMoveNodes={handleMoveCalcNodes}
               onGroupSelection={() => {}}
+              comments={calcComments}
+              selectedCommentIds={selectedCommentIds}
+              onSelectComments={handleSelectComments}
+              onAddComment={handleAddCalcComment}
+              onMoveComments={handleMoveComments}
+              onEditComment={handleEditComment}
+              onDeleteComments={handleDeleteComments}
             />
           )}
 
@@ -1608,6 +1767,18 @@ export const App: React.FC = () => {
           <CheckCircle2 className="w-4 h-4 text-calcmap flex-shrink-0" />
         )}
         <div className="text-xs font-medium">{busyText || viewBusy || (toast.visible ? toast.message : '')}</div>
+        {!busyText && !viewBusy && toast.visible && toast.action && (
+          <button
+            type="button"
+            onClick={() => {
+              toast.action?.run();
+              setToast((prev) => ({ ...prev, visible: false, action: undefined }));
+            }}
+            className="ml-1 px-2 py-0.5 rounded-md text-xs font-semibold text-calcmap border border-calcmap/40 bg-calcmap/10 hover:bg-calcmap/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-calcmap/70"
+          >
+            {toast.action.label}
+          </button>
+        )}
       </div>
     </div>
   );

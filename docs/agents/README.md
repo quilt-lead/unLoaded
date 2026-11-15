@@ -18,6 +18,8 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-graph-comments.md](2026-11-15-graph-comments.md) | done | Sticky-note comments on the Element and Calculation Graphs: add (button / C), edit, select, box-select, drag with nodes, arrow nudge, delete with Undo; not yet persisted |
+| [2026-11-15-plan-view.md](2026-11-15-plan-view.md) | in review | 2D plan tab in the model panel: framing plan per floor level (SVG from element geometry), level stepping, shared 3D/plan emphasis rules |
 | [2026-11-15-loading-calcs.md](2026-11-15-loading-calcs.md) | done | Loading section in the Calculation Graph: 4 synthetic Harborview loading calcs (gravity, wind, seismic, combos), a `Loading` calc category, and a calc-reference-by-sheet-number rule that links them to 111 calcs |
 | [2026-11-15-graph-jump-and-view-history.md](2026-11-15-graph-jump-and-view-history.md) | done | Ctrl+Click a graph node jumps to its calc PDF; Shift+Click multi-select fixed in the calc graph; Alt+Left/Right step back/forward through views |
 | [2026-11-15-calc-graph-drag.md](2026-11-15-calc-graph-drag.md) | done | Calculation Graph nodes are draggable like the Element Graph; drags stored as offsets so mapped-element satellites follow their calc |

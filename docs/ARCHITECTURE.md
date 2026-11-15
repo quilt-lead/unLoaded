@@ -139,6 +139,12 @@ instructions to fetch their contents.
   calc's linked elements with edges styled by review state.
 - **3D** (`Structural3DViewer`, `three/ifcViewer.ts`): the head revision's real IFC meshes via web-ifc, keyed by
   GlobalId; element-graph boxes when there is no IFC; diff ghosts from the other revision.
+- **2D plan** (`PlanView2D`, `plan/`, slicing in `utils/planSlice.ts`): the model panel's second tab. One floor
+  level at a time as a framing plan: slab outline, beams at their section width, braces dashed, columns and walls
+  cut just below the level, columns that start on it dashed, footings, connections. Drawn as SVG from the element
+  graph's bbox / centreline / section (never the meshes), so it works without an IFC. Levels are the storeys plus
+  any slab no storey sits on. Membership is geometric because IFC puts a floor's beams in the storey below. Styling
+  and selection share `utils/elementEmphasis.ts` with the 3D view.
 - **PDF calcs** (`DocumentBrowser`, `pdf/PdfPage.tsx`): the original page with the matched evidence
   highlighted; each calc stepped through by its regions (a calc can start or end mid-page; the region is
   outlined); calc dependencies side by side (`pdf/EvidenceCompare.tsx`); tabs for **typical groups** (elements of
