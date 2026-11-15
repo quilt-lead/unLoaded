@@ -51,34 +51,64 @@ def _overlap(a, b) -> float:
     return ix * iy / m if m > 0 else 0.0
 
 
-def link_model(sid: str, plans: str, model: str, elements: list[dict], links: list[dict], findings: list[dict]) -> dict:
-    """Tie each drawing element to its element in the building's IFC through the registry resolver,
-    sets element["model"] in place and returns graph["model"]. A tag resolves when a registry occurrence
-    of an IFC element (plan / elevation tag, schedule row) on the same page overlaps it by half."""
-    from . import ifc_ingest, registry_ingest
-    reg = registry_ingest.build({"ifc": model, "drawings": plans})
+def build_registry(plans: str, model: str, calc_path: str | None) -> dict:
+    """The element registry over the set's documents (the generic reader evaluate_registry scores)."""
+    from . import registry_ingest
+    paths = {"ifc": model, "drawings": plans}
+    if calc_path:
+        paths["calcs"] = calc_path
+    return registry_ingest.build(paths)
+
+
+def resolve_tags(elements: list[dict], reg: dict) -> dict[str, tuple[dict, dict | None]]:
+    """drawing element id -> (registry node, its occurrence or None). THE resolver of drawing tags to the
+    registry, used for both the 3D placement and the registry links:
+      - a plan / elevation tag or schedule row: the registry occurrence of an IFC element on the same page
+        that overlaps it by half (the occurrence carries the registry's own rule and confidence)
+      - a frame marker ("SMF", "SCBF" on a framing plan): the registry frame node <mark>-<line> for a grid
+        line the marker is placed on (e.g. SMF at A/2-3 -> FRAME:SMF-A); a frame has no IFC element"""
     by_page: dict[int, list[tuple[dict, dict]]] = {}
+    frames = {n["id"]: n for n in reg["nodes"] if n["id"].startswith("FRAME:")}
     for n in reg["nodes"]:
         if not n.get("global_id"):
             continue
         for o in n["occurrences"]:
             if o["doc"] == "drawings" and o.get("how") in _TAG_OCCURRENCES and o.get("bbox"):
                 by_page.setdefault(o["page"], []).append((n, o))
+    out: dict[str, tuple[dict, dict | None]] = {}
+    for e in elements:
+        if e["cat"] == "Frame" and e.get("mark"):
+            hits = [frames[f"FRAME:{e['mark']}-{lab}"] for lab in re.findall(r"[A-Z]+|\d+", e.get("grid") or "")
+                    if f"FRAME:{e['mark']}-{lab}" in frames]
+            if len(hits) == 1:
+                out[e["id"]] = (hits[0], None)
+            continue
+        rects = e.get("rects") or [e["bbox"]]
+        best = max(((max(_overlap(r, o["bbox"]) for r in rects), n, o) for n, o in by_page.get(e["page"], [])),
+                   key=lambda t: t[0], default=(0.0, None, None))
+        if best[0] >= 0.5:
+            out[e["id"]] = (best[1], best[2])
+    return out
+
+
+def link_model(sid: str, model: str, elements: list[dict], links: list[dict], findings: list[dict],
+               resolved: dict[str, tuple[dict, dict | None]], has_tags: set[int]) -> dict:
+    """Place each drawing element on its element in the building's IFC (resolve_tags), sets element["model"]
+    in place and returns graph["model"]. A frame marker resolves to a frame, which has no IFC element."""
+    from . import ifc_ingest
     geom = {e["global_id"]: e for e in ifc_ingest.read_ifc(model)["elements"]}
     linked = {l["el"] for l in links}
     mism = [f["text"] for f in findings if f["kind"] == "size mismatch"]
     placed, skipped = Counter(), Counter()
     for e in elements:
-        rects = e.get("rects") or [e["bbox"]]
-        best = max(((max(_overlap(r, o["bbox"]) for r in rects), n, o) for n, o in by_page.get(e["page"], [])),
-                   key=lambda t: t[0], default=(0.0, None, None))
-        if best[0] < 0.5:
-            reason = ("the registry resolved no model element for this tag" if by_page.get(e["page"])
+        n, o = resolved.get(e["id"], (None, None))
+        if not n or not n.get("global_id"):
+            reason = (f"resolves to {n['id']}, which has no IFC element" if n else
+                      "the registry resolved no model element for this tag" if e["page"] in has_tags
                       else f"no tag on {e['sheet']} resolved to the model")
-            e["model"] = {"in3d": False, "reason": reason}
-            skipped[reason] += 1
+            e["model"] = {"in3d": False, "reason": reason, **({"node": n["id"]} if n else {})}
+            skipped[reason if not n else "resolves to a frame (no IFC element)"] += 1
             continue
-        _, n, o = best
         g = geom.get(n["global_id"], {})
         status = ("linked" if e["id"] in linked else
                   "size mismatch" if e.get("size_norm") and any(e["size_norm"] in t for t in mism) else "no calc found")
@@ -117,13 +147,29 @@ def ingest_set(sid: str, name: str, plans: str, calcs: list[tuple[str, str, str 
                      "pages": r["meta"]["page_count"]}
     cedges, ce_stats = set_graph.calc_edges(pages)
     links, link_stats = set_graph.link(dr["elements"], pages)
+    resolved: dict = {}
+    if model:
+        # the registry reads the set's documents once: it places tags on the model (3D) AND supplies the
+        # designed-by links and feeds edges (set_graph registry tier); one calc package per registry
+        cdoc = next((c for c in calcs if c[1] == "calcs"), calcs[0] if calcs else None)
+        reg = build_registry(plans, model, cdoc[0] if cdoc else None)
+        resolved = resolve_tags(dr["elements"], reg)
+        if cdoc:
+            node_of = {k: n["id"] for k, (n, _) in resolved.items()}
+            links, sup = set_graph.merge_links(links, set_graph.registry_links(dr["elements"], pages, reg, node_of, cdoc[1]))
+            link_stats["refused"] |= sup
+            redges = set_graph.registry_calc_edges(pages, reg, cdoc[1])
+            cedges += redges
+            ce_stats["by_rule"][set_graph.REGISTRY_FEEDS] = len(redges)
+        link_stats["tiers"] = dict(Counter(l["tier"] for l in links))
     finds = set_graph.findings(dr["elements"], pages, links, dr["sheets"])
     cov = set_graph.coverage(dr["elements"], edges, pages, cedges, links, lp_stats, ce_stats, link_stats, None)
     out = os.path.join(SETS_DIR, sid)
     os.makedirs(out, exist_ok=True)
     if os.path.exists(os.path.join(out, "model.ifc")):
         os.unlink(os.path.join(out, "model.ifc"))   # never pair a new graph with another build's model
-    m3d = link_model(sid, plans, model, dr["elements"], links, finds) if model else None
+    has_tags = {o["page"] for n, o in resolved.values() if o}
+    m3d = link_model(sid, model, dr["elements"], links, finds, resolved, has_tags) if model else None
     if m3d:
         cov["model_3d"] = {"elements_in_3d": m3d["elements_in_3d"], "counts_by_type": m3d["counts_by_type"]}
     sheets = [{k: v for k, v in s.items()} for s in dr["sheets"]]

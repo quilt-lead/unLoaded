@@ -25,7 +25,18 @@ Element <-> calc links (score, rule):
   0.45 size only             the page's member type is unknown
   0.45 drawing ref only      calc cites the element's sheet, names the same role (jamb / header /
                              stud) but prints another size
-Every link is gated by SYSTEM_SECTIONS: the member's structural system (lateral, gravity,
+  0.92 registry designed-by  (sets with a model) the drawing tag resolves through the element
+                             registry (set_pipeline.resolve_tags: a plan / elevation tag or schedule row
+                             overlapping a registry occurrence of an IFC element, or a frame marker on a
+                             frame line -> that frame) and a calc record names that element as its
+                             subject -> the record's page. The registry is the generic document reader
+                             scored against the synthetic building's truth (evaluate_registry); an element
+                             with a registry link keeps only those - the size tiers below are guesses
+                             about the same member and are dropped for it ("superseded" in the stats)
+Calc edges from the registry (sets with a model): a record that feeds another record (it names a
+member the other designs, or its member's reaction loads the other's member / connection) -> page
+edge between their pages, rule "registry feeds".
+Every size / schedule link is gated by SYSTEM_SECTIONS: the member's structural system (lateral, gravity,
 jamb, exterior stud, foundation, stair, detail) fixes which calc sections it may link to
 (sections by the A-E package convention: A criteria, B gravity, C lateral, D foundations, E
 connections / walls).
@@ -508,10 +519,10 @@ def findings(elements, pages, links, sheets) -> list[dict]:
     if missing:
         c9 = next((p for p in pages if p["section"] == "C" and p["sizes"]), None)
         out.append({"kind": "size mismatch", "severity": "high",
-                    "text": f"Moment frame sizes drawn on S3.0.1 not found in the lateral calcs (C): {', '.join(missing)}. "
+                    "text": f"Moment frame sizes drawn on {mf[0]['sheet']} not found in the lateral calcs (C): {', '.join(missing)}. "
                             f"Sizes C prints: {', '.join(csizes) or 'none'}.",
                     "evidence": [{"doc": "plans", "page": mf[0]["page"], "rects": [e["bbox"] for e in mf if e["size_norm"] in missing][:6],
-                                  "text": "S3.0.1 frame members"}] +
+                                  "text": f"{mf[0]['sheet']} frame members"}] +
                                 ([{"doc": c9["doc"], "page": c9["page"], "rects": [r for v in c9["sizes"].values() for r in v[:1]][:6],
                                    "text": f"{c9['sheet_id']} {c9['title']}"}] if c9 else [])})
     trunc = [(p, t) for p in pages for t in p["truncated"]]
@@ -549,3 +560,78 @@ def coverage(elements, element_edges, pages, cedges, links, lp_stats, ce_stats, 
         "links": len(links), "links_by_tier": link_stats["tiers"], "links_refused_by_system": link_stats["refused"],
         "system_sections": {k: sorted(v) for k, v in SYSTEM_SECTIONS.items()},
     }
+
+
+# ----------------------------------------------------------------------------- registry tier
+
+REGISTRY_TIER = "registry designed-by"
+REGISTRY_SCORE = 0.92
+REGISTRY_FEEDS = "registry feeds"
+
+
+def _record_occ(rec: dict) -> dict | None:
+    """The record's own place in the calc package (its first calcs occurrence)."""
+    return next((o for o in rec.get("occurrences", []) if o.get("doc") == "calcs" and o.get("page")), None)
+
+
+def registry_links(elements: list[dict], pages: list[dict], reg: dict, node_of: dict[str, str],
+                   calc_doc: str) -> list[dict]:
+    """Drawing tag -> its registry node (node_of, from set_pipeline.resolve_tags) -> every calc record that
+    names the node as its subject (designed-by) -> that record's page in calc_doc."""
+    page_at = {p["page"]: p for p in pages if p["doc"] == calc_doc}
+    recs = {n["id"]: n for n in reg["nodes"] if n["kind"] == "record"}
+    designs: dict[str, list[str]] = defaultdict(list)
+    for r in reg["relations"]:
+        if r["kind"] == "designed-by" and r["dst"] in recs:
+            designs[r["src"]].append(r["dst"])
+    out: dict[tuple, dict] = {}
+    for el in elements:
+        nid = node_of.get(el["id"])
+        for rid in designs.get(nid or "", []):
+            occ = _record_occ(recs[rid])
+            p = page_at.get(occ["page"]) if occ else None
+            if not p or (el["id"], p["id"]) in out:
+                continue
+            out[(el["id"], p["id"])] = {
+                "el": el["id"], "calc": p["id"], "score": REGISTRY_SCORE, "tier": REGISTRY_TIER,
+                "rule": f"tag resolves to {nid}; calc record \"{recs[rid]['name']}\" on {p['sheet_id']} names it as its subject",
+                "system": system_of(el),
+                "evidence": {"el": {"doc": el["doc"], "page": el["page"], "sheet": el["sheet"], "rects": el["rects"],
+                                    "text": el["text"], "note": f"resolves to registry node {nid}"},
+                             "calc": _ev(p, [occ["bbox"]], occ.get("text") or recs[rid]["name"], "calc record that designs it")}}
+    return list(out.values())
+
+
+def merge_links(size_links: list[dict], reg_links: list[dict]) -> tuple[list[dict], dict]:
+    """An element the registry links keeps only its registry links; others keep their size / schedule links."""
+    by_reg = {l["el"] for l in reg_links}
+    kept = [l for l in size_links if l["el"] not in by_reg]
+    superseded = len(size_links) - len(kept)
+    return reg_links + kept, {"superseded size / schedule links (element has a registry link)": superseded}
+
+
+def registry_calc_edges(pages: list[dict], reg: dict, calc_doc: str) -> list[dict]:
+    """Registry feeds relations (record -> record) as calc page edges, evidence = both records' boxes."""
+    page_at = {p["page"]: p for p in pages if p["doc"] == calc_doc}
+    recs = {n["id"]: n for n in reg["nodes"] if n["kind"] == "record"}
+    edges: dict[tuple, dict] = {}
+    for r in reg["relations"]:
+        if r["kind"] != "feeds" or r["src"] not in recs or r["dst"] not in recs:
+            continue
+        a, b = _record_occ(recs[r["src"]]), _record_occ(recs[r["dst"]])
+        pa, pb = (page_at.get(a["page"]) if a else None), (page_at.get(b["page"]) if b else None)
+        if not pa or not pb or pa["id"] == pb["id"]:
+            continue
+        e = edges.get((pa["id"], pb["id"]))
+        if e is None:
+            e = edges[(pa["id"], pb["id"])] = {"src": pa["id"], "dst": pb["id"], "rule": REGISTRY_FEEDS, "confidence": 1.0,
+                                               "labels": [], "why": [], "evidence": {"src": [], "dst": []}}
+        lab = f"{recs[r['src']]['name']} -> {recs[r['dst']]['name']}"
+        if len(e["labels"]) < 12 and lab not in e["labels"]:
+            e["labels"].append(lab)
+        if r["rule"] not in e["why"]:
+            e["why"].append(r["rule"])
+        if len(e["evidence"]["src"]) < 3:
+            e["evidence"]["src"].append(_ev(pa, [a["bbox"]], a.get("text") or recs[r["src"]]["name"], "feeding record"))
+            e["evidence"]["dst"].append(_ev(pb, [b["bbox"]], b.get("text") or recs[r["dst"]]["name"], "fed record"))
+    return list(edges.values())

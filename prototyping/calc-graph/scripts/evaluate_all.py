@@ -26,8 +26,9 @@ Stages (a stage whose inputs are missing is SKIPPED, never failed). Everything r
                    synth v2 answer key exists
   registry         scripts/evaluate_registry.py when it exists (contract below); else whether the v2
                    registry truth exists
-  set_coverage     drawing-set coverage numbers from data/sets/<sid>/graph.json (default the Harbor View set
-                   synthetic-v2; info, not gated)
+  set_coverage     the Harbor View drawing set (/set) built by the current code (calc-graph ingest-set in a
+                   throwaway sets dir + store): tags linked (overall, strong, worst (sheet, type) group of >= 4
+                   tags), calc feed edges, and its links scored against design.json designed-by (gated)
   schema_strict    scripts/schema_audit.py --strict over every local set output + the store: every fact's rule id,
                    rule version, engine and confidence come from its producer, none adapter-supplied (pass/fail;
                    skipped when no drawing set has been built locally)
@@ -308,23 +309,74 @@ def st_registry(a) -> dict:
 
 
 def _graph(a) -> dict:
-    if a.synthetic_only:
-        raise Skip("--synthetic-only")
-    p = os.path.join(SETS, a.sid, "graph.json")
-    if not os.path.exists(p):
-        raise Skip(f"no data/sets/{a.sid}/graph.json (drawing-set PDFs are local only)")
-    return json.load(open(p))
+    """The Harbor View drawing set built by the CURRENT code (calc-graph ingest-set) in a throwaway sets dir +
+    store, so the stage measures the code, never a stale local build. --sid names another local set instead
+    (its data/sets/<sid>/graph.json as built)."""
+    if a.sid != V2_SET:
+        p = os.path.join(SETS, a.sid, "graph.json")
+        if not os.path.exists(p):
+            raise Skip(f"no data/sets/{a.sid}/graph.json")
+        return json.load(open(p))
+    for f in ("drawings.pdf", "calc_package.pdf", "model.ifc"):
+        if not os.path.exists(os.path.join(V2, f)):
+            raise Skip(f"no data/synthetic_v2/{f}")
+    with tempfile.TemporaryDirectory() as tmp:
+        env = dict(os.environ, CALCGRAPH_SETS=os.path.join(tmp, "sets"), CALCGRAPH_STORE=os.path.join(tmp, "store"))
+        p = subprocess.run([PY, "-m", "calcgraph.cli", "ingest-set", "--sid", V2_SET, "--name", "eval",
+                            "--plans", os.path.join(V2, "drawings.pdf"), "--calcs", os.path.join(V2, "calc_package.pdf"),
+                            "--model", os.path.join(V2, "model.ifc")],
+                           cwd=ROOT, env=env | {"PYTHONPATH": os.path.join(ROOT, "backend")}, capture_output=True,
+                           text=True, timeout=900)
+        out = os.path.join(tmp, "sets", V2_SET, "graph.json")
+        if p.returncode or not os.path.exists(out):
+            raise RuntimeError(f"ingest-set exit {p.returncode}: {(p.stderr or p.stdout)[-600:]}")
+        return json.load(open(out))
+
+
+SET_GROUP_MIN_TAGS = 4   # a (sheet, tag type) group this big is scored on its own (worst_tag_group_linked_frac)
 
 
 def st_set_coverage(a) -> dict:
+    """Coverage of the drawing-set view (/set) plus its links scored against the generator's truth: a link of a
+    tag that resolves to a model element is right when its calc page holds a record that designs the element."""
     g = _graph(a)
     c = g["coverage"]
     m = {"elements": c["elements"], "elements_linked_frac": c["elements_linked"] / max(1, c["elements"]),
          "elements_linked_strong_frac": c["elements_linked_strong"] / max(1, c["elements"]),
          "calc_pages_linked_frac": c["calc_pages_linked"] / max(1, c["calc_pages"]),
          "links": c["links"], "calc_edges": c["calc_edges"], "load_path_edges": c["load_path_edges"],
-         "findings": len(g["findings"])}
-    return {"metrics": m, "gated": [], "notes": [f"graph built {g['built_at']}"]}
+         "findings": len(g["findings"]), "no_calc_found": sum(1 for f in g["findings"] if f["kind"] == "no calc found")}
+    linked = {l["el"] for l in g["links"]}
+    groups: dict[tuple, list[int]] = defaultdict(lambda: [0, 0])
+    for e in g["elements"]:
+        groups[(e["sheet"], e["type"])][0] += 1
+        groups[(e["sheet"], e["type"])][1] += e["id"] in linked
+    big = {k: v for k, v in groups.items() if v[0] >= SET_GROUP_MIN_TAGS}
+    worst = min(big.items(), key=lambda kv: kv[1][1] / kv[1][0]) if big else None
+    m["worst_tag_group_linked_frac"] = worst[1][1] / worst[1][0] if worst else None
+    notes = [f"graph built {g['built_at']}; links by tier {c.get('links_by_tier')}; calc edges by rule "
+             f"{c.get('calc_edges_by_rule')}",
+             "tags linked by (sheet, type): " + ", ".join(f"{s} {t} {v[1]}/{v[0]}" for (s, t), v in sorted(groups.items()))]
+    gated = ["elements_linked_frac", "elements_linked_strong_frac", "calc_edges", "worst_tag_group_linked_frac"]
+    if a.sid == V2_SET and os.path.exists(os.path.join(V2, "design.json")):
+        d = json.load(open(os.path.join(V2, "design.json")))
+        gid = {e["id"]: e.get("global_id") for e in d["elements"]}
+        page = {r["id"]: r["page"] for r in d["records"]}
+        truth: dict[str, set[int]] = defaultdict(set)
+        for r in d["relations"]:
+            if r["kind"] == "designed-by" and gid.get(r["src"]) and r["dst"] in page:
+                truth[gid[r["src"]]].add(page[r["dst"]])
+        cpage = {x["id"]: x["page"] for x in g["calcs"] if x["doc"] == "calcs"}
+        el_gid = {e["id"]: (e.get("model") or {}).get("gid") for e in g["elements"] if isinstance(e.get("model"), dict)}
+        scored = [l for l in g["links"] if el_gid.get(l["el"]) in truth]
+        ok = [l for l in scored if cpage.get(l["calc"]) in truth[el_gid[l["el"]]]]
+        resolved = {k for k, v in el_gid.items() if v in truth}
+        m["link_precision_truth"] = len(ok) / len(scored) if scored else None
+        m["link_recall_truth"] = len({l["el"] for l in ok}) / len(resolved) if resolved else None
+        gated += ["link_precision_truth", "link_recall_truth"]
+        notes.append(f"truth: {len(resolved)} tags resolve to a model element with a designed-by record; "
+                     f"{len(ok)}/{len(scored)} of their links land on a designing page")
+    return {"metrics": m, "gated": gated, "notes": notes}
 
 
 STAGES = [("v2_design", st_v2_design), ("v2_ifc", st_v2_ifc), ("v2_ifc_mapping", st_v2_ifc_mapping),
