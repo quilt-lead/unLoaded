@@ -394,6 +394,9 @@ export class DecisionsFile {
   }
 }
 
+/** When a waiter first saw a lock (or guard) in its current state, on its own monotonic clock. */
+type Seen = { key: string; since: number };
+
 /** One look at a lock file: everything about it that a live holder changes (identity, heartbeat, content). */
 export interface LockObservation {
   /** dev:ino:mtime:size:content - two observations with the same key saw the same, untouched lock. */
@@ -444,7 +447,7 @@ export async function observeLock(lock: string): Promise<LockObservation | null>
 async function underGuard<T>(lock: string, waitMs: number, fn: () => Promise<T>): Promise<T | null> {
   const guard = `${lock}.guard`;
   const deadline = performance.now() + waitMs;
-  let seen: { key: string; since: number } | null = null;
+  let seen = null as Seen | null; // cast: a null initializer would narrow it to null for the whole loop (TS2339 in CI)
   for (;;) {
     let fh: FileHandle | null = null;
     try {
@@ -525,7 +528,7 @@ export async function withFileLock<T>(
   const info: LockInfo = { pid: process.pid, host: hostname(), token: randomBytes(8).toString("hex"), at: new Date().toISOString() };
   const deadline = performance.now() + opts.waitMs;
   let delay = 5;
-  let seen: { key: string; since: number } | null = null;
+  let seen = null as Seen | null; // cast: a null initializer would narrow it to null for the whole loop (TS2339 in CI)
   let why = "";
   let fh: FileHandle | null = null;
   for (;;) {
