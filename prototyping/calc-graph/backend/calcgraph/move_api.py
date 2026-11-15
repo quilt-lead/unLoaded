@@ -218,7 +218,7 @@ def impact(m: Move):
 
 def impact_result(m: Move) -> dict:
     """/impact's body as a dict, at the move's approval date (m.as_of; default today): health, construction
-    status and the change order all read the same projected adapters. Also used by the inbox (inbox.py)."""
+    status and the change order all read the same projected adapters."""
     from . import as_of as asof
     d = _design()
     ads, d_as_of = _adapters_as_of(m.as_of)

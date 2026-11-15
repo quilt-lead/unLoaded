@@ -96,7 +96,7 @@ export default function MovePage() {
   const draft = { dx: setup.dx, dy: setup.dy };
 
   const asOf = setup.asOf ?? "today";
-  // opened from the inbox (or a shared link): ?col=COL-2B&dx=2&dy=0&remove=0&as_of=YYYY-MM-DD -> one history step
+  // opened from a shared link: ?col=COL-2B&dx=2&dy=0&remove=0&as_of=YYYY-MM-DD -> one history step
   const [params, setParams] = useSearchParams();
   useEffect(() => {
     const col = params.get("col");
@@ -247,9 +247,6 @@ export default function MovePage() {
           {idx.building.name} <InfoTip id="stat.v2-synthetic" />
         </span>
         <span className="spacer" />
-        <Link className="btn sm" to="/v2/inbox">
-          Inbox
-        </Link>
         <Link className="btn sm" to="/v2/etabs">
           ETABS
         </Link>

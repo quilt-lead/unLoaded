@@ -124,7 +124,7 @@ UI by this agent (the React port builds it on these routes). Live connectors (al
 ETABS data is mock unless the Windows bridge adapter is selected). The two health rules noted above
 were added after a first evaluation, so the design-path band score is in-sample for them.
 
-## As-of date and the inbound inbox (2026-11-14)
+## As-of date (2026-11-14)
 
 **As-of (approval) date.** `POST /api/v2/impact`, `/change-order` and `GET /construction-status/{id}` take
 `as_of` (`today` | `+1w` | `+2w` | `+1m` | `YYYY-MM-DD`; default today = unchanged). One projection:
@@ -137,16 +137,6 @@ downstream activity finish of the affected elements within 120 days, plus `appro
 every-column heat view stays at today (by design, labelled in the UI). A live platform source has no
 schedule logic and is served as it is today.
 
-**Inbox** (`backend/calcgraph/inbox.py`, `/api/v2/inbox`, UI `/v2/inbox`). Lists the selected adapter's
-open RFIs, pending change events and pending change order requests (8 synthetic incoming items come from
-`platforms/inbox_synth.py`, unlinked to elements). `POST /{key}/read` = the AI step
-(`calcgraph.ai.extract`, task `inbound_item_reading`, Pydantic schema, provider anthropic / the step's
-default model, content-hash cache, budget cap from `CALCGRAPH_AI_MAX_RUN_USD`). `PUT /{key}/reading` =
-the engineer's confirmed reading. `POST /{key}/impact` maps it onto the engine: move / remove a column ->
-`move_api.impact_result` at the item's required-by date (or today); a substitution -> change-order
-estimator only (structural recheck not run, said so); anything else -> no number, the reason and the
-elements' construction status. `POST /{key}/reply` drafts the reply (template, no LLM), `PUT` saves edits,
-`POST /{key}/post` is refused unless the adapter is a live sandbox that implements `post_reply` (none does
-yet). `GET /history/{element}` feeds the element page's Platforms tab. State: `<store>/inbox/state.json` (store_root.py: CALCGRAPH_STORE).
-Score the readings against the generator's answer key: `uv run --with anthropic python scripts/read_inbox.py`
-(cache first; real calls need `CALCGRAPH_AI_ENABLE_REAL=1`, a key and a run cap).
+**Incoming platform items.** The construction state carries 8 synthetic incoming items (open RFIs,
+pending change events and a pending change order request, `platforms/incoming.py`), unlinked to elements,
+so they change no health meter, construction status or change-order estimate.

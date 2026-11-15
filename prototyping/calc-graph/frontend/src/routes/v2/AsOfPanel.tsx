@@ -6,7 +6,7 @@ import type { Move } from "./api";
 import { asOfLabel, useAsOfInfo, useImpactTimeline, type Timeline } from "./asOf";
 import { Updating } from "./Updating";
 import { fmtUsd } from "./util";
-import "./asof-inbox.css";
+import "./asof.css";
 
 export function AsOfControl({ value, onChange }: { value: string; onChange: (v: string, label: string) => void }) {
   const info = useAsOfInfo();

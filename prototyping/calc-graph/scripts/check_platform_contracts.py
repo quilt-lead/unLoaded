@@ -14,7 +14,7 @@ records; the seeder's dry run / refusals / idempotence / typed write bodies; OAu
 storage, and that no secret or token reaches logs or output. H: on a daily sweep of approval dates (today to
 +6 weeks, three moves) every decrease in forecast slip is explained by a completed driving activity (as_of.
 explain_slip_drop), stage work is cumulative, and no element's schedule work vanishes or starts before approval.
-I: every runtime writer (revision store, inbox state, calc revisions, heat cache, AI cache / fixtures, ETABS jobs) takes its
+I: every runtime writer (revision store, calc revisions, heat cache, AI cache / fixtures, ETABS jobs) takes its
 paths from store_root.py (CALCGRAPH_STORE): no backend module builds a data/store, data/cache or revisions path
 itself, and with CALCGRAPH_STORE set every writer resolves inside it.
 What it cannot prove: that the REAL Procore sandbox / ACC trial / Forma answer like the recordings - that
@@ -82,7 +82,7 @@ def rec(name: str) -> tuple[Recorded, dict]:
 
 
 STATE = get_state(load_design())
-# what the synthetic state holds (incl. the inbox_synth incoming items) - the seeder writes all of it
+# what the synthetic state holds (incl. the platforms/incoming.py items) - the seeder writes all of it
 N_RFI, N_SUB, N_CE = len(STATE.rfis), len(STATE.submittals), len(STATE.change_events)
 
 
@@ -609,7 +609,7 @@ def i_store_root():
                 bad += _store_path_violations(full, os.path.relpath(full, base))
     ok("I1 no backend module builds a data/store, data/cache or revisions path, or reads CALCGRAPH_STORE, itself",
        not bad, f"{len(bad)} found: {bad[:6]}" if bad else "store_root.py is the only resolver")
-    from calcgraph import heat_cache, inbox, recalc, revstore
+    from calcgraph import heat_cache, recalc, revstore
     from calcgraph.analysis import etabs as etabs_mock
     from calcgraph.ai import cache as ai_cache
     from calcgraph.ai.providers import replay
@@ -617,7 +617,7 @@ def i_store_root():
     prev = os.environ.get("CALCGRAPH_STORE")
     os.environ["CALCGRAPH_STORE"] = tmp_store
     try:
-        paths = {"revision store": revstore.store_dir(), "inbox state": inbox._state_path(),
+        paths = {"revision store": revstore.store_dir(),
                  "calc revisions": recalc.revision_dir("calcrev-x"), "heat cache": heat_cache._path("k"),
                  "etabs jobs": etabs_mock.jobs_dir(),
                  "ai cache": str(ai_cache.default_cache_root()) if not os.environ.get("CALCGRAPH_AI_CACHE") else tmp_store,

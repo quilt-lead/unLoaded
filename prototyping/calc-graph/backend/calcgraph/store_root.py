@@ -1,7 +1,7 @@
 """THE store root: where every runtime writer puts what it writes.
 
 `CALCGRAPH_STORE` (default data/store under the repo) - read here and nowhere else. The revision store,
-inbox state, calc revisions (re-runs and their undo / redo), the heat cache and the AI result cache all
+calc revisions (re-runs and their undo / redo), the heat cache and the AI result cache all
 take their paths from `store_path(...)`, so pointing CALCGRAPH_STORE at a copy (a smoke run, a parity
 check) leaves the real store untouched. No imports beyond the standard library, so any module can use it.
 

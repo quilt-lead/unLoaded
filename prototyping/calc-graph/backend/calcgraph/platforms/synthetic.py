@@ -304,7 +304,6 @@ class ConstructionState:
     contract_finish: str
     forecast_finish: str
     groups: dict[str, list[str]] = field(default_factory=dict)   # LEVEL:/GRID:/FRAME: id -> member element ids
-    inbox_key: list[dict] = field(default_factory=list, repr=False)   # inbox_synth answer key (never on a record)
     _acts: dict[str, Activity] = field(default_factory=dict, repr=False)
     _day0: dt.date = field(default=AS_OF, repr=False)
     _data_day: int = 0
@@ -875,12 +874,12 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
          "created": d2s(dd - 8), "approved": None},
     ]
 
-    # ---- incoming items waiting on the EOR (inbox_synth: unlinked, so they touch no element until read)
-    from .inbox_synth import incoming
-    inbox = incoming(els, d2s, dd, PROJECT["people"], PROJECT["companies"])
-    rfis += inbox["rfis"]
-    ce += inbox["change_events"]
-    cos += inbox["change_orders"]
+    # ---- incoming items waiting on the EOR (incoming.py: unlinked, so they touch no element)
+    from .incoming import incoming
+    new_items = incoming(els, d2s, dd, PROJECT["people"], PROJECT["companies"])
+    rfis += new_items["rfis"]
+    ce += new_items["change_events"]
+    cos += new_items["change_orders"]
 
     # ---- sheets
     def ids_where(pred):
@@ -938,7 +937,7 @@ def build_state(design: dict, seed: int = SEED, as_of: dt.date | str | None = No
         submittals=subs, rfis=rfis, change_events=ce, change_orders=cos, cost_codes=cost_codes, budget_lines=budget,
         activities=activities, sheets=sheet_recs, element_index=element_index,
         contract_finish=d2s(contract_day - 1), forecast_finish=d2s(planned_finish - 1),
-        groups=groups, inbox_key=inbox["key"], _acts=A, _day0=day0, _data_day=status_day)
+        groups=groups, _acts=A, _day0=day0, _data_day=status_day)
     st._contract_day = contract_day
     return st
 

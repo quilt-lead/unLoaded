@@ -4,11 +4,9 @@ generator (synthetic.build_state calls `incoming`), so every adapter serves them
 
 As they would arrive from a GC: free text naming elements the way site people do (an id, a grid, a size,
 or only a description), with NO registry element ids linked on the platform record (element_ids = []).
-Reading them is the inbox's AI step; until an engineer confirms a reading they touch no element, so they
-change no health meter, construction status or change-order estimate.
-
-`incoming(...)` also returns the answer key (what each item was written to mean) for scoring the AI
-reading. The key never goes onto a platform record or into anything the AI step is shown.
+They touch no element, so they change no health meter, construction status or change-order estimate.
+Each ITEMS entry keeps `truth` (what the item was written to mean) as authoring notes; it never goes onto a
+platform record.
 
 Everything is SYNTHETIC: fictional project, companies and people.
 """
@@ -69,13 +67,13 @@ ITEMS: list[dict] = [
 
 
 def incoming(els: dict, d2s: Callable[[int], str], data_day: int, people: dict, companies: dict) -> dict:
-    """{"rfis": [...], "change_events": [...], "change_orders": [...], "key": [...]} shaped exactly like the
-    state's own RFIs / change events / change orders (same keys), all unlinked (element_ids = [])."""
-    rfis, ces, cos, key = [], [], [], []
+    """{"rfis": [...], "change_events": [...], "change_orders": [...]} shaped exactly like the state's own
+    RFIs / change events / change orders (same keys), all unlinked (element_ids = [])."""
+    rfis, ces, cos = [], [], []
     for it in ITEMS:
         missing = [e for e in it["truth"]["elements"] + it["truth"].get("candidates", []) if e not in els]
         if missing:
-            raise ValueError(f"inbox item {it['ref']} names elements not in the design: {missing}")
+            raise ValueError(f"incoming item {it['ref']} names elements not in the design: {missing}")
         created = d2s(data_day + it["created"])
         if it["kind"] == "rfi":
             sender = people[it["from"]]
@@ -96,6 +94,4 @@ def incoming(els: dict, d2s: Callable[[int], str], data_day: int, people: dict, 
                             "status": "pending", "co_type": "potential", "change_event_ref": it["ref"],
                             "amount": it["amount"], "schedule_days": 0, "element_ids": [], "created": created,
                             "approved": None, "inbound": True})
-        key.append({"ref": it.get("co_ref") or it["ref"], "kind": "change_order" if it.get("co_ref") else it["kind"],
-                    "item_ref": it["ref"], **it["truth"]})
-    return {"rfis": rfis, "change_events": ces, "change_orders": cos, "key": key}
+    return {"rfis": rfis, "change_events": ces, "change_orders": cos}

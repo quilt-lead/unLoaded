@@ -28,7 +28,7 @@ Every run writes HEAD's errors to <derived>/pyright_current.json (data/eval/, st
 Canary: scripts/typecheck_canary.py lines marked `# CANARY` must get a reportArgumentType error and lines
 marked `# CLEAN` none, or this fails - proof on every run that the configured checker (venv resolution,
 FastAPI's decorator typing, pydantic models) still reports a dict passed where a model is required, the
-a410607 inbox -> impact_timeline bug.
+a410607 dict -> impact_timeline bug.
 
 Exit 0 = no new errors, the baseline is tight and never grew, the canary holds; 1 = any of those failed;
 2 = pyright did not run.

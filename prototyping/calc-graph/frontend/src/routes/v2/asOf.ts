@@ -16,7 +16,7 @@ export interface AsOfInfo {
   assumption: string;
 }
 
-/** what an as-of meant for one response (impact.as_of, inbox impact.as_of) */
+/** what an as-of meant for one response (impact.as_of) */
 export interface AsOfDescribe {
   as_of: string;
   is_today: boolean;
