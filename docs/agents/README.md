@@ -18,7 +18,9 @@ Read it before starting work. Write to it before handing off.
 
 | Note | Status | Summary |
 |---|---|---|
+| [2026-11-15-model-bundle.md](2026-11-15-model-bundle.md) | done | `unloaded.model-bundle`: element graph + calc graph in one JSON; Harborview demo converted (demo calcs now in the Calculation Graph, superseding D19); legacy JSON loader retired to a converter script; Export model + calc graph |
 | [2026-11-15-current-ui-prod-integration.md](2026-11-15-current-ui-prod-integration.md) | blocked | Repairs the UI merge onto prod's project/revision model while retaining the latest palette, selection, and workspace-view behavior; branch pushed, PR creation needs authenticated GitHub access |
+| [2026-11-15-mission-readiness-review.md](2026-11-15-mission-readiness-review.md) | done | Mission gap review: multi-PDF/version workflows, real-document segmentation, connectivity reliability, and UI acceptance coverage |
 | [2026-11-14-parser-graph-merge.md](2026-11-14-parser-graph-merge.md) | done | Merged the IFC parser and element-graph packages into the React UI via an adapter |
 | [2026-11-14-calc-engine-integration.md](2026-11-14-calc-engine-integration.md) | active | Merges the hackathon calc engine (frontend only: calc-mapper, move-impact, provenance contract) and extraction ideas into main; decision log D1-D27 |
 | [2026-11-14-font-update.md](2026-11-14-font-update.md) | done | Switched the app to Apercu across the global styles and canvas text overrides |

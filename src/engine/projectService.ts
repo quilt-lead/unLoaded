@@ -9,8 +9,8 @@
 //   decide / impact / compare / revision files
 // Results are handed back as engine types; src/data/loadProject.ts converts them to view data.
 import { ENGINE_VERSION } from '@unloaded/calc-mapper/types';
-import { sha256 } from '@unloaded/calc-mapper';
-import { documentHeads, docIdOf, storedExtractionFor, type ProjectFileDocument } from '@unloaded/project-file';
+import { makeBundle, parseBundle, exportToCalcGraph, sha256, type BundleCalcGraph, type ModelBundle } from '@unloaded/calc-mapper';
+import { documentHeads, docIdOf, LEGACY_DOC_ID, storedExtractionFor, type ProjectFileDocument } from '@unloaded/project-file';
 import type { CalcPackage, Compare, DecisionFields, Export, Impact, ImpactMode, MappingRun, SerializedElementGraph } from '@unloaded/calc-mapper/types';
 import type { CalcSetDiff, CalcSetDocument, KnownDocument, RevisionTarget } from '@unloaded/calc-mapper';
 import type { DecisionAction } from '../types/bim';
@@ -133,12 +133,48 @@ export function revisionFileUrl(rid: number): Promise<string | null> {
 
 export { revisionGraph as getRevisionGraph };
 
+const bundleCache = new Map<number, Promise<BundleCalcGraph | null>>();
+
+/**
+ * The decision log keyed as a bundle's calcs are. The store reads a bare calc key back as a ref into
+ * the legacy document ("doc-fdn-a1" -> "d1#doc-fdn-a1": projects from before calc sets); a bundle's
+ * own keys are bare (one key space, no calc documents), so such a ref is turned back into the bare
+ * key when that key is a calc of the bundle. Refs to calcs the bundle does not have are left alone.
+ */
+function bundleKeyed(decisions: DecisionFields[], calcGraph: BundleCalcGraph): DecisionFields[] {
+  const keys = new Set(calcGraph.calcs.map((c) => c.key));
+  const legacy = `${LEGACY_DOC_ID}#`;
+  return decisions.map((d) => {
+    const bare = d.calc_key.startsWith(legacy) ? d.calc_key.slice(legacy.length) : null;
+    return bare !== null && !keys.has(d.calc_key) && keys.has(bare) ? { ...d, calc_key: bare } : d;
+  });
+}
+
+/**
+ * A model revision's own calc graph: the calcGraph of the model bundle the revision was added from
+ * (its stored file IS the bundle, so a project file carries it too). null for any other model, and
+ * for a bundle without one.
+ */
+function bundleCalcGraphOf(rev: RevisionRecord): Promise<BundleCalcGraph | null> {
+  if (rev.kind !== 'model' || rev.meta.format !== 'bundle' || rev.meta.hasCalcGraph !== true) return Promise.resolve(null);
+  let p = bundleCache.get(rev.id);
+  if (!p) {
+    p = getBlob(rev.id).then(async (blob) => {
+      if (!blob) throw new Error(`Model revision #${rev.id} (${rev.sourceName}) has no stored file, so its calc graph cannot be read.`);
+      return parseBundle(await blob.text()).calcGraph;
+    });
+    p.catch(() => bundleCache.delete(rev.id));
+    bundleCache.set(rev.id, p);
+  }
+  return p;
+}
+
 // ---------------------------------------------------------------- ingest
 
 /** A model revision: the file + the element graph built from it in the browser (never re-parsed later). */
 export async function addModelRevision(projectId: string, file: File, label: string | undefined, onProgress: Progress): Promise<{ revision: RevisionRecord; warnings: string[] }> {
   const res = await importModel(file.name, new Uint8Array(await file.arrayBuffer()), onProgress);
-  if (res.kind !== 'model') throw new Error(`${file.name} is not a model (IFC, element graph, ModelInput or legacy BIM JSON)`);
+  if (res.kind !== 'model') throw new Error(`${file.name} is not a model (IFC, model bundle, element graph or ModelInput)`);
   return storeModel(projectId, file, res, label, onProgress);
 }
 
@@ -154,10 +190,17 @@ async function storeModel(
     projectId,
     {
       kind: 'model',
-      label: label ?? res.projectName ?? file.name,
+      label: label ?? res.bundleMeta?.label ?? res.projectName ?? file.name,
       sourceName: file.name,
       mediaType: mediaOf(file.name),
-      meta: { format: res.format, elements: res.elementGraph.nodeCount, project: res.projectName ?? null },
+      meta: {
+        format: res.format,
+        elements: res.elementGraph.nodeCount,
+        project: res.projectName ?? null,
+        ...(res.format === 'bundle'
+          ? { hasCalcGraph: Boolean(res.calcGraph), calcs: res.calcGraph?.calcs.length ?? 0, demo: Boolean(res.bundleMeta?.demo) }
+          : {}),
+      },
     },
     file,
     { graph: res.elementGraph.serialize() },
@@ -259,7 +302,7 @@ export type OpenedFile =
 
 /**
  * Any file the app accepts, dispatched by content: a calc PDF or a model (IFC, element graph,
- * ModelInput, legacy BIM JSON) becomes a revision of the current project; a project file becomes a
+ * ModelInput, model bundle) becomes a revision of the current project; a project file becomes a
  * new project; a plain calc-graph export opens read-only.
  */
 export async function openAnyFile(projectId: string, file: File, onProgress: Progress): Promise<OpenedFile> {
@@ -381,6 +424,20 @@ export async function projectSnapshot(projectId: string, onProgress: Progress = 
   const one = set.heads.length === 1 ? set.heads[0]!.rev : null;
   const calcRev = one ?? (set.heads.length ? set.heads.reduce((a, b) => (b.rev.id > a.rev.id ? b : a)).rev : null);
   let exp: Export | null = null;
+  let calcError = set.errors.length ? set.errors.join('; ') : null;
+  // no calc PDF in the project: the model's own calc graph, when it came from a model bundle that has one
+  // (a calc PDF, once added, is what the project maps; the bundle's calcs then step aside)
+  if (model && graph && !set.heads.length && model.meta.hasCalcGraph === true) {
+    try {
+      const calcGraph = await bundleCalcGraphOf(model);
+      if (calcGraph) {
+        const decisions = bundleKeyed((await decisionLog(projectId)).map(toDecision), calcGraph);
+        exp = await runEngine('bundleExport', { graph, calcGraph, decisions, info: { model: model.sourceName, model_revision: model.id } });
+      }
+    } catch (e) {
+      calcError = `${model.sourceName}: its calc graph could not be read (${e instanceof Error ? e.message : String(e)})`;
+    }
+  }
   if (model && graph && set.heads.length) {
     const run = await setRun(projectId, model.id, set.heads, graph, set.docs, onProgress);
     const decisions = (await decisionLog(projectId)).map(toDecision);
@@ -404,8 +461,7 @@ export async function projectSnapshot(projectId: string, onProgress: Progress = 
     offset += Math.max(...d.package.pages.map((p) => p.n));
   }
   return {
-    project, revisions, modelRev: model, calcRev, documents, calcSet: set.heads, pageOffsets, graph, exp,
-    calcError: set.errors.length ? set.errors.join('; ') : null,
+    project, revisions, modelRev: model, calcRev, documents, calcSet: set.heads, pageOffsets, graph, exp, calcError,
   };
 }
 
@@ -490,8 +546,36 @@ export async function revisionCounts(revs: RevisionRecord[]): Promise<Map<number
 /** Save the whole project (files, graphs, extractions, decision log) as one file for a colleague. */
 export async function downloadProjectFile(projectId: string): Promise<string> {
   const file = await exportProject(projectId);
-  const name = `${file.project.name.replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'project'}.calcgraph.json`;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(file)], { type: 'application/json' }));
+  return saveJson(`${fileStem(file.project.name)}.calcgraph.json`, file);
+}
+
+/**
+ * A model revision (default: the head) and the calc graph the view shows for it, as one model bundle
+ * file: the element graph, and the calcs, calc edges and links (not rejected; review state kept). The
+ * calc PDFs are named by sha256 but not included (the project file carries them).
+ */
+export async function buildModelBundle(projectId: string, modelRev?: number | null): Promise<{ bundle: ModelBundle; name: string }> {
+  const snap = await projectSnapshot(projectId, () => {}, modelRev);
+  if (!snap.modelRev || !snap.graph) throw new Error('This project has no model to export.');
+  const calcGraph = snap.exp ? exportToCalcGraph(snap.exp) : null;
+  const bundle = makeBundle(snap.graph, calcGraph, {
+    project: snap.project.name,
+    label: snap.modelRev.label,
+    ...(calcGraph?.source.kind === 'demo' ? { demo: true } : {}),
+    createdAt: new Date().toISOString(),
+  });
+  return { bundle, name: `${fileStem(`${snap.project.name}-${snap.modelRev.label}`)}.bundle.json` };
+}
+
+export async function downloadModelBundle(projectId: string, modelRev?: number | null): Promise<string> {
+  const { bundle, name } = await buildModelBundle(projectId, modelRev);
+  return saveJson(name, bundle);
+}
+
+const fileStem = (s: string) => s.replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'project';
+
+function saveJson(name: string, data: unknown): string {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

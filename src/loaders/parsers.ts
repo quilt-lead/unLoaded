@@ -4,9 +4,11 @@
  * Pipelines
  * - .ifc (STEP)                        -> @unloaded/ifc-parser -> ModelInput -> buildGraph -> ElementGraph
  * - .json, dispatched on content:
+ *     model bundle                     -> calc-mapper parseBundle -> its element graph (deserialize) + its calc graph
+ *                                         (stored with the model revision; projectService shows it when there is no calc PDF)
  *     serialized element graph         -> ElementGraph.deserialize
  *     ModelInput                       -> buildGraph -> ElementGraph
- *     legacy BIM graph ({ nodes, links }) -> legacyBimJson.ts -> ModelInput -> buildGraph -> ElementGraph
+ *     legacy BIM graph ({ nodes, links }) -> refused, naming scripts/convert-legacy-demo.ts (convert it to a bundle)
  *     calc-graph export                -> returned as-is for src/data/loadProject.ts (read-only view)
  *     calc-graph project file          -> validated (@unloaded/project-file parseProjectFile) for projectStore importProject
  *
@@ -20,9 +22,9 @@
 import { buildGraph, ElementGraph, ELEMENT_GRAPH_FORMAT, type ModelInput, type SerializedElementGraph } from '@unloaded/element-graph';
 import type { IfcParsePhase } from '@unloaded/ifc-parser';
 import type { Export } from '@unloaded/calc-mapper/types';
+import { isBundle, parseBundle, type BundleCalcGraph, type BundleMeta } from '@unloaded/calc-mapper';
 import { isCalcGraphExport, normaliseExport } from '../data/loadProject';
 import { isProjectFileFormat, parseProjectFile, type ProjectFile } from '@unloaded/project-file';
-import { isLegacyBimJson, legacyToElementGraph } from './legacyBimJson';
 
 export type ImportResult =
   | {
@@ -31,7 +33,11 @@ export type ImportResult =
       elementGraph: ElementGraph;
       projectName: string;
       /** 'ifc' when the bytes were an IFC (it can then be uploaded as a model revision). */
-      format: 'ifc' | 'element-graph' | 'model-input' | 'legacy-json';
+      format: 'ifc' | 'element-graph' | 'model-input' | 'bundle';
+      /** A model bundle's calc graph (null: the bundle has none; absent: not a bundle). */
+      calcGraph?: BundleCalcGraph | null;
+      /** A model bundle's meta (its revision label, whether it is demo data). */
+      bundleMeta?: BundleMeta;
       /** Parser + graph-build warnings, prefixed with their origin. */
       warnings: string[];
     }
@@ -91,6 +97,13 @@ function isModelInput(d: unknown): d is ModelInput {
   return Array.isArray(m.elements) && typeof m.meta === 'object' && m.meta !== null;
 }
 
+/** The retired legacy demo format ({ nodes: [...] }, no format / meta / elements): named in the error, so its owner knows to convert it. */
+function isLegacyNodesJson(d: unknown): boolean {
+  if (typeof d !== 'object' || d === null) return false;
+  const o = d as { nodes?: unknown; format?: unknown; meta?: unknown; elements?: unknown };
+  return Array.isArray(o.nodes) && o.format === undefined && o.meta === undefined && o.elements === undefined;
+}
+
 function decodeJson(bytes: Uint8Array, fileName: string): unknown {
   try {
     return JSON.parse(new TextDecoder().decode(bytes).replace(/^﻿/, ''));
@@ -142,11 +155,26 @@ export const BIM_PARSERS: BimParserPlugin[] = [
   },
   {
     id: 'json',
-    name: 'JSON (Element Graph / ModelInput / legacy BIM graph / calc-graph export / project file)',
+    name: 'JSON (model bundle / Element Graph / ModelInput / calc-graph export / project file)',
     extensions: ['.json'],
     canParse: (fileName, head) => /\.json$/i.test(fileName) || looksLikeJson(head),
     parse: async (bytes, fileName, onProgress) => {
       const data = decodeJson(bytes, fileName);
+      // a file that says it is a bundle is validated in full; its error names the field at fault
+      if (isBundle(data)) {
+        onProgress('Loading model bundle');
+        await nextFrame();
+        const b = parseBundle(data);
+        return {
+          kind: 'model',
+          elementGraph: ElementGraph.deserialize(b.elementGraph),
+          projectName: b.meta.project || b.elementGraph.meta?.project || stripExt(fileName),
+          format: 'bundle',
+          calcGraph: b.calcGraph,
+          bundleMeta: b.meta,
+          warnings: b.meta.demo ? ['model bundle: demo data (invented calcs, no PDF)'] : [],
+        };
+      }
       if (isSerializedGraph(data)) {
         onProgress('Loading element graph');
         await nextFrame();
@@ -162,13 +190,12 @@ export const BIM_PARSERS: BimParserPlugin[] = [
       // a file that says it is a project file is validated in full; its error names the field at fault
       if (isProjectFileFormat(data)) return { kind: 'project-file', project: parseProjectFile(data), warnings: [] };
       if (isCalcGraphExport(data)) return { kind: 'export', export: normaliseExport(data), warnings: [] };
-      if (isLegacyBimJson(data)) {
-        onProgress('Converting legacy BIM JSON and inferring connectivity');
-        await nextFrame();
-        const { graph, projectName, warnings } = legacyToElementGraph(data, fileName);
-        return { kind: 'model', elementGraph: graph, projectName, format: 'legacy-json', warnings };
+      if (isLegacyNodesJson(data)) {
+        throw new Error(
+          `${fileName}: this is a legacy { nodes, links } BIM graph, which the app no longer opens. Convert it to a model bundle with: node scripts/convert-legacy-demo.ts ${fileName} out.bundle.json`,
+        );
       }
-      throw new Error(`${fileName}: JSON is not an element graph, a ModelInput, a legacy BIM graph, a calc-graph export or a project file`);
+      throw new Error(`${fileName}: JSON is not a model bundle, an element graph, a ModelInput, a calc-graph export or a project file`);
     },
   },
 ];

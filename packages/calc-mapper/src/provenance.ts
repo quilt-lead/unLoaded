@@ -23,7 +23,7 @@ export const PACKAGE_VERSION = "0.1.0" as const;
 export const PACKAGE_NAME = "calc-mapper" as const;
 
 /** The modules that produce records. */
-export type CalcMapperModule = "segment" | "matcher" | "calcdeps" | "impact" | "decisions" | "calcset";
+export type CalcMapperModule = "segment" | "matcher" | "calcdeps" | "impact" | "decisions" | "calcset" | "bundle";
 
 /** "<package>@<version>/<module>", e.g. "calc-mapper@0.1.0/matcher" or "move-impact@0.1.0/impact".
  * Any package in the workspace produces records under this one contract; calc-mapper's own producers
@@ -76,6 +76,13 @@ export const RULES = {
     name: "calcset.match.name",
     keys: "calcset.match.keys",
     new: "calcset.match.new",
+  },
+  bundle: {
+    /** Anything a demo calc graph states: invented, labelled an estimate. */
+    demo: "bundle.demo",
+    calc: "bundle.calc",
+    edge: "bundle.edge",
+    link: "bundle.link",
   },
 } as const;
 
