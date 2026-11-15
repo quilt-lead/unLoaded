@@ -168,6 +168,7 @@ export const TIER_LABELS: Record<string, string> = {
   size: 'Section size + type',
   type: 'Element type only',
   manual: 'Linked by hand',
+  stated: 'Stated by the file',
 };
 
 export function getConfidenceColor(conf: number | undefined): string {

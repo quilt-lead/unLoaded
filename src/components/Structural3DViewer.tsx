@@ -123,7 +123,7 @@ export const Structural3DViewer: React.FC<Structural3DViewerProps> = ({
   const nodeById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
   // element-graph boxes for every element the IFC (and its ghosts) did not mesh: the whole model
-  // when there is no IFC (ModelInput / legacy JSON), else only stragglers such as legacy diff ghosts
+  // when there is no IFC (ModelInput / model bundle), else only stragglers such as diff ghosts
   const [boxVersion, setBoxVersion] = useState(0);
   const [boxCount, setBoxCount] = useState(0);
   const boxKey = useMemo(

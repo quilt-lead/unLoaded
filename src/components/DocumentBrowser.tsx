@@ -3,7 +3,7 @@
 // evidence highlighted; and the calc -> calc dependencies with their evidence side by side.
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Box, Calculator, ChevronLeft, ChevronRight, CircleDot, FileQuestion, FilterX, FolderOpen, ScanLine, Search, Users } from 'lucide-react';
-import type { BimNode, CalcDependency, CalcLink, CalcPackage, DiffStatus, FindingView, PdfTarget, TypicalGroupView, WorkspaceView } from '../types/bim';
+import type { BimNode, CalcDependency, CalcLink, CalcOrigin, CalcPackage, DiffStatus, FindingView, PdfTarget, TypicalGroupView, WorkspaceView } from '../types/bim';
 import { getEffectiveNodeColor } from '../utils/colors';
 import { PdfPage, unionBox } from './pdf/PdfPage';
 import { EvidenceCompare } from './pdf/EvidenceCompare';
@@ -32,10 +32,39 @@ interface DocumentBrowserProps {
   onLocateCalc: (calcKey: string) => void;
   /** select a typical group's members in the graphs and 3D */
   onSelectElements: (ids: string[]) => void;
+  /** where the calcs came from: a model bundle's calcs have no PDF here, and the page pane says why */
+  calcOrigin?: CalcOrigin | null;
 }
 
-const pageRange = (c: CalcPackage) =>
-  c.pages.length === 0 ? 'no pages' : c.pages.length > 1 ? `pp. ${c.pages[0]}–${c.pages[c.pages.length - 1]}` : `p. ${c.pages[0]}`;
+const pageRange = (c: CalcPackage, origin?: CalcOrigin | null) =>
+  c.pages.length === 0
+    ? origin === 'bundle-demo' ? 'no PDF' : 'no pages'
+    : c.pages.length > 1 ? `pp. ${c.pages[0]}–${c.pages[c.pages.length - 1]}` : `p. ${c.pages[0]}`;
+
+/** The page pane when a calc has no PDF to show: what the bundle states about it, and why there is no page. */
+function NoPdfNote({ calc, origin }: { calc: CalcPackage; origin: CalcOrigin }) {
+  const facts = [calc.meta?.code, calc.meta?.rev, calc.meta?.date].filter(Boolean).join(' · ');
+  return (
+    <div className="max-w-sm text-left bg-white/[0.02] border border-dashed border-white/[0.14] rounded-xl p-3 space-y-1.5" role="note">
+      <div className="flex items-center gap-2">
+        <FileQuestion className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" aria-hidden="true" />
+        <p className="text-[11px] text-zinc-200 leading-snug">{calc.title}</p>
+      </div>
+      {facts && <p className="mono text-[9.5px] text-zinc-400">{facts}</p>}
+      {calc.meta?.summary && <p className="text-[11px] text-zinc-300 leading-snug">{calc.meta.summary}</p>}
+      <p className="text-[10px] text-zinc-400 leading-snug pt-1 border-t border-white/[0.08]">
+        {origin === 'bundle-demo' ? (
+          <>
+            <span className="mono uppercase tracking-wider text-amber-200">Demo data</span>: an invented calc from a demo model bundle. There is no
+            PDF behind it.
+          </>
+        ) : (
+          'This calc came from a model bundle, which names its PDF but does not carry it. Add the PDF to the project to see the page.'
+        )}
+      </p>
+    </div>
+  );
+}
 
 /**
  * Does a calc match the search? Its own text (title, software, designed type, key) or the id / label of
@@ -93,6 +122,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
   groups,
   findings,
   onSelectElements,
+  calcOrigin,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [compareDep, setCompareDep] = useState<CalcDependency | null>(null);
@@ -182,7 +212,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {badge && <DiffBadge status={badge} />}
-            <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">{pageRange(c)}</span>
+            <span className="mono text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-300">{pageRange(c, calcOrigin)}</span>
           </div>
         </div>
         {extra ? (
@@ -199,7 +229,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
           <div className="flex items-center justify-between mt-2 text-[10px] mono text-zinc-400 gap-2">
             <span className="truncate">
               {multiDoc && c.docName && <span className="text-rose-300/80" title="Calc document (PDF)">{c.docName} · </span>}
-              {c.software || (c.frontMatter ? 'Front matter' : 'No software named')}
+              {c.software || c.meta?.code || (c.frontMatter ? 'Front matter' : 'No software named')}
             </span>
             <span className="flex items-center gap-1 flex-shrink-0">
               {c.scanned && <Chip tone="warn" title="No text layer: nothing could be read">scanned</Chip>}
@@ -262,7 +292,12 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               )}
             </h2>
             <p className="mono text-[10px] text-zinc-500 mt-0.5">
-              {calcs.length} CALCULATIONS • ORIGINAL PAGES • MATCHED EVIDENCE HIGHLIGHTED
+              {calcs.length} CALCULATIONS •{' '}
+              {calcOrigin === 'bundle-demo'
+                ? 'DEMO DATA • NO PDF'
+                : calcOrigin === 'bundle-pdf'
+                  ? 'FROM A MODEL BUNDLE • PDF NOT INCLUDED'
+                  : 'ORIGINAL PAGES • MATCHED EVIDENCE HIGHLIGHTED'}
             </p>
           </div>
         </div>
@@ -451,7 +486,16 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
               <div className="bg-[#2d3139] border border-white/[0.14] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-300 mono text-[9px] font-semibold">PDF</span>
+                    {calcOrigin === 'bundle-demo' ? (
+                      <span
+                        className="px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/40 text-amber-200 mono text-[9px] font-semibold"
+                        title="Invented calc from a demo model bundle: no PDF behind it"
+                      >
+                        DEMO
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-300 mono text-[9px] font-semibold">PDF</span>
+                    )}
                     <span className="text-xs font-semibold text-white truncate">{activeCalc.title}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -490,7 +534,7 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       </span>
                     ) : (
                       <>
-                        <span className="mono text-[9px] text-zinc-500 ml-1">Pages</span>
+                        {activeCalc.pages.length > 0 && <span className="mono text-[9px] text-zinc-500 ml-1">Pages</span>}
                         {activeCalc.pages.map((p) => (
                           <button
                             key={p}
@@ -551,7 +595,13 @@ export const DocumentBrowser: React.FC<DocumentBrowserProps> = ({
                       sub: target.rects.length ? `${target.caption ?? 'Evidence'} — highlighted` : calcPackageName ?? undefined,
                     }
                   }
-                  emptyText="The calc package PDF is not available here (an export JSON carries no PDF; open the project file instead)."
+                  emptyText={
+                    calcOrigin && calcOrigin !== 'pdf' ? (
+                      <NoPdfNote calc={activeCalc} origin={calcOrigin} />
+                    ) : (
+                      'The calc package PDF is not available here (an export JSON carries no PDF; open the project file instead).'
+                    )
+                  }
                 />
               </div>
 

@@ -972,33 +972,6 @@ export const PropertyInspector: React.FC<PropertyInspectorProps> = (p) => {
         </Section>
       )}
 
-      {el.demoDocuments && el.demoDocuments.length > 0 && (
-        <Section
-          title={`Documents (${el.demoDocuments.length})`}
-          tone="text-zinc-400"
-          action={
-            <span
-              className="mono text-[9px] px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-500/15 text-amber-200 uppercase tracking-wider"
-              title="Invented documents from a legacy demo JSON: not a calc package, never matched or linked"
-            >
-              Demo data
-            </span>
-          }
-        >
-          <ul className="space-y-1">
-            {el.demoDocuments.map((d) => (
-              <li key={d.id} className="px-2 py-1.5 rounded-lg bg-white/[0.02] border border-dashed border-white/[0.12]">
-                <p className="text-[11px] text-zinc-300 leading-snug">{d.title}</p>
-                <p className="mono text-[9px] text-zinc-500 mt-0.5">
-                  {[d.type, d.code, d.rev, d.date].filter(Boolean).join(' · ')}
-                </p>
-              </li>
-            ))}
-          </ul>
-          <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">From a legacy demo file. There is no PDF behind these; real calc links come only from a calc package.</p>
-        </Section>
-      )}
-
       {connected.length > 0 && (
         <Section title={`Physical connectivity (${connected.length})`} tone="text-cyan-400">
           <div className="space-y-1 max-h-32 overflow-y-auto">

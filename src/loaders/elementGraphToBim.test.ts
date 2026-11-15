@@ -124,6 +124,7 @@ describe('elementGraphToBim on simple-frame', () => {
       groups: [],
       findings: [],
       producers: null,
+      calcOrigin: 'pdf',
     };
     const view = mergeProject(topo, calc, { source: 'project', projectId: 'p1', modelFileUrl: null });
     const b1 = view.elementNodes.find((n) => n.id === 'B1')!;
